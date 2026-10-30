@@ -2415,7 +2415,8 @@ function updatePlayer(dt, inp) {
   // Smoothed stick, with less authority as the jet approaches a stall
   P.turnVel += (inp.x - P.turnVel) * damp(6, dt);
   P.pitchVel += (inp.y - P.pitchVel) * damp(7, dt);
-  P.stall = flying ? clamp((85 - P.speed) / 45, 0, 1) : 0;
+  // No unrecoverable stalls right above the ground
+  P.stall = flying ? clamp((85 - P.speed) / 45, 0, 1) * smooth(60, 220, P.pos.y - ground(P.pos.x, P.pos.z)) : 0;
   const auth = 1 - P.stall * 0.7;
   // Turn about world up, pitch about the wing axis: pitching through the top flies a full loop
   Q.premultiply(qa.setFromAxisAngle(YAXIS, -P.turnVel * 1.55 * auth * dt));
@@ -2513,12 +2514,22 @@ function updatePlayer(dt, inp) {
     P.pullUp = false;
     let impactT = 9;
     for (let t = 0.5; t <= 2.5; t += 0.5) { v2.copy(P.pos).addScaledVector(fwd, P.speed * t); if (v2.y < ground(v2.x, v2.z) + 12 || islandAt(v2, 6) || towerHit(v2, 6)) { P.pullUp = true; impactT = t; break; } }
-    if (impactT <= 1.0 && inp.y <= 0 && fwd.y < 0.5) noseToward(YAXIS, 1.6 * dt);
+    // Last-second ground avoidance overrides a nose-down stick
+    if (impactT <= 1.0 && fwd.y < 0.5) { P.pitchVel = Math.max(P.pitchVel, 0); noseToward(YAXIS, 3.2 * dt); }
     if (P.stall > 0.3) { G.stallT = (G.stallT || 0) - dt; if (G.stallT <= 0) { sfx.beep(520); G.stallT = 0.5; } }
     P.calm = (P.calm || 0) + dt;
     if (P.calm > U.regenDelay && P.hp < U.hpMax) P.hp = Math.min(U.hpMax, P.hp + dt * U.regenRate);
     if (P.pullUp) { G.alarmT = (G.alarmT || 0) - dt; if (G.alarmT <= 0) { sfx.beep(820); sfx.beep(620); G.alarmT = 0.35; } }
-    if (P.pos.y < gy + 2.5 || towerHit(P.pos, 0)) { P.inv = 0; killPlayer(); }
+    if (towerHit(P.pos, 0) || (P.pos.y < gy + 2.5 && fwd.y < -0.35)) { P.inv = 0; killPlayer(); }
+    else if (P.pos.y < gy + 2.5) {
+      // shallow scrape: bounce off the ground and take damage instead of exploding
+      P.pos.y = gy + 4; noseToward(YAXIS, 0.5); P.pitchVel = Math.max(P.pitchVel, 0.5);
+      P.speed *= 0.85; G.shake = 1.4; P.inv = 0;
+      for (let i = 0; i < 24; i++) fire.spawn(P.pos.x, gy + 1, P.pos.z, rand(-70, 70), rand(10, 70), rand(-70, 70), 0.6, 2, 0.4, C.spark, C.sparkB, 1, 1, 60);
+      for (let i = 0; i < 10; i++) smoke.spawn(P.pos.x + rand(-8, 8), gy + 1, P.pos.z + rand(-8, 8), rand(-20, 20), rand(10, 30), rand(-20, 20), 1.6, 6, 22, [0.5, 0.42, 0.32], C.steam, 0.7, 1.5);
+      feed('פגיעה בקרקע!', '-25', '#ff4f61');
+      damagePlayer(25);
+    }
     const isl = P.alive && islandAt(P.pos, 2);
     if (isl) {
       const r = isl.userData.r;
@@ -2650,8 +2661,8 @@ function updateEnemies(dt) {
     if (e.modeT === undefined) { e.run = Math.random() < 0.5; e.modeT = rand(2, 7); }
     if (!e.run || ahead > 0.4) e.modeT -= dt;
     if (e.modeT <= 0) { e.run = !e.run; e.modeT = e.run ? rand(4, 7) : rand(6, 9); }
-    if (dist < 70 && e.breakT <= 0) {
-      e.breakT = rand(0.7, 1.1);
+    if (dist < 120 && e.breakT <= 0) {
+      e.breakT = rand(0.8, 1.2);
       aiR.crossVectors(toP, YAXIS).normalize();
       e.breakDir.copy(aiR).multiplyScalar(Math.random() < 0.5 ? 1 : -1).add(v4.set(0, rand(0.1, 0.5), 0)).normalize();
     }
@@ -2665,7 +2676,7 @@ function updateEnemies(dt) {
       const gap = desired.length();
       desired.normalize();
       if (gap < 220) desired.multiplyScalar(gap / 220).addScaledVector(fwd, 1).addScaledVector(aiR, Math.sin(e.wob * 1.6) * 0.5);
-      want = ahead > 0.4 ? P.speed * 0.92 : Math.max(e.speed * 1.2, P.speed * 1.6);
+      want = ahead > 0.4 ? P.speed * (dist < 250 ? 1.08 : dist > 450 ? 0.85 : 0.96) : Math.max(e.speed * 1.2, P.speed * 1.6);
     } else {
       desired.copy(P.pos).addScaledVector(fwd, P.speed * Math.min(dist / 450, 1.5)).sub(e.pos).normalize();
       desired.x += Math.sin(e.wob * 0.9) * 0.2; desired.y += Math.cos(e.wob * 0.7) * 0.12; desired.z += Math.cos(e.wob * 1.1) * 0.2;
@@ -2704,7 +2715,7 @@ function updateEnemies(dt) {
     }
     e.mcd -= dt;
     if (e.canMsl && P.alive && G.state === 'play' && e.mcd <= 0 && dist > 250 && dist < 1100 && e.dir.dot(toP) / dist > 0.8) { e.mcd = rand(9, 14) * (e.type === 'heavy' ? 0.6 : 1); fireEnemyMissile(e); }
-    if (P.alive && G.state === 'play' && dist < 10) { damagePlayer(35); killEnemy(e, true); continue; }
+    if (P.alive && G.state === 'play' && dist < 10) { damagePlayer(20, e.pos); killEnemy(e, true); continue; }
     if (e.pos.y < ground(e.pos.x, e.pos.z) + 2) { killEnemy(e, true); continue; }
     if (dist > 3500) { removeEnemy(e); spawnEnemy(); }
   }
