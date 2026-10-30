@@ -307,7 +307,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-const HORIZON = 0xe8d9c6;
+const HORIZON = 0xf0c09a;
 scene.fog = new THREE.Fog(HORIZON, 220, 1000);
 scene.background = makeSkyTexture();
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
@@ -317,7 +317,7 @@ const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerH
 // Post-processing: HDR render, soft bloom on lights, then tone mapping and SMAA
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 0.92);
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.6, 0.95);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const vignette = new ShaderPass(VignetteShader);
@@ -331,10 +331,10 @@ function makeSkyTexture() {
   c.width = 4; c.height = 512;
   const g = c.getContext('2d');
   const grad = g.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0.0, '#4f86c6');
-  grad.addColorStop(0.55, '#b9d3ea');
-  grad.addColorStop(0.8, '#eadcc8');
-  grad.addColorStop(1.0, '#e8d9c6');
+  grad.addColorStop(0.0, '#3d6fb0');
+  grad.addColorStop(0.5, '#9fb8d6');
+  grad.addColorStop(0.78, '#f3c79e');
+  grad.addColorStop(1.0, '#f0c09a');
   g.fillStyle = grad;
   g.fillRect(0, 0, 4, 512);
   const tex = new THREE.CanvasTexture(c);
@@ -352,14 +352,16 @@ Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, n
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
-const SUN_DIR = new THREE.Vector3(0.55, 0.8, 0.35).normalize();
+const SUN_DIR = new THREE.Vector3(0.8, 0.38, 0.45).normalize();   // low evening sun: long shadows
 
 // ============================================================
 // Materials
 // ============================================================
-const facadeTexture = makeFacadeTexture();
-const facadeMats = FACADE_PALETTE.map(color => new THREE.MeshStandardMaterial({
+const facadeTexture = makeWindowGrid(false);
+const glowTextures = [0, 1, 2, 3].map(() => makeWindowGrid(true));
+const facadeMats = FACADE_PALETTE.map((color, k) => new THREE.MeshStandardMaterial({
   color, map: facadeTexture, roughness: 0.55, metalness: 0.05,
+  emissive: 0xffffff, emissiveMap: glowTextures[k % glowTextures.length], emissiveIntensity: 0.9,
 }));
 const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.85 });
 const acMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.6, metalness: 0.4 });
@@ -370,43 +372,56 @@ const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9
 const lineMat = new THREE.MeshStandardMaterial({ color: 0xf5c542, roughness: 0.6 });
 const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf1f1f1, roughness: 0.6 });
 const skylineMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cf, roughness: 0.9 });
+const cornMat = new THREE.MeshStandardMaterial({ color: 0xe4ddd0, roughness: 0.7 });
 const shopMat = new THREE.MeshPhysicalMaterial({ color: 0x4a5668, metalness: 0.2, roughness: 0.25, clearcoat: 0.4 });
 const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.5 });
 const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 3 });
 const lampSpots = [];
 
-function makeFacadeTexture() {
+// One tile holds a 2x2 grid of windows. Glow mode draws lit windows on black, used as emissive light.
+function makeWindowGrid(glow) {
   const size = 256;
   const c = document.createElement('canvas');
-  c.width = size; c.height = size;
+  c.width = c.height = size;
   const g = c.getContext('2d');
-  g.fillStyle = '#ffffff';
+  g.fillStyle = glow ? '#000000' : '#ffffff';
   g.fillRect(0, 0, size, size);
 
-  const x = 44, y = 36, w = 168, h = 152;
-  const glass = g.createLinearGradient(x, y, x + w, y + h);
-  glass.addColorStop(0, '#6b8196');
-  glass.addColorStop(0.5, '#243549');
-  glass.addColorStop(1, '#101a2a');
-  g.fillStyle = glass;
-  g.fillRect(x, y, w, h);
-
-  // soft reflection streak
-  g.fillStyle = 'rgba(255,255,255,0.10)';
-  g.beginPath();
-  g.moveTo(x + w * 0.15, y + h); g.lineTo(x + w * 0.55, y); g.lineTo(x + w * 0.75, y); g.lineTo(x + w * 0.35, y + h);
-  g.closePath(); g.fill();
-
-  // frame and mullions
-  g.strokeStyle = '#d9dee5'; g.lineWidth = 6;
-  g.strokeRect(x, y, w, h);
-  g.fillStyle = '#d9dee5';
-  g.fillRect(x + w / 2 - 2, y, 4, h);
-  g.fillRect(x, y + h / 2 - 2, w, 4);
-
-  // sill
-  g.fillStyle = '#e6e2da';
-  g.fillRect(0, y + h + 6, size, 12);
+  for (let r = 0; r < 2; r++) for (let col = 0; col < 2; col++) {
+    const x = 14 + col * 124, y = 16 + r * 122, w = 104, h = 98;
+    if (glow) {
+      if (Math.random() < 0.4) {
+        const warm = g.createLinearGradient(x, y, x + w, y + h);
+        warm.addColorStop(0, '#ffe2a8');
+        warm.addColorStop(1, '#ff9a4a');
+        g.fillStyle = warm;
+        g.fillRect(x, y, w, h);
+      }
+      continue;
+    }
+    const glass = g.createLinearGradient(x, y, x + w, y + h);
+    glass.addColorStop(0, '#6b8196');
+    glass.addColorStop(0.5, '#243549');
+    glass.addColorStop(1, '#101a2a');
+    g.fillStyle = glass;
+    g.fillRect(x, y, w, h);
+    // soft reflection streak
+    g.fillStyle = 'rgba(255,255,255,0.10)';
+    g.beginPath();
+    g.moveTo(x + w * 0.15, y + h); g.lineTo(x + w * 0.55, y); g.lineTo(x + w * 0.75, y); g.lineTo(x + w * 0.35, y + h);
+    g.closePath(); g.fill();
+    // frame and mullions
+    g.strokeStyle = '#d9dee5'; g.lineWidth = 5;
+    g.strokeRect(x, y, w, h);
+    g.fillStyle = '#d9dee5';
+    g.fillRect(x + w / 2 - 2, y, 4, h);
+    g.fillRect(x, y + h / 2 - 2, w, 4);
+  }
+  if (!glow) {
+    // sill band between the two rows of windows
+    g.fillStyle = '#e6e2da';
+    g.fillRect(0, 116, size, 10);
+  }
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -494,6 +509,17 @@ function addBuilding(x, z, w, h, d) {
   body.position.set(x, h / 2, z);
   body.castShadow = body.receiveShadow = true;
   scene.add(body);
+
+  // Architectural detail: cornice at the roofline and a plinth at street level
+  const cornice = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.9, d + 0.7), cornMat);
+  cornice.position.set(x, h - 0.2, z);
+  cornice.castShadow = cornice.receiveShadow = true;
+  scene.add(cornice);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 0.7, d + 0.5), cornMat);
+  plinth.position.set(x, 0.35, z);
+  plinth.receiveShadow = true;
+  scene.add(plinth);
+
   obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
 
   if (rng() < 0.6) {
@@ -748,6 +774,19 @@ for (let k = 0; k < 24; k++) {
 
 function updateTraffic(dt) {
   for (const c of traffic) {
+    c.cruise ??= c.speed;
+    // Car following: slow down behind a slower car in the same lane
+    let lead = null, gap = Infinity;
+    for (const o of traffic) {
+      if (o === c || o.dx !== c.dx || o.dz !== c.dz) continue;
+      const ddx = o.group.position.x - c.group.position.x;
+      const ddz = o.group.position.z - c.group.position.z;
+      const ahead = ddx * c.dx + ddz * c.dz;
+      const side = Math.abs(ddx * c.dz - ddz * c.dx);
+      if (ahead > 0 && side < 2.5 && ahead < gap) { gap = ahead; lead = o; }
+    }
+    const wantSpeed = lead && gap < 14 ? Math.min(c.cruise, lead.speed) : c.cruise;
+    c.speed += (wantSpeed - c.speed) * Math.min(1, dt * 2);
     c.t += c.speed * dt;
     while (c.t >= PITCH) {
       c.t -= PITCH;
@@ -773,6 +812,12 @@ function updateTraffic(dt) {
 // ============================================================
 const playerCar = makeCar(0xff6a1a);
 scene.add(playerCar.group);
+
+// Headlight beams: real spotlights in front of the player car (no shadows, for speed)
+const headBeam = new THREE.SpotLight(0xfff0d0, 30, 70, Math.PI / 6, 0.6, 1.4);
+const headTarget = new THREE.Object3D();
+scene.add(headBeam, headTarget);
+headBeam.target = headTarget;
 
 const SPAWN = { x: PITCH * 0.5, z: LANE, heading: Math.PI / 2 };
 const player = { x: 0, z: 0, heading: 0, fwd: 0, lat: 0, steer: 0, spin: 0 };
@@ -882,6 +927,10 @@ function updatePlayer(dt) {
   playerCar.wheels.forEach(w => { w.rotation.x = p.spin; });
   const braking = (input.down && p.fwd > 0.5) || input.hand;
   playerCar.tailMat.emissiveIntensity = braking ? 3 : 0.6;
+
+  const hx = Math.sin(p.heading), hz = Math.cos(p.heading);
+  headBeam.position.set(p.x + hx * 2.1, 0.9, p.z + hz * 2.1);
+  headTarget.position.set(p.x + hx * 30, 0, p.z + hz * 30);
 }
 
 // ============================================================
