@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="כל 10 שניות הזמן מתאפס — וכל מה שעשית חוזר להילחם לצידך.">
+  <title>Echo Loop</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="זירת המשחק"></canvas>
+
+  <div id="hud" hidden>
+    <div class="hud-row">
+      <div class="stat"><span class="label">לולאה</span><span id="hud-loop" class="value">1</span></div>
+      <div class="stat"><span class="label">הדים</span><span id="hud-echoes" class="value">0</span></div>
+      <div class="stat"><span class="label">חיים</span><span id="hud-lives" class="value">♥♥♥</span></div>
+      <div class="stat"><span class="label">ניקוד</span><span id="hud-score" class="value">0</span></div>
+      <button id="btn-mute" class="icon-btn" aria-label="השתק">🔊</button>
+    </div>
+    <div class="timer"><div id="hud-timer"></div></div>
+  </div>
+
+  <div id="screen-title" class="overlay">
+    <div class="card">
+      <h1 class="logo" dir="ltr">ECHO<span>LOOP</span></h1>
+      <p class="tagline">כל 10 שניות הזמן מתאפס.<br>כל מה שעשית — <strong>חוזר להילחם לצידך.</strong></p>
+      <ul class="howto">
+        <li>שרוד לולאה של 10 שניות → הריצה שלך הופכת ל<b>הד</b> שחוזר על כל צעד וכל יריה.</li>
+        <li>עד 12 הדים במקביל. אתה בונה צבא — מעצמך.</li>
+        <li>אויבים ששובר הד מבטלים אותו עד הלולאה הבאה. <span class="purple">הסגולים</span> צדים הדים.</li>
+      </ul>
+      <div class="controls">
+        <div><b>מקלדת</b> WASD / חיצים לתזוזה · עכבר לכיוון · ירי אוטומטי</div>
+        <div><b>מגע</b> גרור בכל מקום לתזוזה · כיוון וירי אוטומטיים</div>
+      </div>
+      <button id="btn-start" class="primary">התחל לולאה</button>
+      <p class="best" id="title-best"></p>
+    </div>
+  </div>
+
+  <div id="screen-over" class="overlay" hidden>
+    <div class="card">
+      <h2>הזמן נשבר</h2>
+      <div class="big-score" id="over-score">0</div>
+      <div class="over-stats">
+        <div><span id="over-loop">0</span><small>לולאות</small></div>
+        <div><span id="over-kills">0</span><small>הריגות</small></div>
+        <div><span id="over-echo">0%</span><small>מההריגות ע״י הדים</small></div>
+      </div>
+      <p class="best" id="over-best"></p>
+      <button id="btn-again" class="primary">עוד לולאה</button>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="overlay" hidden>
+    <div class="card"><h2>הזמן קפוא</h2><p>לחץ P או גע כדי להמשיך</p></div>
+  </div>
+
+  <script src="src/engine.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
