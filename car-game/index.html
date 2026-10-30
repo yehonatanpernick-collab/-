@@ -436,6 +436,12 @@ const shopMat = new THREE.MeshPhysicalMaterial({ color: 0x4a5668, metalness: 0.2
 const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.5 });
 const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 3 });
 const lampSpots = [];
+const SIGN_NAMES = ['קפה', 'מאפייה', 'SUSHI', 'PHARMACY', 'BOOKS', 'CAFE', 'מכולת', 'BAKERY', 'GYM', 'סופר', 'OPTICS', 'PIZZA'];
+const SIGN_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#f8fafc', '#a855f7'];
+const signMats = SIGN_NAMES.map((name, k) => new THREE.MeshBasicMaterial({
+  map: makeSignTexture(name, SIGN_COLORS[k % SIGN_COLORS.length]),
+}));
+const signBoard = new THREE.PlaneGeometry(1, 1.1);
 
 // One tile holds a 2x2 grid of windows. Glow mode draws lit windows on black, used as emissive light.
 function makeWindowGrid(glow) {
@@ -578,6 +584,26 @@ function makeFacadeHeight() {
   return c;
 }
 
+// Shopfront fascia with a name, drawn once per style and shared by all shops
+function makeSignTexture(text, color) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  g.fillRect(0, 0, 512, 128);
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.fillRect(0, 96, 512, 32);
+  g.fillStyle = color === '#f8fafc' ? '#111827' : '#ffffff';
+  g.font = '700 64px Rubik, Arial, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, 256, 56);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 function flat(w, h, color, x, y, z, roughness = 0.95) {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -610,6 +636,54 @@ function instanced(list, geometry, material, castShadow = false) {
 
 // Ground beyond the city, then the asphalt base covering the whole grid.
 flat(4000, 4000, 0xffffff, 0, -0.05, 0).material.map = makeNoiseTexture(0x6f8362, 0.08, 300);
+
+// Terrain: a flat city, then hills and mountains rising beyond the outer roads
+function terrainHeight(x, z) {
+  const d = Math.max(Math.abs(x), Math.abs(z)) - (EDGE + ROAD);
+  // The base sits well below the streets so depth precision never lets the terrain show through them
+  if (d <= 0) return -3;
+  const ridge = Math.sin(x * 0.011) * Math.cos(z * 0.013) + 0.5 * Math.sin(x * 0.027 + z * 0.019) + 0.25 * Math.cos(z * 0.061 - x * 0.04);
+  return -3 + Math.pow(d, 1.15) * 0.13 * (0.7 + 0.3 * ridge) + Math.max(0, ridge) * Math.min(d, 60) * 0.3;
+}
+const terrainGeo = new THREE.PlaneGeometry(2600, 2600, 220, 220).rotateX(-Math.PI / 2);
+{
+  const pos = terrainGeo.attributes.position;
+  const cols = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  const grass = new THREE.Color(0x5d7a45), rock = new THREE.Color(0x77695a), snow = new THREE.Color(0xe9eef2);
+  for (let k = 0; k < pos.count; k++) {
+    const y = terrainHeight(pos.getX(k), pos.getZ(k));
+    pos.setY(k, y);
+    c.copy(grass).lerp(rock, Math.min(1, Math.max(0, y / 60)));
+    if (y > 110) c.lerp(snow, Math.min(1, (y - 110) / 40));
+    cols[k * 3] = c.r; cols[k * 3 + 1] = c.g; cols[k * 3 + 2] = c.b;
+  }
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  terrainGeo.computeVertexNormals();
+}
+const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// Forest on the hillsides: pines where the slope is gentle enough and the ground is low enough
+const pines = [];
+for (let k = 0; k < 900; k++) {
+  const x = (Math.random() * 2 - 1) * 1100, z = (Math.random() * 2 - 1) * 1100;
+  if (Math.max(Math.abs(x), Math.abs(z)) < EDGE + ROAD + 12) continue;
+  const y = terrainHeight(x, z);
+  if (y < 1 || y > 95) continue;
+  pines.push({ x, y, z, s: 0.8 + Math.random() * 0.8 });
+}
+const pineTrunkGeo = new THREE.CylinderGeometry(0.25, 0.3, 3, 6).translate(0, 1.5, 0);
+const pineLeafGeo = new THREE.ConeGeometry(2.6, 7, 8).translate(0, 4.5, 0);
+instanced(pines.map(p => ({ x: p.x, y: p.y, z: p.z, sx: p.s, sy: p.s, sz: p.s })), pineTrunkGeo, trunkMat, true);
+const pineLeaves = instanced(pines.map(p => ({ x: p.x, y: p.y, z: p.z, sx: p.s, sy: p.s, sz: p.s })), pineLeafGeo, leafMat, true);
+const pineColor = new THREE.Color();
+pines.forEach((p, k) => {
+  pineColor.setHSL(0.34 + Math.random() * 0.05, 0.5, 0.2 + Math.random() * 0.1);
+  pineLeaves.setColorAt(k, pineColor);
+});
+pineLeaves.instanceColor.needsUpdate = true;
 const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
 asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
 asphalt.material.normalMap = makeGritNormal(256, 2.0, 64);
@@ -661,6 +735,16 @@ function addBuilding(x, z, w, h, d) {
     shop.position.set(x, 1.7, z);
     shop.receiveShadow = true;
     scene.add(shop);
+
+    // Fascia signs on the front and back of the shop band
+    const signMat = signMats[Math.floor(rng() * signMats.length)];
+    for (const side of [1, -1]) {
+      const board = new THREE.Mesh(signBoard, signMat);
+      board.scale.set(Math.min(w * 0.7, 9), 1, 1);
+      board.position.set(x, 2.7, z + side * (d / 2 + 0.25));
+      board.rotation.y = side > 0 ? 0 : Math.PI;
+      scene.add(board);
+    }
   }
 
   let top = h;
@@ -1170,6 +1254,45 @@ function updatePlayer(dt) {
 }
 
 // ============================================================
+// Pedestrians: a crowd walking along the sidewalks, with a simple gait bob
+// ============================================================
+const PEDS = 160;
+const pedGeo = new THREE.CapsuleGeometry(0.22, 0.85, 4, 8).translate(0, 0.65, 0);
+const peds = new THREE.InstancedMesh(pedGeo, new THREE.MeshStandardMaterial({ roughness: 0.8 }), PEDS);
+peds.castShadow = true;
+const PED_COLORS = [0x1f2937, 0x7c2d12, 0x0f766e, 0xb45309, 0x4338ca, 0xbe185d, 0x365314, 0xe5e7eb];
+const pedColor = new THREE.Color();
+const pedList = [];
+for (let k = 0; k < PEDS; k++) {
+  const alongX = Math.random() < 0.5;
+  const line = randInt(NODE_MIN, NODE_MAX) * PITCH + (Math.random() < 0.5 ? -1 : 1) * (ROAD / 2 + SIDEWALK / 2);
+  pedList.push({
+    alongX, line, start: randInt(CELL_MIN, CELL_MAX) * PITCH + ROAD / 2,
+    t: Math.random() * BLOCK, dir: Math.random() < 0.5 ? -1 : 1,
+    speed: 1.1 + Math.random() * 0.6, phase: Math.random() * 10,
+  });
+  peds.setColorAt(k, pedColor.setHex(PED_COLORS[k % PED_COLORS.length]));
+}
+peds.instanceColor.needsUpdate = true;
+scene.add(peds);
+
+const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(), _pp = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1);
+function updatePeds(dt, now) {
+  pedList.forEach((p, k) => {
+    p.t = (p.t + p.dir * p.speed * dt + BLOCK) % BLOCK;
+    const along = p.start + p.t;
+    const bob = Math.abs(Math.sin(now * 0.001 * p.speed * 6 + p.phase)) * 0.06;
+    const x = p.alongX ? along : p.line, z = p.alongX ? p.line : along;
+    const yaw = p.alongX ? (p.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI);
+    _pp.set(x, bob, z);
+    _pq.setFromAxisAngle(UP, yaw);
+    _pm.compose(_pp, _pq, _ps);
+    peds.setMatrixAt(k, _pm);
+  });
+  peds.instanceMatrix.needsUpdate = true;
+}
+
+// ============================================================
 // Skid marks: a pool of dark decals under the rear tyres while sliding
 // ============================================================
 const SKID_MAX = 700;
@@ -1453,6 +1576,7 @@ function frame(now) {
   } else {
     updateTraffic(0);
   }
+  updatePeds(dt, now);
   updateCamera(dt);
   updateSun();
   updateAudio();
