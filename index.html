@@ -1,486 +1,227 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LifeOS INFINITY</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;600;800&display=swap" rel="stylesheet">
-
-    <style>
-        :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --surface-highlight: #334155;
-            --primary: #3b82f6;
-            --accent: #8b5cf6;
-            --success: #10b981;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --gradient: linear-gradient(135deg, var(--primary), var(--accent));
-        }
-
-        body {
-            font-family: 'Rubik', sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* --- Layout --- */
-        .app-layout {
-            display: flex;
-            height: 100%;
-            width: 100%;
-        }
-
-        /* Sidebar (Desktop) / Bottom Nav (Mobile) */
-        .sidebar {
-            width: 80px;
-            background: var(--surface);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 20px;
-            border-left: 1px solid var(--surface-highlight);
-            z-index: 100;
-        }
-
-        .nav-btn {
-            width: 50px; height: 50px;
-            border-radius: 15px;
-            display: flex; align-items: center; justify-content: center;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .nav-btn.active {
-            background: var(--gradient);
-            color: white;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-        }
-
-        .main-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            position: relative;
-        }
-
-        /* --- Sections --- */
-        .section { display: none; animation: fadeIn 0.4s ease; }
-        .section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* --- Cards & Dashboard --- */
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 30px;
-        }
-        .user-info h1 { margin: 0; font-size: 1.8rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .card {
-            background: var(--surface);
-            border-radius: 20px;
-            padding: 20px;
-            border: 1px solid var(--surface-highlight);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        /* --- Progress Rings --- */
-        .stats-row { display: flex; gap: 15px; margin-bottom: 20px; }
-        .stat-box {
-            flex: 1; background: var(--surface-highlight);
-            padding: 15px; border-radius: 15px; text-align: center;
-        }
-
-        /* --- Habit List --- */
-        .habit-item {
-            display: flex; align-items: center; justify-content: space-between;
-            background: rgba(255,255,255,0.03);
-            padding: 15px; border-radius: 12px; margin-bottom: 10px;
-            transition: transform 0.2s;
-            border-right: 3px solid transparent;
-        }
-        .habit-item:hover { transform: translateX(-5px); background: rgba(255,255,255,0.05); }
-        .habit-item.completed { border-right: 3px solid var(--success); opacity: 0.7; }
-        
-        /* --- AI Chat --- */
-        .chat-container {
-            height: 400px; display: flex; flex-direction: column;
-            background: rgba(0,0,0,0.2); border-radius: 15px; overflow: hidden;
-        }
-        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; }
-        .msg { padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; max-width: 80%; font-size: 0.9rem; }
-        .msg.bot { background: var(--surface-highlight); align-self: flex-start; border-bottom-right-radius: 2px; }
-        .msg.user { background: var(--primary); align-self: flex-end; margin-right: auto; color: white; border-bottom-left-radius: 2px; }
-        .chat-input-area { display: flex; padding: 10px; background: var(--surface); }
-        .chat-input { flex: 1; background: var(--bg); border: none; padding: 10px; border-radius: 10px; color: white; }
-        
-        /* --- Mobile Nav Fix --- */
-        @media (max-width: 768px) {
-            .app-layout { flex-direction: column-reverse; }
-            .sidebar { width: 100%; height: 70px; flex-direction: row; justify-content: space-around; padding: 0; border-top: 1px solid var(--surface-highlight); border-left: none; }
-            .nav-btn { margin: 0; box-shadow: none; }
-        }
-
-        /* --- Animations --- */
-        .pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
-
-        /* Badge Grid */
-        .badge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .badge { aspect-ratio: 1; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; opacity: 0.3; filter: grayscale(1); }
-        .badge.unlocked { opacity: 1; filter: grayscale(0); background: var(--gradient); box-shadow: 0 0 15px var(--primary); }
-
-        button.action-btn {
-            background: var(--gradient); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מנתח רילסים</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --surface: #ffffff;
+      --border: #e3e6ef;
+      --text: #1d2233;
+      --muted: #6b7289;
+      --primary: #5b5bd6;
+      --primary-hover: #4848b8;
+      --danger: #c0392b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #12151f;
+        --surface: #1b2030;
+        --border: #2c3349;
+        --text: #e8ebf5;
+        --muted: #9aa3bd;
+        --primary: #7c7cf0;
+        --primary-hover: #9292f5;
+        --danger: #ff6b5b;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #12151f;
+      --surface: #1b2030;
+      --border: #2c3349;
+      --text: #e8ebf5;
+      --muted: #9aa3bd;
+      --primary: #7c7cf0;
+      --primary-hover: #9292f5;
+      --danger: #ff6b5b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.7rem; }
+    .subtitle { margin: 0 0 24px; color: var(--muted); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    form { display: flex; gap: 8px; flex-wrap: wrap; }
+    input[type="url"] {
+      flex: 1 1 260px;
+      min-width: 0;
+      padding: 12px 14px;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      direction: ltr;
+      text-align: left;
+    }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+    }
+    button:hover:not(:disabled) { background: var(--primary-hover); }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    button.secondary {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+    .status { color: var(--muted); min-height: 1.5em; margin-top: 12px; }
+    .error { color: var(--danger); margin-top: 12px; }
+    h2 { font-size: 1.1rem; margin: 0 0 10px; }
+    ul { margin: 0; padding-right: 20px; }
+    li { margin-bottom: 6px; }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .card-head h2 { margin: 0; }
+    .transcript {
+      white-space: pre-wrap;
+      direction: rtl;
+      max-height: 320px;
+      overflow-y: auto;
+      color: var(--muted);
+      margin: 0;
+    }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
+<main>
+  <h1>מנתח רילסים</h1>
+  <p class="subtitle">הדבק קישור לריל מאינסטגרם וקבל תמלול, תקציר ונקודות מפתח בעברית.</p>
 
-<div class="app-layout">
-    <nav class="sidebar">
-        <div class="nav-btn active" onclick="switchTab('dashboard')"><i class="fas fa-home"></i></div>
-        <div class="nav-btn" onclick="switchTab('journal')"><i class="fas fa-book"></i></div>
-        <div class="nav-btn" onclick="switchTab('ai')"><i class="fas fa-robot"></i></div>
-        <div class="nav-btn" onclick="switchTab('profile')"><i class="fas fa-trophy"></i></div>
-        <div class="nav-btn" onclick="switchTab('settings')"><i class="fas fa-cog"></i></div>
-    </nav>
+  <section class="card">
+    <form id="analyzeForm">
+      <input type="url" id="reelUrl" placeholder="https://www.instagram.com/reel/..." required>
+      <button type="submit" id="submitBtn">נתח</button>
+    </form>
+    <div class="status" id="status"></div>
+    <div class="error hidden" id="error"></div>
+  </section>
 
-    <main class="main-content">
-        
-        <div id="dashboard" class="section active">
-            <div class="header">
-                <div class="user-info">
-                    <h1>בוקר טוב, מנכ"ל</h1>
-                    <span style="color:var(--text-muted)">LVL <span id="lvlDisplay">1</span> • <span id="xpDisplay">0</span> XP</span>
-                </div>
-                <div class="pulse" onclick="fakeSync()" style="cursor:pointer; background:var(--surface-highlight); padding:10px; border-radius:50%">
-                    <i class="fas fa-sync-alt" id="syncIcon"></i>
-                </div>
-            </div>
+  <section class="card hidden" id="summaryCard">
+    <div class="card-head"><h2>תקציר</h2></div>
+    <p id="summary" style="margin:0"></p>
+  </section>
 
-            <div class="grid">
-                <div class="card">
-                    <h3>📊 ביצועים בזמן אמת</h3>
-                    <canvas id="mainChart" height="150"></canvas>
-                </div>
+  <section class="card hidden" id="keyPointsCard">
+    <div class="card-head"><h2>נקודות מרכזיות</h2></div>
+    <ul id="keyPoints"></ul>
+  </section>
 
-                <div class="card">
-                    <div style="display:flex; justify-content:space-between;">
-                        <h3>🎯 משימות יומיות</h3>
-                        <button onclick="addHabit()" style="background:none; border:none; color:var(--primary); cursor:pointer"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div id="habitList"></div>
-                </div>
-            </div>
-        </div>
+  <section class="card hidden" id="takeawaysCard">
+    <div class="card-head"><h2>מה כדאי להבין מהסרטון</h2></div>
+    <ul id="takeaways"></ul>
+  </section>
 
-        <div id="journal" class="section">
-            <h1>📔 יומן מסע</h1>
-            <div class="card">
-                <textarea id="journalEntry" placeholder="מה למדת היום? איך הרגשת?" style="width:100%; height:150px; background:var(--bg); border:none; color:white; padding:15px; border-radius:10px; resize:none;"></textarea>
-                <button class="action-btn" onclick="saveJournal()">שמור רשומה ביומן</button>
-            </div>
-            <div id="journalHistory" style="margin-top:20px;"></div>
-        </div>
-
-        <div id="ai" class="section">
-            <h1>🤖 מאמן AI אישי</h1>
-            <div class="card chat-container">
-                <div class="chat-messages" id="chatBox">
-                    <div class="msg bot">שלום! אני ה-AI שלך. ספר לי איך אתה מרגיש, או בקש ממני מוטיבציה.</div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" class="chat-input" id="userMsg" placeholder="כתוב הודעה..." onkeypress="if(event.key==='Enter') sendMsg()">
-                    <button onclick="sendMsg()" style="background:none; border:none; color:var(--primary); font-size:1.2rem; margin-right:10px;"><i class="fas fa-paper-plane"></i></button>
-                </div>
-            </div>
-        </div>
-
-        <div id="profile" class="section">
-            <h1>🏆 היכל התהילה</h1>
-            <div class="card">
-                <h3>הדרגה שלך: <span style="color:var(--accent)">Titan</span></h3>
-                <p>התגים שפתחת במהלך המסע:</p>
-                <div class="badge-grid" id="badgeGrid">
-                    </div>
-            </div>
-            <div class="card" style="margin-top:20px;">
-                <h3>🧘 אזור פוקוס</h3>
-                <div style="text-align:center; padding:20px;">
-                    <h1 id="timer">25:00</h1>
-                    <button class="action-btn" onclick="startTimer()">התחל סשן עבודה עמוקה</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="settings" class="section">
-            <h1>⚙️ הגדרות מערכת</h1>
-            <div class="card">
-                <h3>ניהול נתונים</h3>
-                <p>שמור את הנתונים שלך כקובץ גיבוי במחשב.</p>
-                <button class="action-btn" onclick="exportData()">⬇️ הורד גיבוי (JSON)</button>
-                <br><br>
-                <button class="action-btn" style="background:#ef4444" onclick="clearData()">⚠️ מחק את כל הנתונים</button>
-            </div>
-        </div>
-
-    </main>
-</div>
+  <section class="card hidden" id="transcriptCard">
+    <div class="card-head">
+      <h2>תמלול מלא</h2>
+      <button type="button" class="secondary" id="copyBtn">העתק</button>
+    </div>
+    <p class="transcript" id="transcript"></p>
+  </section>
+</main>
 
 <script>
-    // --- System Core ---
-    const db = {
-        xp: 0,
-        level: 1,
-        habits: [
-            { id: 1, text: "אימון כוח", done: false },
-            { id: 2, text: "למידה (30 דק')", done: false },
-            { id: 3, text: "ללא סוכר", done: false }
-        ],
-        journal: [],
-        badges: [
-            { id: 'first_win', icon: 'fa-star', unlocked: false, name: 'התחלה' },
-            { id: 'streak_3', icon: 'fa-fire', unlocked: false, name: 'רצף 3' },
-            { id: 'pro_writer', icon: 'fa-pen-nib', unlocked: false, name: 'כותב' },
-            { id: 'master', icon: 'fa-crown', unlocked: false, name: 'מאסטר' }
-        ],
-        history: [10, 30, 50, 40, 60, 80, 70] // Dummy data for chart start
-    };
+  const form = document.getElementById("analyzeForm");
+  const input = document.getElementById("reelUrl");
+  const submitBtn = document.getElementById("submitBtn");
+  const statusEl = document.getElementById("status");
+  const errorEl = document.getElementById("error");
+  const copyBtn = document.getElementById("copyBtn");
 
-    // Load Data
-    function init() {
-        const saved = localStorage.getItem('lifeOS_infinity');
-        if (saved) Object.assign(db, JSON.parse(saved));
-        renderAll();
+  function fillList(id, items) {
+    const list = document.getElementById(id);
+    list.replaceChildren(...items.map(text => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      return li;
+    }));
+    list.parentElement.classList.toggle("hidden", items.length === 0);
+  }
+
+  function showResult(data) {
+    document.getElementById("summary").textContent = data.summary;
+    document.getElementById("summaryCard").classList.toggle("hidden", !data.summary);
+    fillList("keyPoints", data.keyPoints);
+    fillList("takeaways", data.takeaways);
+    document.getElementById("transcript").textContent = data.transcript || "(אין דיבור בסרטון)";
+    document.getElementById("transcriptCard").classList.remove("hidden");
+  }
+
+  function clearResult() {
+    ["summaryCard", "keyPointsCard", "takeawaysCard", "transcriptCard"].forEach(id =>
+      document.getElementById(id).classList.add("hidden"));
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorEl.classList.add("hidden");
+    clearResult();
+    submitBtn.disabled = true;
+    statusEl.textContent = "מוריד, מתמלל ומנתח... זה יכול לקחת כחצי דקה";
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: input.value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || "משהו השתבש. נסה/י שוב.");
+      }
+      showResult(data);
+      statusEl.textContent = "";
+    } catch (err) {
+      statusEl.textContent = "";
+      errorEl.textContent = err.message;
+      errorEl.classList.remove("hidden");
+    } finally {
+      submitBtn.disabled = false;
     }
+  });
 
-    function save() {
-        localStorage.setItem('lifeOS_infinity', JSON.stringify(db));
+  copyBtn.addEventListener("click", async () => {
+    const text = document.getElementById("transcript").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "הועתק ✓";
+      setTimeout(() => (copyBtn.textContent = "העתק"), 1500);
+    } catch {
+      copyBtn.textContent = "לא הצלחתי להעתיק";
     }
-
-    // --- Rendering ---
-    function switchTab(tabId) {
-        document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-    }
-
-    function renderAll() {
-        renderHabits();
-        renderStats();
-        renderBadges();
-        renderJournalHistory();
-    }
-
-    // --- Habits Logic ---
-    function renderHabits() {
-        const list = document.getElementById('habitList');
-        list.innerHTML = '';
-        db.habits.forEach((h, i) => {
-            list.innerHTML += `
-            <div class="habit-item ${h.done ? 'completed' : ''}" onclick="toggleHabit(${i})">
-                <span>${h.text}</span>
-                <i class="fas ${h.done ? 'fa-check-square' : 'fa-square'}" style="color: ${h.done ? 'var(--success)' : '#555'}"></i>
-            </div>`;
-        });
-        document.getElementById('lvlDisplay').innerText = db.level;
-        document.getElementById('xpDisplay').innerText = db.xp;
-    }
-
-    function toggleHabit(index) {
-        db.habits[index].done = !db.habits[index].done;
-        if (db.habits[index].done) {
-            addXP(20);
-            confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-        }
-        save();
-        renderAll();
-    }
-
-    function addHabit() {
-        const txt = prompt("שם ההרגל החדש:");
-        if (txt) {
-            db.habits.push({ id: Date.now(), text: txt, done: false });
-            save();
-            renderAll();
-        }
-    }
-
-    function addXP(amount) {
-        db.xp += amount;
-        if (db.xp >= db.level * 100) {
-            db.level++;
-            db.xp = 0;
-            alert("🚀 Level Up! עלית לרמה " + db.level);
-            unlockBadge('master'); // Example
-        }
-    }
-
-    // --- AI Chat Logic (Simulated) ---
-    function sendMsg() {
-        const input = document.getElementById('userMsg');
-        const txt = input.value.trim();
-        if (!txt) return;
-
-        // User Msg
-        const chat = document.getElementById('chatBox');
-        chat.innerHTML += `<div class="msg user">${txt}</div>`;
-        input.value = '';
-
-        // Bot Logic
-        setTimeout(() => {
-            let reply = "מעניין... ספר לי עוד על זה.";
-            if (txt.includes("עצוב") || txt.includes("קשה")) reply = "זכור שהקושי הוא זמני. אתה חזק יותר ממה שנדמה לך. קח נשימה עמוקה.";
-            if (txt.includes("שמח") || txt.includes("טוב")) reply = "איזה כיף לשמוע! שמור על האנרגיה הזאת. מה גרם לזה?";
-            if (txt.includes("מוטיבציה")) reply = "אתה לא צריך מוטיבציה, אתה צריך משמעת. קום ותעשה את זה עכשיו!";
-            if (txt.includes("תודה")) reply = "בשמחה, אלוף. אני כאן בשבילך.";
-            
-            chat.innerHTML += `<div class="msg bot">${reply}</div>`;
-            chat.scrollTop = chat.scrollHeight;
-        }, 1000);
-    }
-
-    // --- Chart ---
-    let chartInstance;
-    function renderStats() {
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
-        
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'],
-                datasets: [{
-                    label: 'פרודוקטיביות',
-                    data: db.history,
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { x: { display: false }, y: { display: false } }
-            }
-        });
-    }
-
-    // --- Journal ---
-    function saveJournal() {
-        const txt = document.getElementById('journalEntry').value;
-        if (!txt) return;
-        const date = new Date().toLocaleDateString('he-IL');
-        db.journal.unshift({ date: date, text: txt });
-        
-        // Unlock badge logic
-        if (db.journal.length >= 1) unlockBadge('pro_writer');
-        
-        document.getElementById('journalEntry').value = '';
-        save();
-        renderJournalHistory();
-        alert("נשמר ביומן המוצפן.");
-    }
-
-    function renderJournalHistory() {
-        const el = document.getElementById('journalHistory');
-        el.innerHTML = db.journal.map(j => `
-            <div style="background:rgba(255,255,255,0.05); padding:10px; margin-bottom:10px; border-radius:8px;">
-                <small style="color:var(--primary)">${j.date}</small>
-                <p style="margin:5px 0">${j.text}</p>
-            </div>
-        `).join('');
-    }
-
-    // --- Badges ---
-    function unlockBadge(id) {
-        const b = db.badges.find(x => x.id === id);
-        if (b && !b.unlocked) {
-            b.unlocked = true;
-            alert("🏆 הישג חדש נפתח: " + b.name);
-            save();
-            renderBadges();
-        }
-    }
-
-    function renderBadges() {
-        document.getElementById('badgeGrid').innerHTML = db.badges.map(b => `
-            <div class="badge ${b.unlocked ? 'unlocked' : ''}">
-                <i class="fas ${b.icon}"></i>
-            </div>
-        `).join('');
-    }
-
-    // --- Extras ---
-    function fakeSync() {
-        const icon = document.getElementById('syncIcon');
-        icon.classList.add('fa-spin');
-        setTimeout(() => {
-            icon.classList.remove('fa-spin');
-            alert("✅ סנכרון הושלם בהצלחה (נתונים יובאו מהענן)");
-        }, 2000);
-    }
-
-    function exportData() {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "lifeOS_backup.json");
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    }
-    
-    function clearData() {
-        if(confirm("בטוח? זה ימחק הכל!")) {
-            localStorage.removeItem('lifeOS_infinity');
-            location.reload();
-        }
-    }
-
-    let timerInterval;
-    function startTimer() {
-        let time = 25 * 60;
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            const m = Math.floor(time / 60);
-            const s = time % 60;
-            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-            time--;
-            if (time < 0) {
-                clearInterval(timerInterval);
-                alert("זמן נגמר! קח הפסקה.");
-                addXP(50);
-            }
-        }, 1000);
-    }
-
-    // Run
-    init();
-
+  });
 </script>
 </body>
 </html>
