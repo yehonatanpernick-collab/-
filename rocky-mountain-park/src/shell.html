@@ -1,0 +1,241 @@
+<title>קיץ בהרי הרוקי</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Suez+One&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed 3D world; HUD sits in the corners like routed wooden trail signs over smoked glass */
+:root{
+  --wood:#4b2f1c; --wood-hi:#6e4a2e; --cream:#f2e3c0; --cream-dim:#cdbb93; --ink:#1c130b;
+  --glass:rgba(14,19,17,.6); --glass-line:rgba(242,227,192,.16); --accent:#e0a63c; --lake:#46bfa8;
+  --display:'Suez One','Frank Ruhl Libre',Georgia,serif;
+  --body:'Assistant','Segoe UI',system-ui,-apple-system,sans-serif;
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
+  color-scheme: dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:#0e1411;color:var(--cream);font-family:var(--body);font-size:15px}
+body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+button{font-family:var(--body);color:var(--cream);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.glass{background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2)}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;transition:opacity .4s}
+.photo #hud{opacity:0}
+.photo #photoExit{display:block}
+#photoExit{display:none;position:fixed;top:calc(12px + var(--sat));left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:999px;font-weight:700;opacity:.55}
+#photoExit:hover{opacity:1}
+#place{position:absolute;top:calc(12px + var(--sat));right:calc(12px + var(--sar));max-width:min(62vw,420px);
+  padding:9px 14px 9px 16px;border-radius:6px;background:linear-gradient(180deg,var(--wood-hi),var(--wood));
+  border:1px solid #2a190d;box-shadow:inset 0 0 0 2px rgba(242,227,192,.12),0 6px 18px rgba(0,0,0,.35)}
+#placeName{font-family:var(--display);font-size:1.15rem;line-height:1.25;text-wrap:balance}
+#placeMeta{font-size:.86rem;color:var(--cream-dim);font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:.02em}
+#compassC{position:absolute;top:calc(10px + var(--sat));left:50%;transform:translateX(-50%);width:min(44vw,460px);height:58px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+#mini{position:absolute;top:calc(12px + var(--sat));left:calc(12px + var(--sal));width:150px;height:150px;border-radius:50%;
+  border:2px solid rgba(242,227,192,.55);box-shadow:0 6px 18px rgba(0,0,0,.4);pointer-events:auto;cursor:pointer;background:#1d2a20}
+#topBtns{position:absolute;top:calc(172px + var(--sat));left:calc(12px + var(--sal));display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.hbtn{min-width:44px;min-height:40px;padding:6px 12px;border-radius:8px;font-size:.92rem;font-weight:600;text-align:center}
+#keysHint{position:absolute;bottom:calc(14px + var(--sab));right:calc(14px + var(--sar));padding:8px 12px;border-radius:8px;font-size:.82rem;
+  color:var(--cream-dim);line-height:1.6;max-width:380px}
+#keysHint b{color:var(--cream);font-weight:700}
+#cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(255,255,255,.65);box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+#hikeBar{position:absolute;top:calc(78px + var(--sat));left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:6px 8px 6px 14px;border-radius:999px;pointer-events:auto;white-space:nowrap;max-width:calc(100vw - 32px)}
+#hikeName{font-weight:700;overflow:hidden;text-overflow:ellipsis} #hikeLeft{color:var(--accent);font-variant-numeric:tabular-nums;font-size:.88rem}
+#hikeStop{border:0;background:rgba(242,227,192,.12);border-radius:999px;padding:4px 10px;font-size:.8rem}
+#infoCard{position:absolute;right:calc(12px + var(--sar));top:calc(88px + var(--sat));width:min(78vw,330px);padding:14px 16px;border-radius:10px;
+  opacity:0;transform:translateX(16px);transition:opacity .5s,transform .5s;pointer-events:none}
+#infoCard.show{opacity:1;transform:none}
+#cardKind{font-size:.72rem;letter-spacing:.2em;color:var(--accent)}
+#cardName{font-family:var(--display);font-size:1.4rem;line-height:1.2;margin-top:2px}
+#cardEn{font-size:.82rem;color:var(--cream-dim);direction:ltr;text-align:right}
+#cardElev{font-variant-numeric:tabular-nums;font-size:.85rem;margin-top:6px;color:var(--cream)}
+#cardNote{font-size:.9rem;line-height:1.55;color:var(--cream-dim);margin-top:8px}
+
+/* touch controls */
+#touchUI{display:none}
+.touch #touchUI{display:block}
+.touch #keysHint{display:none}
+#joy{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(242,227,192,.35);background:rgba(16,21,19,.25);display:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(242,227,192,.55)}
+#joyHint{position:absolute;left:calc(26px + var(--sal));bottom:calc(30px + var(--sab));width:96px;height:96px;border-radius:50%;
+  border:2px dashed rgba(242,227,192,.3);display:grid;place-items:center;font-size:.75rem;color:var(--cream-dim);text-align:center}
+#actBtns{position:absolute;right:calc(14px + var(--sar));bottom:calc(18px + var(--sab));display:grid;grid-template-columns:repeat(2,64px);gap:10px;pointer-events:auto}
+#actBtns button{height:56px;border-radius:14px;font-size:.88rem;font-weight:700;touch-action:none}
+#actBtns button.on{background:rgba(224,166,60,.75);color:var(--ink);border-color:transparent}
+#bUp,#bDown{display:none}
+.flying #bUp,.flying #bDown{display:block}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(96px + var(--sab));transform:translateX(-50%) translateY(10px);opacity:0;transition:opacity .35s,transform .35s;
+  padding:10px 16px;border-radius:10px;max-width:min(88vw,460px);text-align:center;pointer-events:none;font-size:.95rem}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.badge{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 30px rgba(224,166,60,.25)}
+#toast small{display:block;color:var(--cream-dim);font-size:.8rem;margin-top:2px}
+
+/* panels */
+.panel{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,9,8,.55);
+  padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));padding-block:calc(16px + var(--sat)) calc(16px + var(--sab))}
+.card{border-radius:12px;max-height:100%;overflow:auto;width:min(100%,600px);padding:18px}
+.card h2{font-family:var(--display);font-weight:400;font-size:1.35rem;margin:0 0 4px;text-wrap:balance}
+.card p{margin:.3rem 0;line-height:1.55;color:var(--cream-dim)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg button{padding:8px 14px;border-radius:8px;background:rgba(242,227,192,.08);border:1px solid var(--glass-line);font-weight:600}
+.seg button.on{background:var(--cream);color:var(--ink)}
+.lbl{font-size:.78rem;letter-spacing:.08em;color:var(--cream-dim);margin:16px 0 6px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.closeBtn{margin-top:16px;width:100%;padding:11px;border-radius:9px;background:var(--cream);color:var(--ink);border:0;font-weight:700;font-size:1rem}
+#mapWrap{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;width:min(100%,1100px);max-height:100%}
+#bigMapBox{position:relative;min-width:0}
+#bigMap{width:100%;aspect-ratio:1;max-width:100%;max-height:calc(100vh - 80px);border-radius:10px;display:block;cursor:crosshair;object-fit:contain}
+.listCol{display:flex;flex-direction:column;min-width:0;overflow:auto;max-height:calc(100vh - 60px)}
+#placeList,#hikeList{display:flex;flex-direction:column;gap:6px;min-width:0}
+#placeList button,#hikeList button{text-align:right;padding:8px 10px;border-radius:8px;background:rgba(242,227,192,.07);border:1px solid var(--glass-line);font-size:.9rem;line-height:1.3}
+#hikeList button{border-color:rgba(224,166,60,.4)}
+#placeList button span,#hikeList button span{display:block;color:var(--cream-dim);font-size:.75rem;direction:ltr;text-align:right}
+#mapHint{font-size:.82rem;color:var(--cream-dim);margin-bottom:6px}
+.jGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px}
+.jItem,.badge{padding:8px 10px;border-radius:8px;border:1px dashed var(--glass-line);color:var(--cream-dim);font-size:.85rem;line-height:1.35;min-width:0}
+.jItem b,.badge b{display:block;color:var(--cream-dim);font-weight:600}
+.jItem span,.badge span{display:block;font-size:.76rem;opacity:.8}
+.jItem.yes,.badge.yes{border-style:solid;border-color:rgba(70,191,168,.5);background:rgba(70,191,168,.08)}
+.jItem.yes b{color:var(--cream)} .badge.yes{border-color:var(--accent);background:rgba(224,166,60,.1)} .badge.yes b{color:var(--accent)}
+#jCount{font-variant-numeric:tabular-nums;color:var(--accent);font-size:.9rem}
+@media (max-width:760px){
+  #mapWrap{grid-template-columns:1fr;overflow:auto}
+  #bigMap{max-height:60vh}
+  .listCol{max-height:none;overflow:visible}
+  #placeList{display:grid;grid-template-columns:1fr 1fr}
+  #mini{width:108px;height:108px}
+  #topBtns{top:calc(128px + var(--sat))}
+  #place{max-width:calc(100vw - 150px)}
+  #compassC{top:auto;bottom:calc(150px + var(--sab));width:70vw}
+  #hikeBar{top:auto;bottom:calc(214px + var(--sab))}
+  #infoCard{top:auto;bottom:calc(150px + var(--sab));right:50%;transform:translateX(50%) translateY(10px)}
+  #infoCard.show{transform:translateX(50%)}
+}
+
+/* intro: a routed trail sign; once the world is ready it slides down over the flyover */
+#intro{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 20%,#3f6a8a 0%,#24394a 45%,#101914 100%);transition:background .9s;
+  padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));padding-block:calc(16px + var(--sat)) calc(16px + var(--sab))}
+#intro.ready{background:linear-gradient(180deg,transparent 40%,rgba(8,10,8,.55));align-items:flex-end;pointer-events:none}
+#intro.ready #introCard{pointer-events:auto;padding:18px 22px}
+#intro.ready #introCard p,#intro.ready #progWrap{display:none}
+#introCard{width:min(100%,520px);border-radius:10px;padding:26px 24px 22px;background:
+  repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 2px,transparent 2px 9px),linear-gradient(180deg,#7a5232,#55361f);
+  border:2px solid #2b1a0d;box-shadow:inset 0 0 0 3px rgba(242,227,192,.14),0 24px 60px rgba(0,0,0,.5);text-align:center;max-height:100%;overflow:auto;transition:padding .6s}
+#introCard .eyebrow{font-size:.8rem;letter-spacing:.22em;color:var(--cream-dim)}
+#introCard h1{font-family:var(--display);font-weight:400;font-size:clamp(2rem,7vw,2.9rem);margin:.2rem 0 .1rem;line-height:1.1;color:var(--cream);text-shadow:0 2px 0 rgba(0,0,0,.35);text-wrap:balance}
+#introCard .elev{font-variant-numeric:tabular-nums;color:var(--cream-dim);font-size:.9rem;letter-spacing:.06em}
+#introCard p{line-height:1.6;color:#eadcb8;margin:.8rem auto 0;max-width:42ch}
+#progWrap{margin:18px auto 6px;height:8px;border-radius:99px;background:rgba(0,0,0,.35);overflow:hidden;max-width:360px}
+#prog{height:100%;width:0;background:var(--accent);transition:width .25s}
+#progTxt{font-size:.85rem;color:var(--cream-dim);min-height:1.3em}
+#startBtn{margin-top:14px;padding:13px 30px;border-radius:10px;border:0;background:var(--cream);color:var(--ink);font-weight:700;font-size:1.08rem;font-family:var(--body)}
+#startBtn:disabled{opacity:.45;cursor:default}
+.ctrls{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;text-align:right;margin:16px auto 0;max-width:400px;font-size:.88rem;color:#eadcb8}
+.ctrls b{color:var(--cream);white-space:nowrap}
+#err{color:#ffb4a0;font-size:.9rem;margin-top:10px}
+@media (prefers-reduced-motion:reduce){#toast,#prog,#infoCard,#intro,#hud{transition:none}}
+</style>
+
+<canvas id="c" tabindex="0"></canvas>
+
+<div id="hud" hidden dir="rtl">
+  <div id="place"><div id="placeName">—</div><div id="placeMeta"></div></div>
+  <canvas id="compassC" width="460" height="58" aria-label="מצפן"></canvas>
+  <div id="hikeBar" class="glass" hidden><span id="hikeName"></span><span id="hikeLeft"></span><button id="hikeStop">סיום</button></div>
+  <div id="infoCard" class="glass"><div id="cardKind"></div><div id="cardName"></div><div id="cardEn"></div><div id="cardElev"></div><div id="cardNote"></div></div>
+  <canvas id="mini" width="300" height="300" aria-label="מפה מוקטנת, לחצו לפתיחת המפה"></canvas>
+  <div id="topBtns">
+    <button id="bMap" class="hbtn glass">מפה</button>
+    <button id="bJournal" class="hbtn glass">יומן</button>
+    <button id="bPhoto" class="hbtn glass">צילום</button>
+    <button id="bSet" class="hbtn glass">הגדרות</button>
+  </div>
+  <div id="cross"></div>
+  <div id="keysHint" class="glass"><b>W A S D</b> הליכה · <b>Shift</b> ריצה · <b>רווח</b> קפיצה · <b>F</b> רחיפה<br><b>M</b> מפה ומסלולים · <b>J</b> יומן · <b>P</b> צילום · <b>T</b> שעה</div>
+  <div id="touchUI">
+    <div id="joyHint">גררו כאן<br>ללכת</div>
+    <div id="joy"><div id="joyKnob"></div></div>
+    <div id="actBtns">
+      <button id="bUp" class="glass">למעלה</button>
+      <button id="bDown" class="glass">למטה</button>
+      <button id="bRun" class="glass">ריצה</button>
+      <button id="bJump" class="glass">קפיצה</button>
+      <button id="bFly" class="glass">רחיפה</button>
+      <button id="bMap2" class="glass">מפה</button>
+    </div>
+  </div>
+</div>
+<button id="photoExit" class="glass" dir="rtl">יציאה ממצב צילום</button>
+
+<div id="toast" class="glass" dir="rtl"></div>
+
+<div id="mapPanel" class="panel" hidden dir="rtl">
+  <div id="mapWrap">
+    <div id="bigMapBox" class="card glass" style="width:auto;padding:12px">
+      <div id="mapHint">לחצו על המפה כדי לקפוץ לנקודה · 6×6 ק״מ</div>
+      <canvas id="bigMap" width="1000" height="1000" aria-label="מפה טופוגרפית של הפארק"></canvas>
+    </div>
+    <div class="card glass listCol" style="width:auto;padding:12px">
+      <div class="lbl" style="margin-top:0">מסלולים מודרכים</div>
+      <div id="hikeList"></div>
+      <div class="lbl">קפיצה ליעד</div>
+      <div id="placeList"></div>
+      <button class="closeBtn" id="mapClose">חזרה לשביל</button>
+    </div>
+  </div>
+</div>
+
+<div id="journalPanel" class="panel" hidden dir="rtl">
+  <div class="card glass" style="width:min(100%,760px)">
+    <h2>יומן שדה</h2>
+    <div id="jCount"></div>
+    <div class="lbl">תגים</div><div class="jGrid" id="jBadges"></div>
+    <div class="lbl">חיות בר</div><div class="jGrid" id="jSpecies"></div>
+    <div class="lbl">מקומות</div><div class="jGrid" id="jPlaces"></div>
+    <button class="closeBtn" id="jClose">סגירה</button>
+  </div>
+</div>
+
+<div id="setPanel" class="panel" hidden dir="rtl">
+  <div class="card glass">
+    <h2>הגדרות טיול</h2>
+    <div class="lbl">מזג אוויר</div>
+    <div class="row seg" id="wSeg"><button data-w="clear">בהיר</button><button data-w="fair" class="on">מעונן חלקית</button><button data-w="storm">סופת אחר-הצהריים</button></div>
+    <div class="lbl">שעה ביום · <span id="hourTxt"></span></div>
+    <input type="range" id="hour" min="4" max="23.5" step="0.05" value="9.5">
+    <div class="lbl">איכות גרפיקה</div>
+    <div class="row seg" id="qSeg"><button data-q="low">נמוכה</button><button data-q="medium">בינונית</button><button data-q="high">גבוהה</button><button data-q="ultra">אולטרה</button></div>
+    <div class="lbl">שדה ראייה · <span id="fovTxt">66°</span></div>
+    <input type="range" id="fov" min="40" max="95" step="1" value="66">
+    <div class="lbl">צלילי טבע</div>
+    <div class="row seg" id="sSeg"><button data-s="1">פועל</button><button data-s="0">כבוי</button></div>
+    <p style="margin-top:14px;font-size:.85rem">העולם נבנה באופן פרוצדורלי בהשראת פארק לאומי רוקי מאונטן: 36 קמ״ר שנחצבו בשחיקה הידראולית, עשרה אגמים, נחלים, יערות ופסגות מעל 4,000 מ׳.</p>
+    <button class="closeBtn" id="setClose">סגירה</button>
+  </div>
+</div>
+
+<div id="intro" dir="rtl">
+  <div id="introCard">
+    <div class="eyebrow">ROCKY MOUNTAIN NATIONAL PARK · COLORADO</div>
+    <h1>קיץ בהרי הרוקי</h1>
+    <div class="elev" dir="ltr">7,800–14,200 FT · 2,380–4,330 M</div>
+    <p>טיול חופשי בעמקים פורחים, יערות אשוח ואספן, אגמים בגווני טורקיז, אמרלד וכחול עמוק, נחלים, שבילים מסומנים וחיות בר — עד הטונדרה והפסגות המושלגות.</p>
+    <div id="progWrap"><div id="prog"></div></div>
+    <div id="progTxt">טוען…</div>
+    <button id="startBtn" disabled>התחילו לטייל</button>
+    <div class="ctrls" id="ctrlHelp"></div>
+    <div id="err"></div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+/*__MAIN__*/
+</script>
