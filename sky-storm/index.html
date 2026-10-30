@@ -260,7 +260,7 @@ THREE.ShaderChunk.fog_fragment = '#ifdef USE_FOG\ngl_FragColor.rgb = applyFog(gl
 // ---------- Renderer ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const PR = Math.min(window.devicePixelRatio, LOW ? 1.5 : 2);
+const PR = Math.min(window.devicePixelRatio, 2);
 let dynPR = PR;
 renderer.setPixelRatio(PR);
 renderer.setSize(innerWidth, innerHeight);
@@ -389,12 +389,12 @@ terrainMat.onBeforeCompile = sh => {
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\n' + GLSL_NOISE)
     .replace('#include <color_fragment>', `#include <color_fragment>
-      float dn = vnoise(vTW.xz * 0.018) * 0.45 + vnoise(vTW.xz * 0.09) * 0.33 + vnoise(vTW.xz * 0.5) * 0.22;
-      diffuseColor.rgb *= 0.72 + 0.5 * dn;`)
+      float dn = vnoise(vTW.xz * 0.018) * 0.55 + vnoise(vTW.xz * 0.09) * 0.45;
+      diffuseColor.rgb *= 0.78 + 0.4 * dn;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       {
-        float bmpFade = smoothstep(1400.0, 250.0, length(vViewPosition));
-        float hh = (vnoise(vTW.xz * 0.08) * 3.0 + vnoise(vTW.xz * 0.33) * 0.9 + vnoise(vTW.xz * 1.2) * 0.25) * bmpFade;
+        float bmpFade = smoothstep(700.0, 150.0, length(vViewPosition));
+        float hh = (vnoise(vTW.xz * 0.08) * 3.0 + vnoise(vTW.xz * 0.33) * 0.9) * bmpFade;
         vec3 bmpSx = dFdx(-vViewPosition), bmpSy = dFdy(-vViewPosition);
         vec3 bmpR1 = cross(bmpSy, normal), bmpR2 = cross(normal, bmpSx);
         float bmpDet = dot(bmpSx, bmpR1);
@@ -1060,30 +1060,26 @@ let flashI = 0;
 // ---------- Post-processing ----------
 const isGL2 = renderer.capabilities.isWebGL2;
 const rtOpts = { type: isGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
-const rt = isGL2 && !LOW ? new THREE.WebGLMultisampleRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts) : new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts);
+const rt = isGL2 ? new THREE.WebGLMultisampleRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts) : new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts);
 const composer = new THREE.EffectComposer(renderer, rt);
 composer.addPass(new THREE.RenderPass(scene, camera));
 const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.25, 1.6);
 composer.addPass(bloom);
 const finalPass = new THREE.ShaderPass({
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, aberr: { value: 0 }, damage: { value: 0 }, exposure: { value: 1.1 }, px: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, aberr: { value: 0 }, damage: { value: 0 }, exposure: { value: 1.1 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float time, aberr, damage, exposure; uniform vec2 px; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float aberr, damage, exposure; varying vec2 vUv;
     vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       vec2 dc = vUv - 0.5;
       float ab = aberr * dot(dc, dc) * 4.0;
       vec3 col = vec3(texture2D(tDiffuse, vUv - dc * ab).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv + dc * ab).b);
-      vec3 nb = texture2D(tDiffuse, vUv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, px.y)).rgb;
-      col = max(col + clamp(col * 4.0 - nb, -0.5, 0.5) * 0.2, 0.0);
       col *= exposure;
       col = aces(col);
       col = pow(col, vec3(1.0 / 2.2));
       col = mix(col, col * col * (3.0 - 2.0 * col), 0.22);
       col *= 1.0 - dot(dc, dc) * 0.5;
       col = mix(col, vec3(0.75, 0.04, 0.06), damage * smoothstep(0.12, 0.75, length(dc) * 1.4));
-      col += (hash(vUv * 731.0 + time) - 0.5) * 0.004;
       gl_FragColor = vec4(col, 1.0);
     }`
 });
@@ -2236,7 +2232,6 @@ function updateCamera(dt, boosting) {
 function updatePost(dt) {
   G.damage = Math.max(0, G.damage - dt * 1.4);
   const u = finalPass.uniforms;
-  u.time.value = G.time % 100;
   u.damage.value = Math.max(G.damage, G.state === 'play' && P.hp < 30 ? 0.25 + Math.sin(G.time * 6) * 0.1 : 0);
   u.aberr.value = G.damage * 0.012 + (P.boosting ? 0.004 : 0) + G.shake * 0.003;
 }
@@ -2252,7 +2247,7 @@ function adaptResolution(rdt) {
   if (G.fpsAcc < 2.5) return;
   const fps = G.fpsN / G.fpsAcc;
   G.fpsAcc = 0; G.fpsN = 0;
-  const np = fps < 34 ? Math.max(Math.min(PR, 1), dynPR - 0.25) : fps > 57 ? Math.min(PR, dynPR + 0.25) : dynPR;
+  const np = fps < 34 ? Math.max(Math.min(PR, 1.5), dynPR - 0.25) : fps > 57 ? Math.min(PR, dynPR + 0.25) : dynPR;
   if (np !== dynPR) { dynPR = np; renderer.setPixelRatio(dynPR); composer.setPixelRatio(dynPR); resize(); }
 }
 function setPointScale() {
@@ -2262,7 +2257,6 @@ function setPointScale() {
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
-  finalPass.uniforms.px.value.set(1 / (innerWidth * dynPR), 1 / (innerHeight * dynPR));
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   setPointScale();
 }
