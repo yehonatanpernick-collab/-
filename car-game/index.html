@@ -431,6 +431,9 @@ const skylineMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cf, roughness: 
 const cornMat = new THREE.MeshStandardMaterial({ color: 0xe4ddd0, roughness: 0.7 });
 const tankMat = new THREE.MeshStandardMaterial({ color: 0x6e4b2f, roughness: 0.8 });
 const shopMat = new THREE.MeshPhysicalMaterial({ color: 0x4a5668, metalness: 0.2, roughness: 0.25, clearcoat: 0.4 });
+// Shop fronts glow warmly from inside, one shared texture for every shop
+const interiorTex = makeInteriorTexture();
+const shopGlowMat = new THREE.MeshStandardMaterial({ map: interiorTex, emissiveMap: interiorTex, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.4 });
 const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.5 });
 const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 3 });
 const lampSpots = [];
@@ -605,6 +608,32 @@ function makeSignTexture(text, color) {
   return tex;
 }
 
+// Warm interior seen through shop glass: a lit back wall, shelves with goods, and mullions
+function makeInteriorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 256;
+  const g = c.getContext('2d');
+  const back = g.createLinearGradient(0, 0, 0, 256);
+  back.addColorStop(0, '#ffe2a8');
+  back.addColorStop(1, '#c98a4a');
+  g.fillStyle = back;
+  g.fillRect(0, 0, 512, 256);
+  g.fillStyle = '#7a4a22';
+  g.fillRect(0, 150, 512, 8);
+  g.fillRect(0, 210, 512, 8);
+  for (let x = 40; x < 512; x += 90) {
+    g.fillStyle = '#5b3414';
+    g.fillRect(x, 120, 30, 30);
+    g.fillStyle = '#f8f0dc';
+    g.fillRect(x + 6, 100, 18, 20);
+  }
+  g.fillStyle = '#3a2412';
+  for (const x of [0, 170, 340]) g.fillRect(x, 0, 10, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function flat(w, h, color, x, y, z, roughness = 0.95) {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -683,7 +712,7 @@ scene.add(terrain);
 
 // Forest on the hillsides: pines where the slope is gentle enough and the ground is low enough
 const pines = [];
-for (let k = 0; k < 900; k++) {
+for (let k = 0; k < (LOW_END ? 300 : 900); k++) {
   const x = (Math.random() * 2 - 1) * 1100, z = (Math.random() * 2 - 1) * 1100;
   if (Math.max(Math.abs(x), Math.abs(z)) < EDGE + ROAD + 12) continue;
   if (x > 0 && Math.abs(z) < 60) continue;   // keep the main road and its hill clear of trees
@@ -810,11 +839,12 @@ function addBuilding(x, z, w, h, d) {
     scene.add(tank);
   }
 
-  obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+  const footprint = { minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, height: h };
+  obstacles.push(footprint);
 
   if (rng() < 0.6) {
     // Ground-floor shopfront band
-    const shop = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.4, d + 0.4), shopMat);
+    const shop = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.4, d + 0.4), [shopGlowMat, shopGlowMat, shopMat, shopMat, shopGlowMat, shopGlowMat]);
     shop.position.set(x, 1.7, z);
     shop.receiveShadow = true;
     scene.add(shop);
@@ -851,6 +881,7 @@ function addBuilding(x, z, w, h, d) {
     crown.castShadow = crown.receiveShadow = true;
     scene.add(crown);
     top = h + ch;
+    footprint.height = top;
     if (rng() < 0.5) {
       const spireH = 10 + rng() * 14;
       const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.45, spireH, 6), roofMat);
@@ -1025,7 +1056,7 @@ const PARKED_COLORS = [0xe5e7eb, 0x1f2937, 0xb91c1c, 0x1d4ed8, 0xf5f5f4, 0x15803
 parked.forEach((p, k) => {
   parkedBodies.setColorAt(k, _parkColor.setHex(PARKED_COLORS[k % PARKED_COLORS.length]));
   const hx = p.alongX ? 2.1 : 1.0, hz = p.alongX ? 1.0 : 2.1;
-  obstacles.push({ minX: p.x - hx, maxX: p.x + hx, minZ: p.z - hz, maxZ: p.z + hz });
+  obstacles.push({ minX: p.x - hx, maxX: p.x + hx, minZ: p.z - hz, maxZ: p.z + hz, height: 1.5 });
 });
 parkedBodies.instanceColor.needsUpdate = true;
 
@@ -1221,7 +1252,7 @@ for (let k = 0; k < 10; k++) {
 }
 
 // Main road: fast cars circle the outer ring in both directions
-for (let k = 0; k < 14; k++) {
+for (let k = 0; k < (LOW_END ? 0 : 14); k++) {
   const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
   const c = {
     ...car, fast: true,
@@ -1495,6 +1526,29 @@ function updateVehicleUi() {
 const heli = { x: 0, y: 0, z: 0, heading: 0, speed: 0, vy: 0, steer: 0, pitch: 0, roll: 0 };
 const HELI_MAX_SPEED = 42;
 const HELI_CEILING = 320;
+// Height the helicopter can land on: the ground, or a roof it is over
+function roofOrGround(x, z) {
+  let g = surfaceHeight(x, z);
+  for (const b of obstacles) {
+    if (b.height && x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ) g = Math.max(g, b.height);
+  }
+  return g;
+}
+
+// Below a building's roof the helicopter is pushed out through the nearest face
+function pushOutOfBox(h, b) {
+  const m = 1.5;
+  const x0 = b.minX - m, x1 = b.maxX + m, z0 = b.minZ - m, z1 = b.maxZ + m;
+  if (h.x < x0 || h.x > x1 || h.z < z0 || h.z > z1) return;
+  const dl = h.x - x0, dr = x1 - h.x, dd = h.z - z0, du = z1 - h.z;
+  const near = Math.min(dl, dr, dd, du);
+  if (near === dl) h.x = x0;
+  else if (near === dr) h.x = x1;
+  else if (near === dd) h.z = z0;
+  else h.z = z1;
+  h.speed *= 0.2;
+}
+
 function updateHeli(dt) {
   const h = heli;
   const steerT = (input.left ? 1 : 0) - (input.right ? 1 : 0);
@@ -1504,12 +1558,15 @@ function updateHeli(dt) {
   h.speed += (fwdT - h.speed) * Math.min(1, dt * 1.2);
   const climbT = (input.hand ? 12 : 0) - (input.descend ? 10 : 0);
   h.vy += (climbT - h.vy) * Math.min(1, dt * 2.5);
-  const ground = surfaceHeight(h.x, h.z);
+  const ground = roofOrGround(h.x, h.z);
   h.y = clamp(h.y + h.vy * dt, ground + 0.8, HELI_CEILING);
   if (h.y <= ground + 0.8) h.vy = Math.max(0, h.vy);
   const fx = Math.sin(h.heading), fz = Math.cos(h.heading);
   h.x += fx * h.speed * dt;
   h.z += fz * h.speed * dt;
+  for (const b of obstacles) {
+    if (b.height && h.y < b.height + 1) pushOutOfBox(h, b);
+  }
   h.pitch += ((input.up ? 0.2 : input.down ? -0.12 : 0) - h.pitch) * Math.min(1, dt * 4);
   h.roll += (-h.steer * 0.3 - h.roll) * Math.min(1, dt * 4);
 
@@ -1667,7 +1724,7 @@ function updatePlayer(dt) {
 // ============================================================
 // Pedestrians: a crowd walking along the sidewalks, with a simple gait bob
 // ============================================================
-const PEDS = 260;
+const PEDS = LOW_END ? 120 : 260;
 const PED_SHIRTS = [0x1f2937, 0x7c2d12, 0x0f766e, 0xb45309, 0x4338ca, 0xbe185d, 0x365314, 0xe5e7eb, 0xf59e0b, 0x0ea5e9];
 const PED_PANTS = [0x111827, 0x374151, 0x1e3a8a, 0x44403c, 0xd6d3d1];
 const PED_SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0x5c3a21, 0xffdbac];
@@ -1705,17 +1762,68 @@ for (let k = 0; k < PEDS; k++) {
 }
 for (const m of Object.values(pedMeshes)) m.instanceColor.needsUpdate = true;
 
+// A quarter of the crowd crosses the roads at junctions, waiting for the red light
+for (let k = 0; k < PEDS / 4; k++) {
+  const i = randInt(NODE_MIN, NODE_MAX), j = randInt(NODE_MIN, NODE_MAX);
+  const crossesXRoad = Math.random() < 0.5;     // true: walks across the road that runs along X
+  const opts = [-1, 1].filter(s => crossesXRoad ? (s > 0 ? i < NODE_MAX : i > NODE_MIN) : (s > 0 ? j < NODE_MAX : j > NODE_MIN));
+  const s = opts[randInt(0, opts.length - 1)];
+  pedList[k] = {
+    kind: 'cross', state: 'wait', progress: 0, rest: 0, dir: Math.random() < 0.5 ? -1 : 1,
+    axisWalk: crossesXRoad ? 'z' : 'x', redAxisX: crossesXRoad,
+    node: crossesXRoad ? j * PITCH : i * PITCH,
+    fixed: (crossesXRoad ? i * PITCH : j * PITCH) + s * CW,
+    speed: 4, phase: Math.random() * 10,
+  };
+}
+
 const _pRoot = new THREE.Matrix4(), _pLocal = new THREE.Matrix4(), _pFinal = new THREE.Matrix4(), _pRot = new THREE.Matrix4();
 const _pq = new THREE.Quaternion(), _pp = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1), _pe = new THREE.Euler();
+// Walkers stay on their sidewalk and go round the block
+function walkerPose(p, dt) {
+  p.t = (p.t + p.dir * p.speed * dt + BLOCK) % BLOCK;
+  const along = p.start + p.t;
+  return {
+    x: p.alongX ? along : p.line,
+    z: p.alongX ? p.line : along,
+    yaw: p.alongX ? (p.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI),
+  };
+}
+
+// Seconds of red left for traffic on the road along X (axisX) or along Z; 0 when it is not red
+function redTimeLeft(axisX) {
+  const t = lightTime % LIGHT_CYCLE;
+  if (axisX) return t >= 5.5 ? LIGHT_CYCLE - t : 0;
+  return t < 5.5 ? 5.5 - t : 0;
+}
+
+// Crossers wait at the kerb, cross when the traffic is red with time to spare, then rest on the far kerb
+const CROSS_SPAN = 17.5, CROSS_TIME = 4.4;
+function crosserPose(p, dt) {
+  if (p.state === 'wait') {
+    if (redTimeLeft(p.redAxisX) >= CROSS_TIME + 0.5) { p.state = 'walk'; p.progress = 0; }
+  } else if (p.state === 'walk') {
+    p.progress += dt / CROSS_TIME;
+    if (p.progress >= 1) { p.progress = 1; p.state = 'rest'; p.rest = 1.5 + Math.random() * 2; }
+  } else {
+    p.rest -= dt;
+    if (p.rest <= 0) { p.state = 'wait'; p.progress = 0; p.dir = -p.dir; }
+  }
+  const q = p.dir > 0 ? p.progress : 1 - p.progress;
+  const along = p.node - CROSS_SPAN / 2 + CROSS_SPAN * q;
+  if (p.axisWalk === 'z') {
+    return { x: p.fixed, z: along, yaw: p.dir > 0 ? 0 : Math.PI };
+  }
+  return { x: along, z: p.fixed, yaw: p.dir > 0 ? Math.PI / 2 : -Math.PI / 2 };
+}
+
 function updatePeds(dt, now) {
   pedList.forEach((p, k) => {
-    p.t = (p.t + p.dir * p.speed * dt + BLOCK) % BLOCK;
-    const along = p.start + p.t;
-    const x = p.alongX ? along : p.line, z = p.alongX ? p.line : along;
-    const yaw = p.alongX ? (p.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI);
+    const { x, z, yaw } = p.kind === 'cross' ? crosserPose(p, dt) : walkerPose(p, dt);
     _pq.setFromAxisAngle(UP, yaw);
     _pRoot.compose(_pp.set(x, 0, z), _pq, _ps);
-    const swing = Math.sin(now * 0.001 * p.speed * 5 + p.phase) * 0.45;   // gait
+    const moving = p.kind !== 'cross' || p.state === 'walk';
+    const swing = moving ? Math.sin(now * 0.001 * p.speed * 5 + p.phase) * 0.45 : 0;   // gait
     for (const name in pedOffsets) {
       const o = pedOffsets[name];
       const angle = name === 'legL' ? swing : name === 'legR' ? -swing : 0;
