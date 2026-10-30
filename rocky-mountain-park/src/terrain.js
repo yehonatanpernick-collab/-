@@ -21,7 +21,7 @@ export function makeTerrainMaterial() {
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff });
   const useN = Q().normals;
   m.onBeforeCompile = (s) => {
-    Object.assign(s.uniforms, GRID, { uBiome: U.biomeTex, uTrail: U.trailTex, uAlb: { value: albTex }, uNrm: { value: nrmTex } });
+    Object.assign(s.uniforms, GRID, { uBiome: U.biomeTex, uTrail: U.trailTex, uAlb: { value: albTex }, uNrm: { value: nrmTex }, uWL: U.waterLvl });
     s.vertexShader = 'varying vec3 vWPos; varying vec3 vWN;\n' + s.vertexShader.replace('#include <worldpos_vertex>',
       '#include <worldpos_vertex>\n vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);');
   };
@@ -35,6 +35,12 @@ export function makeTerrainMaterial() {
       vec3 nrm(vec2 p, float sc, float l){ vec2 uv = p/sc; vec2 uv2 = mat2(0.8, -0.6, 0.6, 0.8)*uv*0.41 + 0.31;
         return mix(texture(uNrm, vec3(uv, l)).xyz, texture(uNrm, vec3(uv2, l)).xyz, layerMix(p, l))*2.0 - 1.0; }
       vec3 triW(vec3 n){ vec3 b = pow(abs(n), vec3(4.0)); return b/dot(b, vec3(1.0)); }
+      uniform sampler2D uWL;
+      float caust(vec2 uv, float t){
+        vec2 p = mod(uv*6.28318, 6.28318) - 250.0, i = p; float c = 1.0;
+        for (int n = 0; n < 4; n++) { float tt = t*(1.0 - 3.5/float(n + 1)); i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x)); c += 1.0/length(vec2(p.x/(sin(i.x + tt)/0.005), p.y/(cos(i.y + tt)/0.005))); }
+        c /= 4.0; c = 1.17 - pow(c, 1.4); return pow(abs(c), 8.0);
+      }
       float hblend(float t, float ha, float hb){ return clamp((t - 0.5)*3.0 + 0.5 + (hb - ha)*2.2, 0.0, 1.0)*step(0.001, t); }`,
     fragment: (f) => f.replace('#include <color_fragment>', `
       vec3 Nw = normalize(vWN); float slope = 1.0 - Nw.y; float E = vWPos.y + uBase;
@@ -89,6 +95,10 @@ export function makeTerrainMaterial() {
       }
       col = mix(col, srgb(vec3(0.66, 0.52, 0.58)), fl*smoothstep(60.0, 300.0, camD)*0.2);
       col *= 1.0 - 0.38*uWet*(1.0 - sn);
+      float uwD = texture2D(uWL, worldUV(vWPos)).r - vWPos.y;
+      float under = smoothstep(0.0, 0.15, uwD);
+      vec3 silt = mix(aD.rgb*vec3(0.75, 0.78, 0.6), aF.rgb*vec3(0.8, 0.95, 0.75), vnoise(P*0.15));
+      col = mix(col, mix(col, silt, 0.6*(1.0 - rk))*mix(vec3(0.75, 0.88, 0.82), vec3(0.3, 0.46, 0.5), smoothstep(0.5, 6.0, uwD)), under);
       diffuseColor.rgb = col;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       ${useN ? `if (df > 0.01) {
@@ -100,6 +110,7 @@ export function makeTerrainMaterial() {
         normal = normalize((viewMatrix*vec4(nb, 0.0)).xyz);
       }` : ''}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      if (under > 0.01 && camD < 220.0) totalEmissiveRadiance += diffuseColor.rgb*uSunCol*caust(P/3.2, uTime*0.6)*under*exp(-uwD*0.35)*sunVisAt(vWPos)*2.2*(1.0 - camD/220.0);
       if (sn > 0.3 && camD < 90.0) { float g = step(0.9975, hash12(floor(P*30.0) + floor(cameraPosition.xz*0.8)*1.7));
         totalEmissiveRadiance += uSunCol*g*sn*6.0*sunVisAt(vWPos)*(1.0 - camD/90.0); }`),
   });

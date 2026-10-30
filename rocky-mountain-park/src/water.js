@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { clamp, LAKES, CHANNELS, lakeR } from './shared.js';
 import { scene, renderer, camera, U, G, Q, heightAt, cellOf } from './core.js';
+import { N } from './shared.js';
+import { NC } from './worldgen.js';
 import { ATMOS_PARS, atmosUniforms } from './atmos.js';
 
 const VS = `attribute float aDepth; attribute float aFoam; varying vec3 vW; varying float vD; varying float vFoam; varying vec2 vUv;
@@ -24,14 +26,14 @@ const FS = `${ATMOS_PARS}
     vec3 refl = skyL(R) + vec3(0.6, 0.65, 0.8)*uFlash*0.3;
     if (uUseRefl > 0.5) { vec4 c = uReflMat*vec4(vW, 1.0); refl = texture2D(uRefl, c.xy/c.w + N.xz*0.035).rgb; }
     float lvis = sunVisAt(vW)*cloudShadow(vW);
-    vec3 amb = uSkyAmb*3.0 + uSunCol*max(uLightDir.y, 0.0)*lvis*1.6;
+    vec3 amb = uSkyAmb*1.1 + uSunCol*max(uLightDir.y, 0.0)*lvis*0.75;
     vec3 body = mix(uShallow, uDeep, smoothstep(0.0, uDScale, vD))*amb;
     vec3 col = mix(body, refl, fres);
     col += uSunTint*pow(max(dot(R, uSunDir), 0.0), 420.0)*22.0*lvis*(1.0 - uStorm);
     float fo = vFoam*smoothstep(0.42, 0.72, vnoise(q*3.0 + 1.7)) + (1.0 - smoothstep(0.0, 0.3, vD))*0.35*vnoise(vW.xz*2.0 + uTime);
     fo = clamp(fo, 0.0, 1.0);
-    col = mix(col, vec3(0.8)*amb*1.4, fo);
-    float alpha = clamp(smoothstep(-0.2, 1.1, vD)*0.92 + fres*0.3 + fo, 0.0, 1.0);
+    col = mix(col, vec3(0.85)*(uSkyAmb*2.5 + uSunCol*max(uLightDir.y, 0.0)*lvis*1.2), fo);
+    float alpha = clamp(smoothstep(-0.2, uFlow > 0.5 ? 1.6 : 3.8, vD)*0.9 + fres*0.45 + fo, 0.0, 1.0);
     gl_FragColor = vec4(applyAtmos(col, vW), alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -120,4 +122,49 @@ export function renderReflection(P, pixelRatio, hide) {
   hidden.forEach((m, i) => m.visible = vis[i]);
   renderer.clippingPlanes = [];
   best.material.uniforms.uUseRefl.value = 1;
+}
+
+// water-surface level on the coarse grid: lets the terrain shader tint beds and draw caustics
+export function buildWaterLevel() {
+  const out = new Uint16Array(NC * NC), { LKD, LKID, CHD, CHL } = G;
+  for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+    const k = Math.min(N - 1, j * 2) * N + Math.min(N - 1, i * 2);
+    let lv = -500;
+    if (LKD[k] < 30) lv = LAKES[LKID[k]].level; else if (CHD[k] < 12) lv = CHL[k];
+    out[j * NC + i] = THREE.DataUtils.toHalfFloat(lv);
+  }
+  const t = new THREE.DataTexture(out, NC, NC, THREE.RedFormat, THREE.HalfFloatType);
+  t.minFilter = t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
+  U.waterLvl.value = t;
+}
+
+// mist rising at the foot of steep cascades
+export function buildFalls() {
+  const pts = [], seeds = [];
+  CHANNELS.forEach(c => {
+    const P = c.path, W = c.W;
+    for (let i = 0; i < P.length - 3; i++) {
+      const drop = W[i] - W[i + 3];
+      if (drop > 4 && G.LKD[cellOf(P[i + 3][0], P[i + 3][1])] > 2) {
+        const [x, z] = P[i + 3];
+        for (let n = 0; n < 70; n++) { pts.push(x, W[i + 3], z); seeds.push(Math.random(), Math.random(), Math.random(), Math.min(1, drop / 12)); }
+        i += 6;
+      }
+    }
+  });
+  if (!pts.length) return;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 4));
+  const m = new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uSkyAmb: U.skyAmb, uSunCol: U.sunCol },
+    vertexShader: `uniform float uTime; attribute vec4 aSeed; varying float vA;
+      void main(){ float t = fract(uTime*(0.15 + aSeed.x*0.2) + aSeed.y);
+        vec3 p = position + vec3((aSeed.x - 0.5)*6.0*t, t*(4.0 + aSeed.w*8.0), (aSeed.z - 0.5)*6.0*t);
+        vec4 mv = viewMatrix*vec4(p, 1.0); vA = (1.0 - t)*smoothstep(0.0, 0.15, t)*aSeed.w*smoothstep(400.0, 80.0, -mv.z);
+        gl_PointSize = (2.5 + t*7.0)*300.0/max(-mv.z, 1.0); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform vec3 uSkyAmb, uSunCol; varying float vA;
+      void main(){ float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(uSkyAmb*1.6 + uSunCol*0.55, (1.0 - d*2.0)*vA*0.3); }`,
+    transparent: true, depthWrite: false,
+  }));
+  m.frustumCulled = false; scene.add(m);
 }

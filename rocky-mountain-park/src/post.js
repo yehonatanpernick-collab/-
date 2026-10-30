@@ -38,7 +38,7 @@ const Grade = {
       c = mix(c, c*vec3(0.75, 0.85, 1.15), uNight*0.6);
       float v = length((vUv - 0.5)*vec2(1.25, 1.0));
       c *= 1.0 - smoothstep(0.45, 1.05, v)*0.42;
-      c += (h(vUv*1000.0 + uTime) - 0.5)*0.012*(0.4 + uNight);
+      c *= 1.0 + (h(vUv*1000.0 + fract(uTime)) - 0.5)*0.035;
       gl_FragColor = vec4(max(c, 0.0), 1.0);
     }`,
 };

@@ -36,7 +36,7 @@ export const U = {
   cloudCov: { value: 0.42 }, cam: { value: new THREE.Vector2() }, player: { value: new THREE.Vector3() },
   treeHi: { value: 330 }, treeLo: { value: 5600 }, impFar: { value: 5600 },
   skyLUT: { value: null }, sunVis: { value: null }, extra: { value: null },
-  heightTex: { value: null }, biomeTex: { value: null }, trailTex: { value: null },
+  heightTex: { value: null }, biomeTex: { value: null }, trailTex: { value: null }, waterLvl: { value: null },
 };
 export const GRID = { uHalf: { value: HALF }, uCell: { value: CELL }, uN: { value: N }, uSize: { value: SIZE }, uBase: { value: BASE } };
 

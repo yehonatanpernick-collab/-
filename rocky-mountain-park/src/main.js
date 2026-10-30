@@ -5,10 +5,10 @@ import { clamp, lerp, ss, BASE, N, TR, LAKES, LK, PEAKS, CHANNELS, TRAILS } from
 import { $, isTouch, renderer, scene, camera, U, Q, Qs, QUALITY, G, heightAt, groundAt, waterAt, cellOf } from './core.js';
 import { buildSky, sky, sun, setTime, sky_state, applyShadowQuality, setSunBaker, buildWeather, updateWeather, thunderQueue, setWeather } from './atmos.js';
 import { makeGroundTextures, buildTerrain, updateTerrainLOD, resetTerrainLOD, groundAlb } from './terrain.js';
-import { buildWater, renderReflection } from './water.js';
+import { buildWater, renderReflection, buildWaterLevel, buildFalls } from './water.js';
 import { buildVegetation, buildGrass, updatePools, applyVegQuality, grassMesh, flowerMesh } from './vegetation.js';
 import { buildTrails } from './trails.js';
-import { buildWildlife, updateWildlife, setSpotHandler, setAnimalSound, markSeen } from './wildlife.js';
+import { buildWildlife, updateWildlife, setSpotHandler, setAnimalSound, markSeen, animals } from './wildlife.js';
 import { P, updatePlayer, teleport, toggleFly, setPlayerHooks, keys } from './player.js';
 import { buildPOIs, buildMapBase, initUI, updateUI, toggleMap, toast, spotted, closePanels, togglePhoto, setQualityUI, setSoundUI, updateHourTxt, placeAt, journalSpecies } from './ui.js';
 import { setSound, updateAudio, animalSound, audioOn } from './audio.js';
@@ -67,12 +67,12 @@ async function boot(saved) {
       worker.postMessage({ type: 'gen', opts: { mobile: isTouch } });
     });
     stage('מעלה את העולם לכרטיס הגרפי…', 88); await frameYield();
-    onWorld(res);
+    onWorld(res); buildWaterLevel();
     setSunBaker(requestSun);
     setTime(saved.hour ?? 9.5);
     buildTerrain(); buildSky(); buildWeather();
     stage('בונה יערות ומים…', 91); await frameYield();
-    buildWater(); buildTrails();
+    buildWater(); buildFalls(); buildTrails();
     buildVegetation(res.scatter, groundAlb()); buildGrass();
     stage('משחרר חיות בר…', 95); await frameYield();
     buildWildlife(); buildPOIs(); buildMapBase();
@@ -147,7 +147,7 @@ setPlayerHooks({
 
 // ---------------------------------------------------------------- frame loop
 const clock = new THREE.Clock();
-let frameAcc = 0, frames = 0, lodT = 0, lowFps = 0;
+let frameAcc = 0, frames = 0, lodT = 0, lowFps = 0, promoted = false;
 const _q = new THREE.Quaternion();
 function frame() {
   requestAnimationFrame(frame);
@@ -187,9 +187,14 @@ function frame() {
     if (avg > 36 && pixelRatio > 0.65) { pixelRatio = Math.max(0.65, pixelRatio - 0.15); resize(); lowFps = 0; }
     else if (avg > 36) { if (++lowFps >= 2 && Qs.name !== 'low') { const order = ['low', 'medium', 'high', 'ultra']; setQuality(order[order.indexOf(Qs.name) - 1]); pixelRatio = Math.max(0.65, Q().pr - 0.3); resize(); lowFps = 0; } }
     else if (avg < 20 && pixelRatio < Q().pr) { pixelRatio = Math.min(Q().pr, pixelRatio + 0.1); resize(); }
+    // a quick benchmark after the hand-off: promote one tier when there is plenty of headroom
+    else if (started && intro.blend < 0 && !promoted && avg < 13 && pixelRatio >= Q().pr - 0.01) {
+      const order = ['low', 'medium', 'high', 'ultra'], i = order.indexOf(Qs.name);
+      promoted = true; if (i < 3) { setQuality(order[i + 1]); toast('איכות גרפיקה: ' + { medium: 'בינונית', high: 'גבוהה', ultra: 'אולטרה' }[order[i + 1]], 'המכשיר שלך מספיק חזק'); }
+    }
   }
 }
 
 window.claude?.hot?.snapshot?.(() => ({ x: P.x, z: P.z, y: P.y, yaw: P.yaw, pitch: P.pitch, fly: P.fly, hour: sky_state.hour }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
-window.__park = { scene, pools: () => import('./vegetation.js').then(m => m.pools.map(p => [p.mesh.count, p.cap, p.mesh.visible, p.mesh.geometry.attributes.position.count])), P, setQuality, teleport, setTime, toggleFly, LAKES, PEAKS, start: () => start(true), setWeather, get stats() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; } };
+window.__park = { U, P, animals, setQuality, teleport, setTime, toggleFly, LAKES, PEAKS, start: () => start(true), setWeather, get stats() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; } };

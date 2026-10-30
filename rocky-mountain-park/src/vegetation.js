@@ -64,7 +64,7 @@ function paintAtlas() {
     if (marks === 'plates') for (let i = 0; i < 60; i++) { g.strokeStyle = 'rgba(40,20,10,.75)'; g.lineWidth = 2; g.strokeRect(r() * w, r() * h, 14 + r() * 26, 20 + r() * 40); }
     if (marks === 'eyes') for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(30,28,26,.85)'; g.beginPath(); g.ellipse(r() * w, r() * h, 5 + r() * 9, 1.5 + r() * 2.5, 0, 0, 7); g.fill(); }
   };
-  clip('barkC', bark('rgb(98,84,72)', 'rgb(56,46,40)', 'rgb(140,126,112)'));
+  clip('barkC', bark('rgb(128,112,98)', 'rgb(70,58,50)', 'rgb(170,156,140)'));
   clip('barkP', bark('rgb(158,102,68)', 'rgb(70,42,26)', 'rgb(196,140,96)', 'plates'));
   clip('barkA', bark('rgb(222,220,210)', 'rgb(160,160,150)', 'rgb(240,240,232)', 'eyes'));
   clip('core', (w, h) => { g.fillStyle = 'rgb(30,48,38)'; g.fillRect(0, 0, w, h); needleBranch([20, 38, 30], [70, 100, 80], 3, 14, 1, false)(w, h);
@@ -114,10 +114,10 @@ function branch(b, o, ang, len, width, droop, region, col, cy, flexK = 1, rnd) {
     for (let i = 0; i < 2; i++) b.quad(vtx(i, -1), vtx(i, 1), vtx(i + 1, -1), vtx(i + 1, 1));
   }
 }
-function trunk(b, h, r0, r1, col, region, seg = 7) { b.mesh(new THREE.CylinderGeometry(r1, r0, h, seg, 3, true).translate(0, h / 2, 0), col, uvr(region), { ao: 0.6 }); }
+function trunk(b, h, r0, r1, col, region, seg = 7) { b.mesh(new THREE.CylinderGeometry(r1, r0, h, seg, 3, true).translate(0, h / 2, 0), col, uvr(region), { ao: 0.75 }); }
 function conifer({ crownBase, radius, whorls, per, droopB, droopT, region, col, coreCol, exp = 1.0, trunkR = 0.022 }, seed) {
   const b = new TB(), rnd = mulberry32(seed);
-  trunk(b, 1.0, trunkR, trunkR * 0.25, hex('#5c4c3e'), 'barkC');
+  trunk(b, 1.0, trunkR, trunkR * 0.25, hex('#c8b8a6'), 'barkC');
   const cy = lerp(crownBase, 1, 0.4);
   if (coreCol) { const cone = new THREE.ConeGeometry(radius * 0.5, (1 - crownBase) * 0.95, 8, 1, true).translate(0, crownBase + (1 - crownBase) * 0.47, 0); b.mesh(cone, coreCol, uvr('core'), { ao: 0.55 }); }
   for (let w = 0; w < whorls; w++) {
@@ -149,7 +149,7 @@ function broadleaf({ trunkH, region, barkR, bark, crown, cards, size, col, flex,
   return b.geo();
 }
 function snagGeo(seed) {
-  const b = new TB(), rnd = mulberry32(seed), col = hex('#8d867c');
+  const b = new TB(), rnd = mulberry32(seed), col = hex('#e4dcd0');
   trunk(b, 0.92, 0.024, 0.004, col, 'barkC', 6);
   for (let i = 0; i < 16; i++) {
     const y = 0.25 + rnd() * 0.65, a = rnd() * 6.283, l = (1 - y) * 0.18 + 0.03;

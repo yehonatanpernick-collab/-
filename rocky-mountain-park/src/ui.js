@@ -127,13 +127,14 @@ export function buildMapBase() {
 export function drawBigMap() {
   const cv = $('bigMap'), g = cv.getContext('2d'), S = cv.width;
   g.drawImage(mapBase, 0, 0, S, S);
-  g.font = '600 17px Assistant, sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(20,14,8,.75)';
+  const k = clamp(S / (cv.clientWidth || S), 1, 3);
+  g.font = `600 ${Math.round(14 * k)}px Assistant, sans-serif`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(20,14,8,.75)';
   for (const p of POIS) {
     if (p.kind === 'valley' || p.en === 'Continental Divide') continue;
     const x = (p.x + HALF) / SIZE * S, y = (p.z + HALF) / SIZE * S, seen = J.places.has(p.id);
     g.fillStyle = seen ? '#ffd27a' : '#fff6df';
     if (p.kind === 'peak') { g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4); g.closePath(); g.fill(); } else { g.beginPath(); g.arc(x, y, 3.5, 0, 7); g.fill(); }
-    g.strokeText(p.he, x, y - 10); g.fillText(p.he, x, y - 10);
+    g.strokeText(p.he, x, y - 8 * k); g.fillText(p.he, x, y - 8 * k);
   }
   if (hike) { const [x, z] = hike.target; g.fillStyle = '#e0a63c'; g.beginPath(); g.arc((x + HALF) / SIZE * S, (z + HALF) / SIZE * S, 8, 0, 7); g.fill(); }
   const x = (P.x + HALF) / SIZE * S, y = (P.z + HALF) / SIZE * S;
