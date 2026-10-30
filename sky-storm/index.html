@@ -221,7 +221,7 @@ const SUN = new THREE.Vector3(-0.62, 0.2, -0.76).normalize();
 const MOON = new THREE.Vector3(0.5, 0.45, 0.74).normalize();
 const FOG_COOL = HDR(0.15, 0.05, 0.19), FOG_WARM = HDR(0.85, 0.24, 0.08), SUN_GLOW = HDR(1.0, 0.4, 0.12), GROUND_COL = HDR(0.035, 0.018, 0.045);
 const FOG_COL = FOG_COOL;
-const FOG_FAR = 2250;
+const FOG_FAR = LOW ? 2250 : 3100;
 const GLSL_ATMO = `
 const vec3 SUN_DIR = vec3(${SUN.x.toFixed(4)},${SUN.y.toFixed(4)},${SUN.z.toFixed(4)});
 const vec3 FOG_COOL = ${glv(FOG_COOL)};
@@ -236,10 +236,10 @@ vec3 horizonCol(vec3 dir) {
 vec3 applyFog(vec3 col, vec3 rel) {
   float d = length(rel); vec3 dir = rel / max(d, 0.001);
   float cy = max(cameraPosition.y, 0.0), fy = dir.y;
-  const float DENS = 0.0009, FALL = 0.0026;
+  const float DENS = 0.00032, FALL = 0.0024;
   float amt = abs(fy) < 0.0005 ? DENS * exp(-cy * FALL) * d : (DENS / FALL) * exp(-cy * FALL) * (1.0 - exp(-d * fy * FALL)) / fy;
   amt = 1.0 - exp(-max(amt, 0.0));
-  amt = max(amt, smoothstep(${(FOG_FAR * 0.6).toFixed(1)}, ${FOG_FAR.toFixed(1)}, d));
+  amt = max(amt, smoothstep(${(FOG_FAR * 0.78).toFixed(1)}, ${FOG_FAR.toFixed(1)}, d));
   return mix(col, horizonCol(dir), clamp(amt, 0.0, 1.0));
 }`;
 const GLSL_NOISE = `
@@ -256,7 +256,7 @@ THREE.ShaderChunk.fog_fragment = '#ifdef USE_FOG\ngl_FragColor.rgb = applyFog(gl
 // ---------- Renderer ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const PR = Math.min(window.devicePixelRatio, LOW ? 1.25 : 1.75);
+const PR = Math.min(window.devicePixelRatio, LOW ? 1.5 : 2);
 renderer.setPixelRatio(PR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = !LOW;
@@ -271,7 +271,7 @@ moonLight.position.copy(MOON).multiplyScalar(1000);
 scene.add(moonLight);
 const sunLight = new THREE.DirectionalLight(HDR(1.0, 0.56, 0.32), 3.6);
 sunLight.castShadow = !LOW;
-sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.mapSize.set(LOW ? 1024 : 4096, LOW ? 1024 : 4096);
 Object.assign(sunLight.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 700 });
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.normalBias = 0.4;
@@ -369,20 +369,31 @@ function terrainAhead(x, z, yaw, range) {
   return m;
 }
 
-const T_SIZE = 4600, T_SEG = LOW ? 150 : 190, T_STEP = T_SIZE / T_SEG, TN = T_SEG + 1, TCOUNT = TN * TN, HALF = T_SIZE / 2;
+const T_SIZE = LOW ? 4600 : 6400, T_SEG = LOW ? 150 : 280, T_STEP = T_SIZE / T_SEG, TN = T_SEG + 1, TCOUNT = TN * TN, HALF = T_SIZE / 2;
 const tGeo = new THREE.PlaneGeometry(T_SIZE, T_SIZE, T_SEG, T_SEG);
 tGeo.rotateX(-Math.PI / 2);
 const tPos = tGeo.attributes.position, tNor = tGeo.attributes.normal;
 const tCol = new Float32Array(TCOUNT * 3);
 tGeo.setAttribute('color', new THREE.BufferAttribute(tCol, 3));
 const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.55 });
+terrainMat.extensions = { derivatives: true };
 terrainMat.onBeforeCompile = sh => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\n' + GLSL_NOISE)
     .replace('#include <color_fragment>', `#include <color_fragment>
       float dn = vnoise(vTW.xz * 0.018) * 0.45 + vnoise(vTW.xz * 0.09) * 0.33 + vnoise(vTW.xz * 0.5) * 0.22;
-      diffuseColor.rgb *= 0.72 + 0.5 * dn;`);
+      diffuseColor.rgb *= 0.72 + 0.5 * dn;`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      {
+        float bmpFade = smoothstep(1400.0, 250.0, length(vViewPosition));
+        float hh = (vnoise(vTW.xz * 0.08) * 3.0 + vnoise(vTW.xz * 0.33) * 0.9 + vnoise(vTW.xz * 1.2) * 0.25) * bmpFade;
+        vec3 bmpSx = dFdx(-vViewPosition), bmpSy = dFdy(-vViewPosition);
+        vec3 bmpR1 = cross(bmpSy, normal), bmpR2 = cross(normal, bmpSx);
+        float bmpDet = dot(bmpSx, bmpR1);
+        vec3 bmpGrad = sign(bmpDet) * (dFdx(hh) * bmpR1 + dFdy(hh) * bmpR2);
+        normal = normalize(abs(bmpDet) * normal - bmpGrad);
+      }`);
 };
 const terrain = new THREE.Mesh(tGeo, terrainMat);
 terrain.frustumCulled = false;
@@ -451,7 +462,7 @@ function mergeGeos(list) {
   out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   return out;
 }
-const MAX_TREES = LOW ? 2500 : 7000;
+const MAX_TREES = LOW ? 2500 : 12000;
 const foliageGeo = mergeGeos([new THREE.ConeGeometry(0.5, 0.62, 7).translate(0, 0.48, 0), new THREE.ConeGeometry(0.38, 0.5, 7).translate(0, 0.78, 0), new THREE.ConeGeometry(0.24, 0.34, 7).translate(0, 1.0, 0)]);
 const trunkGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.3, 5).translate(0, 0.15, 0);
 const foliage = new THREE.InstancedMesh(foliageGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9, color: 0xffffff }), MAX_TREES);
@@ -462,7 +473,7 @@ foliage.frustumCulled = trunks.frustumCulled = false;
 scene.add(foliage, trunks);
 const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tsv = new THREE.Vector3(), tpv = new THREE.Vector3(), YAXIS = new THREE.Vector3(0, 1, 0);
 function placeTrees() {
-  const STEP = 30, R = 1500, cx = job.cx, cz = job.cz;
+  const STEP = 30, R = LOW ? 1500 : 2100, cx = job.cx, cz = job.cz;
   let n = 0;
   for (let gz = Math.floor((cz - R) / STEP); gz <= (cz + R) / STEP && n < MAX_TREES; gz++) {
     for (let gx = Math.floor((cx - R) / STEP); gx <= (cx + R) / STEP && n < MAX_TREES; gx++) {
@@ -512,6 +523,7 @@ function makeWaterNormals() {
 }
 const waterNormals = makeWaterNormals();
 waterNormals.repeat.set(70, 70);
+waterNormals.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const water = new THREE.Mesh(new THREE.PlaneGeometry(9800, 9800), new THREE.MeshStandardMaterial({
   color: LIN(0x0c0d1e), roughness: 0.06, metalness: 0.05, normalMap: waterNormals, normalScale: new THREE.Vector2(0.28, 0.28), envMapIntensity: 1.2, transparent: true, opacity: 0.93
 }));
@@ -1018,12 +1030,12 @@ const rtOpts = { type: isGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType, for
 const rt = isGL2 && !LOW ? new THREE.WebGLMultisampleRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts) : new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts);
 const composer = new THREE.EffectComposer(renderer, rt);
 composer.addPass(new THREE.RenderPass(scene, camera));
-const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.55, 1.0);
+const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.3, 1.15);
 composer.addPass(bloom);
 const finalPass = new THREE.ShaderPass({
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, aberr: { value: 0 }, damage: { value: 0 }, sunPos: { value: new THREE.Vector2(-1, -1) }, sunVis: { value: 0 }, aspect: { value: 1 }, exposure: { value: 1.12 }, rayVis: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, aberr: { value: 0 }, damage: { value: 0 }, sunPos: { value: new THREE.Vector2(-1, -1) }, sunVis: { value: 0 }, aspect: { value: 1 }, exposure: { value: 1.12 }, rayVis: { value: 0 }, px: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float time, aberr, damage, sunVis, aspect, exposure, rayVis; uniform vec2 sunPos; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time, aberr, damage, sunVis, aspect, exposure, rayVis; uniform vec2 px; uniform vec2 sunPos; varying vec2 vUv;
     vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     vec3 ghost(vec2 uv, vec2 c, float r, vec3 tint){
@@ -1032,8 +1044,10 @@ const finalPass = new THREE.ShaderPass({
     }
     void main(){
       vec2 dc = vUv - 0.5;
-      float ab = (0.0015 + aberr) * dot(dc, dc) * 4.0;
+      float ab = aberr * dot(dc, dc) * 4.0;
       vec3 col = vec3(texture2D(tDiffuse, vUv - dc * ab).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv + dc * ab).b);
+      vec3 nb = texture2D(tDiffuse, vUv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, px.y)).rgb;
+      col = max(col + clamp(col * 4.0 - nb, -0.6, 0.6) * 0.22, 0.0);
       if (sunVis > 0.001) {
         vec2 axis = vec2(0.5) - sunPos;
         vec3 fl = ghost(vUv, sunPos + axis * 0.5, 0.03, vec3(0.9, 0.5, 0.25))
@@ -1041,7 +1055,7 @@ const finalPass = new THREE.ShaderPass({
                 + ghost(vUv, sunPos + axis * 1.35, 0.09, vec3(0.6, 0.9, 0.4))
                 + ghost(vUv, sunPos + axis * 1.75, 0.12, vec3(0.8, 0.4, 0.8));
         float d0 = length((vUv - sunPos) * vec2(aspect, 1.0));
-        col += (fl + vec3(1.0, 0.75, 0.5) * 0.12 * pow(max(0.0, 1.0 - d0 * 1.6), 3.0)) * sunVis;
+        col += (fl + vec3(1.0, 0.75, 0.5) * 0.05 * pow(max(0.0, 1.0 - d0 * 1.6), 3.0)) * sunVis;
       }
       if (rayVis > 0.001) {
         vec2 dlt = (vUv - sunPos) * (0.9 / 28.0);
@@ -1063,7 +1077,7 @@ const finalPass = new THREE.ShaderPass({
       col += vec3(0.03, -0.005, -0.04) * lum + vec3(0.01, -0.02, 0.045) * (1.0 - lum);
       col *= 1.0 - dot(dc, dc) * 1.2;
       col = mix(col, vec3(0.75, 0.04, 0.06), damage * smoothstep(0.12, 0.75, length(dc) * 1.4));
-      col += (hash(vUv * 731.0 + time) - 0.5) * 0.022;
+      col += (hash(vUv * 731.0 + time) - 0.5) * 0.008;
       gl_FragColor = vec4(col, 1.0);
     }`
 });
@@ -1965,7 +1979,7 @@ function updateRings(dt) {
   }
 }
 function updateWorld() {
-  if (!job.active && Math.hypot(P.pos.x - terrainC.x, P.pos.z - terrainC.y) > 420) startTerrain(P.pos.x + fwd.x * 350, P.pos.z + fwd.z * 350);
+  if (!job.active && Math.hypot(P.pos.x - terrainC.x, P.pos.z - terrainC.y) > (LOW ? 420 : 650)) startTerrain(P.pos.x + fwd.x * 350, P.pos.z + fwd.z * 350);
   stepTerrain(LOW ? 3500 : 6000);
   water.position.x = Math.round(P.pos.x / 140) * 140; water.position.z = Math.round(P.pos.z / 140) * 140;
   waterNormals.offset.set(G.time * 0.006, G.time * 0.004);
@@ -2049,6 +2063,7 @@ function setPointScale() {
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
+  finalPass.uniforms.px.value.set(1 / (innerWidth * PR), 1 / (innerHeight * PR));
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   setPointScale();
 }
