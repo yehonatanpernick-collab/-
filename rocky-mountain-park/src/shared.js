@@ -80,6 +80,8 @@ export const LAKES = [
   { id: 'chasm', he: 'אגם צ׳אזם', en: 'Chasm Lake', x: 1250, z: 1750, r: 90, sx: 1.2, sy: 1, a: 0, dep: 18, sh: '#7aa6b4', dp: '#1b3a52' },
   { id: 'sprague', he: 'אגם ספרייג', en: 'Sprague Lake', x: 450, z: 700, r: 110, sx: 1.3, sy: 0.8, a: -0.3, dep: 3, sh: '#8f9560', dp: '#2f4d3c' },
   { id: 'lawn', he: 'אגם לון', en: 'Lawn Lake', x: 900, z: -1500, r: 120, sx: 1.2, sy: 1, a: 0.3, dep: 15, sh: '#3e86aa', dp: '#0f3658' },
+  { id: 'beaver1', minor: true, he: 'בריכות הבונים', en: 'Beaver Ponds', x: -1250, z: valleyZ(-1250) + 30 * Math.sin(-1250 / 310), r: 38, sx: 1.7, sy: 0.8, a: 0.1, dep: 1.6, sh: '#7d8650', dp: '#3a4a30' },
+  { id: 'beaver2', minor: true, he: 'בריכות הבונים', en: 'Beaver Ponds', x: -1130, z: valleyZ(-1130) + 30 * Math.sin(-1130 / 310), r: 30, sx: 1.5, sy: 0.85, a: -0.2, dep: 1.4, sh: '#7a8a52', dp: '#36482e' },
 ];
 export const LK = Object.fromEntries(LAKES.map((l, i) => [l.id, i]));
 export const lakeR = (L, ang) => {
@@ -135,3 +137,11 @@ export function meander(pts, amp, seed) {
   });
 }
 
+
+// ---------------------------------------------------------------- landmarks of the real park
+// Trail Ridge Road climbs from the east valley onto the tundra ridge and on toward the Divide.
+export const ROAD = { w: 4.2, pts: [[2900, valleyZ(2900) - 120], [2300, valleyZ(2300) - 260], [1900, -700], [1650, -1150], [1350, -1550], [1000, -1900], [600, -2120], [150, -2200], [-350, -2260], [-900, -2180], [-1500, -2350], [-2300, -2500], [-2950, -2450]] };
+export const VISITOR = { x: -380, z: -2205, he: 'מרכז המבקרים האלפיני', en: 'Alpine Visitor Center' };
+export const CAMP = { x: -150, z: valleyZ(-150) - 260, r: 70, he: 'חניון הלילה מוריין פארק', en: 'Moraine Park Campground' };
+export const FALLS = { channel: 'tyndall', x: -430, z: 560, drop: 9, he: 'מפל אלברטה', en: 'Alberta Falls' };
+export const KEYHOLE = { x: 1380, z: 2160, he: 'הקיהול', en: 'The Keyhole' };

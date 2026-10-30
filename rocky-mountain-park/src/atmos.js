@@ -136,11 +136,12 @@ function renderLUT() {
 // ---------------------------------------------------------------- sky dome: scattering, sun, clouds, stars, moon
 export let sky;
 const moonDir = new THREE.Vector3();
+export const volClouds = { value: 0 };
 export function buildSky() {
   const mat = new THREE.ShaderMaterial({
-    uniforms: { ...atmosUniforms(), uMoonDir: { value: moonDir } },
+    uniforms: { ...atmosUniforms(), uMoonDir: { value: moonDir }, uVol: volClouds },
     vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position, 1.0); gl_Position = p.xyww; }',
-    fragmentShader: `${ATMOS_PARS} uniform vec3 uMoonDir; varying vec3 vDir;
+    fragmentShader: `${ATMOS_PARS} uniform vec3 uMoonDir; uniform float uVol; varying vec3 vDir;
       void main(){
         vec3 d = normalize(vDir);
         vec3 col = skyL(d);
@@ -160,8 +161,35 @@ export function buildSky() {
           float lit = 0.25 + 0.75*smoothstep(-0.2, 0.6, dot(lp, normalize(uSunDir - uMoonDir*dot(uSunDir, uMoonDir))));
           col += vec3(0.9, 0.92, 1.0)*(disc*lit*3.0*(0.8 + 0.2*vnoise(d.xz*900.0)) + pow(max(md, 0.0), 300.0)*0.08)*uNight;
         }
-        // cloud deck
-        if (d.y > 0.0) {
+        // cloud deck: raymarched cumulus on high tiers, a lit planar layer otherwise
+        if (d.y > 0.0 && uVol > 0.5) {
+          float yb = CLOUD_H - 250.0, th = 900.0;
+          float t0 = (yb - cameraPosition.y)/max(d.y, 0.02), t1 = min((yb + th - cameraPosition.y)/max(d.y, 0.02), 32000.0);
+          float st = (t1 - t0)/14.0, t = t0 + st*hash12(gl_FragCoord.xy + fract(uTime)*37.0), T = 1.0;
+          vec3 acc = vec3(0.0), amb = skyL(vec3(0.0, 1.0, 0.0))*1.1 + vec3(0.03, 0.035, 0.05);
+          float ph = 0.55 + 1.6*pow(sd, 8.0);
+          for (int i = 0; i < 14; i++) {
+            vec3 p = cameraPosition + d*t; float hf = (p.y - yb)/th;
+            float base = cloudD(p.xz);
+            if (base > 0.01) {
+              float top = 0.22 + 0.78*base;
+              float den = base*smoothstep(0.0, 0.08, hf)*(1.0 - smoothstep(top - 0.22, top, hf))*(0.65 + 0.7*vnoise(p.xz*0.004 + hf*4.0 + uTime*0.02));
+              if (den > 0.005) {
+                vec3 lp = p + uSunDir*260.0; float lh = (lp.y - yb)/th, lb = cloudD(lp.xz);
+                float ld = lb*(1.0 - smoothstep(0.0, 0.22 + 0.78*lb, lh));
+                float lt = exp(-ld*3.2)*(1.0 - exp(-den*2.0)*0.5);
+                vec3 c = uSunTint*lt*ph*1.4*(1.0 - uNight*0.9) + amb*(0.45 + 0.55*hf);
+                c = mix(c, vec3(0.16, 0.17, 0.2)*(dot(amb, vec3(0.3)) + 0.12), uStorm*0.85) + vec3(0.75, 0.78, 1.0)*uFlash*1.5;
+                float a = 1.0 - exp(-den*st*0.006);
+                acc += T*a*c; T *= 1.0 - a;
+                if (T < 0.03) break;
+              }
+            }
+            t += st;
+          }
+          float far = exp(-t0*0.00004);
+          col = col*mix(1.0, T, far) + acc*far;
+        } else if (d.y > 0.0) {
           float t = (CLOUD_H - cameraPosition.y)/max(d.y, 0.02);
           vec2 p = cameraPosition.xz + d.xz*t;
           float den = cloudD(p);
@@ -176,6 +204,8 @@ export function buildSky() {
             float far = exp(-t*0.000045);
             col = mix(col, cc, den*far*0.97);
           }
+        }
+        if (d.y > 0.0) {
           // high cirrus
           vec2 ci = cameraPosition.xz*0.00003 + d.xz/max(d.y, 0.05)*0.25 + uTime*vec2(0.002, 0.0006);
           float cir = smoothstep(0.55, 0.9, fbm5(vec2(ci.x*1.0, ci.y*5.0)))*0.35*smoothstep(0.02, 0.2, d.y)*(1.0 - uStorm);
@@ -198,7 +228,7 @@ sun.castShadow = true; sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.4;
 scene.add(sun, sun.target);
 export const hemi = new THREE.HemisphereLight(0xbcd4ff, 0x4a5a32, 1.2); scene.add(hemi);
 export function applyShadowQuality() {
-  const s = Q().shadow; sun.castShadow = s > 0;
+  const s = Q().shadow; sun.castShadow = s > 0; volClouds.value = Q().post >= 2 ? 1 : 0;
   if (s > 0) {
     sun.shadow.mapSize.set(s, s); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     const e = s >= 4096 ? 220 : s > 1024 ? 160 : 100;

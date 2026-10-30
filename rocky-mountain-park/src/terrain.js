@@ -58,10 +58,14 @@ export function makeTerrainMaterial() {
       rk = max(rk, smoothstep(3720.0, 3980.0, E + (n2 - 0.5)*200.0)*0.75);
       float grav = max(smoothstep(0.95, 1.0, bio.b)*0.75, smoothstep(0.2, 0.6, depo)*smoothstep(2850.0, 3150.0, E));
       grav = max(grav, smoothstep(0.2, 0.3, slope)*smoothstep(3050.0, 3300.0, E)*0.8)*(1.0 - rk);
-      float sl = 3800.0 + (nL - 0.5)*380.0 + Nw.z*320.0 + (vnoise(P*0.02) - 0.5)*120.0;
-      float sn = smoothstep(sl, sl + 50.0, E + (n2 - 0.5)*90.0)*(1.0 - smoothstep(0.42, 0.62, slope));
-      sn = max(sn, smoothstep(4150.0, 4260.0, E)*(1.0 - smoothstep(0.55, 0.8, slope)));
-      sn *= smoothstep(0.2, 0.45, vnoise(P*0.008) + 0.25*Nw.y);
+      // summer snow survives on gentle ledges, in north-facing hollows and down the gullies where it drifts
+      float north = clamp(-Nw.z, 0.0, 1.0);
+      float sl = 3830.0 + (nL - 0.5)*360.0 - north*380.0 - smoothstep(0.3, 0.8, flow)*260.0 + (vnoise(P*0.02) - 0.5)*120.0;
+      float ledge = 1.0 - smoothstep(0.30, 0.52 + 0.12*smoothstep(0.4, 0.9, flow), slope);
+      float sn = smoothstep(sl, sl + 45.0, E + (n2 - 0.5)*90.0)*ledge;
+      sn = max(sn, smoothstep(4180.0, 4280.0, E)*(1.0 - smoothstep(0.5, 0.75, slope)));
+      sn *= smoothstep(0.22, 0.48, vnoise(P*0.008) + 0.2*Nw.y + 0.25*north);
+      float snEdge = sn*(1.0 - smoothstep(0.35, 0.75, sn));
       float wDirt = smoothstep(0.3, 0.9, trl);
       // base vegetation layers
       vec4 aG = alb(P, 3.2, 0.0), aF = alb(P, 3.6, 1.0), aT = alb(P, 3.4, 6.0);
@@ -76,7 +80,7 @@ export function makeTerrainMaterial() {
       vec4 aD = alb(P, 2.2, 5.0); L = mix(L, aD, hblend(wDirt, L.a, aD.a)*0.9);
       vec3 tw = triW(Nw);
       vec4 aR = texture(uAlb, vec3(vWPos.zy/7.0, 2.0))*tw.x + texture(uAlb, vec3(P/7.0, 2.0))*tw.y + texture(uAlb, vec3(vWPos.xy/7.0, 2.0))*tw.z;
-      aR.rgb *= mix(vec3(1.06, 0.98, 0.94), vec3(0.92, 0.95, 1.02), vnoise(P*0.006))*(1.0 - 0.38*smoothstep(0.35, 0.9, flow)*rk);
+      aR.rgb *= mix(vec3(1.06, 0.98, 0.94), vec3(0.92, 0.95, 1.02), vnoise(P*0.006))*(1.0 - 0.18*smoothstep(0.5, 0.95, flow)*rk);
       aR.rgb *= 0.95 + 0.05*sin(E*0.25 + n1*8.0 + vnoise(P*0.01)*6.0);
       aR.rgb *= mix(vec3(0.85, 0.83, 0.82), vec3(1.08, 1.02, 0.96), smoothstep(0.3, 0.7, vnoise(P*0.0025 + 3.0)));
       L = mix(L, aR, hblend(rk, L.a, aR.a + 0.2));
@@ -94,7 +98,9 @@ export function makeTerrainMaterial() {
         }
       }
       col = mix(col, srgb(vec3(0.66, 0.52, 0.58)), fl*smoothstep(60.0, 300.0, camD)*0.2);
+      col = mix(col, col*vec3(0.78, 0.74, 0.7), snEdge*0.8);
       col *= 1.0 - 0.38*uWet*(1.0 - sn);
+      col *= 1.0 - 0.2*smoothstep(0.3, 0.8, bio.r)*smoothstep(120.0, 700.0, camD)*(1.0 - wTun);
       float uwD = texture2D(uWL, worldUV(vWPos)).r - vWPos.y;
       float under = smoothstep(0.0, 0.15, uwD);
       vec3 silt = mix(aD.rgb*vec3(0.75, 0.78, 0.6), aF.rgb*vec3(0.8, 0.95, 0.75), vnoise(P*0.15));

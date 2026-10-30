@@ -77,3 +77,7 @@ export function surfaceAt(x, z) {
   if (G.BIO[k * 4] > 120) return 'forest';
   return 'grass';
 }
+
+// tiny event bus: lets hikes, sounds and photos feed missions without tangled imports
+const listeners = [];
+export const bus = { on: (fn) => listeners.push(fn), emit: (type, data) => { for (const fn of listeners) fn(type, data); } };

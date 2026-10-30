@@ -56,7 +56,7 @@ function paintAtlas() {
   };
   clip('aspen', leaves(['#6f9e3c', '#86b24a', '#9cc35a', '#5f8a34', '#b9c95a'], 10, 900, true));
   clip('willow', leaves(['#6b8a56', '#86a06c', '#9cb38a', '#5c7848'], 13, 900, false));
-  clip('shrub', (w, h) => { leaves(['#3f5a30', '#4f6a3a', '#5e7a44', '#36502a'], 6, 900, true)(w, h); for (let i = 0; i < 26; i++) { g.fillStyle = r() < 0.5 ? '#b0302a' : '#d8c060'; g.beginPath(); g.arc(w / 2 + (r() - 0.5) * w * 0.7, h / 2 + (r() - 0.5) * h * 0.7, 3, 0, 7); g.fill(); } });
+  clip('shrub', (w, h) => { leaves(['#5f7a40', '#6f8a4a', '#809c56', '#52703a'], 6, 900, true)(w, h); for (let i = 0; i < 26; i++) { g.fillStyle = r() < 0.5 ? '#b0302a' : '#d8c060'; g.beginPath(); g.arc(w / 2 + (r() - 0.5) * w * 0.7, h / 2 + (r() - 0.5) * h * 0.7, 3, 0, 7); g.fill(); } });
   const bark = (base, dark, light, marks) => (w, h) => {
     g.fillStyle = base; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 700; i++) { g.fillStyle = r() < 0.5 ? dark : light; g.globalAlpha = 0.25 + r() * 0.4; g.fillRect(r() * w, r() * h, 1 + r() * 3, 6 + r() * 30); }
@@ -165,7 +165,7 @@ function makeTreeGeos() {
   out.ponderosa = broadleaf({ trunkH: 0.62, region: 'pine', barkR: 'barkP', bark: hex('#ffffff'), crown: [0, 0.78, 0, 0.2, 0.2, 0.2], cards: 46, size: 0.085, col: hex('#e6ecd2'), flex: 0.6, trunkR: 0.032 }, 4);
   out.aspen = broadleaf({ trunkH: 0.55, region: 'aspen', barkR: 'barkA', bark: hex('#ffffff'), crown: [0, 0.72, 0, 0.13, 0.26, 0.13], cards: 54, size: 0.06, col: hex('#ffffff'), flex: 2.4, trunkR: 0.016 }, 5);
   out.snag = snagGeo(6);
-  out.krummholz = conifer({ crownBase: 0.02, radius: 0.55, whorls: 5, per: 8, droopB: 0.05, droopT: 0.0, region: 'fir', col: hex('#a9c2ac'), coreCol: hex('#6a8a72'), exp: 0.6 }, 7);
+  out.krummholz = conifer({ crownBase: 0.02, radius: 0.55, whorls: 5, per: 8, droopB: 0.05, droopT: 0.0, region: 'fir', col: hex('#e2f2e4'), coreCol: hex('#a8c2ae'), exp: 0.6 }, 7);
   out.willow = broadleaf({ trunkH: 0.25, region: 'willow', barkR: 'barkC', bark: hex('#9a8a70'), crown: [0, 0.55, 0, 0.32, 0.4, 0.32], cards: 32, size: 0.14, col: hex('#ffffff'), flex: 1.6, trunkR: 0.03 }, 8);
   out.shrub = broadleaf({ trunkH: 0.1, region: 'shrub', barkR: 'barkC', bark: hex('#6a5a48'), crown: [0, 0.45, 0, 0.45, 0.38, 0.45], cards: 22, size: 0.22, col: hex('#ffffff'), flex: 0.8, trunkR: 0.03 }, 9);
   return out;
@@ -205,12 +205,12 @@ function treeMat(atlas) {
 
 // ---------------------------------------------------------------- impostors (8 views per species, lit at runtime)
 const IMP_SPECIES = ['spruce', 'fir', 'lodgepole', 'ponderosa', 'aspen', 'snag'];
-const IMP_FR = 8, IMP_RES = isTouch ? 96 : 160;
+const IMP_FR = 8, IMP_COLS = IMP_FR + 1, IMP_RES = isTouch ? 96 : 160;
 function bakeImpostors(geos, atlas) {
-  const W = IMP_RES * IMP_FR, Hh = IMP_RES * IMP_SPECIES.length;
+  const W = IMP_RES * IMP_COLS, Hh = IMP_RES * IMP_SPECIES.length;
   const mk = (srgb) => { const t = new THREE.WebGLRenderTarget(W, Hh, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }); if (srgb) t.texture.colorSpace = THREE.SRGBColorSpace; return t; };
   const albRT = mk(true), nrmRT = mk(false);
-  const sc = new THREE.Scene(), cam = new THREE.OrthographicCamera(-0.55, 0.55, 1.1, 0, -5, 5);
+  const sc = new THREE.Scene(), cam = new THREE.OrthographicCamera(-0.55, 0.55, 1.1, 0, -5, 5), top = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0, 6);
   const albM = new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: 0.3, side: THREE.DoubleSide });
   const nrmM = new THREE.ShaderMaterial({
     uniforms: { map: { value: atlas } },
@@ -232,6 +232,10 @@ function bakeImpostors(geos, atlas) {
         rt.viewport.set(f * IMP_RES, row * IMP_RES, IMP_RES, IMP_RES); renderer.setRenderTarget(rt);
         renderer.render(sc, cam);
       }
+      // top-down frame (column 8): screen right = +x, screen up = -z
+      top.position.set(0, 3, 0); top.up.set(0, 0, -1); top.lookAt(0, 0, 0); top.updateMatrixWorld();
+      rt.viewport.set(IMP_FR * IMP_RES, row * IMP_RES, IMP_RES, IMP_RES); renderer.setRenderTarget(rt);
+      renderer.render(sc, top);
     });
     rt.viewport.set(0, 0, W, Hh);
   }
@@ -242,7 +246,7 @@ function impostorMaterial(tex) {
   return new THREE.ShaderMaterial({
     uniforms: { ...atmosUniforms(), uAlb: { value: tex.alb }, uNrm: { value: tex.nrm }, uHi: U.treeHi, uFar: U.impFar },
     vertexShader: `uniform float uHi, uFar; attribute vec4 aPos; attribute vec4 aInfo; attribute vec3 aTint;
-      varying vec2 vUv0; varying vec2 vUv1; varying float vBlend; varying vec3 vTint; varying vec3 vW; varying vec3 vRight; varying vec3 vFwd; varying vec3 vUp; varying float vDC;
+      varying vec2 vUv0; varying vec2 vUv1; varying vec2 vUvT; varying float vTop; varying float vRot; varying float vBlend; varying vec3 vTint; varying vec3 vW; varying vec3 vRight; varying vec3 vFwd; varying vec3 vUp; varying float vDC;
       void main(){
         vec3 toC = cameraPosition - aPos.xyz; vDC = length(toC.xz);
         vUp = vec3(0.0, 1.0, 0.0);
@@ -258,19 +262,28 @@ function impostorMaterial(tex) {
         vec3 wp = ctr + vRight*position.x*aInfo.x*1.1 + up*(position.y - 0.5)*aPos.w*1.1*mix(1.0, 0.8, tilt);
         vUp = up;
         float row = aInfo.z;
-        vUv0 = vec2((f0 + uv.x)/${IMP_FR.toFixed(1)}, (row + uv.y)/${IMP_SPECIES.length.toFixed(1)});
-        vUv1 = vec2((f1 + uv.x)/${IMP_FR.toFixed(1)}, (row + uv.y)/${IMP_SPECIES.length.toFixed(1)});
+        vUv0 = vec2((f0 + uv.x)/${IMP_COLS.toFixed(1)}, (row + uv.y)/${IMP_SPECIES.length.toFixed(1)});
+        vUv1 = vec2((f1 + uv.x)/${IMP_COLS.toFixed(1)}, (row + uv.y)/${IMP_SPECIES.length.toFixed(1)});
+        // top-view lookup: project the card point onto the crown footprint in the tree's own frame
+        vec2 rel = (wp.xz - aPos.xz)/max(aInfo.x, 0.01); float cr = cos(aInfo.y), sr = sin(aInfo.y);
+        vec2 loc = vec2(cr*rel.x - sr*rel.y, sr*rel.x + cr*rel.y);
+        vUvT = vec2((${IMP_FR.toFixed(1)} + clamp(loc.x/1.1 + 0.5, 0.0, 1.0))/${IMP_COLS.toFixed(1)}, (row + clamp(-loc.y/1.1 + 0.5, 0.0, 1.0))/${IMP_SPECIES.length.toFixed(1)});
+        vTop = smoothstep(0.5, 0.85, vd.y); vRot = aInfo.y;
         vTint = aTint; vW = wp;
         gl_Position = projectionMatrix*viewMatrix*vec4(wp, 1.0);
       }`,
     fragmentShader: `${ATMOS_PARS} uniform sampler2D uAlb, uNrm; uniform float uHi;
-      varying vec2 vUv0; varying vec2 vUv1; varying float vBlend; varying vec3 vTint; varying vec3 vW; varying vec3 vRight; varying vec3 vFwd; varying vec3 vUp; varying float vDC; ${BAYER}
+      varying vec2 vUv0; varying vec2 vUv1; varying vec2 vUvT; varying float vTop; varying float vRot; varying float vBlend; varying vec3 vTint; varying vec3 vW; varying vec3 vRight; varying vec3 vFwd; varying vec3 vUp; varying float vDC; ${BAYER}
       void main(){
         vec4 a = mix(texture2D(uAlb, vUv0), texture2D(uAlb, vUv1), vBlend);
+        vec4 at = texture2D(uAlb, vUvT);
+        a = mix(a, vec4(at.rgb*1.25, at.a), vTop);
         if (a.a < 0.45) discard;
         if (bayer4(gl_FragCoord.xy) >= clamp((vDC - uHi + 22.0)/44.0, 0.0, 1.0)) discard;
         vec3 n = mix(texture2D(uNrm, vUv0).xyz, texture2D(uNrm, vUv1).xyz, vBlend)*2.0 - 1.0;
         vec3 N = normalize(vRight*n.x + mix(vec3(0.0, 1.0, 0.0), vUp, 0.5)*n.y + vFwd*n.z);
+        if (vTop > 0.01) { vec3 nt = texture2D(uNrm, vUvT).xyz*2.0 - 1.0; vec3 lt = vec3(nt.x, nt.z, -nt.y); float cr = cos(vRot), sr = sin(vRot);
+          N = normalize(mix(N, vec3(cr*lt.x + sr*lt.z, lt.y, -sr*lt.x + cr*lt.z), vTop)); }
         float lvis = sunVisAt(vW)*cloudShadow(vW);
         vec3 alb = a.rgb*vTint;
         vec3 L = uSkyAmb*(0.65 + 0.35*N.y)*mix(1.0, aoAt(vW), 0.45)*${Math.PI.toFixed(4)} + uSunCol*max(dot(N, uLightDir), 0.0)*lvis*${Math.PI.toFixed(4)};
@@ -405,8 +418,8 @@ float terrainH(vec2 p){
   float c = texelFetch(uHeight, i + ivec2(0,1), 0).r, d = texelFetch(uHeight, i + ivec2(1,1), 0).r;
   return (f.x + f.y <= 1.0) ? a + (b-a)*f.x + (c-a)*f.y : d + (c-d)*(1.0-f.x) + (b-d)*(1.0-f.y);
 }`;
-const GRASS_PARS = `uniform vec2 uCam; uniform float uR, uHalf, uCell, uN, uSize, uBase; uniform highp sampler2D uHeight; uniform sampler2D uBiome, uTrail; uniform vec3 uPlayer;`;
-export let grassMesh, flowerMesh;
+const GRASS_PARS = `uniform vec2 uCam; uniform float uR, uInner, uWide, uHalf, uCell, uN, uSize, uBase; uniform highp sampler2D uHeight; uniform sampler2D uBiome, uTrail; uniform vec3 uPlayer;`;
+export let grassMesh, flowerMesh, farGrass;
 export function buildGrass() {
   const pos = [], idx = []; let v = 0; const r = mulberry32(99);
   for (let b = 0; b < 7; b++) {
@@ -421,7 +434,7 @@ export function buildGrass() {
   for (let i = 0; i < MAX; i++) { off[i * 3] = r() * 2 - 1; off[i * 3 + 1] = r() * 100; off[i * 3 + 2] = r() * 2 - 1; }
   g.setAttribute('aOff', new THREE.InstancedBufferAttribute(off, 3)); g.instanceCount = Q().grass;
   const mat = new THREE.ShaderMaterial({
-    uniforms: { ...atmosUniforms(), ...GRID, uHeight: U.heightTex, uBiome: U.biomeTex, uTrail: U.trailTex, uCam: U.cam, uR: { value: Q().grassR }, uPlayer: U.player },
+    uniforms: { ...atmosUniforms(), ...GRID, uHeight: U.heightTex, uBiome: U.biomeTex, uTrail: U.trailTex, uCam: U.cam, uR: { value: Q().grassR }, uInner: { value: 0 }, uWide: { value: 1 }, uPlayer: U.player },
     vertexShader: `${GRASS_PARS} ${ATMOS_PARS} attribute vec3 aOff; varying vec3 vCol; varying vec3 vW; varying float vT; varying float vTrans;
       ${GLSL_HEIGHT}
       void main(){
@@ -430,7 +443,7 @@ export function buildGrass() {
         vec4 bio = textureLod(uBiome, ((wp + uHalf)/uCell + 0.5)/uN, 0.0);
         float tr = textureLod(uTrail, (wp + uHalf)/uSize, 0.0).r;
         float dens = bio.a*(1.0 - smoothstep(0.2, 0.55, tr));
-        float fade = 1.0 - smoothstep(uR*0.6, uR, dist);
+        float fade = (1.0 - smoothstep(uR*0.6, uR, dist))*(uInner > 0.0 ? smoothstep(uInner*0.7, uInner, dist) : 1.0);
         vCol = vec3(0.0); vW = vec3(0.0); vT = 0.0; vTrans = 0.0;
         if (hash12(wp*0.731 + aOff.y) > dens || fade <= 0.0) { gl_Position = vec4(0.0, 0.0, -2.0, 1.0); return; }
         float gy = terrainH(wp), E = gy + uBase, tun = smoothstep(3380.0, 3560.0, E);
@@ -438,7 +451,7 @@ export function buildGrass() {
         float sc = 0.62*mix(0.4, 1.0, hash12(wp + 3.1))*mix(0.55, 1.15, clump)*mix(1.0, 0.3, tun)*(0.75 + 0.5*bio.b)*(0.6 + 0.4*dens)*mix(0.35, 1.0, fade);
         float a = hash12(wp + 9.7)*6.2831, ca = cos(a), sa = sin(a);
         vec3 p = position; float t = position.y;
-        p.xz = vec2(ca*p.x - sa*p.z, sa*p.x + ca*p.z)*mix(0.8, 1.5, hash12(wp + 1.3));
+        p.xz = vec2(ca*p.x - sa*p.z, sa*p.x + ca*p.z)*mix(0.8, 1.5, hash12(wp + 1.3))*uWide;
         p.y *= sc;
         // travelling gusts: bright waves rolling across the meadow
         float wave = vnoise(wp*0.045 - uTime*vec2(0.55, 0.22));
@@ -473,6 +486,11 @@ export function buildGrass() {
     side: THREE.DoubleSide,
   });
   grassMesh = new THREE.Mesh(g, mat); grassMesh.frustumCulled = false; scene.add(grassMesh);
+  // sparse, wider far ring so the meadow does not end in a hard edge
+  const fg2 = new THREE.InstancedBufferGeometry(); fg2.index = g.index; fg2.attributes.position = g.attributes.position; fg2.attributes.aOff = g.attributes.aOff;
+  fg2.instanceCount = 0;
+  const m2 = new THREE.ShaderMaterial({ uniforms: { ...mat.uniforms, uR: { value: 120 }, uInner: { value: Q().grassR }, uWide: { value: 2.2 } }, vertexShader: mat.vertexShader, fragmentShader: mat.fragmentShader, side: THREE.DoubleSide });
+  farGrass = new THREE.Mesh(fg2, m2); farGrass.frustumCulled = false; scene.add(farGrass);
 
   // wildflowers: disc heads (daisies, columbines) and spikes (paintbrush, lupine, elephant's head)
   const fp = [], fu = [], fpart = [], fi = [];
@@ -552,6 +570,7 @@ export function buildGrass() {
 export function applyVegQuality() {
   if (!grassMesh) return;
   grassMesh.geometry.instanceCount = Q().grass; grassMesh.material.uniforms.uR.value = Q().grassR;
+  farGrass.geometry.instanceCount = Q().post >= 2 ? 30000 : 0; farGrass.material.uniforms.uInner.value = Q().grassR;
   flowerMesh.geometry.instanceCount = Q().flowers; flowerMesh.material.uniforms.uR.value = Q().flowerR;
   U.treeHi.value = Q().treeHi; U.impFar.value = Q().imp;
 }

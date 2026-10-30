@@ -1,16 +1,18 @@
 // Boot, world upload, cinematic intro and the frame loop.
 /* global WORKER_SOURCE */
 import * as THREE from 'three';
-import { clamp, lerp, ss, BASE, N, TR, LAKES, LK, PEAKS, CHANNELS, TRAILS } from './shared.js';
-import { $, isTouch, renderer, scene, camera, U, Q, Qs, QUALITY, G, heightAt, groundAt, waterAt, cellOf } from './core.js';
+import { clamp, lerp, ss, BASE, N, TR, LAKES, LK, PEAKS, CHANNELS, TRAILS, ROAD, FALLS, VISITOR } from './shared.js';
+import { $, isTouch, renderer, scene, camera, U, Q, Qs, QUALITY, G, heightAt, groundAt, waterAt, cellOf, bus } from './core.js';
 import { buildSky, sky, sun, setTime, sky_state, applyShadowQuality, setSunBaker, buildWeather, updateWeather, thunderQueue, setWeather } from './atmos.js';
 import { makeGroundTextures, buildTerrain, updateTerrainLOD, resetTerrainLOD, groundAlb } from './terrain.js';
-import { buildWater, renderReflection, buildWaterLevel, buildFalls } from './water.js';
-import { buildVegetation, buildGrass, updatePools, applyVegQuality, grassMesh, flowerMesh } from './vegetation.js';
+import { buildWater, renderReflection, buildWaterLevel, buildFalls, renderEnv } from './water.js';
+import { buildVegetation, buildGrass, updatePools, applyVegQuality, grassMesh, flowerMesh, farGrass, pools } from './vegetation.js';
 import { buildTrails } from './trails.js';
+import { buildLandmarks, updateLandmarks, setGreetHandler } from './landmarks.js';
+import { initActivities, updateActivities, renderActivities, setBinoculars } from './activities.js';
 import { buildWildlife, updateWildlife, setSpotHandler, setAnimalSound, markSeen, animals } from './wildlife.js';
 import { P, updatePlayer, teleport, toggleFly, setPlayerHooks, keys } from './player.js';
-import { buildPOIs, buildMapBase, initUI, updateUI, toggleMap, toast, spotted, closePanels, togglePhoto, setQualityUI, setSoundUI, updateHourTxt, placeAt, journalSpecies } from './ui.js';
+import { buildPOIs, buildMapBase, initUI, updateUI, toggleMap, toast, spotted, closePanels, togglePhoto, setQualityUI, setSoundUI, updateHourTxt, placeAt, journalSpecies, UIState } from './ui.js';
 import { setSound, updateAudio, animalSound, audioOn } from './audio.js';
 import { render, resizePost } from './post.js';
 import { NC } from './worldgen.js';
@@ -41,6 +43,7 @@ function onWorld(r) {
   r.lakes.forEach((l, i) => Object.assign(LAKES[i], l));
   r.channels.forEach((c, i) => { CHANNELS[i].path = c.path; CHANNELS[i].W = c.W; });
   r.trails.forEach((t, i) => { TRAILS[i].path = t.path; TRAILS[i].cum = t.cum; });
+  ROAD.path = r.road.path; ROAD.prof = r.road.prof; FALLS.at = r.falls.at; FALLS.foot = r.falls.foot; Object.assign(VISITOR, r.visitor);
   const tex = (data, w, h, fmt, type, linear) => { const t = new THREE.DataTexture(data, w, h, fmt, type); t.minFilter = linear ? THREE.LinearMipmapLinearFilter : THREE.NearestFilter; t.magFilter = linear ? THREE.LinearFilter : THREE.NearestFilter; t.generateMipmaps = !!linear; t.needsUpdate = true; return t; };
   U.heightTex.value = tex(G.H, N, N, THREE.RedFormat, THREE.FloatType, false);
   U.biomeTex.value = tex(G.BIO, N, N, THREE.RGBAFormat, THREE.UnsignedByteType, true);
@@ -72,12 +75,13 @@ async function boot(saved) {
     setTime(saved.hour ?? 9.5);
     buildTerrain(); buildSky(); buildWeather();
     stage('בונה יערות ומים…', 91); await frameYield();
-    buildWater(); buildFalls(); buildTrails();
+    buildWater(); buildFalls(); buildTrails(); buildLandmarks();
     buildVegetation(res.scatter, groundAlb()); buildGrass();
     stage('משחרר חיות בר…', 95); await frameYield();
     buildWildlife(); buildPOIs(); buildMapBase();
-    setSpotHandler(spotted); setAnimalSound(animalSound); markSeen(journalSpecies());
+    setSpotHandler(spotted); setGreetHandler((g) => toast('מטייל/ת: ' + g, 'מטיילים אחרים על השביל')); setAnimalSound((k, pos) => { animalSound(k, pos); bus.emit('sound', { kind: k, dist: pos.distanceTo(camera.position) }); }); markSeen(journalSpecies());
     initUI({ onQuality: setQuality, onSound: (on) => setSound(on) });
+    initActivities(); $('bJournal').addEventListener('click', renderActivities);
     setQualityUI(Qs.name); setSoundUI(false); applyShadowQuality(); applyVegQuality();
     const B = LAKES[LK.bear], hall = PEAKS[1];
     if (saved.x !== undefined) { P.fly = !!saved.fly; document.body.classList.toggle('flying', P.fly); teleport(saved.x, saved.z); P.yaw = saved.yaw; P.pitch = saved.pitch; if (P.fly) P.y = saved.y; }
@@ -141,7 +145,7 @@ setPlayerHooks({
     if (code === 'KeyJ') $('bJournal').click();
     if (code === 'KeyP') togglePhoto(!document.body.classList.contains('photo'));
     if (code === 'KeyT') { setTime(sky_state.hour >= 20.5 ? 5.6 : Math.min(23.5, sky_state.hour + 1.5)); updateHourTxt(); }
-    if (code === 'Escape') { closePanels(); togglePhoto(false); }
+    if (code === 'Escape') { closePanels(); togglePhoto(false); setBinoculars(false); }
   },
 });
 
@@ -149,9 +153,11 @@ setPlayerHooks({
 const clock = new THREE.Clock();
 let frameAcc = 0, frames = 0, lodT = 0, lowFps = 0, promoted = false;
 const _q = new THREE.Quaternion();
+let capAcc = 0;
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05), now = clock.elapsedTime;
+  if (UIState.battery) { capAcc += clock.getDelta(); if (capAcc < 1 / 31) return; }
+  const dt = Math.min(UIState.battery ? capAcc : clock.getDelta(), 0.05), now = clock.elapsedTime; capAcc = 0;
   U.time.value = now;
   if (!started) introCamera(dt);
   else {
@@ -167,6 +173,7 @@ function frame() {
   if (!started) U.player.value.set(1e6, 0, 1e6);
   lodT -= dt;
   if (lodT <= 0) { lodT = 0.2; updateTerrainLOD(cp.x, cp.y, cp.z); updatePools(cp.x, cp.z); }
+  updateLandmarks(dt, started ? P.x : cp.x, started ? P.z : cp.z, now);
   updateWildlife(dt, started ? P.x : cp.x, started ? P.z : cp.z, cp.y, now, started && intro.blend < 0);
   updateWeather(dt);
   sky.position.copy(cp);
@@ -176,9 +183,10 @@ function frame() {
     sun.target.position.set(tx, ty, tz); sun.position.set(tx + ld.x * 700, ty + ld.y * 700, tz + ld.z * 700);
     sun.target.updateMatrixWorld(); renderer.shadowMap.needsUpdate = true;
   }
-  if (Q().reflect) renderReflection(started ? P : { x: cp.x, z: cp.z, pitch: camera.rotation.x, yaw: camera.rotation.y }, pixelRatio, [grassMesh, flowerMesh]);
+  renderEnv(dt, [grassMesh, flowerMesh, farGrass, ...pools.map(p => p.mesh)]);
+  if (Q().reflect) renderReflection(started ? P : { x: cp.x, z: cp.z, pitch: camera.rotation.x, yaw: camera.rotation.y }, pixelRatio, [grassMesh, flowerMesh, farGrass]);
   render(dt);
-  if (started) { updateUI(dt, now); updateAudio(dt, P, P.speed); }
+  if (started) { updateUI(dt, now); updateAudio(dt, P, P.speed); updateActivities(dt); }
   if (!audioOn()) thunderQueue.length = 0;
   // adaptive resolution, then quality
   frameAcc += dt; frames++;
@@ -197,4 +205,4 @@ function frame() {
 
 window.claude?.hot?.snapshot?.(() => ({ x: P.x, z: P.z, y: P.y, yaw: P.yaw, pitch: P.pitch, fly: P.fly, hour: sky_state.hour }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
-window.__park = { U, P, animals, setQuality, teleport, setTime, toggleFly, LAKES, PEAKS, start: () => start(true), setWeather, get stats() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; } };
+window.__park = { U, P, scene, animals, visitor: VISITOR, road: ROAD, heightAt, setQuality, teleport, setTime, toggleFly, LAKES, PEAKS, start: () => start(true), setWeather, get stats() { return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; } };

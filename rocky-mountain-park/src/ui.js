@@ -1,9 +1,11 @@
 // HUD, maps, journal, guided hikes, photo mode and settings.
 import * as THREE from 'three';
 import { clamp, lerp, ss, SIZE, HALF, N, BASE, LAKES, LK, PEAKS, CHANNELS, TRAILS, valleyZ, lakeR } from './shared.js';
-import { $, isTouch, scene, camera, G, U, Qs, QUALITY, hex, cellOf, trailAt, heightAt } from './core.js';
+import { $, isTouch, scene, camera, G, U, Qs, QUALITY, hex, cellOf, trailAt, heightAt, bus } from './core.js';
 import { sky_state, setTime, setWeather } from './atmos.js';
 import { SPECIES_INFO } from './wildlife.js';
+import { LANDMARK_POIS } from './landmarks.js';
+import { FALLS } from './shared.js';
 import { P, teleport, lakeSpot } from './player.js';
 
 // ---------------------------------------------------------------- places
@@ -30,7 +32,11 @@ const PEAK_NOTES = {
 };
 export const POIS = [];
 export function buildPOIs() {
-  LAKES.forEach(L => POIS.push({ id: 'lake:' + L.id, he: L.he, en: L.en, x: L.x, z: L.z, r: L.r * Math.max(L.sx, L.sy) + 110, kind: 'lake', lake: L, note: NOTES[L.id] }));
+  LAKES.filter(L => !L.minor).forEach(L => POIS.push({ id: 'lake:' + L.id, he: L.he, en: L.en, x: L.x, z: L.z, r: L.r * Math.max(L.sx, L.sy) + 110, kind: 'lake', lake: L, note: NOTES[L.id] }));
+  const bv = LAKES.filter(L => L.minor);
+  if (bv.length) POIS.push({ id: 'lm:beaver', he: 'בריכות הבונים', en: 'Beaver Ponds', x: (bv[0].x + bv[1].x) / 2, z: (bv[0].z + bv[1].z) / 2, r: 140, kind: 'landmark', note: 'הבונים בונים סכרים מענפים ובוץ על הנהר, ויוצרים בריכות שקטות שבהן חיים אייל קורא, ברווזים ודגים.' });
+  if (FALLS.at) POIS.push({ id: 'lm:falls', he: 'מפל אלברטה', en: 'Alberta Falls', x: FALLS.at[0], z: FALLS.at[1], r: 80, kind: 'landmark', note: 'מפל של נחל גלסייר שנופל בין סלעי גרניט, אחד היעדים הפופולריים ביותר בפארק.' });
+  POIS.push(...LANDMARK_POIS());
   PEAKS.forEach(p => {
     let bx = p.x, bz = p.z, bh = -1e9; for (let t = 0; t < 400; t++) { const a = t * 2.4, d = Math.sqrt(t / 400) * p.r * 0.9, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d, h = heightAt(x, z); if (h > bh) { bh = h; bx = x; bz = z; } }
     POIS.push({ id: 'peak:' + p.en, he: p.he, en: p.en, x: bx, z: bz, r: 300, kind: 'peak', note: PEAK_NOTES[p.en] });
@@ -58,8 +64,10 @@ const J = { places: new Set(), species: new Set(), badges: new Set(), maxE: 0 };
 try { const s = JSON.parse(localStorage.getItem('rmnp-journal') || 'null'); if (s) { s.places?.forEach(p => J.places.add(p)); s.species?.forEach(p => J.species.add(p)); s.badges?.forEach(p => J.badges.add(p)); J.maxE = s.maxE || 0; } } catch (_) {}
 const saveJ = () => { try { localStorage.setItem('rmnp-journal', JSON.stringify({ places: [...J.places], species: [...J.species], badges: [...J.badges], maxE: J.maxE })); } catch (_) {} };
 export const journalSpecies = () => [...J.species];
+export const visited = (id) => J.places.has(id);
 const BADGES = [
-  { id: 'lakes', he: 'צייד אגמים', d: 'ביקור בכל עשרת האגמים', ok: () => LAKES.every(L => J.places.has('lake:' + L.id)) },
+  { id: 'lakes', he: 'צייד אגמים', d: 'ביקור בכל עשרת האגמים', ok: () => LAKES.filter(L => !L.minor).every(L => J.places.has('lake:' + L.id)) },
+  { id: 'roads', he: 'כביש השמיים', d: 'ביקור בטרייל רידג׳ רואד ובמרכז המבקרים האלפיני', ok: () => J.places.has('lm:road') && J.places.has('lm:visitor') },
   { id: 'summit', he: 'מעל 4,000 מטר', d: 'עמידה בגובה 4,000 מ׳ ומעלה ברגל', ok: () => J.maxE >= 4000 },
   { id: 'wild6', he: 'עין חדה', d: 'תצפית על 6 מיני חיות בר', ok: () => J.species.size >= 6 },
   { id: 'wildall', he: 'מדריך טבע', d: `תצפית על כל ${Object.keys(SPECIES_INFO).length} המינים`, ok: () => J.species.size >= Object.keys(SPECIES_INFO).length },
@@ -84,7 +92,7 @@ export function toast(t, sub, kind) {
 let lastPoi = null, cardT = 0;
 function showCard(p) {
   const e = heightAt(p.x, p.z) + BASE;
-  $('cardKind').textContent = { lake: 'אגם', peak: 'פסגה', valley: 'עמק', tundra: 'טונדרה' }[p.kind] || '';
+  $('cardKind').textContent = { lake: 'אגם', peak: 'פסגה', valley: 'עמק', tundra: 'טונדרה', landmark: 'אתר' }[p.kind] || '';
   $('cardName').textContent = p.he; $('cardEn').textContent = p.en;
   $('cardElev').textContent = `${Math.round(e).toLocaleString('he-IL')} מ׳ · ${Math.round(e * 3.28084).toLocaleString('en-US')} ft`;
   $('cardNote').textContent = p.note || '';
@@ -217,11 +225,12 @@ function updateHike(now) {
   const left = Math.max(0, T.cum[hike.end] - T.cum[hike.idx]) + (bd > 40 ? bd : 0);
   $('hikeLeft').textContent = `${(left / 1000).toFixed(2)} ק״מ נותרו · ${(left / 1609).toFixed(1)} mi`;
   if (hike.idx >= hike.end - 3 && Math.hypot(hike.target[0] - P.x, hike.target[1] - P.z) < 30) {
-    toast('הגעתם! ' + hike.he, 'המסלול הושלם', 'badge'); stopHike();
+    toast('הגעתם! ' + hike.he, 'המסלול הושלם', 'badge'); bus.emit('hike', hike.he); stopHike();
   }
 }
 
 // ---------------------------------------------------------------- panels & settings
+export const UIState = { battery: false };
 export function closePanels() { for (const id of ['mapPanel', 'setPanel', 'journalPanel']) $(id).hidden = true; }
 function openPanel(id) { const was = !$(id).hidden; closePanels(); if (!was) { $(id).hidden = false; if (document.pointerLockElement) document.exitPointerLock(); } return !was; }
 export function toggleMap() { if (openPanel('mapPanel')) drawBigMap(); }
@@ -249,7 +258,7 @@ export function initUI({ onQuality, onSound }) {
   list.innerHTML = '';
   for (const p of dest) {
     const b = document.createElement('button'); b.innerHTML = `${p.he}<span>${p.en}</span>`;
-    b.onclick = () => { if (p.kind === 'lake') { const [x, z] = lakeSpot(p.lake); teleport(x, z, p.lake.x, p.lake.z); } else if (p.kind === 'peak') { teleport(p.x + 6, p.z + 6, p.x - 300, p.z - 300); P.pitch = -0.1; } else teleport(p.x, p.z, p.x - 400, p.z + 300); closePanels(); };
+    b.onclick = () => { if (p.kind === 'lake') { const [x, z] = lakeSpot(p.lake); teleport(x, z, p.lake.x, p.lake.z); } else if (p.kind === 'peak') { teleport(p.x + 6, p.z + 6, p.x - 300, p.z - 300); P.pitch = -0.1; } else if (p.kind === 'landmark') teleport(p.x + 28, p.z + 22, p.x, p.z); else teleport(p.x, p.z, p.x - 400, p.z + 300); closePanels(); };
     list.append(b);
   }
   const hl = $('hikeList'); hl.innerHTML = '';
@@ -260,6 +269,10 @@ export function initUI({ onQuality, onSound }) {
   for (const b of $('wSeg').children) b.onclick = () => { setWeather(b.dataset.w); for (const c of $('wSeg').children) c.classList.toggle('on', c === b); toast({ clear: 'שמיים בהירים', fair: 'מעונן חלקית', storm: 'סופת אחר-צהריים מתקרבת…' }[b.dataset.w], b.dataset.w === 'storm' ? 'עננים מצטברים מעל הפסגות' : ''); };
   $('hour').addEventListener('input', e => { setTime(+e.target.value); updateHourTxt(); });
   $('fov').addEventListener('input', e => { P.fov = +e.target.value; $('fovTxt').textContent = Math.round(P.fov) + '°'; });
+  try { const v = +localStorage.getItem('rmnp-sens'); if (v) { P.sens = v; $('sens').value = v; } } catch (_) {}
+  $('sensTxt').textContent = P.sens.toFixed(1) + '×';
+  $('sens').addEventListener('input', e => { P.sens = +e.target.value; $('sensTxt').textContent = P.sens.toFixed(1) + '×'; try { localStorage.setItem('rmnp-sens', P.sens); } catch (_) {} });
+  for (const b of $('bSeg').children) b.onclick = () => { UIState.battery = b.dataset.b === '1'; for (const c of $('bSeg').children) c.classList.toggle('on', c === b); };
   $('bPhoto').onclick = () => togglePhoto(true); $('photoExit').onclick = () => togglePhoto(false);
   updateHourTxt(); renderJournal();
 }
@@ -272,9 +285,11 @@ export function togglePhoto(on) {
 }
 
 // ---------------------------------------------------------------- per-frame HUD
-let hudT = 0, miniT = 0;
+let hudT = 0, miniT = 0, lastX = 0, lastZ = 0;
 export function updateUI(dt, now) {
   hudT -= dt; miniT -= dt;
+  if (Math.abs(P.x - lastX) + Math.abs(P.z - lastZ) > 40) { hudT = miniT = 0; }
+  lastX = P.x; lastZ = P.z;
   if (miniT <= 0) { miniT = 0.1; drawMini(); drawCompass(); }
   updateHike(now);
   if (hudT > 0) return; hudT = 0.25;

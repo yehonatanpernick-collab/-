@@ -21,11 +21,14 @@ Open `index.html` in a browser. Sources live in `src/` and are bundled by esbuil
 | `src/water.js` | Lakes, flowing creeks, planar reflection, waterfall mist |
 | `src/wildlife.js` | Jointed animals with gaits and herd behaviour, birds, butterflies, jumping trout |
 | `src/trails.js` | Trails, bridges, signs with real mileage, cairns, pond lilies |
+| `src/landmarks.js` | Trail Ridge Road with traffic, Alpine Visitor Center, Moraine Park Campground and campfire, beaver dams, the Keyhole shelter, other hikers |
+| `src/activities.js` | Binoculars and wildlife photography scoring, photo album, missions, ranger kiosks, flowing time with afternoon storms |
 | `src/ui.js`, `src/player.js`, `src/audio.js`, `src/post.js` | HUD, maps, journal, guided hikes, photo mode; movement and input; synthesised spatial audio; post-processing |
 
 ## Controls
 
-- **Desktop:** WASD + mouse (click to lock the pointer), Shift to run, Space to jump, F to fly, M for map and guided hikes, J for the field journal, P for photo mode, T to step the time of day.
-- **Phone:** left-thumb joystick, right-thumb look, buttons for run, jump, fly and map.
+- **Desktop:** WASD + mouse (click to lock the pointer), Shift to run, Space to jump, F to fly, M for map and guided hikes, J for the field journal, P for photo mode, T to step the time of day. Settings also offer flowing time, look sensitivity and a 30 fps battery saver.
+- **Phone:** left-thumb joystick (double-tap to toggle running), right-thumb look, buttons for run, jump, fly, map and binoculars.
+- **Binoculars:** B (or the button) to raise them, Enter or the shutter button to photograph wildlife. Photos are scored and kept in the journal album.
 
 Graphics quality has four tiers. It starts at medium on phones and high on desktops, then lowers resolution or tier when frames run slow and steps up one tier when the device has headroom.

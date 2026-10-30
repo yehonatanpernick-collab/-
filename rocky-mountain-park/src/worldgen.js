@@ -1,7 +1,7 @@
 // World generation. Runs inside a Web Worker; returns plain typed arrays.
 import {
   ss, clamp, lerp, mulberry32, fbm, nF, nG, nH, nT, nAs, nR,
-  SIZE, HALF, N, CELL, BASE, TR, TCELL, valleyZ, baseE, LAKES, LK, lakeR, CHANNELS, TRAILS, spline, meander,
+  SIZE, HALF, N, CELL, BASE, TR, TCELL, valleyZ, baseE, LAKES, LK, lakeR, CHANNELS, TRAILS, spline, meander, ROAD, VISITOR, CAMP, FALLS, KEYHOLE,
 } from './shared.js';
 
 export const NC = 513, CC = SIZE / (NC - 1); // coarse grid for erosion, AO and sun visibility
@@ -186,6 +186,11 @@ export function generate(opts, progress) {
       if (LKD[k] < 0) run = Math.min(run, LAKES[LKID[k]].level); else run = Math.min(run - 0.048, h - 0.45);
       W[i] = run; cut[i] = Math.max(0, h - run);
     }
+    if (c.id === FALLS.channel) { // Alberta Falls: a sudden step in the creek profile
+      let fi = 0, fd = 1e9; c.path.forEach((p, i) => { const d = Math.hypot(p[0] - FALLS.x, p[1] - FALLS.z); if (d < fd) { fd = d; fi = i; } });
+      const top = W[fi]; for (let i = fi + 1; i < n; i++) { W[i] = Math.min(W[i], top - FALLS.drop); cut[i] = Math.max(0, heightAt(...c.path[i]) - W[i]); }
+      FALLS.at = [...c.path[fi], top]; FALLS.foot = [...c.path[Math.min(n - 1, fi + 2)], top - FALLS.drop];
+    }
     c.W = W;
     const w = c.w;
     rasterPolyline(c.path, W, cut, s => w + 4 + w * 0.6 + Math.max(cut[s], cut[s + 1] || 0) * 1.7 + 2, (k, d, Wl, ct) => {
@@ -198,6 +203,8 @@ export function generate(opts, progress) {
       if (d - w < CHD[k]) { CHD[k] = d - w; CHL[k] = Wl; CHID[k] = cid; }
     });
   });
+  progress('סולל את טרייל רידג׳ רואד…', 57);
+  carveRoad(); carvePads();
   progress('מחשב שיפועים…', 58);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const k = j * N + i;
@@ -206,7 +213,7 @@ export function generate(opts, progress) {
   }
   for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) G.HC[j * NC + i] = H[(j * 2) * N + i * 2];
   progress('מסמן שבילים…', 61);
-  buildTrailPaths();
+  buildTrailPaths(); stampRoad();
   progress('מצייר צמחייה ופרחים…', 63);
   const EX = G.EXTRA;
   for (let j = 0; j < N; j++) {
@@ -245,9 +252,65 @@ export function generate(opts, progress) {
     lakes: LAKES.map(L => ({ level: L.level, cirque: L.cirque || null })),
     channels: CHANNELS.map(c => ({ path: c.path, W: Array.from(c.W) })),
     trails: TRAILS.map(T => ({ path: T.path, cum: T.cum })),
+    road: { path: ROAD.path, prof: Array.from(ROAD.prof) }, visitor: { x: VISITOR.x, z: VISITOR.z, yaw: VISITOR.yaw || 0 }, falls: { at: FALLS.at, foot: FALLS.foot },
   };
 }
 
+// Trail Ridge Road: a smoothed grade carved into the slopes, with cut banks and fills
+function carveRoad() {
+  const { H } = G;
+  const path = spline(ROAD.pts, 6).filter(([x, z]) => Math.abs(x) < HALF - 10 && Math.abs(z) < HALF - 10);
+  let prof = path.map(([x, z]) => heightAt(x, z));
+  const nat = prof.slice();
+  for (let it = 0; it < 3; it++) prof = prof.map((_, i) => { let s = 0, n = 0; for (let k = -8; k <= 8; k++) { const j = i + k; if (j >= 0 && j < prof.length) { s += prof[j]; n++; } } return clamp(s / n, nat[i] - 6, nat[i] + 4); });
+  const cut = path.map(([x, z], i) => Math.abs(heightAt(x, z) - prof[i]));
+  const w = ROAD.w + 1.5;
+  rasterPolyline(path, prof, cut, s => w + 6 + Math.max(cut[s], cut[s + 1] || 0) * 1.5, (k, d, Y, ct) => {
+    const bank = 4 + ct * 1.4; if (d > w + bank) return;
+    H[k] = lerp(Y - 0.15, H[k], ss(w, w + bank, d));
+  });
+  ROAD.path = path; ROAD.prof = new Float32Array(path.map(([x, z]) => heightAt(x, z)));
+}
+function flatten(cx, cz, r, blend, k = 1) {
+  const { H } = G, y = heightAt(cx, cz);
+  const i0 = Math.max(0, Math.floor((cx - r - blend + HALF) / CELL)), i1 = Math.min(N - 1, Math.ceil((cx + r + blend + HALF) / CELL));
+  const j0 = Math.max(0, Math.floor((cz - r - blend + HALF) / CELL)), j1 = Math.min(N - 1, Math.ceil((cz + r + blend + HALF) / CELL));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const d = Math.hypot(-HALF + i * CELL - cx, -HALF + j * CELL - cz), t = ss(r, r + blend, d), kk = j * N + i;
+    H[kk] = lerp(lerp(H[kk], y, k), H[kk], t);
+  }
+}
+function carvePads() {
+  // the visitor centre sits on the flattest ground beside the high stretch of the road
+  let best = 1e9;
+  ROAD.path.forEach((p, i) => {
+    if (i % 4 || p[1] > -1950 || p[0] < -1000 || p[0] > 600) return;
+    const a = ROAD.path[Math.max(0, i - 1)], b = ROAD.path[Math.min(ROAD.path.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    for (const sd of [-1, 1]) {
+      const x = p[0] - (b[1] - a[1]) / l * sd * 55, z = p[1] + (b[0] - a[0]) / l * sd * 55;
+      let mn = 1e9, mx = -1e9; for (let k = 0; k < 12; k++) { const an = k / 12 * Math.PI * 2, h = heightAt(x + Math.cos(an) * 32, z + Math.sin(an) * 32); mn = Math.min(mn, h); mx = Math.max(mx, h); }
+      const e = heightAt(x, z) + BASE, sc = mx - mn + Math.max(0, e - 3620) * 0.6 + Math.max(0, 3480 - e) * 0.6; if (sc < best) { best = sc; VISITOR.x = x; VISITOR.z = z; VISITOR.yaw = Math.atan2(p[0] - x, p[1] - z); }
+    }
+  });
+  flatten(VISITOR.x, VISITOR.z, 32, 22);
+  flatten(CAMP.x, CAMP.z, CAMP.r, 30, 0.75);
+  // the Keyhole: a notch through the Longs Peak ridge
+  const { H } = G, ky = heightAt(KEYHOLE.x, KEYHOLE.z) - 16;
+  for (let j = 0; j < N; j++) { const z = -HALF + j * CELL; if (Math.abs(z - KEYHOLE.z) > 40) continue;
+    for (let i = 0; i < N; i++) { const x = -HALF + i * CELL, d = Math.hypot(x - KEYHOLE.x, z - KEYHOLE.z); if (d < 40) H[j * N + i] = Math.min(H[j * N + i], ky + d * d * 0.03); } }
+}
+function stampRoad() {
+  const { TRL } = G, mark = (x, z, rad, v) => {
+    const ci = (x + HALF) / TCELL - 0.5, cj = (z + HALF) / TCELL - 0.5, R = Math.ceil(rad / TCELL) + 1;
+    for (let dj = -R; dj <= R; dj++) for (let di = -R; di <= R; di++) {
+      const ii = Math.round(ci) + di, jj = Math.round(cj) + dj; if (ii < 0 || jj < 0 || ii >= TR || jj >= TR) continue;
+      const d = Math.hypot(ii - ci, jj - cj) * TCELL; if (d < rad) { const k = jj * TR + ii; TRL[k] = Math.max(TRL[k], v); }
+    }
+  };
+  for (const [x, z] of ROAD.path) mark(x, z, ROAD.w + 2.5, 255);
+  mark(VISITOR.x, VISITOR.z, 30, 210);
+  for (let a = 0; a < 40; a++) { const an = a / 40 * Math.PI * 2; mark(CAMP.x + Math.cos(an) * CAMP.r * 0.5, CAMP.z + Math.sin(an) * CAMP.r * 0.5, CAMP.r * 0.55, 70); }
+}
 function buildTrailPaths() {
   const { TRL, TRID } = G;
   TRAILS.forEach((T, tid) => {
@@ -417,12 +480,12 @@ function genLayers(S) {
         const n1 = pfbm(u, v, 5, 4, 21), moss = ss(0.6, 0.72, pfbm(u, v, 4, 3, 22));
         c = mixc([50, 46, 32], [92, 82, 56], n1); c = mixc(c, [58, 80, 36], moss * 0.85); h = n1 * 0.5 + moss * 0.3;
       } else if (name === 'rock') {
-        const [d1, d2] = pVor(u, v, 5, 31), crack = ss(0.0, 0.06, d2 - d1), n1 = pfbm(u, v, 8, 5, 32), g = pHash(x, y, 33);
+        const [d1, d2] = pVor(u, v, 4, 31), crack = ss(0.0, 0.025, d2 - d1), n1 = pfbm(u, v, 8, 5, 32), g = pHash(x, y, 33);
         c = mixc([118, 110, 104], [176, 166, 158], n1);
         if (g < 0.07) c = mixc(c, [40, 38, 38], 0.8); else if (g < 0.2) c = mixc(c, [222, 216, 210], 0.6); else if (g < 0.3) c = mixc(c, [196, 150, 138], 0.5);
         const lich = ss(0.66, 0.74, pfbm(u, v, 10, 3, 34)), lc = pHash(Math.floor(u * 10), Math.floor(v * 10), 35) > 0.5 ? [176, 156, 62] : [190, 118, 54];
-        c = mixc(c, lc, lich * 0.75); c = mixc([52, 48, 46], c, 0.35 + 0.65 * crack);
-        h = 0.55 * crack + 0.45 * n1;
+        c = mixc(c, lc, lich * 0.75); c = mixc([72, 66, 62], c, 0.62 + 0.38 * crack);
+        h = 0.3 * crack + 0.7 * n1;
       } else if (name === 'gravel') {
         const [d1, , id] = pVor(u, v, 22, 41), sz = 0.62, dome = Math.sqrt(Math.max(0, 1 - (d1 / sz) ** 2));
         const t = 92 + id * 70; c = mixc([t, t * 0.95, t * 0.88], [70, 64, 56], 1 - ss(0.0, 0.5, dome)); c = mixc(c, [150, 120, 90], pHash(Math.floor(id * 1000), 1, 42) > 0.8 ? 0.4 : 0);

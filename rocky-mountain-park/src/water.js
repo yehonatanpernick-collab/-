@@ -9,7 +9,7 @@ import { ATMOS_PARS, atmosUniforms } from './atmos.js';
 const VS = `attribute float aDepth; attribute float aFoam; varying vec3 vW; varying float vD; varying float vFoam; varying vec2 vUv;
   void main(){ vec4 w = modelMatrix*vec4(position, 1.0); vW = w.xyz; vD = aDepth; vFoam = aFoam; vUv = uv; gl_Position = projectionMatrix*viewMatrix*w; }`;
 const FS = `${ATMOS_PARS}
-  uniform vec3 uShallow, uDeep; uniform float uDScale, uUseRefl, uFlow; uniform sampler2D uRefl; uniform mat4 uReflMat;
+  uniform vec3 uShallow, uDeep; uniform float uDScale, uUseRefl, uUseEnv, uFlow; uniform sampler2D uRefl; uniform mat4 uReflMat; uniform samplerCube uEnv;
   varying vec3 vW; varying float vD; varying float vFoam; varying vec2 vUv;
   float wave(vec2 q){ return vnoise(q + uTime*vec2(0.25, 0.1))*0.55 + vnoise(q*2.3 - uTime*vec2(0.18, 0.33))*0.3 + vnoise(q*5.1 + uTime*vec2(0.4, -0.2))*0.15; }
   void main(){
@@ -23,7 +23,7 @@ const FS = `${ATMOS_PARS}
     vec3 N = normalize(vec3(-(hx - h0)/e*amp*0.25, 1.0, -(hz - h0)/e*amp*0.25));
     float fres = 0.02 + 0.98*pow(1.0 - max(dot(N, V), 0.0), 5.0);
     vec3 R = reflect(-V, N); R.y = abs(R.y);
-    vec3 refl = skyL(R) + vec3(0.6, 0.65, 0.8)*uFlash*0.3;
+    vec3 refl = (uUseEnv > 0.5 ? textureCube(uEnv, R).rgb : skyL(R)) + vec3(0.6, 0.65, 0.8)*uFlash*0.3;
     if (uUseRefl > 0.5) { vec4 c = uReflMat*vec4(vW, 1.0); refl = texture2D(uRefl, c.xy/c.w + N.xz*0.035).rgb; }
     float lvis = sunVisAt(vW)*cloudShadow(vW);
     vec3 amb = uSkyAmb*1.1 + uSunCol*max(uLightDir.y, 0.0)*lvis*0.75;
@@ -39,11 +39,24 @@ const FS = `${ATMOS_PARS}
     #include <colorspace_fragment>
   }`;
 export const reflRT = new THREE.WebGLRenderTarget(512, 512, { type: THREE.HalfFloatType });
+// low-res surroundings cubemap: reflections for every lake that is not the planar-reflected one
+const envRT = new THREE.WebGLCubeRenderTarget(96, { type: THREE.HalfFloatType });
+const envCam = new THREE.CubeCamera(2, 22000, envRT), envOn = { value: 0 };
+let envT = 0;
+export function renderEnv(dt, hide) {
+  envOn.value = Q().reflect ? 1 : 0;
+  if (!envOn.value || (envT -= dt) > 0) return;
+  envT = 3;
+  envCam.position.copy(camera.position); envCam.position.y += 2;
+  const hidden = [...waterMeshes, ...hide], vis = hidden.map(m => m.visible); hidden.forEach(m => m.visible = false);
+  envCam.update(renderer, scene);
+  hidden.forEach((m, i) => m.visible = vis[i]);
+}
 function makeWaterMat(shallow, deep, dscale, flow) {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...atmosUniforms(), uShallow: { value: new THREE.Color(shallow) }, uDeep: { value: new THREE.Color(deep) }, uDScale: { value: dscale }, uFlow: { value: flow ? 1 : 0 },
-      uUseRefl: { value: 0 }, uRefl: { value: reflRT.texture }, uReflMat: { value: new THREE.Matrix4() },
+      uUseRefl: { value: 0 }, uRefl: { value: reflRT.texture }, uReflMat: { value: new THREE.Matrix4() }, uUseEnv: envOn, uEnv: { value: envRT.texture },
     }, vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false,
   });
 }
@@ -80,7 +93,7 @@ export function buildWater() {
             pos.push(px, W, pz); dep.push(W - heightAt(px, pz)); foam.push(fo); uv.push(k / 4, v);
           }
         });
-        for (let i = 0; i < piece.length - 1; i++) for (let k = 0; k < 4; k++) { const a = base + i * 5 + k, b = a + 1, cc = a + 5, d = cc + 1; idx.push(a, cc, b, b, cc, d); }
+        for (let i = 0; i < piece.length - 1; i++) for (let k = 0; k < 4; k++) { const a = base + i * 5 + k, b = a + 1, cc = a + 5, d = cc + 1; idx.push(a, b, cc, b, d, cc); }
       }
       piece = [];
     };

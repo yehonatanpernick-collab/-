@@ -3,13 +3,13 @@ import { clamp, lerp, ss, HALF, LAKES, lakeR } from './shared.js';
 import { $, isTouch, canvas, camera, G, U, cellOf, trailAt, groundAt, heightAt, waterAt, surfaceAt } from './core.js';
 import { footstep } from './audio.js';
 
-export const P = { x: 0, y: 0, z: 0, vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, fly: false, run: false, onGround: true, bob: 0, stepPh: 0, speed: 0, fov: 66, inputLock: false };
+export const P = { x: 0, y: 0, z: 0, vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, fly: false, run: false, onGround: true, bob: 0, stepPh: 0, speed: 0, fov: 66, inputLock: false, sens: 1, zoom: false };
 export const keys = {};
 const joy = { x: 0, y: 0, id: null }, look = { id: null, x: 0, y: 0 };
 let flyUp = 0;
 const hooks = { onFly: () => {}, onKey: () => {} };
 export const setPlayerHooks = (h) => Object.assign(hooks, h);
-function lookBy(dx, dy, sens) { if (P.inputLock) return; P.yaw -= dx * sens; P.pitch = clamp(P.pitch - dy * sens, -1.45, 1.45); }
+function lookBy(dx, dy, sens) { if (P.inputLock) return; sens *= P.sens * camera.fov / 66; P.yaw -= dx * sens; P.pitch = clamp(P.pitch - dy * sens, -1.45, 1.45); }
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   keys[e.code] = true;
@@ -30,10 +30,13 @@ addEventListener('mousemove', e => {
   else if (drag) { lookBy(e.clientX - drag.x, e.clientY - drag.y, 0.004); drag.x = e.clientX; drag.y = e.clientY; }
 });
 const joyEl = $('joy'), knob = $('joyKnob');
+let lastJoyTap = 0;
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
-    if (t.clientX < innerWidth * 0.45 && joy.id === null) { joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joyEl.style.display = 'block'; joyEl.style.left = t.clientX + 'px'; joyEl.style.top = t.clientY + 'px'; knob.style.transform = ''; $('joyHint').style.display = 'none'; }
+    if (t.clientX < innerWidth * 0.45 && joy.id === null) {
+      const now = performance.now(); if (now - lastJoyTap < 300) { P.run = !P.run; $('bRun').classList.toggle('on', P.run); } lastJoyTap = now;
+      joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joyEl.style.display = 'block'; joyEl.style.left = t.clientX + 'px'; joyEl.style.top = t.clientY + 'px'; knob.style.transform = ''; $('joyHint').style.display = 'none'; }
     else if (look.id === null) { look.id = t.identifier; look.x = t.clientX; look.y = t.clientY; }
   }
 }, { passive: false });
@@ -107,7 +110,7 @@ export function updatePlayer(dt) {
   const bob = Math.sin(P.stepPh * Math.PI) * 0.045 * bobAmt, sway = Math.cos(P.stepPh * Math.PI) * 0.02 * bobAmt;
   camera.position.set(P.x + Math.cos(P.yaw) * sway, P.y + 1.68 + Math.abs(bob) - 0.02 * bobAmt, P.z - Math.sin(P.yaw) * sway);
   camera.rotation.set(P.pitch, P.yaw, (P.fly ? clamp(-(P.vx * Math.cos(P.yaw) - P.vz * Math.sin(P.yaw)) * 0.004, -0.25, 0.25) : sway * 0.15), 'YXZ');
-  const tf = P.fov + (P.fly && run ? 8 : 0) + (run && !P.fly ? 3 : 0) * clamp(P.speed / 9, 0, 1);
+  const tf = P.zoom ? 12 : P.fov + (P.fly && run ? 8 : 0) + (run && !P.fly ? 3 : 0) * clamp(P.speed / 9, 0, 1);
   if (Math.abs(camera.fov - tf) > 0.05) { camera.fov = lerp(camera.fov, tf, Math.min(1, dt * 4)); camera.updateProjectionMatrix(); }
   U.player.value.set(P.x, P.y, P.z);
 }

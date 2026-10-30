@@ -39,7 +39,7 @@ export function buildTrails() {
         col.push(c.r * v, c.g * v, c.b * v);
       }
     }
-    for (let i = 0; i < n - 1; i++) for (let k = 0; k < 2; k++) { const a = base + i * 3 + k, b = a + 1, c = a + 3, d = c + 1; idx.push(a, c, b, b, c, d); }
+    for (let i = 0; i < n - 1; i++) for (let k = 0; k < 2; k++) { const a = base + i * 3 + k, b = a + 1, c = a + 3, d = c + 1; idx.push(a, b, c, b, d, c); }
   });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, patchLit(new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -8 }), { key: 'trail', ao: 1, wet: 0.35 }));
