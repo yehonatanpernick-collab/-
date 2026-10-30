@@ -170,6 +170,11 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 // ============================================================
 // World layout
@@ -256,6 +261,14 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.5, 2000);
 
+// Post-processing: HDR render, soft bloom on lights, then tone mapping and SMAA
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 0.92);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+composer.addPass(new SMAAPass());
+
 function makeSkyTexture() {
   const c = document.createElement('canvas');
   c.width = 4; c.height = 512;
@@ -277,7 +290,7 @@ const hemi = new THREE.HemisphereLight(0xcfe3ff, 0x6b6257, 0.55);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe2b8, 2.6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(4096, 4096);
 Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 10, far: 420 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.04;
@@ -300,6 +313,10 @@ const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9
 const lineMat = new THREE.MeshStandardMaterial({ color: 0xf5c542, roughness: 0.6 });
 const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf1f1f1, roughness: 0.6 });
 const skylineMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cf, roughness: 0.9 });
+const shopMat = new THREE.MeshPhysicalMaterial({ color: 0x4a5668, metalness: 0.2, roughness: 0.25, clearcoat: 0.4 });
+const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.5 });
+const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 3 });
+const lampSpots = [];
 
 function makeFacadeTexture() {
   const size = 256;
@@ -344,6 +361,28 @@ function makeFacadeTexture() {
 // ============================================================
 // Ground, roads, sidewalks
 // ============================================================
+// Tiled grain texture for asphalt, so large road surfaces do not look flat
+function makeNoiseTexture(base, grain, repeats) {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = '#' + base.toString(16).padStart(6, '0');
+  g.fillRect(0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size);
+  for (let k = 0; k < img.data.length; k += 4) {
+    const n = (Math.random() - 0.5) * 255 * grain;
+    img.data[k] += n; img.data[k + 1] += n; img.data[k + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeats, repeats);
+  tex.anisotropy = 8;
+  return tex;
+}
+
 function flat(w, h, color, x, y, z, roughness = 0.95) {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -376,7 +415,8 @@ function instanced(list, geometry, material, castShadow = false) {
 
 // Ground beyond the city, then the asphalt base covering the whole grid.
 flat(4000, 4000, 0x6f8362, 0, -0.05, 0);
-flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), ASPHALT_COLOR, 0, 0, 0, 0.9);
+const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
+asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
 
 // ============================================================
 // City blocks: sidewalks, buildings, parks, trees
@@ -397,6 +437,14 @@ function addBuilding(x, z, w, h, d) {
   body.castShadow = body.receiveShadow = true;
   scene.add(body);
   obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+
+  if (rng() < 0.6) {
+    // Ground-floor shopfront band
+    const shop = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.4, d + 0.4), shopMat);
+    shop.position.set(x, 1.7, z);
+    shop.receiveShadow = true;
+    scene.add(shop);
+  }
 
   let top = h;
   if (h > 42) {
@@ -467,6 +515,8 @@ function makeCityBlock(cx, cz, inner) {
     addTreeSpot(cx - edge, cz + o);
     addTreeSpot(cx + edge, cz + o);
   }
+  // Street lamps at the four corners, clear of the trees
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) lampSpots.push({ x: cx + sx * edge, z: cz + sz * edge });
 }
 
 for (let i = CELL_MIN; i <= CELL_MAX; i++) {
@@ -495,6 +545,14 @@ treeSpots.forEach((t, k) => {
   leaves.setColorAt(k, leafColor);
 });
 leaves.instanceColor.needsUpdate = true;
+
+// Street lamps: instanced poles and glowing heads (the heads feed the bloom pass)
+const lampPole = new THREE.CylinderGeometry(0.1, 0.14, 6, 6);
+lampPole.translate(0, 3, 0);
+const lampHead = new THREE.BoxGeometry(0.9, 0.25, 0.5);
+lampHead.translate(0.3, 6.05, 0);
+instanced(lampSpots, lampPole, lampPoleMat, true);
+instanced(lampSpots, lampHead, lampLightMat);
 
 // Road markings
 const centerLines = [], edgeLines = [], crossings = [];
@@ -572,6 +630,11 @@ function makeCar(color) {
     add(new THREE.BoxGeometry(0.42, 0.14, 0.06), headMat, s * 0.6, 0.72, 2.06);
     add(new THREE.BoxGeometry(0.42, 0.16, 0.06), tailMat, s * 0.62, 0.74, -2.06);
   }
+
+  // Side mirrors and number plate
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.5 });
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.2, 0.16, 0.3, 2, 0.05), paint, s * 1.0, 1.0, 0.7);
+  add(new THREE.BoxGeometry(0.5, 0.14, 0.02), plateMat, 0, 0.5, -2.09);
 
   const wheels = [];
   for (const [x, z] of [[-0.9, 1.35], [0.9, 1.35], [-0.9, -1.35], [0.9, -1.35]]) {
@@ -970,6 +1033,7 @@ window.addEventListener('blur', () => {
 });
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 });
@@ -991,7 +1055,7 @@ function frame(now) {
   updateSun();
   updateAudio();
   updateHud();
-  renderer.render(scene, camera);
+  composer.render();
   drawMinimap();
   requestAnimationFrame(frame);
 }
@@ -999,7 +1063,7 @@ function frame(now) {
 // Start the scene at the camera position before the first frame
 updateTraffic(0);
 updateCamera(0);
-renderer.render(scene, camera);
+composer.render();
 requestAnimationFrame(frame);
 </script>
 </body>
