@@ -352,6 +352,35 @@ const vignette = new ShaderPass(VignetteShader);
 vignette.uniforms.offset.value = 1.1;
 vignette.uniforms.darkness.value = 0.9;
 composer.addPass(vignette);
+
+// Final grade: slight warm shadows, punchier contrast and colour, and a whisper of film grain
+const grade = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    time: { value: 0 },
+    contrast: { value: 1.07 },
+    saturation: { value: 1.1 },
+    warmth: { value: 0.035 },
+    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time; uniform float contrast; uniform float saturation;
+    uniform float warmth; uniform vec2 resolution; varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+      vec3 col = texel.rgb;
+      float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(vec3(luma), col, saturation);
+      col = (col - 0.5) * contrast + 0.5;
+      col += vec3(warmth, warmth * 0.4, -warmth * 0.6) * (1.0 - luma);
+      float grain = hash(vUv * resolution + fract(time) * 100.0) - 0.5;
+      col += grain * 0.022;
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), texel.a);
+    }`,
+});
+composer.addPass(grade);
 composer.addPass(new SMAAPass());
 
 function makeSkyTexture() {
@@ -386,9 +415,10 @@ const SUN_DIR = new THREE.Vector3(0.8, 0.38, 0.45).normalize();   // low evening
 // Materials
 // ============================================================
 const facadeTexture = makeWindowGrid(false);
+const facadeNormal = heightCanvasToNormal(makeFacadeHeight(), 5);
 const glowTextures = [0, 1, 2, 3].map(() => makeWindowGrid(true));
 const facadeMats = FACADE_PALETTE.map((color, k) => new THREE.MeshStandardMaterial({
-  color, map: facadeTexture, roughness: 0.55, metalness: 0.05,
+  color, map: facadeTexture, normalMap: facadeNormal, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.55, metalness: 0.05,
   emissive: 0xffffff, emissiveMap: glowTextures[k % glowTextures.length], emissiveIntensity: 0.9,
 }));
 const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.85 });
@@ -484,6 +514,70 @@ function makeNoiseTexture(base, grain, repeats) {
   return tex;
 }
 
+// Normal map from a height canvas: lighting then picks up surface relief
+function heightCanvasToNormal(hc, strength) {
+  const w = hc.width, h = hc.height;
+  const src = hc.getContext('2d').getImageData(0, 0, w, h).data;
+  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const og = out.getContext('2d');
+  const img = og.createImageData(w, h);
+  const d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (H(x - 1, y) - H(x + 1, y)) * strength;
+    const dy = (H(x, y - 1) - H(x, y + 1)) * strength;
+    const len = Math.hypot(dx, dy, 1);
+    const i = (y * w + x) * 4;
+    d[i] = (dx / len * 0.5 + 0.5) * 255;
+    d[i + 1] = (dy / len * 0.5 + 0.5) * 255;
+    d[i + 2] = (0.5 / len + 0.5) * 255;
+    d[i + 3] = 255;
+  }
+  og.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(out);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Tileable grit normal map for asphalt and concrete
+function makeGritNormal(size, strength, repeats) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const img = g.createImageData(size, size);
+  for (let k = 0; k < img.data.length; k += 4) {
+    const v = 128 + (Math.random() - 0.5) * 255;
+    img.data[k] = img.data[k + 1] = img.data[k + 2] = v;
+    img.data[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = heightCanvasToNormal(c, strength);
+  tex.repeat.set(repeats, repeats);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Facade relief: windows sit recessed into the wall, frames stand out
+function makeFacadeHeight() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 256, 256);
+  for (let r = 0; r < 2; r++) for (let col = 0; col < 2; col++) {
+    const x = 14 + col * 124, y = 16 + r * 122, w = 104, h = 98;
+    g.fillStyle = '#202020';
+    g.fillRect(x, y, w, h);
+    g.fillStyle = '#c0c0c0';
+    g.fillRect(x + w / 2 - 2, y, 4, h);
+    g.fillRect(x, y + h / 2 - 2, w, 4);
+  }
+  g.fillStyle = '#d8d8d8';
+  g.fillRect(0, 116, 256, 10);
+  return c;
+}
+
 function flat(w, h, color, x, y, z, roughness = 0.95) {
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -518,7 +612,9 @@ function instanced(list, geometry, material, castShadow = false) {
 flat(4000, 4000, 0xffffff, 0, -0.05, 0).material.map = makeNoiseTexture(0x6f8362, 0.08, 300);
 const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
 asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
+asphalt.material.normalMap = makeGritNormal(256, 2.0, 64);
 const concreteTex = makeNoiseTexture(SIDEWALK_COLOR, 0.03, 8);
+const concreteNormal = makeGritNormal(256, 2.5, 8);
 
 // ============================================================
 // City blocks: sidewalks, buildings, parks, trees
@@ -644,7 +740,9 @@ for (let i = CELL_MIN; i <= CELL_MAX; i++) {
   for (let j = CELL_MIN; j <= CELL_MAX; j++) {
     const cx = i * PITCH + PITCH / 2;
     const cz = j * PITCH + PITCH / 2;
-    flat(BLOCK, BLOCK, 0xffffff, cx, 0.06, cz).material.map = concreteTex;
+    const walk = flat(BLOCK, BLOCK, 0xffffff, cx, 0.06, cz);
+    walk.material.map = concreteTex;
+    walk.material.normalMap = concreteNormal;
     const inner = BLOCK - SIDEWALK * 2;
     const park = rng() < 0.16;
     blocks.push({ cx, cz, park });
@@ -742,11 +840,31 @@ const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 1
 const tyreMat = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.9 });
 const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff1cc, emissiveIntensity: 2 });
 
+// Soft contact shadow under every car (ambient occlusion for the tyres)
+const blobTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(0,0,0,0.8)');
+  grd.addColorStop(0.6, 'rgba(0,0,0,0.35)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+
 // Forward is +Z. The car is built from rounded boxes plus four wheels.
 function makeCar(color) {
   const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.4, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06 });
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
   const group = new THREE.Group();
+  group.rotation.order = 'YXZ';          // yaw last, so pitch and roll act on the body
+  const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 4.8), blobMat);
+  blob.rotation.x = -Math.PI / 2;
+  blob.position.y = 0.03;
+  group.add(blob);
   const add = (geo, mat, x, y, z) => {
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
@@ -812,6 +930,15 @@ function makeCar(color) {
   add(new THREE.BoxGeometry(1.7, 0.08, 3.9), trimMat, 0, 0.14, 0);
   add(new THREE.BoxGeometry(0.5, 0.14, 0.02), plateMat, 0, 0.5, -2.09);
 
+  // Dark wheel-arch shadows and door shut lines
+  for (const s of [-1, 1]) for (const z of [1.35, -1.35]) {
+    const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.14, 24), trimMat);
+    arch.rotation.z = Math.PI / 2;
+    arch.position.set(s * 0.88, 0.36, z);
+    group.add(arch);
+  }
+  for (const s of [-1, 1]) for (const z of [0.45, -0.9]) add(new THREE.BoxGeometry(0.02, 0.42, 0.02), trimMat, s * 0.905, 0.66, z);
+
   // Wheels: tyre, brake disc, alloy barrel and hub cap
   const discMat = new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.4, metalness: 0.8 });
   const alloyMat = new THREE.MeshStandardMaterial({ color: 0xa9b2bc, roughness: 0.3, metalness: 0.9 });
@@ -819,6 +946,7 @@ function makeCar(color) {
   for (const [x, z] of [[-0.9, 1.35], [0.9, 1.35], [-0.9, -1.35], [0.9, -1.35]]) {
     const w = new THREE.Group();
     w.position.set(x, 0.36, z);
+    w.rotation.order = 'YXZ';            // steering (y) then spin (x)
     const parts = [
       [new THREE.CylinderGeometry(0.36, 0.36, 0.26, 24), tyreMat],
       [new THREE.CylinderGeometry(0.24, 0.24, 0.05, 24), discMat],
@@ -1020,15 +1148,65 @@ function updatePlayer(dt) {
 
   // Visuals
   playerCar.group.position.set(p.x, 0, p.z);
-  playerCar.group.rotation.y = p.heading;
+  // Suspension: the nose dips under braking and lifts under acceleration; the body leans in corners
+  p.pitch ??= 0;
+  p.roll ??= 0;
+  const pitchT = clamp(-accel * 0.004, -0.04, 0.04);
+  const rollT = clamp(-p.steer * Math.min(Math.abs(p.fwd), 30) * 0.0016, -0.05, 0.05);
+  p.pitch += (pitchT - p.pitch) * Math.min(1, dt * 6);
+  p.roll += (rollT - p.roll) * Math.min(1, dt * 6);
+  playerCar.group.rotation.set(p.pitch, p.heading, p.roll);
   p.spin += p.fwd * dt / 0.36;
-  playerCar.wheels.forEach(w => { w.rotation.x = p.spin; });
+  playerCar.wheels.forEach((w, k) => {
+    w.rotation.x = p.spin;
+    if (k < 2) w.rotation.y = p.steer * 0.42;   // front wheels turn
+  });
   const braking = (input.down && p.fwd > 0.5) || input.hand;
   playerCar.tailMat.emissiveIntensity = braking ? 3 : 0.6;
 
   const hx = Math.sin(p.heading), hz = Math.cos(p.heading);
   headBeam.position.set(p.x + hx * 2.1, 0.9, p.z + hz * 2.1);
   headTarget.position.set(p.x + hx * 30, 0, p.z + hz * 30);
+}
+
+// ============================================================
+// Skid marks: a pool of dark decals under the rear tyres while sliding
+// ============================================================
+const SKID_MAX = 700;
+const skidMat = new THREE.MeshBasicMaterial({
+  color: 0x0b0d10, transparent: true, opacity: 0.5, depthWrite: false,
+  polygonOffset: true, polygonOffsetFactor: -2,
+});
+const skids = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), skidMat, SKID_MAX);
+// Unused slots are zero-scaled so they stay invisible
+const _hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+for (let i = 0; i < SKID_MAX; i++) skids.setMatrixAt(i, _hidden);
+skids.frustumCulled = false;
+scene.add(skids);
+let skidIdx = 0, skidTimer = 0;
+const _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sp = new THREE.Vector3(), _ss = new THREE.Vector3();
+
+function addSkid(x, z, yaw) {
+  _sp.set(x, 0.05, z);
+  _sq.setFromAxisAngle(UP, yaw);
+  _ss.set(0.3, 1, 0.55);
+  _sm.compose(_sp, _sq, _ss);
+  skids.setMatrixAt(skidIdx, _sm);
+  skidIdx = (skidIdx + 1) % SKID_MAX;
+}
+
+function updateSkids(dt) {
+  const p = player;
+  const slipping = Math.abs(p.lat) > 3.5 || (input.hand && Math.abs(p.fwd) > 6);
+  skidTimer -= dt;
+  if (!slipping || skidTimer > 0) return;
+  skidTimer = 0.035;
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  const rx = -fz, rz = fx;
+  for (const s of [-1, 1]) {
+    addSkid(p.x - fx * 1.35 + rx * s * 0.9, p.z - fz * 1.35 + rz * s * 0.9, p.heading);
+  }
+  skids.instanceMatrix.needsUpdate = true;
 }
 
 // ============================================================
@@ -1271,6 +1449,7 @@ function frame(now) {
   if (state === 'playing') {
     updatePlayer(dt);
     updateTraffic(dt);
+    updateSkids(dt);
   } else {
     updateTraffic(0);
   }
@@ -1278,6 +1457,7 @@ function frame(now) {
   updateSun();
   updateAudio();
   updateHud();
+  grade.uniforms.time.value = now * 0.001;
   composer.render();
   drawMinimap();
   requestAnimationFrame(frame);
