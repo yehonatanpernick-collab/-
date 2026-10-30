@@ -186,6 +186,8 @@
   <div class="pad right">
     <button class="tb small" data-key="hand" aria-label="בלם יד">בלם יד</button>
     <button class="tb small" id="touchCam" aria-label="מצלמה">📷</button>
+    <button class="tb small" data-key="descend" aria-label="ירידה">⤓</button>
+    <button class="tb small" id="touchVehicle" aria-label="החלפת רכב">🔁</button>
     <button class="tb" data-key="down" aria-label="בלם או אחורה">▼</button>
     <button class="tb gas" data-key="up" aria-label="גז">▲</button>
   </div>
@@ -199,7 +201,9 @@
     <ul class="controls">
       <li><span>נהיגה</span><kbd>↑ ↓ ← →  /  WASD</kbd></li>
       <li><span>בלם יד (החלקה)</span><kbd>Space</kbd></li>
-      <li><span>החלפת מצלמה</span><kbd>C</kbd></li>
+      <li><span>החלפת רכב (רכב, אופנוע, טרקטורון, מסוק)</span><kbd>V</kbd></li>
+    <li><span>מסוק: מעלה / מטה</span><kbd>Space / Shift</kbd></li>
+    <li><span>החלפת מצלמה</span><kbd>C</kbd></li>
       <li><span>איפוס למיקום התחלה</span><kbd>R</kbd></li>
       <li><span>השהיה</span><kbd>P / Esc</kbd></li>
     </ul>
@@ -431,6 +435,7 @@ const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive:
 const lampSpots = [];
 const SIGN_NAMES = ['קפה', 'מאפייה', 'SUSHI', 'PHARMACY', 'BOOKS', 'CAFE', 'מכולת', 'BAKERY', 'GYM', 'סופר', 'OPTICS', 'PIZZA', 'מסעדה', 'RESTAURANT', 'BISTRO', 'BARBER'];
 const cafeSpots = [];
+const _parkColor = new THREE.Color();
 const SIGN_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#f8fafc', '#a855f7'];
 const signMats = SIGN_NAMES.map((name, k) => new THREE.MeshBasicMaterial({
   map: makeSignTexture(name, SIGN_COLORS[k % SIGN_COLORS.length]),
@@ -954,6 +959,32 @@ instanced(cafeSpots.map(s => ({ x: s.x, y: 0.8, z: s.z })), new THREE.CylinderGe
 const chairs = cafeSpots.flatMap(s => [{ x: s.x - 0.7, y: 0.06, z: s.z }, { x: s.x + 0.7, y: 0.06, z: s.z }]);
 instanced(chairs, new THREE.BoxGeometry(0.4, 0.5, 0.4).translate(0, 0.25, 0), tankMat, true);
 
+// Parked cars along both kerbs: they are solid, so the driver has to steer around them
+const parked = [];
+for (let n = NODE_MIN; n <= NODE_MAX; n++) {
+  const a = n * PITCH;
+  for (let c = CELL_MIN; c <= CELL_MAX; c++) {
+    const m = c * PITCH + PITCH / 2;
+    for (const side of [-1, 1]) for (const s of [-16, 8]) {
+      if (Math.random() < 0.55) parked.push({ x: m + s, z: a + side * (ROAD / 2 - 1.6), alongX: true });
+      if (Math.random() < 0.55) parked.push({ x: a + side * (ROAD / 2 - 1.6), z: m + s, alongX: false });
+    }
+  }
+}
+const parkedBodies = instanced(parked.map(p => ({ x: p.x, z: p.z, ry: p.alongX ? Math.PI / 2 : 0 })),
+  new THREE.BoxGeometry(1.9, 0.8, 4.2).translate(0, 0.5, 0),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.2 }), true);
+const parkedCabins = instanced(parked.map(p => ({ x: p.x, z: p.z, ry: p.alongX ? Math.PI / 2 : 0 })),
+  new THREE.BoxGeometry(1.6, 0.6, 2.1).translate(0, 1.1, -0.2),
+  new THREE.MeshStandardMaterial({ color: 0x1a2433, roughness: 0.2, metalness: 0.2 }), true);
+const PARKED_COLORS = [0xe5e7eb, 0x1f2937, 0xb91c1c, 0x1d4ed8, 0xf5f5f4, 0x15803d, 0xfacc15, 0x6b7280, 0x0ea5e9, 0x7c2d12];
+parked.forEach((p, k) => {
+  parkedBodies.setColorAt(k, _parkColor.setHex(PARKED_COLORS[k % PARKED_COLORS.length]));
+  const hx = p.alongX ? 2.1 : 1.0, hz = p.alongX ? 1.0 : 2.1;
+  obstacles.push({ minX: p.x - hx, maxX: p.x + hx, minZ: p.z - hz, maxZ: p.z + hz });
+});
+parkedBodies.instanceColor.needsUpdate = true;
+
 // Distant skyline silhouettes, softened by fog
 for (let k = 0; k < 90; k++) {
   const a = rng() * Math.PI * 2;
@@ -1108,13 +1139,16 @@ const traffic = [];
 const TRAFFIC_COLORS = [0xe5e7eb, 0x1f2937, 0xb91c1c, 0x1d4ed8, 0xf5f5f4, 0x15803d, 0xfacc15, 0x6b7280, 0x0ea5e9, 0x7c2d12];
 const inRange = v => v >= NODE_MIN && v <= NODE_MAX;
 
+// The outer ring is the main road: fast traffic there never turns inwards
+const onRing = (i, j) => i === NODE_MIN || i === NODE_MAX || j === NODE_MIN || j === NODE_MAX;
 function chooseTrafficDir(c) {
   const opts = [[c.dx, c.dz], [-c.dz, c.dx], [c.dz, -c.dx]]; // straight, left, right
   const r = Math.random();
   const order = r < 0.6 ? [0, 1, 2] : r < 0.8 ? [1, 0, 2] : [2, 0, 1];
   for (const k of order) {
     const [dx, dz] = opts[k];
-    if (inRange(c.i + dx) && inRange(c.j + dz)) { c.dx = dx; c.dz = dz; return; }
+    const ni = c.i + dx, nj = c.j + dz;
+    if (inRange(ni) && inRange(nj) && (!c.fast || onRing(ni, nj))) { c.dx = dx; c.dz = dz; return; }
   }
   c.dx = -c.dx; c.dz = -c.dz;                       // dead end
 }
@@ -1128,6 +1162,23 @@ for (let k = 0; k < 36; k++) {
   };
   const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => inRange(c.i + dx) && inRange(c.j + dz));
   [c.dx, c.dz] = dirs[randInt(0, dirs.length - 1)];
+  c.off = laneOffset(c.dx, c.dz);
+  scene.add(c.group);
+  traffic.push(c);
+}
+
+// Main road: fast cars circle the outer ring in both directions
+for (let k = 0; k < 14; k++) {
+  const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
+  const c = {
+    ...car, fast: true,
+    i: NODE_MIN, j: randInt(NODE_MIN, NODE_MAX - 1), dx: 0, dz: 1,
+    t: Math.random() * PITCH, speed: 22 + Math.random() * 6, spin: 0,
+  };
+  if (k % 2) {
+    // Half the cars drive the ring the other way round, on the opposite lane
+    c.i = NODE_MAX; c.dx = 0; c.dz = -1; c.j = randInt(NODE_MIN + 1, NODE_MAX);
+  }
   c.off = laneOffset(c.dx, c.dz);
   scene.add(c.group);
   traffic.push(c);
@@ -1267,12 +1318,90 @@ scene.add(carModel.group, motoModel.group, atvModel.group);
 motoModel.group.visible = false;
 atvModel.group.visible = false;
 
+// Helicopter: a procedural model with a spinning main rotor and a tail rotor
+function makeHelicopter(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.3, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(1.5, 1.3, 2.4, 4, 0.4), paint, 0, 1.3, 0.3);          // cabin
+  add(new THREE.SphereGeometry(0.72, 20, 14), glassMat, 0, 1.35, 1.45);            // bubble
+  add(new THREE.CylinderGeometry(0.22, 0.14, 3.6, 10), paint, 0, 1.45, -2.6).rotation.x = Math.PI / 2; // tail boom
+  add(new RoundedBoxGeometry(0.1, 0.9, 0.6, 2, 0.04), paint, 0, 2.2, -4.2);        // tail fin
+  const tailRotor = add(new THREE.BoxGeometry(0.06, 0.9, 0.12), trimMat, 0.25, 1.55, -4.3);
+  for (const s of [-1, 1]) {
+    add(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 8), trimMat, s * 0.75, 0.2, 0.3).rotation.x = Math.PI / 2; // skids
+    add(new THREE.BoxGeometry(0.08, 0.9, 0.08), trimMat, s * 0.7, 0.7, 0.3);                                    // struts
+  }
+  const rotor = new THREE.Group();
+  rotor.position.set(0, 2.35, 0.2);
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.04, 0.32), trimMat);
+    blade.rotation.y = a;
+    blade.castShadow = true;
+    rotor.add(blade);
+  }
+  group.add(rotor);
+  return { group, rotor, tailRotor };
+}
+const heliModel = makeHelicopter(0x2a3a4a);
+heliModel.group.visible = false;
+scene.add(heliModel.group);
+
+// Vehicle cycle: car, motorcycle, ATV, helicopter (V key or the touch button)
+const VEHICLE_ORDER = ['car', 'moto', 'atv', 'heli'];
 function switchVehicle() {
-  const keys = Object.keys(VEHICLES);
+  const prev = vehicle;
+  vehicle = VEHICLE_ORDER[(VEHICLE_ORDER.indexOf(vehicle) + 1) % VEHICLE_ORDER.length];
+  if (prev === 'heli') {
+    // Land where the helicopter is
+    Object.assign(player, { x: heli.x, z: heli.z, heading: heli.heading, fwd: 0, lat: 0, alt: 0 });
+  }
+  if (vehicle === 'heli') {
+    Object.assign(heli, { x: player.x, z: player.z, heading: player.heading, speed: 0, vy: 0, steer: 0, y: surfaceHeight(player.x, player.z) + 1 });
+  }
   playerCar.group.visible = false;
-  vehicle = keys[(keys.indexOf(vehicle) + 1) % keys.length];
-  playerCar = VEHICLES[vehicle].model;
-  playerCar.group.visible = true;
+  heliModel.group.visible = vehicle === 'heli';
+  if (vehicle !== 'heli') {
+    playerCar = VEHICLES[vehicle].model;
+    playerCar.group.visible = true;
+  }
+}
+
+// Helicopter flight: forward tilt, yaw, climb and descend. It flies over the city with no collisions.
+const heli = { x: 0, y: 0, z: 0, heading: 0, speed: 0, vy: 0, steer: 0, pitch: 0, roll: 0 };
+const HELI_MAX_SPEED = 42;
+const HELI_CEILING = 320;
+function updateHeli(dt) {
+  const h = heli;
+  const steerT = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+  h.steer += (steerT - h.steer) * Math.min(1, dt * 4);
+  h.heading += h.steer * 1.4 * dt;
+  const fwdT = input.up ? HELI_MAX_SPEED : input.down ? -HELI_MAX_SPEED * 0.5 : 0;
+  h.speed += (fwdT - h.speed) * Math.min(1, dt * 1.2);
+  const climbT = (input.hand ? 12 : 0) - (input.descend ? 10 : 0);
+  h.vy += (climbT - h.vy) * Math.min(1, dt * 2.5);
+  const ground = surfaceHeight(h.x, h.z);
+  h.y = clamp(h.y + h.vy * dt, ground + 0.8, HELI_CEILING);
+  if (h.y <= ground + 0.8) h.vy = Math.max(0, h.vy);
+  const fx = Math.sin(h.heading), fz = Math.cos(h.heading);
+  h.x += fx * h.speed * dt;
+  h.z += fz * h.speed * dt;
+  h.pitch += ((input.up ? 0.2 : input.down ? -0.12 : 0) - h.pitch) * Math.min(1, dt * 4);
+  h.roll += (-h.steer * 0.3 - h.roll) * Math.min(1, dt * 4);
+
+  // Keep the HUD and the camera following the helicopter
+  Object.assign(player, { x: h.x, z: h.z, heading: h.heading, fwd: h.speed, lat: 0, steer: h.steer, alt: h.y - ground });
+  heliModel.group.position.set(h.x, h.y, h.z);
+  heliModel.group.rotation.set(h.pitch, h.heading, h.roll);
+  heliModel.rotor.rotation.y += dt * 38;
+  heliModel.tailRotor.rotation.x += dt * 38;
 }
 
 // Headlight beams: real spotlights in front of the player car (no shadows, for speed)
@@ -1288,7 +1417,7 @@ function resetCar() {
 }
 resetCar();
 
-const input = { up: false, down: false, left: false, right: false, hand: false };
+const input = { up: false, down: false, left: false, right: false, hand: false, descend: false };
 let shake = 0;
 
 // Resolve a contact: push the car out along n and bounce its velocity.
@@ -1416,7 +1545,7 @@ function updatePlayer(dt) {
 // ============================================================
 // Pedestrians: a crowd walking along the sidewalks, with a simple gait bob
 // ============================================================
-const PEDS = 160;
+const PEDS = 260;
 const PED_SHIRTS = [0x1f2937, 0x7c2d12, 0x0f766e, 0xb45309, 0x4338ca, 0xbe185d, 0x365314, 0xe5e7eb, 0xf59e0b, 0x0ea5e9];
 const PED_PANTS = [0x111827, 0x374151, 0x1e3a8a, 0x44403c, 0xd6d3d1];
 const PED_SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0x5c3a21, 0xffdbac];
@@ -1432,6 +1561,8 @@ const pedMeshes = {};
 for (const name of Object.keys(pedParts)) {
   pedMeshes[name] = new THREE.InstancedMesh(pedParts[name], new THREE.MeshStandardMaterial({ roughness: 0.75 }), PEDS);
   pedMeshes[name].castShadow = true;
+  // The bounds come from one copy of the geometry, not the whole crowd, so culling must be off
+  pedMeshes[name].frustumCulled = false;
   scene.add(pedMeshes[name]);
 }
 const pedColor = new THREE.Color();
@@ -1500,6 +1631,7 @@ function addSkid(x, z, yaw) {
 }
 
 function updateSkids(dt) {
+  if (vehicle === 'heli') return;
   const p = player;
   const V = VEHICLES[vehicle];
   const slipping = Math.abs(p.lat) > 3.5 || (input.hand && Math.abs(p.fwd) > 6);
@@ -1529,8 +1661,9 @@ let camReady = false;
 function updateCamera(dt) {
   const m = CAM_MODES[camMode];
   const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
-  const target = new THREE.Vector3(player.x - fx * m.dist, m.height, player.z - fz * m.dist);
-  const look = new THREE.Vector3(player.x + fx * m.look, 1.0, player.z + fz * m.look);
+  const alt = player.alt || 0;
+  const target = new THREE.Vector3(player.x - fx * m.dist, m.height + alt, player.z - fz * m.dist);
+  const look = new THREE.Vector3(player.x + fx * m.look, 1.0 + alt, player.z + fz * m.look);
   if (!camReady) { camPos.copy(target); camLook.copy(look); camReady = true; }
   const k = 1 - Math.exp(-dt * 6);
   const kl = 1 - Math.exp(-dt * 10);
@@ -1682,7 +1815,7 @@ function drawMinimap() {
 // ============================================================
 const KEYMAP = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
-  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'hand',
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'hand', ShiftLeft: 'descend', ShiftRight: 'descend',
 };
 const startOverlay = document.getElementById('startOverlay');
 const pauseOverlay = document.getElementById('pauseOverlay');
@@ -1719,6 +1852,7 @@ document.querySelectorAll('#touch .tb[data-key]').forEach(btn => {
   btn.addEventListener('pointerleave', release);
 });
 document.getElementById('touchCam').addEventListener('click', () => { camMode = (camMode + 1) % CAM_MODES.length; });
+document.getElementById('touchVehicle').addEventListener('click', switchVehicle);
 document.getElementById('touchPause').addEventListener('click', () => { if (state !== 'menu') togglePause(); });
 
 window.addEventListener('keydown', e => {
@@ -1753,7 +1887,8 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (state === 'playing') {
-    updatePlayer(dt);
+    if (vehicle === 'heli') updateHeli(dt);
+    else updatePlayer(dt);
     updateTraffic(dt);
     updateSkids(dt);
   } else {
