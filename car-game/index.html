@@ -643,7 +643,22 @@ function terrainHeight(x, z) {
   // The base sits well below the streets so depth precision never lets the terrain show through them
   if (d <= 0) return -3;
   const ridge = Math.sin(x * 0.011) * Math.cos(z * 0.013) + 0.5 * Math.sin(x * 0.027 + z * 0.019) + 0.25 * Math.cos(z * 0.061 - x * 0.04);
-  return -3 + Math.pow(d, 1.15) * 0.13 * (0.7 + 0.3 * ridge) + Math.max(0, ridge) * Math.min(d, 60) * 0.3;
+  const mountain = -3 + Math.pow(d, 1.15) * 0.13 * (0.7 + 0.3 * ridge) + Math.max(0, ridge) * Math.min(d, 60) * 0.3;
+  // The main road leaves the city to the east: a corridor that flattens into the road and climbs a hill
+  if (x > EDGE + ROAD / 2) {
+    const w = 1 - smoothstep(25, 60, Math.abs(z));
+    return mountain + (roadProfile(x) - mountain) * w;
+  }
+  return mountain;
+}
+const HIGHWAY_END = 900;
+// Height of the road over the hill: 0 at the city, a 90 m hill near x = 700, back down past the end
+function roadProfile(x) {
+  return 90 * Math.exp(-((x - 700) ** 2) / (2 * 110 * 110)) * smoothstep(300, 420, x);
+}
+function smoothstep(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
 }
 const terrainGeo = new THREE.PlaneGeometry(2600, 2600, 220, 220).rotateX(-Math.PI / 2);
 {
@@ -670,6 +685,7 @@ const pines = [];
 for (let k = 0; k < 900; k++) {
   const x = (Math.random() * 2 - 1) * 1100, z = (Math.random() * 2 - 1) * 1100;
   if (Math.max(Math.abs(x), Math.abs(z)) < EDGE + ROAD + 12) continue;
+  if (x > 0 && Math.abs(z) < 60) continue;   // keep the main road and its hill clear of trees
   const y = terrainHeight(x, z);
   if (y < 1 || y > 95) continue;
   pines.push({ x, y, z, s: 0.8 + Math.random() * 0.8 });
@@ -719,9 +735,36 @@ function rampHeight(r, x, z) {
   return r.H * (1 - Math.abs(along) / (r.L / 2));
 }
 function surfaceHeight(x, z) {
-  let h = 0;
+  let h = Math.max(0, terrainHeight(x, z));
   for (const r of ramps) h = Math.max(h, rampHeight(r, x, z));
   return h;
+}
+
+// A flat strip that follows the terrain: road surface, centre line and edge lines of the main road
+function makeStrip(x0, x1, zc, halfW, lift, mat) {
+  const N = 220, pos = [], idx = [];
+  for (let k = 0; k <= N; k++) {
+    const x = x0 + (x1 - x0) * k / N;
+    const y = Math.max(0, terrainHeight(x, zc)) + lift;
+    pos.push(x, y, zc - halfW, x, y, zc + halfW);
+  }
+  for (let k = 0; k < N; k++) {
+    const a = k * 2, b = a + 1, c = a + 2, d = a + 3;
+    idx.push(a, b, c, c, b, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mat);
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+makeStrip(EDGE + ROAD / 2, HIGHWAY_END, 0, 7, 0.05, new THREE.MeshStandardMaterial({ color: 0x2d3136, roughness: 0.9 }));
+makeStrip(EDGE + ROAD / 2, HIGHWAY_END, 0, 0.18, 0.08, new THREE.MeshStandardMaterial({ color: 0xf5c542, roughness: 0.6 }));
+for (const s of [-1, 1]) {
+  makeStrip(EDGE + ROAD / 2, HIGHWAY_END, s * 6.3, 0.15, 0.08, new THREE.MeshStandardMaterial({ color: 0xf1f1f1, roughness: 0.6 }));
 }
 const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
 asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
@@ -1167,6 +1210,15 @@ for (let k = 0; k < 36; k++) {
   traffic.push(c);
 }
 
+// Highway traffic: ten cars shuttling along the main road outside the city
+for (let k = 0; k < 10; k++) {
+  const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
+  const c = { ...car, hwy: true, dir: k % 2 ? -1 : 1, x: 320 + Math.random() * (HIGHWAY_END - 340), speed: 24 + Math.random() * 8, spin: 0 };
+  c.group.position.set(c.x, 0, laneOffset(c.dir, 0).z);
+  scene.add(c.group);
+  traffic.push(c);
+}
+
 // Main road: fast cars circle the outer ring in both directions
 for (let k = 0; k < 14; k++) {
   const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
@@ -1184,8 +1236,48 @@ for (let k = 0; k < 14; k++) {
   traffic.push(c);
 }
 
+// Traffic lights: the two directions take turns, green, amber, then the other way round
+const LIGHT_CYCLE = 11;   // seconds per full cycle
+let lightTime = 0;
+function lightFor(axisX) {
+  const t = lightTime % LIGHT_CYCLE;
+  if (axisX) return t < 4.5 ? 'g' : t < 5.5 ? 'y' : 'r';
+  return t < 5.5 ? 'r' : t < 10 ? 'g' : 'y';
+}
+const SIGNAL_COLOR = { g: new THREE.Color(0x22c55e), y: new THREE.Color(0xf59e0b), r: new THREE.Color(0xef4444) };
+
+// Signal heads on the four corners of every junction, each showing the phase of the road it faces
+const signalHeads = [];
+for (let i = NODE_MIN; i <= NODE_MAX; i++) for (let j = NODE_MIN; j <= NODE_MAX; j++) {
+  const nx = i * PITCH, nz = j * PITCH;
+  for (const [sx, sz] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    signalHeads.push({ x: nx + sx * (ROAD / 2 + 0.6), z: nz + sz * (ROAD / 2 + 0.6), axisX: sx * sz > 0 });
+  }
+}
+instanced(signalHeads.map(h => ({ x: h.x, y: 2.2, z: h.z })), new THREE.CylinderGeometry(0.12, 0.12, 4.4, 6), lampPoleMat, true);
+const signalMesh = instanced(signalHeads.map(h => ({ x: h.x, y: 4.5, z: h.z, sx: 0.45, sy: 0.9, sz: 0.45 })),
+  UNIT_BOX, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+function updateSignals() {
+  signalHeads.forEach((h, k) => signalMesh.setColorAt(k, SIGNAL_COLOR[lightFor(h.axisX)]));
+  signalMesh.instanceColor.needsUpdate = true;
+}
+
+// Highway traffic: cars run along the main road in both lanes and loop back at the end
+function updateShuttle(c, dt) {
+  c.x += c.dir * c.speed * dt;
+  if (c.x > HIGHWAY_END - 20) c.x = 320;
+  if (c.x < 320) c.x = HIGHWAY_END - 20;
+  const lane = laneOffset(c.dir, 0);
+  c.group.position.set(c.x, surfaceHeight(c.x, lane.z), lane.z);
+  c.group.rotation.y = c.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+  c.spin += c.speed * dt / 0.36;
+  c.wheels.forEach(w => { w.rotation.x = c.spin; });
+}
+
 function updateTraffic(dt) {
+  lightTime += dt;
   for (const c of traffic) {
+    if (c.hwy) { updateShuttle(c, dt); continue; }
     c.cruise ??= c.speed;
     // Car following: slow down behind a slower car in the same lane
     let lead = null, gap = Infinity;
@@ -1197,7 +1289,10 @@ function updateTraffic(dt) {
       const side = Math.abs(ddx * c.dz - ddz * c.dx);
       if (ahead > 0 && side < 2.5 && ahead < gap) { gap = ahead; lead = o; }
     }
-    const wantSpeed = lead && gap < 14 ? Math.min(c.cruise, lead.speed) : c.cruise;
+    // Stop short of a junction when this direction is not green
+    const rem = PITCH - c.t;
+    const redLight = lightFor(c.dx !== 0) !== 'g' && rem < 16 && rem > 2;
+    const wantSpeed = redLight ? 0 : lead && gap < 14 ? Math.min(c.cruise, lead.speed) : c.cruise;
     c.speed += (wantSpeed - c.speed) * Math.min(1, dt * 2);
     c.t += c.speed * dt;
     while (c.t >= PITCH) {
@@ -1348,7 +1443,18 @@ function makeHelicopter(color) {
     rotor.add(blade);
   }
   group.add(rotor);
-  return { group, rotor, tailRotor };
+
+  // Rotor disc: a faint ring so the spinning blades read as motion
+  const blur = new THREE.Mesh(new THREE.CircleGeometry(3.7, 32), new THREE.MeshBasicMaterial({ color: 0xc8d0da, transparent: true, opacity: 0.12, depthWrite: false }));
+  blur.rotation.x = -Math.PI / 2;
+  rotor.add(blur);
+
+  // Navigation lights: red on the left, green on the right, blinking
+  const navLights = [
+    add(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2020 }), -1.4, 1.5, 0.3),
+    add(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0x20ff60 }), 1.4, 1.5, 0.3),
+  ];
+  return { group, rotor, tailRotor, navLights };
 }
 const heliModel = makeHelicopter(0x2a3a4a);
 heliModel.group.visible = false;
@@ -1397,11 +1503,13 @@ function updateHeli(dt) {
   h.roll += (-h.steer * 0.3 - h.roll) * Math.min(1, dt * 4);
 
   // Keep the HUD and the camera following the helicopter
-  Object.assign(player, { x: h.x, z: h.z, heading: h.heading, fwd: h.speed, lat: 0, steer: h.steer, alt: h.y - ground });
+  Object.assign(player, { x: h.x, z: h.z, heading: h.heading, fwd: h.speed, lat: 0, steer: h.steer, alt: h.y });
   heliModel.group.position.set(h.x, h.y, h.z);
   heliModel.group.rotation.set(h.pitch, h.heading, h.roll);
   heliModel.rotor.rotation.y += dt * 38;
   heliModel.tailRotor.rotation.x += dt * 38;
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  heliModel.navLights.forEach(m => { m.visible = blink; });
 }
 
 // Headlight beams: real spotlights in front of the player car (no shadows, for speed)
@@ -1508,7 +1616,9 @@ function updatePlayer(dt) {
 
   // Invisible city limits
   if (p.x < -WORLD_LIMIT) { p.x = -WORLD_LIMIT; applyContact(1, 0, 0); }
-  if (p.x > WORLD_LIMIT) { p.x = WORLD_LIMIT; applyContact(-1, 0, 0); }
+  const onHighway = Math.abs(p.z) < 40 && p.x > 0;
+  if (p.x > WORLD_LIMIT && !onHighway) { p.x = WORLD_LIMIT; applyContact(-1, 0, 0); }
+  if (p.x > HIGHWAY_END) { p.x = HIGHWAY_END; applyContact(-1, 0, 0); }
   if (p.z < -WORLD_LIMIT) { p.z = -WORLD_LIMIT; applyContact(0, 1, 0); }
   if (p.z > WORLD_LIMIT) { p.z = WORLD_LIMIT; applyContact(0, -1, 0); }
 
@@ -1516,6 +1626,7 @@ function updatePlayer(dt) {
   // Ride the humps: height from the surface, nose tilted to match the slope ahead
   const hx0 = Math.sin(p.heading), hz0 = Math.cos(p.heading);
   const groundY = surfaceHeight(p.x, p.z);
+  player.alt = groundY;   // the camera follows the car up and down hills and humps
   const slope = Math.atan2(surfaceHeight(p.x + hx0 * 2, p.z + hz0 * 2) - surfaceHeight(p.x - hx0 * 2, p.z - hz0 * 2), 4);
   playerCar.group.position.set(p.x, groundY, p.z);
   // Suspension: the nose dips under braking and lifts under acceleration; the body leans in corners
@@ -1895,6 +2006,7 @@ function frame(now) {
     updateTraffic(0);
   }
   updatePeds(dt, now);
+  updateSignals();
   updateCamera(dt);
   updateSun();
   updateAudio();
