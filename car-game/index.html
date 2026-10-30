@@ -163,7 +163,7 @@
 <div id="hint" class="panel">
   <kbd>↑ ↓ ← →</kbd> / <kbd>WASD</kbd> נהיגה<br>
   <kbd>Space</kbd> בלם יד · <kbd>C</kbd> מצלמה<br>
-  <kbd>R</kbd> איפוס · <kbd>P</kbd> השהיה · <kbd>M</kbd> השתקה
+  <kbd>R</kbd> איפוס · <kbd>P</kbd> השהיה · <kbd>M</kbd> השתקה · <kbd>V</kbd> החלפת רכב
 </div>
 
 <div id="speedPanel" class="panel">
@@ -241,19 +241,12 @@ const EDGE = NODE_MAX * PITCH;         // position of the outermost roads
 const WORLD_LIMIT = EDGE + ROAD / 2 - 2;
 
 // Vehicle tuning (metres and seconds)
-const MAX_SPEED = 44;                  // about 158 km/h
-const MAX_REVERSE = 11;
-const ENGINE_ACCEL = 24;
-const BRAKE_DECEL = 36;
+// Per-vehicle values (top speed, engine, grip, turning, body radius) live in VEHICLES
+const MAX_SPEED = 44;                  // reference speed for the HUD, camera and audio (about 158 km/h)
 const REVERSE_ACCEL = 9;
 const COAST_DRAG = 0.35;
 const HAND_DECEL = 18;
-const GRIP = 7.5;
-const HAND_GRIP = 1.4;
-const TURN_RATE = 2.3;
 const RESTITUTION = 0.25;
-const CAR_RADIUS = 1.05;
-const CAR_AXLE_OFFSET = 1.2;           // the car is modelled as two circles, front and rear
 
 const SIDEWALK_COLOR = 0xcdc7bb;
 const ASPHALT_COLOR = 0x2d3136;
@@ -1068,7 +1061,7 @@ function chooseTrafficDir(c) {
   c.dx = -c.dx; c.dz = -c.dz;                       // dead end
 }
 
-for (let k = 0; k < 24; k++) {
+for (let k = 0; k < 36; k++) {
   const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
   const c = {
     ...car,
@@ -1120,8 +1113,110 @@ function updateTraffic(dt) {
 // ============================================================
 // Player car
 // ============================================================
-const playerCar = makeCar(0xff6a1a);
-scene.add(playerCar.group);
+// Motorcycles and ATVs: procedural models with the same wheel, light and tail interface as the car
+function makeWheel(radius, width) {
+  const discMat = new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.4, metalness: 0.8 });
+  const alloyMat = new THREE.MeshStandardMaterial({ color: 0xa9b2bc, roughness: 0.3, metalness: 0.9 });
+  const w = new THREE.Group();
+  w.rotation.order = 'YXZ';
+  const parts = [
+    [new THREE.CylinderGeometry(radius, radius, width, 24), tyreMat],
+    [new THREE.CylinderGeometry(radius * 0.66, radius * 0.66, 0.04, 24), discMat],
+    [new THREE.CylinderGeometry(radius * 0.55, radius * 0.55, width + 0.01, 20), alloyMat],
+  ];
+  for (const [geo, mat] of parts) {
+    const part = new THREE.Mesh(geo, mat);
+    part.rotation.z = Math.PI / 2;
+    part.castShadow = true;
+    w.add(part);
+  }
+  return w;
+}
+
+function makeMotorcycle(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.4, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(0.22, 0.2, 1.1, 3, 0.07), trimMat, 0, 0.55, -0.1);   // frame
+  add(new RoundedBoxGeometry(0.34, 0.22, 0.6, 3, 0.1), paint, 0, 0.78, 0.15);    // tank
+  add(new RoundedBoxGeometry(0.26, 0.14, 0.7, 3, 0.08), trimMat, 0, 0.7, -0.5);  // seat
+  add(new RoundedBoxGeometry(0.32, 0.45, 0.5, 3, 0.12), paint, 0, 0.75, 0.7).rotation.x = -0.25; // fairing
+  add(new RoundedBoxGeometry(0.3, 0.3, 0.36, 2, 0.05), trimMat, 0, 0.35, 0);     // engine
+  add(new THREE.SphereGeometry(0.1, 12, 8), headMat, 0, 0.82, 1.0);             // headlight
+  const tail = add(new RoundedBoxGeometry(0.12, 0.08, 0.04, 2, 0.02), tailMat, 0, 0.78, -0.92);
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), chromeMat, 0, 1.1, 0.7).rotation.z = Math.PI / 2; // handlebar
+  add(new THREE.CapsuleGeometry(0.16, 0.45, 4, 8), trimMat, 0, 1.05, -0.2).rotation.x = -0.5;          // rider torso
+  add(new THREE.SphereGeometry(0.16, 12, 10), paint, 0, 1.45, -0.1);                                    // helmet
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.14, 0.45, 0.16, 2, 0.05), trimMat, s * 0.13, 0.7, 0.25); // legs
+
+  const front = makeWheel(0.34, 0.16);
+  front.position.set(0, 0.34, 0.85);
+  const rear = makeWheel(0.34, 0.2);
+  rear.position.set(0, 0.34, -0.8);
+  group.add(front, rear);
+  return { group, wheels: [front, rear], tailMat: tail.material };
+}
+
+function makeAtv(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.2, roughness: 0.6 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(1.0, 0.35, 1.5, 3, 0.12), paint, 0, 0.5, 0);          // body
+  add(new RoundedBoxGeometry(0.42, 0.14, 0.7, 3, 0.07), trimMat, 0, 0.78, -0.25);  // seat
+  add(new THREE.BoxGeometry(0.9, 0.04, 0.04), chromeMat, 0, 1.0, 0.65);            // handlebar
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.5, 0.06), chromeMat, s * 0.42, 0.9, 0.65); // bar posts
+  add(new RoundedBoxGeometry(0.9, 0.1, 0.6, 2, 0.04), trimMat, 0, 0.66, -1.0);   // rear rack
+  for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.09, 10, 8), headMat, s * 0.3, 0.6, 0.78); // headlights
+  add(new RoundedBoxGeometry(0.2, 0.1, 0.04, 2, 0.02), tailMat, 0, 0.66, -0.78);    // tail
+
+  const wheels = [];
+  for (const [x, z] of [[-0.6, 0.95], [0.6, 0.95], [-0.6, -0.95], [0.6, -0.95]]) {
+    const w = makeWheel(0.33, 0.3);
+    w.position.set(x, 0.33, z);
+    group.add(w);
+    wheels.push(w);
+  }
+  return { group, wheels, tailMat };
+}
+
+// One physics model, three tunings. Car: the default. Moto: faster, leans into turns. ATV: slow and grippy.
+const carModel = makeCar(0xff6a1a);
+const motoModel = makeMotorcycle(0xff6a1a);
+const atvModel = makeAtv(0x3f6b2a);
+const VEHICLES = {
+  car:  { name: 'רכב',      model: carModel,  maxSpeed: 44, maxReverse: 11, engine: 24, brake: 36, grip: 7.5, handGrip: 1.4, turn: 2.3, radius: 1.05, axle: 1.2, rear: 1.35, front: 2.1, steerWheels: 2 },
+  moto: { name: 'אופנוע',   model: motoModel, maxSpeed: 58, maxReverse: 6,  engine: 30, brake: 34, grip: 9.0, handGrip: 2.2, turn: 3.6, radius: 0.55, axle: 1.0, rear: 1.05, front: 1.3, steerWheels: 1, lean: 0.35 },
+  atv:  { name: 'טרקטורון', model: atvModel,  maxSpeed: 26, maxReverse: 8,  engine: 15, brake: 22, grip: 4.5, handGrip: 1.0, turn: 3.0, radius: 0.95, axle: 1.0, rear: 1.05, front: 1.4, steerWheels: 2 },
+};
+let vehicle = 'car';
+let playerCar = carModel;
+scene.add(carModel.group, motoModel.group, atvModel.group);
+motoModel.group.visible = false;
+atvModel.group.visible = false;
+
+function switchVehicle() {
+  const keys = Object.keys(VEHICLES);
+  playerCar.group.visible = false;
+  vehicle = keys[(keys.indexOf(vehicle) + 1) % keys.length];
+  playerCar = VEHICLES[vehicle].model;
+  playerCar.group.visible = true;
+}
 
 // Headlight beams: real spotlights in front of the player car (no shadows, for speed)
 const headBeam = new THREE.SpotLight(0xfff0d0, 30, 70, Math.PI / 6, 0.6, 1.4);
@@ -1157,6 +1252,7 @@ function applyContact(nx, nz, pen) {
 
 function updatePlayer(dt) {
   const p = player;
+  const V = VEHICLES[vehicle];
 
   // Steering: smooth, speed-sensitive
   const steerTarget = (input.left ? 1 : 0) - (input.right ? 1 : 0);
@@ -1165,16 +1261,16 @@ function updatePlayer(dt) {
   // Longitudinal
   let accel = 0;
   if (input.up) {
-    accel += p.fwd < -1 ? BRAKE_DECEL : ENGINE_ACCEL * Math.max(0.12, 1 - Math.max(p.fwd, 0) / MAX_SPEED);
+    accel += p.fwd < -1 ? V.brake : V.engine * Math.max(0.12, 1 - Math.max(p.fwd, 0) / V.maxSpeed);
   }
-  if (input.down) accel += p.fwd > 1 ? -BRAKE_DECEL : -REVERSE_ACCEL;
+  if (input.down) accel += p.fwd > 1 ? -V.brake : -REVERSE_ACCEL;
   if (!input.up && !input.down) accel -= p.fwd * COAST_DRAG;
   if (input.hand) accel -= Math.sign(p.fwd) * HAND_DECEL;
-  p.fwd = clamp(p.fwd + accel * dt, -MAX_REVERSE, MAX_SPEED);
+  p.fwd = clamp(p.fwd + accel * dt, -V.maxReverse, V.maxSpeed);
 
   // Yaw: turning needs movement and gets sharper with less speed
-  const grip = input.hand ? HAND_GRIP : GRIP;
-  const rate = TURN_RATE * (input.hand ? 1.35 : 1) / (1 + Math.abs(p.fwd) / 35);
+  const grip = input.hand ? V.handGrip : V.grip;
+  const rate = V.turn * (input.hand ? 1.35 : 1) / (1 + Math.abs(p.fwd) / 35);
   const dyaw = p.steer * rate * clamp(Math.abs(p.fwd) / 4, 0, 1) * Math.sign(p.fwd) * dt;
   p.heading += dyaw;
   p.lat += p.fwd * dyaw;                        // momentum lags behind the turn, so the car slips
@@ -1190,13 +1286,13 @@ function updatePlayer(dt) {
 
   // Collide with buildings, trees and fountains (two circles along the car)
   for (let pass = 0; pass < 2; pass++) {
-    for (const o of [CAR_AXLE_OFFSET, -CAR_AXLE_OFFSET]) {
+    for (const o of [V.axle, -V.axle]) {
       for (const b of obstacles) {
         const cx = p.x + fx * o, cz = p.z + fz * o;
         const qx = clamp(cx, b.minX, b.maxX), qz = clamp(cz, b.minZ, b.maxZ);
         const dx = cx - qx, dz = cz - qz;
         const d2 = dx * dx + dz * dz;
-        if (d2 >= CAR_RADIUS * CAR_RADIUS) continue;
+        if (d2 >= V.radius * V.radius) continue;
         if (d2 < 1e-8) {
           // Centre inside the box: exit through the nearest face
           const m = Math.min(cx - b.minX, b.maxX - cx, cz - b.minZ, b.maxZ - cz);
@@ -1205,20 +1301,20 @@ function updatePlayer(dt) {
           else if (m === b.maxX - cx) nx = 1;
           else if (m === cz - b.minZ) nz = -1;
           else nz = 1;
-          applyContact(nx, nz, m + CAR_RADIUS);
+          applyContact(nx, nz, m + V.radius);
         } else {
           const d = Math.sqrt(d2);
-          applyContact(dx / d, dz / d, CAR_RADIUS - d);
+          applyContact(dx / d, dz / d, V.radius - d);
         }
       }
     }
     // Traffic cars
     for (const t of traffic) {
       const tx = t.group.position.x, tz = t.group.position.z;
-      for (const o of [CAR_AXLE_OFFSET, -CAR_AXLE_OFFSET]) {
+      for (const o of [V.axle, -V.axle]) {
         const cx = p.x + fx * o, cz = p.z + fz * o;
         const dx = cx - tx, dz = cz - tz;
-        const d = Math.hypot(dx, dz), minD = CAR_RADIUS + 1.9;
+        const d = Math.hypot(dx, dz), minD = V.radius + 1.9;
         if (d < minD && d > 1e-4) applyContact(dx / d, dz / d, minD - d);
       }
     }
@@ -1236,20 +1332,23 @@ function updatePlayer(dt) {
   p.pitch ??= 0;
   p.roll ??= 0;
   const pitchT = clamp(-accel * 0.004, -0.04, 0.04);
-  const rollT = clamp(-p.steer * Math.min(Math.abs(p.fwd), 30) * 0.0016, -0.05, 0.05);
+  // A motorcycle leans into the corner; cars and ATVs roll on their suspension
+  const rollT = V.lean
+    ? clamp(-p.steer * Math.min(Math.abs(p.fwd), 25) / 25 * V.lean, -V.lean, V.lean)
+    : clamp(-p.steer * Math.min(Math.abs(p.fwd), 30) * 0.0016, -0.05, 0.05);
   p.pitch += (pitchT - p.pitch) * Math.min(1, dt * 6);
   p.roll += (rollT - p.roll) * Math.min(1, dt * 6);
   playerCar.group.rotation.set(p.pitch, p.heading, p.roll);
   p.spin += p.fwd * dt / 0.36;
   playerCar.wheels.forEach((w, k) => {
     w.rotation.x = p.spin;
-    if (k < 2) w.rotation.y = p.steer * 0.42;   // front wheels turn
+    if (k < V.steerWheels) w.rotation.y = p.steer * 0.42;   // front wheels turn
   });
   const braking = (input.down && p.fwd > 0.5) || input.hand;
   playerCar.tailMat.emissiveIntensity = braking ? 3 : 0.6;
 
   const hx = Math.sin(p.heading), hz = Math.cos(p.heading);
-  headBeam.position.set(p.x + hx * 2.1, 0.9, p.z + hz * 2.1);
+  headBeam.position.set(p.x + hx * V.front, 0.9, p.z + hz * V.front);
   headTarget.position.set(p.x + hx * 30, 0, p.z + hz * 30);
 }
 
@@ -1296,10 +1395,8 @@ function updatePeds(dt, now) {
 // Skid marks: a pool of dark decals under the rear tyres while sliding
 // ============================================================
 const SKID_MAX = 700;
-const skidMat = new THREE.MeshBasicMaterial({
-  color: 0x0b0d10, transparent: true, opacity: 0.5, depthWrite: false,
-  polygonOffset: true, polygonOffsetFactor: -2,
-});
+// No polygon offset here: a negative offset pulled the decals' depth past the road and made it show grass through them
+const skidMat = new THREE.MeshBasicMaterial({ color: 0x0b0d10, transparent: true, opacity: 0.5, depthWrite: false });
 const skids = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), skidMat, SKID_MAX);
 // Unused slots are zero-scaled so they stay invisible
 const _hidden = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -1320,6 +1417,7 @@ function addSkid(x, z, yaw) {
 
 function updateSkids(dt) {
   const p = player;
+  const V = VEHICLES[vehicle];
   const slipping = Math.abs(p.lat) > 3.5 || (input.hand && Math.abs(p.fwd) > 6);
   skidTimer -= dt;
   if (!slipping || skidTimer > 0) return;
@@ -1327,7 +1425,7 @@ function updateSkids(dt) {
   const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
   const rx = -fz, rz = fx;
   for (const s of [-1, 1]) {
-    addSkid(p.x - fx * 1.35 + rx * s * 0.9, p.z - fz * 1.35 + rz * s * 0.9, p.heading);
+    addSkid(p.x - fx * V.rear + rx * s * 0.9, p.z - fz * V.rear + rz * s * 0.9, p.heading);
   }
   skids.instanceMatrix.needsUpdate = true;
 }
@@ -1547,6 +1645,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR') resetCar();
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'menu') togglePause(); }
   if (e.code === 'KeyM') toggleMute();
+  if (e.code === 'KeyV') switchVehicle();
 });
 window.addEventListener('keyup', e => {
   if (KEYMAP[e.code]) input[KEYMAP[e.code]] = false;
