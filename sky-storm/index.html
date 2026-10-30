@@ -19,7 +19,7 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--ink); color: var(--paper); font-family: var(--f-display); }
 body { direction: rtl; }
-body.touch .br { display: none; }
+body.touch .br { top: calc(178px + env(safe-area-inset-top, 0px)); bottom: auto; left: calc(18px + env(safe-area-inset-left, 0px)); right: auto; align-items: flex-start; }
 body.touch .bl { top: calc(92px + env(safe-area-inset-top, 0px)); bottom: auto; }
 body { touch-action: none; user-select: none; -webkit-user-select: none; }
 canvas.full { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -39,13 +39,36 @@ canvas.full { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 .bar { width: min(170px, 30vw); height: 5px; background: rgba(141, 255, 216, .12); position: relative; }
 .bar > i { position: absolute; inset: 0 auto 0 0; background: currentColor; box-shadow: 0 0 10px currentColor; transition: width .12s linear; }
 .bar.hp.low { color: var(--red) !important; animation: blink .45s steps(2) infinite; }
+.panel-g { background: linear-gradient(180deg, rgba(10, 6, 18, .58), rgba(10, 6, 18, .34)); border: 1px solid rgba(141, 255, 216, .18); border-radius: 8px; padding: 9px 12px 10px; gap: 5px; }
+.ph { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; width: min(170px, 30vw); }
+.ph b { font-weight: 400; font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
+.ph.sm { margin-top: 4px; }
+.ph.sm b { font-size: 13px; }
+.bar.hp { color: var(--hud); height: 9px; }
+.bar.seg::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(10, 6, 18, .92) calc(10% - 2px) 10%); }
+#hullPanel.warn .bar.hp, #hullPanel.warn #hpTxt { color: var(--amber); }
+#hullPanel.crit .bar.hp, #hullPanel.crit #hpTxt { color: var(--red); }
+.bar.reload { height: 3px; color: var(--amber); background: rgba(255, 190, 92, .12); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11px; letter-spacing: .12em; padding: 2px 7px; border: 1px solid currentColor; border-radius: 3px; text-shadow: 0 0 8px currentColor; }
+.feed { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+.feed div { display: flex; gap: 8px; align-items: baseline; direction: rtl; font-family: var(--f-display); font-size: 13px; font-weight: 500; color: var(--paper); text-shadow: 0 1px 6px rgba(0, 0, 0, .8); border-right: 2px solid; padding: 2px 8px 2px 10px; background: linear-gradient(270deg, rgba(10, 6, 18, .5), rgba(10, 6, 18, 0)); animation: feedIn 4s forwards; }
+.feed div b { font-family: var(--f-data); font-weight: 400; font-size: 12px; direction: ltr; }
+@keyframes feedIn { 0% { opacity: 0; transform: translateX(-10px); } 6% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+#kill { position: absolute; top: 60%; left: 0; right: 0; display: grid; justify-items: center; gap: 2px; opacity: 0; }
+#kill .x { font-size: 16px; color: var(--red); text-shadow: 0 0 12px var(--red); }
+#kill b { font-family: var(--f-display); font-weight: 900; font-size: clamp(24px, 3.6vw, 36px); line-height: 1; color: var(--paper); letter-spacing: .03em; text-shadow: 0 0 18px rgba(255, 79, 97, .75), 0 2px 10px rgba(0, 0, 0, .6); }
+#kill small { font-family: var(--f-display); font-weight: 700; font-size: 14px; letter-spacing: .08em; color: var(--amber); direction: rtl; }
+#kill.show { animation: killIn 1.3s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes killIn { 0% { opacity: 0; transform: scale(1.5); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
+body.touch .panel-g { padding: 7px 9px 8px; }
 .bar.boost { color: var(--amber); }
 .row { display: flex; justify-content: space-between; align-items: baseline; width: min(170px, 30vw); }
 .corner { opacity: .88; }
 .row b { font-weight: 400; font-size: 13px; }
 .missiles { display: flex; gap: 6px; }
-.missiles b { width: 6px; height: 18px; border: 1px solid var(--amber); border-radius: 4px 4px 1px 1px; opacity: .5; }
-.missiles b.on { background: var(--amber); box-shadow: 0 0 8px var(--amber); opacity: 1; }
+.missiles b { width: 8px; height: 22px; background: rgba(255, 190, 92, .18); clip-path: polygon(50% 0, 100% 24%, 100% 84%, 78% 100%, 22% 100%, 0 84%, 0 24%); }
+.missiles b.on { background: var(--amber); }
 #radar { width: 108px; height: 108px; border-radius: 50%; background: radial-gradient(circle, rgba(141, 255, 216, .06), rgba(7, 10, 18, .62)); border: 1px solid var(--line); }
 
 #boss { position: absolute; top: calc(58px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(460px, 56vw); text-align: center; color: var(--red); text-shadow: 0 0 10px rgba(255, 79, 97, .6); }
@@ -104,12 +127,17 @@ kbd { font-family: var(--f-data); font-size: 11px; color: var(--hud); border: 1p
 
 /* Touch controls */
 #touch { direction: ltr; position: fixed; inset: 0; pointer-events: none; }
-#stick { position: absolute; left: calc(36px + env(safe-area-inset-left, 0px)); bottom: calc(44px + env(safe-area-inset-bottom, 0px)); width: 110px; height: 110px; border-radius: 50%; border: 1px solid var(--hud-dim); background: rgba(7, 10, 18, .25); }
-#knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(141, 255, 216, .35); border: 1px solid var(--hud); }
-.tbtns { position: absolute; right: calc(22px + env(safe-area-inset-right, 0px)); bottom: calc(36px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(2, 58px); gap: 10px; pointer-events: auto; direction: ltr; }
-.tbtns button { width: 58px; height: 58px; border-radius: 50%; border: 1px solid var(--hud); background: rgba(7, 10, 18, .2); color: var(--hud); font-family: var(--f-display); font-weight: 700; font-size: 13px; touch-action: none; }
-.tbtns button.fire { border-color: var(--red); color: var(--red); width: 66px; height: 66px; }
-.tbtns button.on { background: rgba(141, 255, 216, .3); }
+#stick { position: absolute; left: calc(36px + env(safe-area-inset-left, 0px)); bottom: calc(44px + env(safe-area-inset-bottom, 0px)); width: 110px; height: 110px; border-radius: 50%; border: 1px solid rgba(141, 255, 216, .35); background: radial-gradient(circle, rgba(141, 255, 216, .1), rgba(7, 10, 18, .18) 70%); }
+#stick::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; border: 1px dashed rgba(141, 255, 216, .2); }
+#knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(200, 255, 236, .55), rgba(141, 255, 216, .22)); border: 1px solid rgba(141, 255, 216, .8); box-shadow: 0 0 14px rgba(141, 255, 216, .35); }
+.tbtns { position: absolute; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: 56px 72px; grid-template-areas: "roll msl" "boost fire"; gap: 10px 12px; align-items: end; justify-items: center; pointer-events: auto; direction: ltr; }
+.tbtns button { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; align-content: center; gap: 1px; padding: 0; border: 1px solid rgba(141, 255, 216, .45); background: radial-gradient(circle at 50% 35%, rgba(141, 255, 216, .16), rgba(7, 10, 18, .28) 70%); color: var(--hud); font-family: var(--f-display); font-weight: 700; font-size: 10px; letter-spacing: .04em; touch-action: none; box-shadow: 0 2px 12px rgba(0, 0, 0, .25), inset 0 0 12px rgba(141, 255, 216, .08); opacity: .85; transition: transform .08s, background .08s; }
+.tbtns button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#tRoll { grid-area: roll; } #tMissile { grid-area: msl; } #tBoost { grid-area: boost; } #tFire { grid-area: fire; }
+.tbtns button.msl { border-color: rgba(255, 190, 92, .6); color: var(--amber); background: radial-gradient(circle at 50% 35%, rgba(255, 190, 92, .16), rgba(7, 10, 18, .28) 70%); }
+.tbtns button.fire { width: 72px; height: 72px; border-color: rgba(255, 79, 97, .7); color: var(--red); background: radial-gradient(circle at 50% 35%, rgba(255, 79, 97, .22), rgba(7, 10, 18, .3) 70%); }
+.tbtns button.fire svg { width: 30px; height: 30px; }
+.tbtns button.on, .tbtns button:active { transform: scale(.92); background: rgba(141, 255, 216, .3); opacity: 1; }
 @media (max-width: 560px) { .keys { grid-template-columns: minmax(0, 1fr); } .screen { background: rgba(11, 4, 16, .72); } }
 @media (max-height: 640px) { .panel { gap: 14px; } .tag { font-size: 14px; line-height: 1.5; } .keys { padding-block: 10px; gap: 6px 20px; } }
 @media (prefers-reduced-motion: reduce) { #banner.show, .pop { animation-duration: .01s; } }
@@ -123,36 +151,41 @@ kbd { font-family: var(--f-data); font-size: 11px; color: var(--hud); border: 1p
   <div id="warn" hidden>WARNING · אויב על הזנב</div>
   <div id="boss" hidden><div class="t">מבצר הצל</div><div class="bar"><i id="bossHp" style="width:100%"></i></div></div>
   <div id="banner"></div>
+  <div id="kill"><span class="x">✕</span><b id="killT">הופל!</b><small id="killS"></small></div>
   <div id="streak"></div>
   <div class="corner tl">
     <span class="label">SCORE</span>
     <div class="score" id="score">0</div>
     <div class="combo" id="combo"></div>
+    <div class="feed" id="feed"></div>
   </div>
   <div class="corner tr">
     <div class="wave" id="wave">גל 1</div>
     <span class="sub" id="left">אויבים: 0</span>
     <canvas id="radar" width="280" height="280"></canvas>
   </div>
-  <div class="corner bl">
-    <div class="row"><span class="label">HULL</span><b id="hpTxt">100</b></div>
-    <div class="bar hp" id="hpBar" style="color:var(--hud)"><i id="hp" style="width:100%"></i></div>
-    <div class="row" style="margin-top:6px"><span class="label">AFTERBURNER</span><b id="boostTxt">100</b></div>
+  <div class="corner bl panel-g" id="hullPanel">
+    <div class="ph"><span class="label">HULL</span><b id="hpTxt">100</b></div>
+    <div class="bar hp seg" id="hpBar"><i id="hp" style="width:100%"></i></div>
+    <div class="ph sm"><span class="label">AFTERBURNER</span><b id="boostTxt">100</b></div>
     <div class="bar boost"><i id="boost" style="width:100%"></i></div>
   </div>
-  <div class="corner br">
-    <span class="label">AIM-9 · <span id="misTxt">6</span></span>
+  <div class="corner br panel-g">
+    <div class="ph"><span class="label">MISSILES</span><b id="misTxt">6/6</b></div>
     <div class="missiles" id="missiles"></div>
+    <div class="bar reload"><i id="mslReload" style="width:100%"></i></div>
+    <div class="ph sm"><span class="label">GUN</span><b id="gunTxt">∞</b></div>
+    <div class="chips" id="buffs"></div>
   </div>
 </div>
 
 <div id="touch" hidden>
   <div id="stick"><div id="knob"></div></div>
   <div class="tbtns">
-    <button id="tRoll">גלגול</button>
-    <button id="tMissile">טיל</button>
-    <button id="tBoost">מבער</button>
-    <button id="tFire" class="fire">אש</button>
+    <button id="tRoll" aria-label="גלגול"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>גלגול</button>
+    <button id="tMissile" class="msl" aria-label="טיל"><svg viewBox="0 0 24 24"><path d="M12 2c2 2 3 5 3 8v6H9v-6c0-3 1-6 3-8z"/><path d="M9 14l-3 3v3l3-2M15 14l3 3v3l-3-2M10 19l2 3 2-3"/></svg>טיל</button>
+    <button id="tBoost" aria-label="מבער"><svg viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M12 6l6 6-6 6"/></svg>מבער</button>
+    <button id="tFire" class="fire" aria-label="אש"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>אש</button>
   </div>
 </div>
 
@@ -1088,7 +1121,7 @@ function extrudeXZ(pts, depth, bevel = 0.08) {
   g.translate(0, depth / 2, 0);
   return g;
 }
-function makeMissileModel(scale = 1) {
+function makeMissileModel(scale = 1, flameColor = null) {
   const g = new THREE.Group();
   const white = new THREE.MeshStandardMaterial({ color: LIN(0xe8e8e4), metalness: 0.3, roughness: 0.45 });
   const dark = new THREE.MeshStandardMaterial({ color: LIN(0x30343a), metalness: 0.5, roughness: 0.4 });
@@ -1097,6 +1130,14 @@ function makeMissileModel(scale = 1) {
   for (let k = 0; k < 4; k++) {
     const f = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.45), dark);
     f.position.set(Math.sin(k * Math.PI / 2) * 0.22, Math.cos(k * Math.PI / 2) * 0.22, 1.2); f.rotation.z = k * Math.PI / 2; g.add(f);
+  }
+  if (flameColor) {
+    const fm = flameMaterial(flameColor);
+    fm.uniforms.uInt.value = 1.5;
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1, 12, 1, true).translate(0, -0.5, 0).rotateX(-Math.PI / 2), fm);
+    fl.position.z = 1.55; fl.scale.z = 2.6; fl.name = 'mflame'; g.add(fl);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshBasicMaterial({ color: flameColor }));
+    core.position.z = 1.55; g.add(core);
   }
   g.scale.setScalar(scale);
   return g;
@@ -1261,12 +1302,12 @@ function pool(n, make) {
 }
 const pBullets = pool(200, () => new THREE.Mesh(pBulletGeo, pBulletMat));
 const eBullets = pool(320, () => new THREE.Mesh(eBulletGeo, eBulletMat));
-const missiles = pool(24, () => makeMissileModel(1));
+const missiles = pool(24, () => makeMissileModel(1, HDR(6, 3.4, 1.2)));
 const debrisGeo = [new THREE.TetrahedronGeometry(1.2), new THREE.BoxGeometry(2.2, 0.3, 1.2), new THREE.BoxGeometry(0.6, 0.6, 2.4)];
 const debrisMat = new THREE.MeshStandardMaterial({ color: LIN(0x2a2a2e), metalness: 0.6, roughness: 0.6, emissive: HDR(0.6, 0.15, 0.02) });
 const debris = pool(48, () => new THREE.Mesh(debrisGeo[(Math.random() * 3) | 0], debrisMat));
 const shockGeo = new THREE.RingGeometry(0.82, 1, 64);
-const shocks = pool(10, () => new THREE.Mesh(shockGeo, new THREE.MeshBasicMaterial({ color: HDR(4, 2.6, 1.4), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })));
+const shocks = pool(10, () => new THREE.Mesh(shockGeo, new THREE.MeshBasicMaterial({ color: HDR(2.6, 1.3, 0.5), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })));
 const take = arr => arr.find(b => !b.alive);
 
 // Rings
@@ -1451,14 +1492,14 @@ addEventListener('pointerdown', e => {
   if (G.state !== 'play' || e.pointerType === 'mouse') return;
   if (e.clientX < innerWidth * 0.5 && stickId === null) {
     stickId = e.pointerId; stickO = { x: e.clientX, y: e.clientY };
-    stick.style.left = (e.clientX - 64) + 'px'; stick.style.top = (e.clientY - 64) + 'px'; stick.style.bottom = 'auto';
+    stick.style.left = (e.clientX - 55) + 'px'; stick.style.top = (e.clientY - 55) + 'px'; stick.style.bottom = 'auto';
   }
 });
 addEventListener('pointermove', e => {
   if (e.pointerId !== stickId) return;
   const dx = clamp((e.clientX - stickO.x) / 55, -1, 1), dy = clamp((e.clientY - stickO.y) / 55, -1, 1);
   touch.x = dx; touch.y = -dy;
-  knob.style.transform = `translate(${dx * 38}px, ${dy * 38}px)`;
+  knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
 });
 const endStick = e => { if (e.pointerId === stickId) { stickId = null; touch.x = touch.y = 0; knob.style.transform = ''; } };
 addEventListener('pointerup', endStick); addEventListener('pointercancel', endStick);
@@ -1589,6 +1630,12 @@ function drawHudCanvas() {
     hctx.stroke();
     hctx.beginPath(); hctx.arc(fp.x, fp.y, 26, -Math.PI * 0.9, -Math.PI * 0.1); hctx.stroke();
     hctx.beginPath(); hctx.arc(fp.x, fp.y, 26, Math.PI * 0.1, Math.PI * 0.9); hctx.stroke();
+    if (G.killT > 0) {
+      hctx.save(); hctx.strokeStyle = '#ff4f61'; hctx.shadowColor = 'rgba(255,79,97,.9)'; hctx.lineWidth = 3; hctx.beginPath();
+      const kr = 14 + (0.35 - G.killT) * 30;
+      for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) hudLine(fp.x + dx * kr * 0.5, fp.y + dy * kr * 0.5, fp.x + dx * kr * 1.3, fp.y + dy * kr * 1.3);
+      hctx.stroke(); hctx.restore();
+    }
     if (hitT > 0) {
       hctx.save(); hctx.strokeStyle = '#ffffff'; hctx.lineWidth = 2; hctx.beginPath();
       for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) hudLine(fp.x + dx * 10, fp.y + dy * 10, fp.x + dx * 20, fp.y + dy * 20);
@@ -1597,13 +1644,22 @@ function drawHudCanvas() {
   }
 
   if (fp.ok && (!hudFull || small)) {
-    hctx.save(); hctx.globalAlpha = 0.85; hctx.font = '13px "Share Tech Mono", monospace';
-    hctx.textAlign = 'right'; hctx.fillText(String(Math.round(P.speed * 3.6)), fp.x - 46, fp.y);
-    hctx.textAlign = 'left'; hctx.fillText(String(Math.round(Math.max(0, P.pos.y) * 3.28)), fp.x + 46, fp.y);
-    hctx.font = '9px "Share Tech Mono", monospace'; hctx.globalAlpha = 0.55;
-    hctx.textAlign = 'right'; hctx.fillText('KM/H', fp.x - 46, fp.y + 12);
-    hctx.textAlign = 'left'; hctx.fillText('ALT', fp.x + 46, fp.y + 12);
-    if (P.boosting) { hctx.fillStyle = '#ffbe5c'; hctx.globalAlpha = 1; hctx.textAlign = 'center'; hctx.fillText('AFTERBURNER', fp.x, fp.y + 42); }
+    const box = (x, val, label, side) => {
+      const bw = 64, bx = side < 0 ? x - bw : x;
+      hctx.save(); hctx.shadowBlur = 0; hctx.fillStyle = 'rgba(8, 6, 16, .5)'; hctx.fillRect(bx, fp.y - 16, bw, 32); hctx.restore();
+      hctx.beginPath(); hudLine(bx, fp.y - 16, bx + bw, fp.y - 16); hudLine(bx, fp.y + 16, bx + bw, fp.y + 16); hctx.stroke();
+      hctx.textAlign = 'center';
+      hctx.font = '16px "Share Tech Mono", monospace'; hctx.fillText(val, bx + bw / 2, fp.y - 3);
+      hctx.font = '9px "Share Tech Mono", monospace'; hctx.globalAlpha = 0.7; hctx.fillText(label, bx + bw / 2, fp.y + 10); hctx.globalAlpha = 1;
+    };
+    hctx.save();
+    box(fp.x - 44, String(Math.round(P.speed * 3.6)), 'KM/H', -1);
+    box(fp.x + 44, String(Math.round(Math.max(0, P.pos.y) * 3.28)), 'ALT FT', 1);
+    const g = 1 + Math.abs(P.turnVel) * P.speed / 70 + Math.max(0, P.pitch) * 0.6;
+    const vs = Math.round(fwd.y * P.speed * 3.28 * 60 / 100) * 100;
+    hctx.font = '11px "Share Tech Mono", monospace'; hctx.textAlign = 'center'; hctx.globalAlpha = 0.85;
+    hctx.fillText(`G ${g.toFixed(1)}    VS ${vs > 0 ? '+' : ''}${vs}`, fp.x, fp.y + 36);
+    if (P.boosting) { hctx.fillStyle = '#ffbe5c'; hctx.globalAlpha = 1; hctx.fillText('AFTERBURNER', fp.x, fp.y + 52); }
     hctx.restore();
   }
   hctx.globalAlpha = 0.6;
@@ -1748,7 +1804,17 @@ function updateHud() {
   $('boost').style.width = P.boost + '%';
   setText('boostTxt', String(Math.round(P.boost)));
   setText('left', `אויבים: ${enemies.length + (boss ? 1 : 0)}`);
-  setText('misTxt', String(P.missiles));
+  setText('misTxt', `${P.missiles}/${U.mslMax}`);
+  const hf = P.hp / U.hpMax, hpPanel = $('hullPanel');
+  hpPanel.classList.toggle('warn', hf < 0.5 && hf >= 0.25); hpPanel.classList.toggle('crit', hf < 0.25);
+  $('mslReload').style.width = (P.missiles < U.mslMax ? P.mRegen / U.mslRegen * 100 : 100) + '%';
+  setText('gunTxt', P.rapid > 0 ? 'RAPID' : U.rof * U.gunDmg > 1 ? `×${(U.rof * U.gunDmg).toFixed(1)}` : '∞');
+  const chips = (P.shield > 0 ? `SHIELD ${Math.ceil(P.shield)}|` : '') + (P.rapid > 0 ? `RAPID ${Math.ceil(P.rapid)}` : '');
+  if (lastHud.buffs !== chips) {
+    lastHud.buffs = chips;
+    const box = $('buffs'); box.textContent = '';
+    for (const c of chips.split('|').filter(Boolean)) { const el = document.createElement('span'); el.className = 'chip'; el.textContent = c; el.style.color = c.startsWith('SHIELD') ? '#7ff3ff' : '#ff6fae'; box.appendChild(el); }
+  }
   [...mEl.children].forEach((b, i) => { b.classList.toggle('on', i < P.missiles); b.hidden = i >= U.mslMax; });
   $('boss').hidden = !boss;
   if (boss) $('bossHp').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
@@ -1760,14 +1826,55 @@ function shockwave(pos, size) {
   const s = take(shocks); if (!s) return;
   s.alive = true; s.mesh.visible = true; s.life = 0.6; s.size = size; s.pos.copy(pos);
 }
+const FB_NOISE = `float fbH(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float fbN(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(fbH(i), fbH(i + vec3(1, 0, 0)), f.x), mix(fbH(i + vec3(0, 1, 0)), fbH(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(fbH(i + vec3(0, 0, 1)), fbH(i + vec3(1, 0, 1)), f.x), mix(fbH(i + vec3(0, 1, 1)), fbH(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}`;
+const fireballGeo = new THREE.IcosahedronGeometry(1, 3);
+const fireballs = pool(14, () => {
+  const m = new THREE.Mesh(fireballGeo, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { age: { value: 0 }, seed: { value: 0 } },
+    vertexShader: `uniform float age; uniform float seed; varying float vN; varying vec3 vNorm; varying vec3 vView;
+      ${FB_NOISE}
+      void main(){
+        float n = fbN(position * 2.2 + seed + age * 2.0) * 0.6 + fbN(position * 4.6 - age * 3.0 + seed) * 0.4;
+        vN = n;
+        vec4 mv = modelViewMatrix * vec4(position * (1.0 + (n - 0.5) * 0.6), 1.0);
+        vNorm = normalize(normalMatrix * normal); vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform float age; varying float vN; varying vec3 vNorm; varying vec3 vView;
+      void main(){
+        float facing = abs(dot(vNorm, vView));
+        float heat = clamp(vN * 1.2 + facing * 0.7 - age * 1.25, 0.0, 1.0);
+        vec3 col = mix(vec3(0.45, 0.05, 0.02), vec3(2.2, 0.7, 0.12), smoothstep(0.1, 0.55, heat));
+        col = mix(col, vec3(3.6, 2.0, 0.7), smoothstep(0.75, 1.0, heat));
+        gl_FragColor = vec4(col * 0.75 * smoothstep(0.0, 0.25, heat) * smoothstep(0.0, 0.45, facing) * (1.0 - age * age), 1.0);
+      }`
+  }));
+  m.renderOrder = 4;
+  return m;
+});
+function spawnFireball(pos, size, delay = 0) {
+  const f = take(fireballs); if (!f) return;
+  f.alive = true; f.mesh.visible = delay <= 0; f.pos.copy(pos);
+  f.size = size; f.life = 0; f.delay = delay; f.dur = 0.8 + size * 0.006;
+  f.mesh.material.uniforms.seed.value = Math.random() * 50;
+  f.mesh.scale.setScalar(0.01);
+}
 function explode(pos, scale = 1) {
   const n = Math.round(60 * scale);
+  spawnFireball(pos, 14 * scale);
+  for (let i = 0; i < Math.round(2 * scale); i++) spawnFireball(v1.copy(pos).add(v2.set(rand(-1, 1), rand(-0.5, 1), rand(-1, 1)).multiplyScalar(14 * scale)), rand(6, 10) * scale, rand(0.05, 0.3));
   fire.spawn(pos.x, pos.y, pos.z, 0, 0, 0, 0.25, 30 * scale, 60 * scale, C.hot, C.fireA, 1);
   for (let i = 0; i < n; i++) {
     v1.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(15, 70) * scale);
     fire.spawn(pos.x + v1.x * 0.1, pos.y + v1.y * 0.1, pos.z + v1.z * 0.1, v1.x, v1.y, v1.z, rand(0.5, 1.2), rand(6, 12) * scale, rand(14, 26) * scale, C.fireA, C.fireB, 1, 2.4, -8);
   }
-  for (let i = 0; i < n * 0.6; i++) {
+  for (let i = 0; i < n * 0.8; i++) {
     v1.set(rand(-1, 1), rand(-0.2, 1), rand(-1, 1)).multiplyScalar(rand(8, 35) * scale);
     smoke.spawn(pos.x, pos.y, pos.z, v1.x, v1.y, v1.z, rand(2.5, 4.5), rand(10, 16) * scale, rand(40, 70) * scale, C.smokeD, C.smokeL, 0.85, 1.0, -7);
   }
@@ -1799,12 +1906,22 @@ function updateEffects(dt) {
     if (Math.random() < 0.6) fire.spawn(d.pos.x, d.pos.y, d.pos.z, 0, 0, 0, 0.3, 4, 2, C.fireA, C.fireB, 1);
     if (d.life <= 0 || d.pos.y < ground(d.pos.x, d.pos.z)) { d.alive = false; d.mesh.visible = false; }
   }
+  for (const f of fireballs) {
+    if (!f.alive) continue;
+    if (f.delay > 0) { f.delay -= dt; if (f.delay > 0) continue; f.mesh.visible = true; }
+    f.life += dt;
+    const t = Math.min(f.life / f.dur, 1);
+    f.mesh.scale.setScalar(f.size * (0.25 + 0.85 * Math.sqrt(t)));
+    f.mesh.material.uniforms.age.value = t;
+    f.pos.y += dt * f.size * 0.3;
+    if (t >= 1) { f.alive = false; f.mesh.visible = false; }
+  }
   for (const s of shocks) {
     if (!s.alive) continue;
     s.life -= dt;
     const t = 1 - s.life / 0.6;
     s.mesh.scale.setScalar(1 + s.size * Math.sqrt(t));
-    s.mesh.material.opacity = (1 - t) * 0.9;
+    s.mesh.material.opacity = (1 - t) * (1 - t) * 0.5;
     s.mesh.lookAt(camera.position);
     if (s.life <= 0) { s.alive = false; s.mesh.visible = false; }
   }
@@ -1840,6 +1957,7 @@ function collectOrb(o) {
   if (o.type === 'rapid') P.rapid = U.buff;
   if (o.type === 'shield') P.shield = U.buff;
   popup(ORB_TYPES[o.type].label, o.pos, ORB_TYPES[o.type].css);
+  feed(`כדור כוח: ${ORB_NAMES[o.type]}`, '', ORB_TYPES[o.type].css);
   sfx.ring(); shockwave(o.pos, 14);
 }
 function updateOrbs(dt) {
@@ -1868,7 +1986,7 @@ shieldMesh.scale.set(0.78, 0.42, 1.0);
 shieldMesh.visible = false;
 scene.add(shieldMesh);
 // Enemy homing missiles
-const eMissiles = pool(16, () => makeMissileModel(1.15));
+const eMissiles = pool(16, () => makeMissileModel(1.15, HDR(7, 1.2, 1.6)));
 function fireEnemyMissile(e) {
   const m = take(eMissiles); if (!m) return;
   m.alive = true; m.mesh.visible = true; m.life = 8; m.tracking = true;
@@ -1876,6 +1994,7 @@ function fireEnemyMissile(e) {
   m.vel.copy(e.dir).multiplyScalar(e.speed + 20);
   m.trail = new Trail(70, 1.4, new THREE.Vector3(0.35, 0.3, 0.38), 0.7, false, 4);
   m.glow = new Trail(10, 1.0, new THREE.Vector3(8, 1.2, 1.5), 0.9, true, 0.3);
+  feed('טיל אויב בדרך!', '', '#ff4f61');
   sfx.missile();
 }
 function updateEnemyMissiles(dt) {
@@ -1967,6 +2086,7 @@ const decoys = [];
 function dropFlares(e) {
   for (let i = 0; i < 3; i++) decoys.push({ isDecoy: true, pos: e.pos.clone(), vel: new THREE.Vector3(rand(-40, 40), rand(-10, 20), rand(-40, 40)).addScaledVector(e.dir, e.speed * 0.4), life: 2.6 });
   popup('FLARES', e.pos, '#ffffff');
+  feed('האויב פיזר נורים', '', '#ffffff');
   sfxNoise(0.4, 2000, 600, 0.12, 'bandpass');
 }
 function updateDecoys(dt) {
@@ -2027,6 +2147,25 @@ function pickUpgrade(i) {
   $('upgrade').hidden = true;
   G.state = 'play'; last = performance.now();
   showStreak(u.name);
+  feed(`שדרוג: ${u.name}`, '', '#8dffd8');
+}
+const ENEMY_NAMES = { fighter: 'לוחם', wraith: 'רפאים', heavy: 'ספינת תותחים' };
+const ORB_NAMES = { hp: 'תיקון גוף', msl: 'מילוי טילים', rapid: 'ירי מהיר', shield: 'מגן אנרגיה' };
+function feed(text, extra, color) {
+  const box = $('feed'), el = document.createElement('div');
+  el.style.borderColor = color || '#8dffd8';
+  el.textContent = text;
+  if (extra) { const b = document.createElement('b'); b.textContent = extra; b.style.color = color || ''; el.appendChild(b); }
+  box.prepend(el);
+  while (box.children.length > 5) box.lastChild.remove();
+  setTimeout(() => el.remove(), 4000);
+}
+function showKill(name, pts) {
+  $('killS').textContent = `${name} · +${pts}`;
+  const k = $('kill');
+  k.classList.remove('show'); void k.offsetWidth; k.classList.add('show');
+  G.killT = 0.35;
+  sfxTone('square', 880, 1320, 0.12, 0.05);
 }
 function addScore(base, wp) {
   if (G.comboT > 0) G.combo = Math.min(G.combo + 1, 9); else G.combo = 1;
@@ -2034,10 +2173,12 @@ function addScore(base, wp) {
   const pts = base * G.combo;
   G.score += pts;
   popup(`+${pts}`, wp);
+  return pts;
 }
 function damagePlayer(d) {
   if (!P.alive || P.inv > 0 || G.state !== 'play') return;
   if (P.shield > 0) { shieldMesh.material.uniforms.hit.value = 1; sfx.hit(); return; }
+  if (P.hp > U.hpMax * 0.25 && P.hp - d <= U.hpMax * 0.25 && P.hp - d > 0) feed('גוף קריטי!', '', '#ff4f61');
   P.hp -= d; P.inv = 0.08; P.calm = 0;
   G.damage = Math.min(1, G.damage + 0.55);
   sfx.hurt();
@@ -2099,8 +2240,10 @@ function removeEnemy(e) {
 }
 function killEnemy(e, crashed) {
   explode(e.pos, e.type === 'heavy' ? 1.8 : 1.15);
-  addScore(crashed ? 50 : e.score || 100, e.pos);
+  const pts = addScore(crashed ? 50 : e.score || 100, e.pos), name = ENEMY_NAMES[e.type] || 'אויב';
   G.kills++;
+  if (crashed) feed(`${name} התרסק`, `+${pts}`, '#ffbe5c');
+  else { feed(`הפלת ${name}`, `+${pts}`, '#ff8f7a'); showKill(name, pts); }
   if (!crashed) {
     G.streak = G.streakT > 0 ? G.streak + 1 : 1; G.streakT = 3.5;
     if (G.streak >= 2) showStreak(['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'QUAD KILL'][G.streak] || 'RAMPAGE ×' + G.streak);
@@ -2141,8 +2284,11 @@ function fireMissile() {
   m.vel.copy(fwd).multiplyScalar(P.speed).addScaledVector(up, -15);
   m.target = G.lockT >= U.lockTime ? G.lockTarget : null;
   m.flareChecked = false;
-  m.trail = new Trail(90, 1.6, new THREE.Vector3(0.95, 0.95, 0.95), 0.75, false, 5);
-  m.glow = new Trail(12, 1.0, new THREE.Vector3(8, 4, 1.5), 0.9, true, 0.3);
+  m.trail = new Trail(90, 2.0, new THREE.Vector3(0.95, 0.95, 0.95), 0.8, false, 7);
+  m.glow = new Trail(14, 1.2, new THREE.Vector3(10, 5, 1.8), 0.95, true, 0.3);
+  for (let i = 0; i < 12; i++) smoke.spawn(v1.x, v1.y, v1.z, fwd.x * P.speed * 0.5 + rand(-15, 15), rand(-8, 8), fwd.z * P.speed * 0.5 + rand(-15, 15), rand(0.8, 1.6), 2, 9, C.steam, C.smokeL, 0.6, 2);
+  fire.spawn(v1.x, v1.y, v1.z, fwd.x * P.speed, fwd.y * P.speed, fwd.z * P.speed, 0.12, 6, 2, C.hot, C.fireA, 1);
+  feed(m.target ? 'טיל שוגר · נעול' : 'טיל שוגר', '', '#ffbe5c');
   sfx.missile();
 }
 function barrelRoll() {
@@ -2171,6 +2317,8 @@ function clearWorld() {
   for (const m of missiles) { if (m.alive) { m.trail.kill(); m.glow.kill(); } m.alive = false; m.mesh.visible = false; }
   for (const m of eMissiles) { if (m.alive) { m.trail.kill(); m.glow.kill(); } m.alive = false; m.mesh.visible = false; }
   for (const o of orbs) { o.alive = false; o.mesh.visible = false; }
+  for (const f of fireballs) { f.alive = false; f.mesh.visible = false; }
+  $('feed').textContent = '';
   decoys.length = 0;
   fire.clear(); smoke.clear();
 }
@@ -2378,6 +2526,9 @@ function updateProjectiles(dt) {
     prev.copy(m.pos);
     m.pos.addScaledVector(m.vel, dt);
     m.mesh.lookAt(v1.copy(m.pos).add(m.vel)); m.mesh.rotateY(Math.PI);
+    m.mesh.getObjectByName('mflame').scale.z = 2.2 + Math.random() * 1.2;
+    v3.copy(m.vel).normalize();
+    fire.spawn(m.pos.x - v3.x * 2, m.pos.y - v3.y * 2, m.pos.z - v3.z * 2, -v3.x * 30, -v3.y * 30, -v3.z * 30, 0.14, 2.4, 0.6, C.hot, C.fireA, 0.9);
     v2.copy(m.vel).normalize();
     m.trail.push(m.pos, v2); m.glow.push(m.pos, v2);
     if (Math.random() < 0.5) smoke.spawn(m.pos.x, m.pos.y, m.pos.z, rand(-4, 4), rand(-4, 4), rand(-4, 4), 2.4, 2, 9, C.steam, C.smokeL, 0.35, 0.4, -2);
@@ -2422,7 +2573,10 @@ function updateEnemies(dt) {
     e.mesh.rotateZ(e.bank);
     v3.copy(e.pos).addScaledVector(e.dir, -7.5);
     e.trail.push(v3, e.dir); e.smokeTrail.push(v3, e.dir);
-    if (e.hp <= 2 && Math.random() < 0.5) fire.spawn(v3.x, v3.y, v3.z, 0, 0, 0, 0.3, 3, 1, C.fireA, C.fireB, 0.9);
+    if (e.hp <= 2) {
+      fire.spawn(v3.x, v3.y, v3.z, rand(-4, 4), rand(2, 8), rand(-4, 4), 0.4, 3.5, 1.2, C.fireA, C.fireB, 1);
+      if (Math.random() < 0.6) smoke.spawn(v3.x, v3.y, v3.z, 0, 4, 0, 2.2, 3, 12, C.smokeD, C.smokeL, 0.7, 0.6, -3);
+    }
     e.cd -= dt;
     if (P.alive && G.state === 'play' && dist < 700 && e.cd <= 0 && e.dir.dot(toP) / dist > 0.95) {
       e.cd = Math.max(0.5, rand(1.0, 1.8) - G.wave * 0.05);
@@ -2458,6 +2612,7 @@ function updateEnemies(dt) {
         G.kills++;
         scene.remove(b.mesh); boss = null;
         banner('מבצר הצל נפל', '+2000 · HULL REPAIRED');
+        feed('מבצר הצל הושמד', '+2000', '#c08bff');
         ['shield', 'msl', 'rapid'].forEach((t, i) => dropOrb(v1.copy(b.pos).add(v2.set(Math.cos(i * 2.1) * 30, 10, Math.sin(i * 2.1) * 30)), t));
         P.hp = Math.min(U.hpMax, P.hp + 40);
       }
@@ -2617,13 +2772,13 @@ function frame(now) {
     if (!enemies.length && !boss) {
       G.waveT -= dt;
       if (G.waveT <= 0) {
-        if (G.wave > 0 && G.offeredWave !== G.wave) { G.offeredWave = G.wave; G.waveT = 1.2; openUpgrades(); }
+        if (G.wave > 0 && G.offeredWave !== G.wave) { G.offeredWave = G.wave; G.waveT = 1.2; feed('הגל נוקה', `גל ${G.wave}`, '#8dffd8'); openUpgrades(); }
         else { nextWave(); G.waveT = 1.8; }
       }
     }
   }
   if (G.state === 'dead') { G.deadT -= dt; if (G.deadT <= 0) gameOver(); }
-  hitT -= dt;
+  hitT -= dt; G.killT -= dt;
   updateEnemies(dt);
   updateProjectiles(dt);
   updateEffects(dt);
