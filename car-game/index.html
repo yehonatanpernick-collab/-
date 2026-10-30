@@ -109,6 +109,40 @@
   .card button:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(56, 189, 248, 0.35); }
   .card button:active { transform: translateY(1px); }
 
+  /* --- Touch controls: shown only on touch devices --- */
+  #touch { display: none; }
+  #rotate {
+    display: none; position: fixed; inset: 0; z-index: 20; place-items: center; text-align: center;
+    background: #0b1220; font-size: 18px; padding: 24px; box-sizing: border-box;
+  }
+  @media (pointer: coarse) {
+    html, body, #game { touch-action: none; -webkit-touch-callout: none; }
+    #touch { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+    .pad { position: fixed; bottom: 18px; display: grid; gap: 12px; pointer-events: auto; }
+    .pad.left { left: 16px; grid-template-columns: repeat(3, auto); align-items: end; }
+    .pad.right { right: 16px; grid-template-columns: repeat(2, auto); align-items: end; }
+    .tb {
+      width: 76px; height: 76px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(15, 23, 42, 0.5); color: #f8fafc; font: inherit; font-size: 24px;
+      display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    .tb.small { width: 60px; height: 60px; font-size: 14px; border-radius: 30px; }
+    .tb.gas { width: 92px; height: 92px; font-size: 30px; background: rgba(56, 189, 248, 0.35); }
+    .tb.pressed { background: rgba(251, 146, 60, 0.6); transform: scale(0.94); }
+    #rotate { display: none; }
+    #hint, #title { display: none; }
+    #speedPanel { top: 16px; left: 16px; bottom: auto; min-width: 150px; padding: 10px 14px; }
+    #speed { font-size: 40px; }
+    #minimap { top: 16px; right: 16px; bottom: auto; width: 120px; height: 120px; }
+    .card { padding: 22px 20px; }
+    .card h1 { font-size: 30px; }
+    .controls { display: none; }
+  }
+  @media (pointer: coarse) and (orientation: portrait) {
+    #rotate { display: grid; }
+  }
+
   @media (max-width: 720px) {
     #minimap { width: 130px; height: 130px; }
     #speed { font-size: 44px; }
@@ -143,6 +177,21 @@
 
 <div id="minimap" class="panel"><canvas id="minimapCanvas" width="400" height="400"></canvas></div>
 
+<div id="touch">
+  <div class="pad left">
+    <button class="tb" data-key="left" aria-label="שמאלה">◀</button>
+    <button class="tb" data-key="right" aria-label="ימינה">▶</button>
+    <button class="tb small" id="touchPause" aria-label="השהיה">❚❚</button>
+  </div>
+  <div class="pad right">
+    <button class="tb small" data-key="hand" aria-label="בלם יד">בלם יד</button>
+    <button class="tb small" id="touchCam" aria-label="מצלמה">📷</button>
+    <button class="tb" data-key="down" aria-label="בלם או אחורה">▼</button>
+    <button class="tb gas" data-key="up" aria-label="גז">▲</button>
+  </div>
+</div>
+<div id="rotate">סובב את המכשיר לרוחב כדי לנהוג</div>
+
 <div id="startOverlay" class="overlay">
   <div class="card">
     <h1>City Drive 3D</h1>
@@ -175,6 +224,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 
 // ============================================================
 // World layout
@@ -243,9 +294,11 @@ function remapUV(geo, tileW, tileH) {
 // ============================================================
 // Renderer, scene, camera
 // ============================================================
+// Phones and tablets get lighter settings: smaller shadow maps and capped pixel ratio
+const LOW_END = window.matchMedia('(pointer: coarse)').matches;
 const canvas = document.getElementById('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_END ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -267,6 +320,10 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 0.92);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+const vignette = new ShaderPass(VignetteShader);
+vignette.uniforms.offset.value = 1.1;
+vignette.uniforms.darkness.value = 0.9;
+composer.addPass(vignette);
 composer.addPass(new SMAAPass());
 
 function makeSkyTexture() {
@@ -290,7 +347,7 @@ const hemi = new THREE.HemisphereLight(0xcfe3ff, 0x6b6257, 0.55);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe2b8, 2.6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(LOW_END ? 2048 : 4096, LOW_END ? 2048 : 4096);
 Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 10, far: 420 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.04;
@@ -414,9 +471,10 @@ function instanced(list, geometry, material, castShadow = false) {
 }
 
 // Ground beyond the city, then the asphalt base covering the whole grid.
-flat(4000, 4000, 0x6f8362, 0, -0.05, 0);
+flat(4000, 4000, 0xffffff, 0, -0.05, 0).material.map = makeNoiseTexture(0x6f8362, 0.08, 300);
 const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
 asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
+const concreteTex = makeNoiseTexture(SIDEWALK_COLOR, 0.03, 8);
 
 // ============================================================
 // City blocks: sidewalks, buildings, parks, trees
@@ -523,7 +581,7 @@ for (let i = CELL_MIN; i <= CELL_MAX; i++) {
   for (let j = CELL_MIN; j <= CELL_MAX; j++) {
     const cx = i * PITCH + PITCH / 2;
     const cz = j * PITCH + PITCH / 2;
-    flat(BLOCK, BLOCK, SIDEWALK_COLOR, cx, 0.06, cz);
+    flat(BLOCK, BLOCK, 0xffffff, cx, 0.06, cz).material.map = concreteTex;
     const inner = BLOCK - SIDEWALK * 2;
     const park = rng() < 0.16;
     blocks.push({ cx, cz, park });
@@ -634,6 +692,9 @@ function makeCar(color) {
   // Side mirrors and number plate
   const plateMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.5 });
   for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.2, 0.16, 0.3, 2, 0.05), paint, s * 1.0, 1.0, 0.7);
+  // Side skirts and a dark underbody line for depth
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.1, 0.14, 3.2, 2, 0.04), trimMat, s * 0.97, 0.22, 0);
+  add(new THREE.BoxGeometry(1.7, 0.08, 3.9), trimMat, 0, 0.14, 0);
   add(new THREE.BoxGeometry(0.5, 0.14, 0.02), plateMat, 0, 0.5, -2.09);
 
   const wheels = [];
@@ -851,8 +912,10 @@ function updateCamera(dt) {
   camera.position.set(camPos.x + (Math.random() - 0.5) * s, camPos.y + (Math.random() - 0.5) * s, camPos.z);
   camera.lookAt(camLook);
 
+  // Portrait screens are narrow: widen the field of view so the car stays in frame
+  const narrow = camera.aspect < 1 ? 14 : 0;
   const speedT = Math.min(1, Math.abs(player.fwd) / MAX_SPEED);
-  camera.fov += (m.fov + speedT * 10 - camera.fov) * k;
+  camera.fov += (m.fov + speedT * 10 + narrow - camera.fov) * k;
   camera.updateProjectionMatrix();
 }
 
@@ -1014,6 +1077,19 @@ function togglePause() {
 
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('resumeBtn').addEventListener('click', togglePause);
+
+// Touch controls: hold a button to act, release to stop
+document.querySelectorAll('#touch .tb[data-key]').forEach(btn => {
+  const key = btn.dataset.key;
+  const press = e => { e.preventDefault(); input[key] = true; btn.classList.add('pressed'); };
+  const release = e => { e.preventDefault(); input[key] = false; btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', press);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+});
+document.getElementById('touchCam').addEventListener('click', () => { camMode = (camMode + 1) % CAM_MODES.length; });
+document.getElementById('touchPause').addEventListener('click', () => { if (state !== 'menu') togglePause(); });
 
 window.addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { input[KEYMAP[e.code]] = true; e.preventDefault(); }
