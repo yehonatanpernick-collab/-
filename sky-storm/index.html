@@ -65,6 +65,9 @@ body.touch .panel-g { padding: 7px 9px 8px; }
 .bar.boost { color: var(--amber); }
 .row { display: flex; justify-content: space-between; align-items: baseline; width: min(170px, 30vw); }
 .corner { opacity: .88; }
+#pauseBtn { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(140px + env(safe-area-inset-right, 0px)); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; padding: 0; pointer-events: auto; cursor: pointer; color: var(--hud); border: 1px solid rgba(141, 255, 216, .4); background: rgba(10, 6, 18, .45); }
+#pauseBtn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; fill: none; }
+#pauseBtn:focus-visible { outline: 2px solid var(--hud); outline-offset: 2px; }
 .row b { font-weight: 400; font-size: 13px; }
 .missiles { display: flex; gap: 6px; }
 .missiles b { width: 8px; height: 22px; background: rgba(255, 190, 92, .18); clip-path: polygon(50% 0, 100% 24%, 100% 84%, 78% 100%, 22% 100%, 0 84%, 0 24%); }
@@ -148,6 +151,7 @@ kbd { font-family: var(--f-data); font-size: 11px; color: var(--hud); border: 1p
 
 <div class="hud" id="hud" hidden>
   <div id="popups"></div>
+  <button id="pauseBtn" type="button" aria-label="הפסקה"><svg viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></svg></button>
   <div id="warn" hidden>WARNING · אויב על הזנב</div>
   <div id="boss" hidden><div class="t">מבצר הצל</div><div class="bar"><i id="bossHp" style="width:100%"></i></div></div>
   <div id="banner"></div>
@@ -1433,13 +1437,14 @@ const sfx = {
 
 // ---------- State ----------
 const P = { q: new THREE.Quaternion(), pitchVel: 0, stall: 0, rapid: 0, shield: 0, calm: 0, pos: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0, turnVel: 0, speed: 150, hp: 100, boost: 100, missiles: 6, mRegen: 0, gunCd: 0, misCd: 0, gunSide: 1, rollT: 0, rollDir: 1, rollCd: 0, alive: true, inv: 0, boosting: false };
-const G = { timeScale: 1, boltT: 4, boltLife: 0, flash: 0, fpsAcc: 0, fpsN: 0, streak: 0, streakT: 0, mslWarn: false, mslBeep: 0, state: 'menu', score: 0, kills: 0, wave: 0, combo: 1, comboT: 0, waveT: 0, bossCount: 0, shake: 0, deadT: 0, lockT: 0, lockTarget: null, beepT: 0, time: 0, frame: 0, damage: 0 };
+const G = { hitDirs: [], autoFire: false, timeScale: 1, boltT: 4, boltLife: 0, flash: 0, fpsAcc: 0, fpsN: 0, streak: 0, streakT: 0, mslWarn: false, mslBeep: 0, state: 'menu', score: 0, kills: 0, wave: 0, combo: 1, comboT: 0, waveT: 0, bossCount: 0, shake: 0, deadT: 0, lockT: 0, lockTarget: null, beepT: 0, time: 0, frame: 0, damage: 0 };
 const enemies = [];
 let boss = null;
 const fwd = new THREE.Vector3(0, 0, -1), up = new THREE.Vector3(0, 1, 0), right = new THREE.Vector3(1, 0, 0);
 const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3();
 const camOff = new THREE.Vector3(0, 6, 26), camUp = new THREE.Vector3(0, 1, 0);
 const frameUp = new THREE.Vector3(0, 1, 0), frameRight = new THREE.Vector3(1, 0, 0), turnAxis = new THREE.Vector3(), lvlUp = new THREE.Vector3();
+const aimDir = new THREE.Vector3(), aiR = new THREE.Vector3();
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), XAXIS = new THREE.Vector3(1, 0, 0), ZAXIS = new THREE.Vector3(0, 0, 1), DOWN = new THREE.Vector3(0, -1, 0);
 let best = 0, invertY = false, hudFull = false;
 const mouse = { x: 0, y: 0, locked: false };
@@ -1498,10 +1503,19 @@ addEventListener('pointerdown', e => {
     stick.style.left = (e.clientX - 55) + 'px'; stick.style.top = (e.clientY - 55) + 'px'; stick.style.bottom = 'auto';
   }
 });
+// Dead zone plus a gentle curve: fine control near the centre, full rate at the rim
+const stickShape = v => { const a = Math.abs(v); return a < 0.08 ? 0 : Math.sign(v) * Math.pow((a - 0.08) / 0.92, 1.3); };
 addEventListener('pointermove', e => {
   if (e.pointerId !== stickId) return;
-  const dx = clamp((e.clientX - stickO.x) / 55, -1, 1), dy = clamp((e.clientY - stickO.y) / 55, -1, 1);
-  touch.x = dx; touch.y = -dy;
+  let dx = (e.clientX - stickO.x) / 48, dy = (e.clientY - stickO.y) / 48;
+  const l = Math.hypot(dx, dy);
+  if (l > 1) {
+    // the base follows the thumb so the stick never pins at its edge
+    dx /= l; dy /= l;
+    stickO.x = e.clientX - dx * 48; stickO.y = e.clientY - dy * 48;
+    stick.style.left = (stickO.x - 55) + 'px'; stick.style.top = (stickO.y - 55) + 'px';
+  }
+  touch.x = stickShape(dx); touch.y = -stickShape(dy);
   knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
 });
 const endStick = e => { if (e.pointerId === stickId) { stickId = null; touch.x = touch.y = 0; knob.style.transform = ''; } };
@@ -1772,6 +1786,12 @@ function drawHudCanvas() {
       hctx.restore();
     }
   }
+  if (G.hitDirs.length) {
+    const hr = Math.min(w, h) * 0.32;
+    hctx.save(); hctx.strokeStyle = '#ff4f61'; hctx.shadowColor = 'rgba(255,79,97,.9)'; hctx.lineWidth = 6; hctx.lineCap = 'round';
+    for (const d of G.hitDirs) { hctx.globalAlpha = d.t; hctx.beginPath(); hctx.arc(cx, cy, hr, -d.a - 0.3, -d.a + 0.3); hctx.stroke(); }
+    hctx.restore();
+  }
   // Lock indicator
   if (G.lockTarget) {
     const s = project(G.lockTarget.pos);
@@ -2027,7 +2047,7 @@ function updateEnemyMissiles(dt) {
     m.mesh.lookAt(v3.copy(m.pos).add(m.vel)); m.mesh.rotateY(Math.PI);
     v2.copy(m.vel).normalize(); m.trail.push(m.pos, v2); m.glow.push(m.pos, v2);
     let boom = m.life <= 0 || m.pos.y < ground(m.pos.x, m.pos.z) || !!islandAt(m.pos, 0) || !!towerHit(m.pos, 0);
-    if (!boom && P.alive && segHit(prev, m.pos, P.pos, 7)) { damagePlayer(22); boom = true; }
+    if (!boom && P.alive && segHit(prev, m.pos, P.pos, 7)) { damagePlayer(22, m.pos); boom = true; }
     if (boom) { m.alive = false; m.mesh.visible = false; m.trail.kill(); m.glow.kill(); explode(m.pos, 0.6); }
   }
   G.mslWarn = warn && G.state === 'play';
@@ -2186,9 +2206,10 @@ function addScore(base, wp) {
   popup(`+${pts}`, wp);
   return pts;
 }
-function damagePlayer(d) {
+function damagePlayer(d, from) {
   if (!P.alive || P.inv > 0 || G.state !== 'play') return;
   if (P.shield > 0) { shieldMesh.material.uniforms.hit.value = 1; sfx.hit(); return; }
+  if (from) { v4.copy(from).applyMatrix4(camera.matrixWorldInverse); G.hitDirs.push({ a: Math.atan2(v4.y, v4.x), t: 1 }); }
   if (P.hp > U.hpMax * 0.25 && P.hp - d <= U.hpMax * 0.25 && P.hp - d > 0) feed('גוף קריטי!', '', '#ff4f61');
   P.hp -= d; P.inv = 0.08; P.calm = 0;
   G.damage = Math.min(1, G.damage + 0.55);
@@ -2264,6 +2285,7 @@ function killEnemy(e, crashed) {
 }
 function hurtEnemy(e, d) {
   e.hp -= d; hitMarker(); sfx.hit();
+  if (e !== boss) e.bank += rand(-0.7, 0.7);
   for (let i = 0; i < 6; i++) fire.spawn(e.pos.x, e.pos.y, e.pos.z, rand(-50, 50), rand(-50, 50), rand(-50, 50), 0.35, 2.2, 0.4, C.spark, C.sparkB, 1, 1);
   if (e === boss) { if (e.hp <= 0 && !e.dying) { e.dying = 2.4; G.lockTarget = null; G.timeScale = 0.3; } return; }
   if (e.hp > 0 && e.hp <= 2) e.smokeTrail.mat.uniforms.opacity.value = 0.7;
@@ -2277,7 +2299,7 @@ function fireGun() {
   b.alive = true; b.mesh.visible = true; b.life = 1.1;
   b.pos.copy(v1);
   b.vel.copy(fwd);
-  if (G.lead) { v2.copy(G.lead).sub(b.pos).normalize(); if (v2.dot(fwd) > 0.995) b.vel.lerp(v2, 0.85).normalize(); }
+  if (G.lead) { v2.copy(G.lead).sub(b.pos).normalize(); if (v2.dot(fwd) > (isTouch ? 0.985 : 0.993)) b.vel.lerp(v2, 0.85).normalize(); }
   b.vel.multiplyScalar(1150 + P.speed);
   b.vel.x += rand(-10, 10); b.vel.y += rand(-10, 10); b.vel.z += rand(-10, 10);
   b.mesh.lookAt(v2.copy(b.pos).add(b.vel));
@@ -2363,6 +2385,8 @@ function gameOver() {
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
 $('resumeBtn').addEventListener('click', () => setPause(false));
+$('pauseBtn').addEventListener('pointerdown', e => e.stopPropagation());
+$('pauseBtn').addEventListener('click', () => setPause(true));
 $('bestTxt').textContent = best ? `BEST ${best.toLocaleString('en-US')}` : '';
 
 // ---------- Update ----------
@@ -2389,13 +2413,13 @@ function updatePlayer(dt, inp) {
     inp.y = clamp((want - Math.asin(clamp(fwd.y, -1, 1))) * 2, -1, 1);
   }
   // Smoothed stick, with less authority as the jet approaches a stall
-  P.turnVel += (inp.x - P.turnVel) * damp(4, dt);
-  P.pitchVel += (inp.y - P.pitchVel) * damp(5, dt);
+  P.turnVel += (inp.x - P.turnVel) * damp(6, dt);
+  P.pitchVel += (inp.y - P.pitchVel) * damp(7, dt);
   P.stall = flying ? clamp((85 - P.speed) / 45, 0, 1) : 0;
   const auth = 1 - P.stall * 0.7;
   // Turn about world up, pitch about the wing axis: pitching through the top flies a full loop
-  Q.premultiply(qa.setFromAxisAngle(YAXIS, -P.turnVel * 1.25 * auth * dt));
-  Q.multiply(qa.setFromAxisAngle(XAXIS, P.pitchVel * 1.35 * auth * dt));
+  Q.premultiply(qa.setFromAxisAngle(YAXIS, -P.turnVel * 1.55 * auth * dt));
+  Q.multiply(qa.setFromAxisAngle(XAXIS, P.pitchVel * 1.65 * auth * dt));
   frameVectors();
   // Stick released: roll back upright and ease the nose toward the horizon
   if (Math.abs(inp.y) < 0.1 && Math.abs(fwd.y) < 0.92) {
@@ -2404,7 +2428,7 @@ function updatePlayer(dt, inp) {
     const ang = Math.atan2(turnAxis.dot(fwd), frameUp.dot(lvlUp));
     Q.premultiply(qa.setFromAxisAngle(fwd, ang * Math.min(1, 2.2 * dt)));
     frameVectors();
-    if (flying && frameUp.y > 0.5) Q.multiply(qa.setFromAxisAngle(XAXIS, -Math.asin(clamp(fwd.y, -1, 1)) * 0.25 * dt));
+    if (flying && frameUp.y > 0.5) Q.multiply(qa.setFromAxisAngle(XAXIS, -Math.asin(clamp(fwd.y, -1, 1)) * 0.12 * dt));
   } else if (Math.abs(inp.y) < 0.1 && flying) {
     // Near vertical: pull through toward the horizon on the belly side
     lvlUp.set(frameUp.x, 0, frameUp.z);
@@ -2412,6 +2436,12 @@ function updatePlayer(dt, inp) {
     if (lvlUp.lengthSq() > 1e-6) noseToward(lvlUp.normalize(), 0.9 * dt);
   }
   // Stalled: the nose falls toward the ground and the jet sinks
+  // Light aim assist: with the stick near centre the nose drifts onto the firing solution
+  if (flying && G.lead && Math.abs(inp.x) < 0.6 && Math.abs(inp.y) < 0.6) {
+    aimDir.copy(G.lead).sub(P.pos).normalize();
+    const off = Math.acos(clamp(aimDir.dot(fwd), -1, 1));
+    if (off < 0.2) noseToward(aimDir, (isTouch ? 0.55 : 0.28) * (1 - off / 0.2) * dt);
+  }
   if (P.stall > 0) noseToward(DOWN, P.stall * 1.4 * dt);
   if (P.pos.y > 1500 && fwd.y > -0.1) noseToward(DOWN, 0.6 * dt);
   Q.normalize();
@@ -2433,7 +2463,7 @@ function updatePlayer(dt, inp) {
     extra = -P.rollDir * e * Math.PI * 2;
   }
   P.rollCd -= dt;
-  P.roll += (-P.turnVel * 1.15 - P.roll) * damp(5, dt);
+  P.roll += (-P.turnVel * 1.15 - P.roll) * damp(6, dt);
 
   player.quaternion.copy(Q).multiply(qb.setFromAxisAngle(ZAXIS, P.roll + extra)).multiply(qa.setFromAxisAngle(XAXIS, P.pitchVel * 0.06));
   up.set(0, 1, 0).applyQuaternion(player.quaternion);
@@ -2477,7 +2507,7 @@ function updatePlayer(dt, inp) {
   if (flying) {
     P.inv -= dt; P.gunCd -= dt; P.misCd -= dt;
     P.rapid = Math.max(0, P.rapid - dt); P.shield = Math.max(0, P.shield - dt);
-    if (inp.fire && P.gunCd <= 0) fireGun();
+    if ((inp.fire || G.autoFire) && P.gunCd <= 0) fireGun();
     if (P.missiles < U.mslMax) { P.mRegen += dt; if (P.mRegen > U.mslRegen) { P.mRegen = 0; P.missiles++; } }
     const gy = ground(P.pos.x, P.pos.z);
     P.pullUp = false;
@@ -2529,8 +2559,10 @@ function updateLock(dt) {
   if (bestE) {
     const t = bestE.pos.distanceTo(P.pos) / (1150 + P.speed);
     G.lead = leadV.copy(bestE.pos);
-    if (bestE.dir) G.lead.addScaledVector(bestE.dir, bestE.speed * t);
+    if (bestE.dir) G.lead.addScaledVector(bestE.dir, (bestE.cur || bestE.speed) * t);
   }
+  // On touch screens the gun fires by itself once the pipper sits on the target
+  G.autoFire = isTouch && !!G.lead && aimDir.copy(G.lead).sub(P.pos).normalize().dot(fwd) > 0.997 && G.lead.distanceTo(P.pos) < 900;
   if (bestE) {
     G.lockT += dt; G.beepT -= dt;
     if (G.beepT <= 0) { const locked = G.lockT >= U.lockTime; sfx.beep(locked ? 1500 : 1000); G.beepT = locked ? 0.12 : 0.22; }
@@ -2564,7 +2596,7 @@ function updateProjectiles(dt) {
     b.pos.addScaledVector(b.vel, dt);
     if (Math.random() < 0.6) fire.spawn(b.pos.x, b.pos.y, b.pos.z, 0, 0, 0, 0.22, 2.6, 0.8, C.pink, C.red, 0.7);
     let dead = b.life <= 0;
-    if (!dead && P.alive && P.rollT <= 0 && segHit(prev, b.pos, P.pos, 5)) { damagePlayer(b.dmg || 7); dead = true; }
+    if (!dead && P.alive && P.rollT <= 0 && segHit(prev, b.pos, P.pos, 5)) { damagePlayer(b.dmg || 7, prev); dead = true; }
     if (dead) { b.alive = false; b.mesh.visible = false; }
   }
   for (const m of missiles) {
@@ -2610,18 +2642,43 @@ function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     const toP = v1.copy(P.pos).sub(e.pos), dist = toP.length();
-    const desired = v2.copy(P.pos).addScaledVector(fwd, P.speed * Math.min(dist / 450, 1.5)).sub(e.pos).normalize();
+    // Dogfight AI alternates two phases: ATTACK chases the player and shoots; RUN slips into the space
+    // ahead of the player's nose and weaves there at a catchable speed so it can be hunted down.
+    // A close pass triggers a short break turn, after which the current phase resumes.
+    const ahead = -toP.dot(fwd) / dist, desired = v2;
     e.wob += dt;
-    desired.x += Math.sin(e.wob * 0.9) * 0.35; desired.y += Math.cos(e.wob * 0.7) * 0.2; desired.z += Math.cos(e.wob * 1.1) * 0.35;
-    if (dist < 70 && e.breakT <= 0) { e.breakT = rand(1.2, 2); e.breakDir.set(rand(-1, 1), rand(0.2, 0.8), rand(-1, 1)).normalize(); }
+    if (e.modeT === undefined) { e.run = Math.random() < 0.5; e.modeT = rand(2, 7); }
+    if (!e.run || ahead > 0.4) e.modeT -= dt;
+    if (e.modeT <= 0) { e.run = !e.run; e.modeT = e.run ? rand(4, 7) : rand(6, 9); }
+    if (dist < 70 && e.breakT <= 0) {
+      e.breakT = rand(0.7, 1.1);
+      aiR.crossVectors(toP, YAXIS).normalize();
+      e.breakDir.copy(aiR).multiplyScalar(Math.random() < 0.5 ? 1 : -1).add(v4.set(0, rand(0.1, 0.5), 0)).normalize();
+    }
+    let want = e.speed;
     if (e.breakT > 0) { e.breakT -= dt; desired.copy(e.breakDir); }
+    else if (dist > 1100) { desired.copy(toP).normalize(); want = Math.max(e.speed * 1.25, P.speed * 1.2); }
+    else if (e.run) {
+      aiR.crossVectors(fwd, YAXIS).normalize();
+      desired.copy(P.pos).addScaledVector(fwd, 380).addScaledVector(aiR, Math.sin(e.wob * 0.5) * 140).sub(e.pos);
+      desired.y += Math.cos(e.wob * 0.4) * 60;
+      const gap = desired.length();
+      desired.normalize();
+      if (gap < 220) desired.multiplyScalar(gap / 220).addScaledVector(fwd, 1).addScaledVector(aiR, Math.sin(e.wob * 1.6) * 0.5);
+      want = ahead > 0.4 ? P.speed * 0.92 : Math.max(e.speed * 1.2, P.speed * 1.6);
+    } else {
+      desired.copy(P.pos).addScaledVector(fwd, P.speed * Math.min(dist / 450, 1.5)).sub(e.pos).normalize();
+      desired.x += Math.sin(e.wob * 0.9) * 0.2; desired.y += Math.cos(e.wob * 0.7) * 0.12; desired.z += Math.cos(e.wob * 1.1) * 0.2;
+      if (ahead < 0) want = Math.max(e.speed, P.speed * 1.1);
+    }
+    e.cur = (e.cur || e.speed) + (want - (e.cur || e.speed)) * damp(1.2, dt);
     const gy = ground(e.pos.x + e.dir.x * 150, e.pos.z + e.dir.z * 150);
     if (e.pos.y < gy + 90) desired.y += 2;
     if (!P.alive) desired.set(e.dir.x, 0.3, e.dir.z);
     desired.normalize();
     prevDir.copy(e.dir);
     e.dir.lerp(desired, damp(e.turn, dt)).normalize();
-    e.pos.addScaledVector(e.dir, e.speed * dt);
+    e.pos.addScaledVector(e.dir, e.cur * dt);
     const yawRate = (prevDir.x * e.dir.z - prevDir.z * e.dir.x) / Math.max(dt, 1e-4);
     e.bank += (clamp(yawRate * 0.9, -1.2, 1.2) - e.bank) * damp(4, dt);
     e.mesh.lookAt(v3.copy(e.pos).add(e.dir));
@@ -2837,6 +2894,7 @@ function frame(now) {
   }
   if (G.state === 'dead') { G.deadT -= dt; if (G.deadT <= 0) gameOver(); }
   hitT -= dt; G.killT -= dt;
+  if (G.hitDirs.length) { for (const h of G.hitDirs) h.t -= dt * 1.2; G.hitDirs = G.hitDirs.filter(h => h.t > 0); }
   updateEnemies(dt);
   updateProjectiles(dt);
   updateEffects(dt);
