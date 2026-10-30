@@ -169,6 +169,7 @@
 <div id="speedPanel" class="panel">
   <div class="speed-row"><span id="speed">0</span><span class="unit">קמ״ש</span></div>
   <div class="meta">
+    <span id="vehName">רכב</span>
     <span id="gear">N</span>
     <span id="hand">בלם יד</span>
   </div>
@@ -184,10 +185,10 @@
     <button class="tb small" id="touchPause" aria-label="השהיה">❚❚</button>
   </div>
   <div class="pad right">
-    <button class="tb small" data-key="hand" aria-label="בלם יד">בלם יד</button>
-    <button class="tb small" id="touchCam" aria-label="מצלמה">📷</button>
-    <button class="tb small" data-key="descend" aria-label="ירידה">⤓</button>
-    <button class="tb small" id="touchVehicle" aria-label="החלפת רכב">🔁</button>
+    <button class="tb small" id="touchHand" data-key="hand" aria-label="בלם יד">בלם יד</button>
+    <button class="tb small" id="touchCam" aria-label="מצלמה">מצלמה</button>
+    <button class="tb small" id="touchDescend" data-key="descend" aria-label="ירידה" hidden>ירידה</button>
+    <button class="tb small" id="touchVehicle" aria-label="החלפת רכב">רכב ▸</button>
     <button class="tb" data-key="down" aria-label="בלם או אחורה">▼</button>
     <button class="tb gas" data-key="up" aria-label="גז">▲</button>
   </div>
@@ -1478,6 +1479,16 @@ function switchVehicle() {
     playerCar = VEHICLES[vehicle].model;
     playerCar.group.visible = true;
   }
+  updateVehicleUi();
+}
+
+// Names and button labels follow the current vehicle, so phone players see what each button does
+const VEHICLE_LABEL = { car: 'רכב', moto: 'אופנוע', atv: 'טרקטורון', heli: 'מסוק' };
+function updateVehicleUi() {
+  const isHeli = vehicle === 'heli';
+  document.getElementById('vehName').textContent = VEHICLE_LABEL[vehicle];
+  document.getElementById('touchHand').textContent = isHeli ? 'עלייה' : 'בלם יד';
+  document.getElementById('touchDescend').hidden = !isHeli;
 }
 
 // Helicopter flight: forward tilt, yaw, climb and descend. It flies over the city with no collisions.
@@ -2020,6 +2031,7 @@ function frame(now) {
 // Start the scene at the camera position before the first frame
 updateTraffic(0);
 updateCamera(0);
+updateVehicleUi();
 composer.render();
 requestAnimationFrame(frame);
 </script>
