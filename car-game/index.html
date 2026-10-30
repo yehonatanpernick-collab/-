@@ -204,6 +204,7 @@
       <li><span>בלם יד (החלקה)</span><kbd>Space</kbd></li>
       <li><span>החלפת רכב (רכב, אופנוע, טרקטורון, מסוק)</span><kbd>V</kbd></li>
     <li><span>מסוק: מעלה / מטה</span><kbd>Space / Shift</kbd></li>
+    <li><span>מטוס: גז, מדחף, כנף</span><kbd>Space / Shift · W S · A D</kbd></li>
     <li><span>החלפת מצלמה</span><kbd>C</kbd></li>
       <li><span>איפוס למיקום התחלה</span><kbd>R</kbd></li>
       <li><span>השהיה</span><kbd>P / Esc</kbd></li>
@@ -679,7 +680,16 @@ function terrainHeight(x, z) {
     const w = 1 - smoothstep(25, 60, Math.abs(z));
     return mountain + (roadProfile(x) - mountain) * w;
   }
-  return mountain;
+  // Flat pads for the airport (west) and the village (south-east), with a soft 40 m edge
+  const pad = Math.max(padWeight(x, z, AIRPORT_PAD), padWeight(x, z, VILLAGE_PAD));
+  return mountain * (1 - pad);
+}
+const AIRPORT_PAD = { cx: -800, cz: 0, hx: 420, hz: 200 };
+const VILLAGE_PAD = { cx: 500, cz: -425, hx: 110, hz: 80 };
+function padWeight(x, z, p) {
+  const dx = Math.max(0, Math.abs(x - p.cx) - p.hx);
+  const dz = Math.max(0, Math.abs(z - p.cz) - p.hz);
+  return 1 - smoothstep(0, 40, Math.hypot(dx, dz));
 }
 const HIGHWAY_END = 900;
 // Height of the road over the hill: 0 at the city, a 90 m hill near x = 700, back down past the end
@@ -719,6 +729,19 @@ for (let k = 0; k < (LOW_END ? 300 : 900); k++) {
   const y = terrainHeight(x, z);
   if (y < 1 || y > 95) continue;
   pines.push({ x, y, z, s: 0.8 + Math.random() * 0.8 });
+}
+// A dense little forest north-east of the city, outside the highway corridor
+for (let k = 0; k < (LOW_END ? 60 : 220); k++) {
+  const x = 120 + Math.random() * 240, z = -380 + Math.random() * 260;
+  const y = terrainHeight(x, z);
+  if (y < 1 || y > 95) continue;
+  pines.push({ x, y, z, s: 0.9 + Math.random() * 0.7 });
+}
+// A few trees around the village
+for (let k = 0; k < 8; k++) {
+  const x = 395 + Math.random() * 210;
+  const z = (Math.random() < 0.5 ? -505 : -345) + Math.random() * 10;   // along the north and south edges of the pad
+  pines.push({ x, y: 0, z, s: 1 });
 }
 const pineTrunkGeo = new THREE.CylinderGeometry(0.25, 0.3, 3, 6).translate(0, 1.5, 0);
 const pineLeafGeo = new THREE.ConeGeometry(2.6, 7, 8).translate(0, 4.5, 0);
@@ -1492,8 +1515,262 @@ const heliModel = makeHelicopter(0x2a3a4a);
 heliModel.group.visible = false;
 scene.add(heliModel.group);
 
-// Vehicle cycle: car, motorcycle, ATV, helicopter (V key or the touch button)
-const VEHICLE_ORDER = ['car', 'moto', 'atv', 'heli'];
+// ============================================================
+// Airplane: a light single-engine plane, about 8.4 m long, with a lathe fuselage,
+// a swept tail, a two-blade propeller, glass canopy and retractable-looking gear
+// ============================================================
+function makeAirplane(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.3, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  // Fuselage: the lathe axis is Y, rotated onto Z so the nose points forward (+Z)
+  const profile = [[0, -4.2], [0.35, -4.1], [0.55, -3.6], [0.62, -2.5], [0.62, 1.6], [0.5, 3.0], [0.3, 3.9], [0, 4.2]]
+    .map(([r, y]) => new THREE.Vector2(r, y));
+  const fuselage = new THREE.Mesh(new THREE.LatheGeometry(profile, 24).rotateX(Math.PI / 2), paint);
+  fuselage.position.y = 0.9;
+  fuselage.castShadow = true;
+  group.add(fuselage);
+  add(new THREE.BoxGeometry(10.8, 0.12, 1.5), paint, 0, 1.0, 0.4);        // main wing
+  add(new THREE.BoxGeometry(3.6, 0.1, 0.9), paint, 0, 1.5, -3.6);         // tailplane
+  add(new THREE.BoxGeometry(0.1, 1.6, 1.1), paint, 0, 2.2, -3.7);         // fin
+  add(new THREE.CylinderGeometry(0.5, 0.6, 1.0, 16), trimMat, 0, 0.9, 4.5).rotation.x = Math.PI / 2; // engine cowl
+  add(new THREE.SphereGeometry(0.75, 16, 12), glassMat, 0, 1.55, 0.8).scale.set(0.9, 0.6, 1.5);     // canopy
+  // Propeller: two blades and a faint disc, spun in code
+  const prop = new THREE.Group();
+  prop.position.set(0, 0.9, 5.05);
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.05), trimMat);
+    blade.rotation.z = a;
+    prop.add(blade);
+  }
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color: 0xc8d0da, transparent: true, opacity: 0.1, depthWrite: false }));
+  prop.add(disc);
+  group.add(prop);
+  // Landing gear: two main wheels under the wing and a nose wheel
+  const wheels = [];
+  for (const [x, z, r] of [[-1.4, 0.6, 0.3], [1.4, 0.6, 0.3], [0, 3.0, 0.22]]) {
+    const w = makeWheel(r, 0.22);
+    w.position.set(x, r, z);
+    group.add(w);
+    wheels.push(w);
+  }
+  // Navigation lights: red on the left wing, green on the right, blinking
+  const navLights = [
+    add(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2020 }), -5.4, 1.0, 0.4),
+    add(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x20ff60 }), 5.4, 1.0, 0.4),
+  ];
+  return { group, prop, wheels, navLights };
+}
+
+// Airport: a 700 m runway with markings and edge lights, taxiway, apron, terminal, tower and hangars
+function buildAirport() {
+  const x0 = -1150, x1 = -450;
+  const runwayMat = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.85 });
+  makeStrip(x0, x1, 0, 22.5, 0.06, runwayMat);
+  // Centreline dashes and threshold bars
+  const dashes = [];
+  for (let x = x0 + 20; x < x1 - 20; x += 30) dashes.push({ x: x + 7, y: 0.08, z: 0, sx: 14, sy: 0.02, sz: 0.6 });
+  instanced(dashes, UNIT_BOX, whiteMat);
+  const thresholds = [];
+  for (const x of [x0 + 15, x1 - 15]) {
+    for (let k = -4; k <= 4; k++) thresholds.push({ x, y: 0.08, z: k * 4.5, sx: 26, sy: 0.02, sz: 1.2 });
+  }
+  instanced(thresholds, UNIT_BOX, whiteMat);
+  // Runway edge lights: small glowing markers along both edges
+  const edgeLights = [];
+  for (let x = x0; x <= x1; x += 40) {
+    for (const z of [-23.5, 23.5]) edgeLights.push({ x, y: 0.25, z, sx: 0.6, sy: 0.3, sz: 0.6 });
+  }
+  instanced(edgeLights, UNIT_BOX, new THREE.MeshBasicMaterial({ color: 0xfff3c4 }));
+  // Taxiway from the runway to the apron, then the apron itself
+  flat(14, 110, 0x4b5160, -560, 0.03, 75, 0.9);
+  flat(160, 90, 0x5a606b, -520, 0.03, 120, 0.9);
+  // Terminal with warm glass, a control tower and two hangars
+  const terminal = new THREE.Mesh(new THREE.BoxGeometry(70, 9, 22), [shopGlowMat, shopGlowMat, roofMat, roofMat, shopGlowMat, shopGlowMat]);
+  terminal.position.set(-520, 4.5, 175);
+  terminal.castShadow = terminal.receiveShadow = true;
+  scene.add(terminal);
+  obstacles.push({ minX: -555, maxX: -485, minZ: 164, maxZ: 186, height: 9.6 });
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.4, 28, 16), cornMat);
+  tower.position.set(-420, 14, 175);
+  tower.castShadow = true;
+  scene.add(tower);
+  const cab = new THREE.Mesh(new THREE.CylinderGeometry(4, 3.2, 3.2, 16), glassMat);
+  cab.position.set(-420, 29.6, 175);
+  scene.add(cab);
+  obstacles.push({ minX: -423, maxX: -417, minZ: 172, maxZ: 178, height: 31 });
+  for (const hx of [-640, -700]) {
+    const hangar = new THREE.Mesh(new THREE.BoxGeometry(50, 12, 30), shopMat);
+    hangar.position.set(hx, 6, 215);
+    hangar.castShadow = hangar.receiveShadow = true;
+    scene.add(hangar);
+    obstacles.push({ minX: hx - 25, maxX: hx + 25, minZ: 200, maxZ: 230, height: 12 });
+  }
+  // Windsock on a pole, at the runway's west end
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6, 6), lampPoleMat);
+  pole.position.set(-1000, 3, 60);
+  scene.add(pole);
+  const sock = new THREE.Mesh(new THREE.ConeGeometry(0.6, 3, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xff6a1a, side: THREE.DoubleSide }));
+  sock.rotation.z = Math.PI / 2;
+  sock.position.set(-998.5, 6, 60);
+  scene.add(sock);
+}
+buildAirport();
+
+// Parked planes on the apron, and one plane that circles the airport in the air
+const parkedPlanes = [0xe7ecf2, 0x1d4ed8, 0xb91c1c].map((c, k) => {
+  const pl = makeAirplane(c);
+  pl.group.position.set(-600 + k * 60, 0, 130 + (k % 2) * 15);
+  pl.group.rotation.y = Math.PI / 2;
+  scene.add(pl.group);
+  return pl;
+});
+const circuitPlane = makeAirplane(0xf5f5f4);
+scene.add(circuitPlane.group);
+let circuitPhase = 0;
+function updateAirTraffic(dt) {
+  circuitPhase += dt * 0.1;
+  const rx = 420, rz = 260;
+  const x = -800 + rx * Math.cos(circuitPhase), z = rz * Math.sin(circuitPhase);
+  const tx = -rx * Math.sin(circuitPhase), tz = rz * Math.cos(circuitPhase);
+  circuitPlane.group.position.set(x, 130, z);
+  circuitPlane.group.rotation.set(0, Math.atan2(tx, tz), 0);
+  circuitPlane.prop.rotation.z -= dt * 60;
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  circuitPlane.navLights.forEach(m => { m.visible = blink; });
+}
+
+// Village: eight small houses and a church with a spire on the south-east pad
+function buildVillage() {
+  const walls = ['#e8dcc4', '#c9b79c', '#f2e6d2', '#d9cbb5'].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+  for (const x of [425, 475, 575]) for (const z of [-455, -395]) {
+    const house = new THREE.Mesh(new THREE.BoxGeometry(9, 4, 7), walls[Math.abs(x + z) % walls.length]);
+    house.position.set(x, 2, z);
+    house.castShadow = house.receiveShadow = true;
+    scene.add(house);
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 6.4, 3, 4), roofMat);
+    roof.rotation.y = Math.PI / 4;
+    roof.position.set(x, 5.5, z);
+    roof.castShadow = true;
+    scene.add(roof);
+    obstacles.push({ minX: x - 4.5, maxX: x + 4.5, minZ: z - 3.5, maxZ: z + 3.5, height: 7.5 });
+  }
+  const church = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 12), cornMat);
+  church.position.set(520, 3, -425);
+  church.castShadow = church.receiveShadow = true;
+  scene.add(church);
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(4, 12, 4), cornMat);
+  tower.position.set(520, 9, -439);
+  tower.castShadow = true;
+  scene.add(tower);
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(2.8, 8, 4), roofMat);
+  spire.rotation.y = Math.PI / 4;
+  spire.position.set(520, 19, -439);
+  spire.castShadow = true;
+  scene.add(spire);
+  obstacles.push({ minX: 515.5, maxX: 524.5, minZ: -431, maxZ: -419, height: 6 });
+  obstacles.push({ minX: 518, maxX: 522, minZ: -441, maxZ: -437, height: 15 });
+}
+buildVillage();
+
+// The player's plane: flies with throttle, pitch and bank. Takeoff needs about 26 m/s on the runway.
+const planeModel = makeAirplane(0xe7ecf2);
+planeModel.group.visible = false;
+scene.add(planeModel.group);
+const plane = { x: 0, y: 0, z: 0, heading: 0, speed: 0, vy: 0, throttle: 0, pitch: 0, bank: 0, airborne: false, crashed: false };
+const PLANE_MAX = 60, PLANE_ROTATE = 26, PLANE_STALL = 22;
+const PLANE_START = { x: -1120, z: 0, heading: Math.PI / 2 };
+function resetPlane() {
+  Object.assign(plane, { x: PLANE_START.x, z: PLANE_START.z, heading: PLANE_START.heading, y: 0, speed: 0, vy: 0, throttle: 0, pitch: 0, bank: 0, airborne: false, crashed: false });
+}
+resetPlane();
+// Touchdown on the runway is normal; anywhere else, or too hard, is a crash
+const onRunway = (x, z) => x > -1150 && x < -450 && Math.abs(z) < 22.5;
+
+function updatePlane(dt) {
+  const p = plane;
+  if (input.hand) p.throttle = Math.min(1, p.throttle + dt * 0.5);   // Space: more power
+  if (input.descend) p.throttle = Math.max(0, p.throttle - dt * 0.7); // Shift: less power
+  const pitchIn = (input.down ? 1 : 0) - (input.up ? 1 : 0);          // S pulls up, W pushes down
+  const bankIn = (input.left ? 1 : 0) - (input.right ? 1 : 0);        // A banks left, D banks right
+  const ground = surfaceHeight(p.x, p.z);
+  const onGround = p.y <= ground + 0.01 && !p.airborne;
+
+  if (!p.crashed) {
+    // Pitch: the tail stays low until rotation speed on the ground, and the nose returns to level when released
+    const pitchTarget = pitchIn !== 0 ? clamp(p.pitch + pitchIn * dt * 0.35, -0.25, 0.35) : p.pitch * (1 - dt * 0.8);
+    p.pitch = onGround && p.speed < PLANE_ROTATE ? Math.min(pitchTarget, 0.05) : pitchTarget;
+    p.bank = bankIn !== 0 ? clamp(p.bank + bankIn * dt * 1.2, -0.6, 0.6) : p.bank * (1 - dt * 1.5);
+  }
+
+  // Forward speed: thrust against quadratic drag, plus rolling resistance on the ground
+  const thrust = p.throttle * 3.0;
+  let acc = p.crashed ? -2 : thrust - 0.0006 * p.speed * p.speed;
+  if (onGround && p.speed > 0) acc -= 0.3;
+  p.speed = clamp(p.speed + acc * dt, 0, PLANE_MAX);
+
+  // Lift grows with speed squared and with angle of attack; below the stall speed the plane sinks
+  const lift = p.speed > PLANE_ROTATE || p.airborne ? 0.0132 * p.speed * p.speed * Math.max(0, 0.9 + 2 * p.pitch) : 0;
+  if (onGround && lift > 9.81) {
+    p.airborne = true;          // lift now exceeds the weight: the wheels leave the runway
+    p.vy = 0.5;
+  }
+  if (p.airborne) {
+    p.vy += (lift - 9.81) * dt;
+    if (p.speed < PLANE_STALL) p.vy -= 3 * dt;   // below the stall speed the plane sinks
+    p.vy = clamp(p.vy, -15, 8);   // about 1600 ft/min at most, like a light plane
+  }
+
+  // Heading: on the ground the nose wheel steers; in the air the bank turns the plane
+  const turn = onGround ? bankIn * 0.6 * clamp(p.speed / 10, 0, 1) : p.bank * 0.45 * clamp(p.speed / 35, 0.2, 1);
+  p.heading += turn * dt;
+
+  // Move forward, then settle vertically against the ground
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  p.x += fx * p.speed * dt;
+  p.z += fz * p.speed * dt;
+  const newGround = surfaceHeight(p.x, p.z);
+  const newY = p.y + p.vy * dt;
+  if (newY <= newGround) {
+    if (p.airborne) {
+      // Touchdown: a hard landing, a steep nose or a rough surface wrecks the plane
+      const sink = -p.vy;
+      if (sink > 4.5 || (!onRunway(p.x, p.z) && p.speed > 14) || Math.abs(p.pitch) > 0.2 || Math.abs(p.bank) > 0.3) {
+        p.crashed = true;
+        crash(20);
+      }
+      p.airborne = false;
+    }
+    p.y = newGround;
+    p.vy = 0;
+  } else {
+    p.airborne = true;
+    p.y = newY;
+  }
+  if (p.crashed) p.speed = 0;
+
+  // Visuals: pitch up is a negative x rotation, bank uses the same sign as the helicopter
+  planeModel.group.position.set(p.x, p.y, p.z);
+  planeModel.group.rotation.set(-p.pitch, p.heading, -p.bank);
+  planeModel.prop.rotation.z -= dt * (40 + p.throttle * 120);
+  if (p.speed > 0.1 && !p.airborne) planeModel.wheels.forEach(w => { w.rotation.x += p.speed * dt / 0.3; });
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  planeModel.navLights.forEach(m => { m.visible = blink; });
+
+  // Mirror into the player so the HUD and the camera follow the plane
+  Object.assign(player, { x: p.x, z: p.z, heading: p.heading, fwd: p.speed, lat: 0, steer: 0, alt: p.y });
+  document.getElementById('vehName').textContent = p.crashed ? 'מטוס: נחיתה קשה (R לאיפוס)' : VEHICLE_LABEL.plane;
+}
+
+// Vehicle cycle: car, motorcycle, ATV, helicopter, plane (V key or the touch button)
+const VEHICLE_ORDER = ['car', 'moto', 'atv', 'heli', 'plane'];
 function switchVehicle() {
   const prev = vehicle;
   vehicle = VEHICLE_ORDER[(VEHICLE_ORDER.indexOf(vehicle) + 1) % VEHICLE_ORDER.length];
@@ -1501,12 +1778,18 @@ function switchVehicle() {
     // Land where the helicopter is
     Object.assign(player, { x: heli.x, z: heli.z, heading: heli.heading, fwd: 0, lat: 0, alt: 0 });
   }
+  if (prev === 'plane') {
+    // Get out where the plane is, on the ground
+    Object.assign(player, { x: plane.x, z: plane.z, heading: plane.heading, fwd: 0, lat: 0, alt: 0 });
+  }
   if (vehicle === 'heli') {
     Object.assign(heli, { x: player.x, z: player.z, heading: player.heading, speed: 0, vy: 0, steer: 0, y: surfaceHeight(player.x, player.z) + 1 });
   }
+  if (vehicle === 'plane') resetPlane();   // the plane always starts on the runway
+  planeModel.group.visible = vehicle === 'plane';
   playerCar.group.visible = false;
   heliModel.group.visible = vehicle === 'heli';
-  if (vehicle !== 'heli') {
+  if (vehicle !== 'heli' && vehicle !== 'plane') {
     playerCar = VEHICLES[vehicle].model;
     playerCar.group.visible = true;
   }
@@ -1514,12 +1797,13 @@ function switchVehicle() {
 }
 
 // Names and button labels follow the current vehicle, so phone players see what each button does
-const VEHICLE_LABEL = { car: 'רכב', moto: 'אופנוע', atv: 'טרקטורון', heli: 'מסוק' };
+const VEHICLE_LABEL = { car: 'רכב', moto: 'אופנוע', atv: 'טרקטורון', heli: 'מסוק', plane: 'מטוס' };
 function updateVehicleUi() {
-  const isHeli = vehicle === 'heli';
+  const isHeli = vehicle === 'heli', isPlane = vehicle === 'plane';
   document.getElementById('vehName').textContent = VEHICLE_LABEL[vehicle];
-  document.getElementById('touchHand').textContent = isHeli ? 'עלייה' : 'בלם יד';
-  document.getElementById('touchDescend').hidden = !isHeli;
+  document.getElementById('touchHand').textContent = isHeli ? 'עלייה' : isPlane ? 'גז +' : 'בלם יד';
+  document.getElementById('touchDescend').textContent = isPlane ? 'גז -' : 'ירידה';
+  document.getElementById('touchDescend').hidden = !(isHeli || isPlane);
 }
 
 // Helicopter flight: forward tilt, yaw, climb and descend. It flies over the city with no collisions.
@@ -1589,6 +1873,7 @@ headBeam.target = headTarget;
 const SPAWN = { x: PITCH * 0.5, z: LANE, heading: Math.PI / 2 };
 const player = { x: 0, z: 0, heading: 0, fwd: 0, lat: 0, steer: 0, spin: 0 };
 function resetCar() {
+  if (vehicle === 'plane') { resetPlane(); return; }   // R puts the plane back on the runway
   Object.assign(player, { x: SPAWN.x, z: SPAWN.z, heading: SPAWN.heading, fwd: 0, lat: 0, steer: 0 });
 }
 resetCar();
@@ -1861,7 +2146,7 @@ function addSkid(x, z, yaw) {
 }
 
 function updateSkids(dt) {
-  if (vehicle === 'heli') return;
+  if (vehicle === 'heli' || vehicle === 'plane') return;
   const p = player;
   const V = VEHICLES[vehicle];
   const slipping = Math.abs(p.lat) > 3.5 || (input.hand && Math.abs(p.fwd) > 6);
@@ -1892,7 +2177,8 @@ function updateCamera(dt) {
   const m = CAM_MODES[camMode];
   const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
   const alt = player.alt || 0;
-  const target = new THREE.Vector3(player.x - fx * m.dist, m.height + alt, player.z - fz * m.dist);
+  const back = m.dist * (vehicle === 'plane' ? 2.4 : 1);   // a plane needs more room behind it
+  const target = new THREE.Vector3(player.x - fx * back, m.height + alt, player.z - fz * back);
   const look = new THREE.Vector3(player.x + fx * m.look, 1.0 + alt, player.z + fz * m.look);
   if (!camReady) { camPos.copy(target); camLook.copy(look); camReady = true; }
   const k = 1 - Math.exp(-dt * 6);
@@ -2118,9 +2404,11 @@ function frame(now) {
   last = now;
   if (state === 'playing') {
     if (vehicle === 'heli') updateHeli(dt);
+    else if (vehicle === 'plane') updatePlane(dt);
     else updatePlayer(dt);
     updateTraffic(dt);
     updateSkids(dt);
+    updateAirTraffic(dt);
   } else {
     updateTraffic(0);
   }
