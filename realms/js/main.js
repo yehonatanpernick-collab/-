@@ -19,7 +19,7 @@ const PRESETS = {
   low: { pr: 1, shadows: 0, bloom: false, msaa: 0, grass: 3000, terrainSeg: 110, props: 0.55 },
 };
 const Q_NAMES = { high: 'גבוהה', medium: 'בינונית', low: 'נמוכה' };
-let qName = localStorage.getItem('aeth-q'); if (!PRESETS[qName]) qName = isTouch ? 'medium' : 'high';
+let qName = null; try { qName = localStorage.getItem('aeth-q'); } catch (e) { } if (!PRESETS[qName]) qName = isTouch ? 'medium' : 'high';
 const Q = PRESETS[qName];
 
 // ---------- renderer ----------
@@ -125,7 +125,7 @@ canvas.addEventListener('mousedown', e => {
   sound.init();
   if (state === 'dialog') { nextDialog(); return; }
   if (state !== 'play') return;
-  if (document.pointerLockElement !== canvas) { canvas.requestPointerLock?.(); }
+  if (document.pointerLockElement !== canvas) { safeLock(); }
   if (e.button === 0) inp.attack = true;
   if (e.button === 2) inp.magic = true;
 });
@@ -135,7 +135,8 @@ addEventListener('mousemove', e => {
 });
 addEventListener('wheel', e => { if (state === 'play') camDist = THREE.MathUtils.clamp(camDist + e.deltaY * 0.01, 5, 16); }, { passive: true });
 let lockGrace = 0;
-const lock = () => { lockGrace = performance.now() + 800; if (!isTouch) canvas.requestPointerLock?.(); };
+function safeLock() { try { const r = canvas.requestPointerLock?.(); r?.catch?.(() => { }); } catch (e) { } }
+const lock = () => { lockGrace = performance.now() + 800; if (!isTouch) safeLock(); };
 const unlock = () => { lockGrace = performance.now() + 800; document.exitPointerLock?.(); };
 document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && !isTouch && performance.now() > lockGrace) pause(); });
 
@@ -199,7 +200,7 @@ $('startbtn').addEventListener('click', () => {
   if (!game.talked) setTimeout(() => startDialog(introLines(), () => { game.talked = true; }), 600);
   try { if (isTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); screen.orientation?.lock?.('landscape').catch(() => { }); } catch (e) { }
 });
-const cycleQ = () => { const order = ['high', 'medium', 'low']; const n = order[(order.indexOf(qName) + 1) % 3]; localStorage.setItem('aeth-q', n); location.reload(); };
+const cycleQ = () => { const order = ['high', 'medium', 'low']; const n = order[(order.indexOf(qName) + 1) % 3]; try { localStorage.setItem('aeth-q', n); } catch (e) { } location.reload(); };
 $('qbtn').addEventListener('click', cycleQ); $('p-q').addEventListener('click', cycleQ);
 function pause() { if (state !== 'play') return; state = 'paused'; $('pause').classList.remove('hide'); $('p-q').textContent = 'איכות: ' + Q_NAMES[qName]; }
 function resume() { $('pause').classList.add('hide'); state = 'play'; lock(); }
