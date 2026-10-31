@@ -17,8 +17,9 @@
     "@capacitor/core": "^6.1.2",
     "@capacitor/haptics": "^6.0.1",
     "@capacitor/ios": "^6.1.2",
-    "@fontsource/heebo": "^5.0.20",
-    "@fontsource/share-tech-mono": "^5.0.20",
+    "@fontsource/frank-ruhl-libre": "^5.0.20",
+    "@fontsource/karantina": "^5.0.20",
+    "@fontsource/suez-one": "^5.0.20",
     "three": "0.128.0"
   },
   "devDependencies": {

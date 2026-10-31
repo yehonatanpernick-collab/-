@@ -19,7 +19,7 @@ html = html.replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/([^"]+)
   return `lib/three/${rel}`;
 });
 
-const fonts = [['heebo', ['400', '500', '700', '900']], ['share-tech-mono', ['400']]];
+const fonts = [['suez-one', ['400']], ['karantina', ['400', '700']], ['frank-ruhl-libre', ['400', '700']]];
 const links = [];
 for (const [pkg, weights] of fonts) {
   cpSync(join(nm, '@fontsource', pkg), join(www, 'fonts', pkg), { recursive: true });

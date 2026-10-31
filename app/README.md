@@ -78,5 +78,5 @@ npm run assets
 
 ## רישיונות
 - three.js: רישיון MIT.
-- הגופנים Heebo ו-Share Tech Mono: רישיון SIL Open Font License. מותר לארוז אותם באפליקציה מסחרית.
+- הגופנים Suez One, Karantina ו-Frank Ruhl Libre: רישיון SIL Open Font License. מותר לארוז אותם באפליקציה מסחרית.
 - כל הגרפיקה, המודלים והצלילים במשחק נוצרים בקוד ושייכים לך.
