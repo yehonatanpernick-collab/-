@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תהום — מערכה בשולי הגחלת</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@300;400;700&family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels" class="off"></div>
+<div id="box"></div>
+
+<div id="hud" class="off">
+  <header id="bar">
+    <div class="mark"><b>תהום</b><span>מערכת הגחלת · 14 עולמות</span></div>
+    <div class="cell res">
+      <label>סגסוגת</label>
+      <span id="alloy" class="num">0</span>
+      <span id="rate" class="num dim">+0.0/ש׳</span>
+    </div>
+    <div class="cell"><label>עולמות</label><span id="worlds" class="num">1</span></div>
+    <div class="cell"><label>צי</label><span id="fleet" class="num">0</span></div>
+    <div class="cell wide"><label>מאזן כוחות</label><div id="balance"><i class="p"></i><i class="e"></i></div></div>
+    <div class="cell clock">
+      <span id="clock" class="num">00:00</span>
+      <div id="speed">
+        <button data-s="0" title="עצירה (רווח)">‖</button>
+        <button data-s="1" class="on" title="מהירות רגילה">1×</button>
+        <button data-s="2" title="מהיר">2×</button>
+        <button data-s="3" title="מהיר מאוד">3×</button>
+      </div>
+      <button id="mute" title="קול (M)">קול</button>
+    </div>
+  </header>
+  <aside id="panel" class="off"></aside>
+  <div id="selection" class="off"></div>
+  <ol id="log"></ol>
+  <div id="hint" class="off"></div>
+  <div id="pausestamp" class="off">עצירה טקטית — פקודות עדיין מתקבלות</div>
+</div>
+
+<section id="intro">
+  <div class="crop tl"></div><div class="crop tr"></div><div class="crop bl"></div><div class="crop br"></div>
+  <div class="intro-body">
+    <p class="kicker"><span class="num">09</span> מפת מערכת — הגחלת, ננס כתום בשקיעה</p>
+    <h1>תהום</h1>
+    <p class="lede">ארבעה־עשר עולמות מקיפים כוכב גוסס. שני ציים, משאב אחד, ומסלולים שלא עוצרים לחכות לאף אחד. כבשו את המערכת — או אבדו בה.</p>
+    <div class="diff" id="diff"></div>
+    <button id="start" class="go"><span>פתח במערכה</span><i></i></button>
+  </div>
+  <dl class="keys">
+    <div><dt>קליק</dt><dd>בחירת עולם והצי שבמסלולו</dd></div>
+    <div><dt>גרירה</dt><dd>בחירת ספינות במלבן</dd></div>
+    <div><dt>קליק ימני</dt><dd>שיגור הנבחרים ליעד</dd></div>
+    <div><dt>גרירה ימנית</dt><dd>סיבוב המצלמה</dd></div>
+    <div><dt>גלגלת · WASD</dt><dd>זום · הזזה</dd></div>
+    <div><dt>Z X C</dt><dd>בניית צרעה · חנית · מצודה</dd></div>
+    <div><dt>רווח</dt><dd>עצירה טקטית</dd></div>
+    <div><dt>F · H</dt><dd>מיקוד · חזרה לבית</dd></div>
+  </dl>
+  <p class="colophon num">TEHOM / BUILD 1.0 / 31·10·2026</p>
+</section>
+
+<section id="end" class="off">
+  <div class="end-body">
+    <p class="kicker" id="end-kicker"></p>
+    <h2 id="end-title"></h2>
+    <p class="lede" id="end-text"></p>
+    <table id="end-stats"></table>
+    <button id="again" class="go"><span>מערכה חדשה</span><i></i></button>
+  </div>
+</section>
+
+<script>/*__JS__*/</script>
+</body>
+</html>
