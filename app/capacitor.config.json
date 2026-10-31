@@ -1,0 +1,8 @@
+{
+  "appId": "com.skystorm.game",
+  "appName": "סערת שחקים",
+  "webDir": "www",
+  "backgroundColor": "#0b0612",
+  "android": { "backgroundColor": "#0b0612" },
+  "ios": { "backgroundColor": "#0b0612", "contentInset": "never" }
+}
