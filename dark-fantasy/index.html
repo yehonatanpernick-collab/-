@@ -962,10 +962,12 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 const canvas = renderer.domElement;
 let dragging = false;
+function lockPointer() { try { const p = canvas.requestPointerLock?.(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 canvas.addEventListener('mousedown', e => {
   if (state !== 'play') return;
-  if (document.pointerLockElement !== canvas) { canvas.requestPointerLock?.(); }
-  if (e.button === 0) tryAttack(); else dragging = true;
+  if (document.pointerLockElement !== canvas) lockPointer();
+  dragging = true;
+  if (e.button === 0) tryAttack();
 });
 addEventListener('mouseup', () => dragging = false);
 addEventListener('mousemove', e => {
@@ -1327,7 +1329,7 @@ $('startBtn').addEventListener('click', () => {
   camera.position.set(0, 4, 20);
   for (const w of wraiths) { w.dead = true; w.deathT = 0.5; }
   state = 'play'; spawnTimer = 8;
-  canvas.requestPointerLock?.();
+  lockPointer();
   setTimeout(() => banner('ממלכת ואלדרן', 'מצא את חמשת המקדשים — עקוב אחר אלומות האור האדום', 5), 600);
 });
 window.__game = { player, shrines, wraiths, ignite, get state() { return state; } };
