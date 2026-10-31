@@ -7,7 +7,8 @@ let state = 'title', time = 0, gameTime = 0, litCount = 0, won = false, winT = 0
 let yaw = 0, pitch = 0.28, camDist = 6.2, shake = 0, flash = 0, hurtFlash = 0, hitStop = 0;
 let spawnTimer = 8, holdT = 0, lightningT = 7, chapterT = 0, kingActive = false, hpTrail = 100;
 const clock = new THREE.Clock();
-const swordTrail = new Trail(16, [0.9, 1.25, 1.4]);
+const swordTrail = new Trail(18, [2.0, 0.75, 0.2]);
+let slowMo = 0;
 const king = new King();
 const soulWisps = [];
 let checkpoint = new V3(0, PLAZA_TOP, 8), checkpointName = 'בחצר המלך', wasLocked = false, toastT = 0;
@@ -19,9 +20,7 @@ const tmpA = new V3(), tmpB = new V3();
 // =====================================================================
 const candleEls = [];
 for (let i = 0; i < SHRINE_COUNT; i++) {
-  const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('viewBox', '0 0 20 40'); s.setAttribute('class', 'candle');
-  s.innerHTML = '<path class="flame" d="M10 3 C 14 9, 13.5 14, 10 17 C 6.5 14, 6 9, 10 3Z"/><line class="wick" x1="10" y1="15" x2="10" y2="19"/><path class="wax" d="M6.5 19 L13.5 19 L13.8 38 L6.2 38 Z M6.5 19 C 7 22, 6 23, 6.6 25"/>';
-  $('candles').appendChild(s); candleEls.push(s);
+  const s = document.createElement('span'); s.className = 'dot'; $('candles').appendChild(s); candleEls.push(s);
 }
 function chapter(kicker, main, sub = '', t = 4.5) { $('chKicker').textContent = kicker; $('chMain').textContent = main; $('chSub').textContent = sub; $('chapter').classList.add('on'); chapterT = t; }
 function questText() {
@@ -29,7 +28,7 @@ function questText() {
   if (litCount < SHRINE_COUNT) return `הצת את להבות הנשמה <b>${litCount} / ${SHRINE_COUNT}</b>`;
   return kingActive ? '<b>הפל את מלך האפר</b>' : '<b>שוב אל כס המלך</b>';
 }
-const HOLD = IS_TOUCH ? 'החזק את <span class="seal-key">✦</span>' : 'החזק <span class="seal-key">E</span>';
+const HOLD = IS_TOUCH ? 'החזק את כפתור הלהבה' : 'החזק <span class="key">E</span>';
 const ORD = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳'];
 
 // =====================================================================
@@ -146,7 +145,7 @@ function doHit(S) {
       if (!e.hit(S.dmg, dir)) continue;
       any = true;
       const hp = e.pos.clone().add(new V3(0, e === king ? 2.6 : 1.2, 0)).addScaledVector(dir, -e.radius * 0.6);
-      for (let i = 0; i < 18; i++) fx.spawn(hp.x, hp.y, hp.z, R(-3, 3) - dir.x * 3, R(0, 3.5), R(-3, 3) - dir.z * 3, R(0.2, 0.45), R(0.05, 0.1), [3, 2.6, 2], [0.8, 0.3, 0.1], { g: 9 });
+      for (let i = 0; i < 18; i++) fx.spawn(hp.x, hp.y, hp.z, R(-3, 3) - dir.x * 3, R(0, 3.5), R(-3, 3) - dir.z * 3, R(0.2, 0.45), R(0.05, 0.1), [3.6, 1.6, 0.4], [1, 0.2, 0.02], { g: 9 });
       for (let i = 0; i < 10; i++) fxDark.spawn(hp.x, hp.y, hp.z, R(-1.5, 1.5) + dir.x * 2, R(0, 2), R(-1.5, 1.5) + dir.z * 2, R(0.5, 1), R(0.15, 0.3), [0.25, 0.04, 0.03], [0.08, 0.02, 0.02], { g: 4, s1: 0.5, a: 0.8 });
     }
   }
@@ -166,7 +165,10 @@ function tryRoll() {
 }
 function damagePlayer(n, from) {
   if (state !== 'play' || won || player.hp <= 0) return;
-  if (player.rollT > 0.04 && player.rollT < 0.78) return;   // i-frames
+  if (player.rollT > 0.04 && player.rollT < 0.78) {   // i-frames — a close dodge slows time for a breath
+    if (slowMo <= 0) { slowMo = 0.45; toast('התחמקות מושלמת'); for (let i = 0; i < 20; i++) fx.spawn(P.position.x, P.position.y + 1, P.position.z, R(-2, 2), R(0, 2), R(-2, 2), R(0.4, 0.8), R(0.06, 0.12), FIRE_EMBER[0], FIRE_EMBER[1], { drag: 2 }); }
+    return;
+  }
   player.hp = Math.max(0, player.hp - n); player.lastHurt = time; hurtFlash = 1; shake = Math.max(shake, 0.4); player.flinch = 1; AudioFX.hurt();
   player.atkT = -1; player.queued = false; player.drinkT = -1;
   if (from) { tmpA.subVectors(P.position, from).setY(0).normalize(); player.vel.addScaledVector(tmpA, 8); }
@@ -194,8 +196,8 @@ function onBossShattered(pos) { winGame(); }
 // Shrines & progression
 // =====================================================================
 function ignite(s) {
-  s.lit = true; s.lightTarget = 45; s.light.color.set(0x7ad2ea); s.light.distance = 26; s.runeMat.color.setRGB(0.5, 2.0, 3.0);
-  s.beam.material.uniforms.uColor.value.setRGB(0.35, 1.0, 1.4); s.beam.material.uniforms.uOpacity.value = 0.6;
+  s.lit = true; s.lightTarget = 45; s.light.color.set(0xffc06a); s.light.distance = 26; s.runeMat.color.setRGB(3.0, 1.9, 0.7);
+  s.beam.material.uniforms.uColor.value.setRGB(1.4, 0.9, 0.35); s.beam.material.uniforms.uOpacity.value = 0.6;
   s.flame.palette = FIRE_SOUL; s.flame.rate = 70; s.flame.scale = 1.2; s.flame.spread = 0.4;
   candleEls[litCount].classList.add('lit'); litCount++;
   player.maxFlasks = 3 + Math.floor(litCount / 2); player.flasks = player.maxFlasks; setCheckpoint(s);
@@ -264,20 +266,25 @@ function updatePlayer(dt) {
     if (player.drinkT >= 1) player.drinkT = -1;
   }
   if (player.rollT >= 0) {
-    player.rollT += dt / 0.55;
-    desired.copy(player.rollDir).multiplyScalar(3 + 9 * Math.max(0, 1 - player.rollT));
+    player.rollT += dt / 0.52;
+    desired.copy(player.rollDir).multiplyScalar(2.5 + 10 * Math.sin(Math.min(player.rollT, 1) * Math.PI * 0.5 + Math.PI * 0.5) ** 2 * (player.rollT < 0.15 ? player.rollT / 0.15 : 1));
     if (rand() < 0.5) fxDark.spawn(P.position.x, P.position.y + 0.1, P.position.z, R(-.5, .5), R(0.2, 0.8), R(-.5, .5), R(0.6, 1), R(0.2, 0.4), [0.16, 0.14, 0.12], [0.07, 0.06, 0.05], { s1: 0.9, a: 0.6 });
     if (player.rollT >= 1) player.rollT = -1;
   }
-  const rate = player.rollT >= 0 ? 30 : 12;
+  const speeding = desired.lengthSq() > player.vel.lengthSq();
+  const rate = player.rollT >= 0 ? 30 : speeding ? 7 : 13;
+  const vPrev = Math.hypot(player.vel.x, player.vel.z);
   player.vel.x = damp(player.vel.x, desired.x, rate, dt); player.vel.z = damp(player.vel.z, desired.z, rate, dt);
+  player.accel = damp(player.accel || 0, (Math.hypot(player.vel.x, player.vel.z) - vPrev) / Math.max(dt, 1e-3) * 0.15, 6, dt);
   P.position.x += player.vel.x * dt; P.position.z += player.vel.z * dt;
   for (const e of enemies) { if (e.dead) continue; const dx = P.position.x - e.pos.x, dz = P.position.z - e.pos.z, d = Math.hypot(dx, dz), m = e.radius + 0.38; if (d < m && d > 1e-3) { P.position.x = e.pos.x + dx / d * m; P.position.z = e.pos.z + dz / d * m; } }
   resolveCollisions(P.position, 0.42);
   P.position.y = damp(P.position.y, playerGround(), 20, dt);
   const hs = Math.hypot(player.vel.x, player.vel.z);
   if (hs > 0.5 && player.atkT < 0 && player.rollT < 0) player.facing = Math.atan2(player.vel.x, player.vel.z);
-  P.rotation.y += angDiff(P.rotation.y, player.facing) * (1 - Math.exp(-(player.atkT >= 0 ? 22 : 13) * dt));
+  const rPrev = P.rotation.y;
+  P.rotation.y += angDiff(P.rotation.y, player.facing) * (1 - Math.exp(-(player.atkT >= 0 ? 22 : 11) * dt));
+  player.turnVel = damp(player.turnVel || 0, angDiff(rPrev, P.rotation.y) / Math.max(dt, 1e-3), 10, dt);
   // attacks
   if (player.atkT >= 0) {
     const S = SWINGS[player.combo], prev = player.atkT; player.atkT += dt / S.dur;
@@ -348,7 +355,7 @@ function updateWorld(dt) {
   // storm
   lightningT -= dt;
   if (lightningT <= 0) { lightningT = R(10, 24); flash = R(0.6, 1.1); setTimeout(() => { flash = Math.max(flash, 0.8); }, 120); setTimeout(() => AudioFX.thunder(R(0.5, 1)), R(600, 1900)); }
-  flash = Math.max(0, flash - dt * 2.8); skyMat.uniforms.uFlash.value = flash; hemi.intensity = 0.8 + flash * 2.2;
+  flash = Math.max(0, flash - dt * 2.8); skyMat.uniforms.uFlash.value = flash; hemi.intensity = 0.6 + flash * 2.2;
   // the throne wakes when the knight returns
   if (litCount >= SHRINE_COUNT && !kingActive && state === 'play' && Math.hypot(P.position.x, P.position.z) < 17) {
     kingActive = true; king.wake(); AudioFX.bossMusic(true); $('bossBar').classList.add('on');
@@ -371,14 +378,17 @@ function updateCamera(dt) {
   }
   const bossD = kingActive && !king.dead ? 1.6 : 0;
   const tgt = tmpA.set(P.position.x, P.position.y + 1.55 + bossD * 0.3, P.position.z);
-  const right = new V3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(IS_TOUCH ? 0.2 : 0.5);
-  tgt.add(right);
-  camTarget.lerp(tgt, 1 - Math.exp(-14 * dt));
+  const right = new V3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(IS_TOUCH ? 0.2 : 0.45);
+  tgt.add(right).addScaledVector(player.vel, 0.14);
+  camTarget.lerp(tgt, 1 - Math.exp(-9 * dt));
+  const hs = Math.hypot(player.vel.x, player.vel.z), baseFov = camera.aspect < 1 ? 70 : 58;
+  const fov = damp(camera.fov, baseFov + Math.min(hs, 6) * 0.45 + (player.rollT >= 0 ? 5 : 0) + (slowMo > 0 ? -3 : 0), 5, dt);
+  if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   const dist = (won ? camDist * 1.6 : camDist) * (camera.aspect < 1 ? 0.78 : 1) + bossD;
   const off = new V3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(dist);
   const want = camTarget.clone().add(off);
   want.y = Math.max(want.y, groundAt(want.x, want.z) + 0.5);
-  camera.position.lerp(want, 1 - Math.exp(-12 * dt));
+  camera.position.lerp(want, 1 - Math.exp(-10 * dt));
   if (shake > 0) { camera.position.x += R(-1, 1) * shake * 0.3; camera.position.y += R(-1, 1) * shake * 0.3; shake = Math.max(0, shake - dt * 1.5); }
   camera.lookAt(camTarget);
 }
@@ -386,11 +396,10 @@ function updateCamera(dt) {
 // =====================================================================
 // HUD
 // =====================================================================
-function setBar(rect, k) { rect.setAttribute('x', (300 * (1 - k)).toFixed(1)); rect.setAttribute('width', (300 * k).toFixed(1)); }
+function setBar(el, k) { el.style.transform = `scaleX(${clamp(k, 0, 1).toFixed(4)})`; }
 const compassMarks = [];
 {
-  const flameSvg = '<svg viewBox="0 0 20 28"><path d="M10 1 C 16 9, 17 15, 10 27 C 3 15, 4 9, 10 1 Z"/></svg>';
-  const crownSvg = '<svg viewBox="0 0 24 20"><path d="M2 18 L3 6 L8 11 L12 2 L16 11 L21 6 L22 18 Z"/></svg>';
+  const flameSvg = '<i></i>', crownSvg = '<i></i>';
   shrines.forEach(s => { const d = document.createElement('div'); d.className = 'cm'; d.innerHTML = flameSvg + '<small></small>'; $('compassMarks').appendChild(d); compassMarks.push({ el: d, pos: s.pos, s }); });
   const t = document.createElement('div'); t.className = 'cm throne'; t.innerHTML = crownSvg + '<small></small>'; $('compassMarks').appendChild(t); compassMarks.push({ el: t, pos: new V3(0, 0, 0), throne: true });
 }
@@ -409,13 +418,13 @@ function updateCompass() {
     const wanted = m.throne ? show : !m.s.lit;
     if (vis && wanted && d < nd) { nd = d; nearest = m; }
   }
-  if (nearest) nearest.el.querySelector('small').textContent = Math.round(nd) + ' צעדים';
+  if (nearest) nearest.el.querySelector('small').textContent = Math.round(nd) + ' מ׳';
 }
 function updateHUD(dt) {
   const k = player.hp / player.maxHp; hpTrail = damp(hpTrail, player.hp, 2.5, dt); hpTrail = Math.max(hpTrail, player.hp);
-  setBar($('hpRect'), k); setBar($('hpTrailRect'), hpTrail / player.maxHp); setBar($('stRect'), player.st / 100);
+  setBar($('hpFill'), k); setBar($('hpTrail'), hpTrail / player.maxHp); setBar($('stFill'), player.st / 100);
   $('hpText').textContent = Math.ceil(player.hp);
-  setBar($('bossRect'), Math.max(0, king.hp / king.maxHp));
+  setBar($('bossFill'), Math.max(0, king.hp / king.maxHp));
   if (king.dead) $('bossBar').classList.remove('on');
   hurtFlash = Math.max(0, hurtFlash - dt * 1.8); $('hurt').style.opacity = Math.max(hurtFlash, state === 'play' ? clamp((0.35 - k) * 2.2, 0, 0.8) * (0.75 + Math.sin(time * 5) * 0.25) : 0);
   gradePass.uniforms.uHurt.value = hurtFlash;
@@ -425,7 +434,6 @@ function updateHUD(dt) {
   let target = null;
   if (state === 'play' && !won && player.hp > 0) for (const s of shrines) if (!s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 4.8) target = s;
   $('tbUse').classList.toggle('ready', !!target);
-  const hl = $('holdLine').querySelector('path');
   // resting at a lit flame refills the flasks and moves the checkpoint
   if (state === 'play' && player.hp > 0) for (const s of shrines) if (s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 5) {
     if (player.flasks < player.maxFlasks) { player.flasks = player.maxFlasks; toast('הבקבוקים מולאו מן הלהבה'); AudioFX.drink(); }
@@ -438,7 +446,7 @@ function updateHUD(dt) {
     const txt = `${HOLD} כדי להצית את הלהבה`; $('prompt').classList.add('on'); if ($('promptText').innerHTML !== txt) $('promptText').innerHTML = txt;
     if (keys.KeyE) { holdT += dt; if (rand() < 0.6) fx.spawn(P.position.x + R(-.3, .3), P.position.y + 1.1, P.position.z + R(-.3, .3), (target.bowl.x - P.position.x) * 1.2, R(0.5, 1.5), (target.bowl.z - P.position.z) * 1.2, 0.8, 0.14, FIRE_SOUL[0], FIRE_SOUL[1]); }
     else holdT = Math.max(0, holdT - dt * 2);
-    hl.style.strokeDashoffset = 240 * (1 - Math.min(holdT / 1.6, 1));
+    $('holdFill').style.transform = `scaleX(${Math.min(holdT / 1.6, 1).toFixed(3)})`;
     if (holdT >= 1.6) { holdT = 0; ignite(target); }
   } else { $('prompt').classList.remove('on'); holdT = 0; }
 }
@@ -450,6 +458,7 @@ function frame() {
   requestAnimationFrame(frame);
   let dt = Math.min(clock.getDelta(), 1 / 20);
   if (hitStop > 0) { hitStop -= dt; dt *= 0.1; }
+  if (slowMo > 0) { slowMo -= dt; dt *= 0.3; }
   if (state === 'paused') dt = 0;
   time += dt; if (state === 'play' && !won) gameTime += dt;
   updatePlayer(dt);

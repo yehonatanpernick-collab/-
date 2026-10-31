@@ -8,12 +8,12 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.5;
+renderer.toneMappingExposure = 1.3;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const FOG_COL = new THREE.Color().setRGB(0.05, 0.058, 0.082);
-scene.fog = new THREE.FogExp2(FOG_COL.clone(), 0.016);
+const FOG_COL = new THREE.Color().setRGB(0.05, 0.03, 0.022);
+scene.fog = new THREE.FogExp2(FOG_COL.clone(), 0.018);
 scene.background = FOG_COL.clone();
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 2000);
 camera.position.set(0, 6, 22);
@@ -47,16 +47,16 @@ THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor * 2.2 + vec3( 0.02, 0.022, 0.03 ), mist * ( 1.0 - fogFactor ) );
 #endif`;
 
-const hemi = new THREE.HemisphereLight(0x8090c0, 0x2a2018, 0.8);
+const hemi = new THREE.HemisphereLight(0x9a6e58, 0x1c0f08, 0.6);
 scene.add(hemi);
 const moonDir = new V3(-0.42, 0.2, -0.88).normalize();
-const moonLight = new THREE.DirectionalLight(0xd2cbec, 2.7);
+const moonLight = new THREE.DirectionalLight(0xffb48c, 2.3);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.set(Q.shadow, Q.shadow);
 { const c = moonLight.shadow.camera; c.left = -38; c.right = 38; c.top = 38; c.bottom = -38; c.near = 1; c.far = 300; }
 moonLight.shadow.bias = -0.0003; moonLight.shadow.normalBias = 0.04;
 scene.add(moonLight, moonLight.target);
-const rimLight = new THREE.DirectionalLight(0x86a0e0, 0.7); rimLight.position.copy(moonDir).multiplyScalar(-1).setY(0.6).multiplyScalar(60); scene.add(rimLight);
+const rimLight = new THREE.DirectionalLight(0x8e8aa8, 0.35); rimLight.position.copy(moonDir).multiplyScalar(-1).setY(0.6).multiplyScalar(60); scene.add(rimLight);
 
 // ---- environment for metal reflections ----
 const envTex = (() => {
@@ -65,8 +65,8 @@ const envTex = (() => {
     side: THREE.BackSide, uniforms: { uMoon: { value: moonDir } },
     vertexShader: `varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `uniform vec3 uMoon; varying vec3 vD; void main(){ vec3 d = normalize(vD); float y = d.y;
-      vec3 c = mix(vec3(0.03,0.026,0.024), vec3(0.04,0.045,0.06), smoothstep(-0.3, 0.7, y));
-      c += vec3(0.22,0.12,0.1) * smoothstep(0.18, 0.0, abs(y - 0.03));
+      vec3 c = mix(vec3(0.035,0.024,0.018), vec3(0.05,0.035,0.03), smoothstep(-0.3, 0.7, y));
+      c += vec3(0.4,0.16,0.06) * smoothstep(0.18, 0.0, abs(y - 0.03));
       float m = max(dot(d, uMoon), 0.0); c += vec3(5.0,1.6,1.1) * pow(m, 400.0) + vec3(0.6,0.18,0.12) * pow(m, 12.0);
       c += vec3(1.0,0.5,0.2) * pow(max(dot(d, normalize(vec3(0.7,0.1,0.7))), 0.0), 50.0) * 0.7;
       c += vec3(0.3,0.38,0.55) * pow(max(dot(d, normalize(vec3(0.5,0.6,0.6))), 0.0), 5.0) * 0.25;
@@ -92,7 +92,7 @@ const skyMat = new THREE.ShaderMaterial({
     float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<6;i++){ v+=a*n2(p); p=p*2.03+vec2(1.7,9.2); a*=.5; } return v; }
     void main(){
       vec3 d = normalize(vDir); float y = d.y;
-      vec3 hor = vec3(0.17,0.15,0.2), mid = vec3(0.06,0.07,0.115), zen = vec3(0.012,0.017,0.04);
+      vec3 hor = vec3(0.3,0.11,0.05), mid = vec3(0.08,0.04,0.035), zen = vec3(0.012,0.008,0.012);
       vec3 col = mix(hor, mid, smoothstep(0.0, 0.28, y));
       col = mix(col, zen, smoothstep(0.28, 0.95, y));
       float md = max(dot(d, uMoonDir), 0.0);
@@ -119,7 +119,7 @@ const skyMat = new THREE.ShaderMaterial({
         float c2 = fbm(uv * 2.3 - vec2(uTime * 0.01, 0.0));
         float cl = smoothstep(0.44, 0.8, c1 * 0.75 + c2 * 0.35) * smoothstep(-0.04, 0.16, y);
         float lit = pow(md, 5.0);
-        vec3 cc = mix(vec3(0.055,0.06,0.085), vec3(0.5,0.2,0.16) * mix(1.0, 0.55, 1.0 - uCurse), lit);
+        vec3 cc = mix(vec3(0.05,0.03,0.025), vec3(0.62,0.24,0.1) * mix(1.0, 0.55, 1.0 - uCurse), lit);
         cc += vec3(0.07,0.06,0.06) * smoothstep(0.5, 0.9, c2) * lit;   // silver lining
         cc += vec3(0.35,0.35,0.45) * uFlash * 1.4;
         col = mix(col, cc, cl * 0.92);
@@ -145,7 +145,7 @@ const inkPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tScene: { value: null }, tDepth: { value: null },
     uRes: { value: new V2(1, 1) }, uNear: { value: camera.near }, uFar: { value: camera.far },
-    uMoonUV: { value: new V2(0.5, 0.8) }, uMoonVis: { value: 0 }, uRayCol: { value: new THREE.Color(1.0, 0.42, 0.32) }, uInk: { value: LOW ? 0 : 1 },
+    uMoonUV: { value: new V2(0.5, 0.8) }, uMoonVis: { value: 0 }, uRayCol: { value: new THREE.Color(1.0, 0.5, 0.25) }, uInk: { value: LOW ? 0 : 1 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
@@ -195,10 +195,10 @@ const gradePass = new ShaderPass({
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(vec3(l), c, 1.08 * uSat);
       // cool moonlit shadows, warm firelit highlights
-      c *= mix(vec3(0.9, 0.97, 1.1), vec3(1.06, 1.0, 0.9), smoothstep(0.05, 0.6, l));
-      c = mix(c, c * c * (3.0 - 2.0 * c), 0.22);
+      c *= mix(vec3(1.0, 0.93, 0.9), vec3(1.08, 0.98, 0.84), smoothstep(0.05, 0.6, l));
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.32);
       float v = length(q * vec2(1.0, 1.15));
-      c *= 1.0 - smoothstep(0.5, 0.98, v) * 0.6;
+      c *= 1.0 - smoothstep(0.4, 0.95, v) * 0.72;
       c = mix(c, vec3(0.3, 0.0, 0.0) * (0.4 + l), uHurt * smoothstep(0.25, 0.8, v));
       gl_FragColor = vec4(c, 1.0);
     }`

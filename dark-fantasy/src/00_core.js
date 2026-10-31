@@ -100,9 +100,9 @@ const groundN = normalFromArray(GS, groundArr, 8);
 
 // --- masonry ---
 const S = 256;
-const stoneArr = genArray(S, (x, y) => 0.45 * tileFbm(x / 32, y / 32, 8, 4) + 0.12 * tileNoise(x / 2, y / 2, S / 2)
-  - (Math.abs(tileNoise(x / 24 + 7, y / 24, S / 24) - 0.5) < 0.025 ? 0.3 : 0));
-const stoneTex = texFromArray(S, stoneArr, true, (v) => { const k = 0.35 + v * 0.8; return [k, k * 0.98, k * 0.95]; });
+const stoneArr = genArray(S, (x, y) => 0.4 * tileFbm(x / 32, y / 32, 8, 4) + 0.18 * tileFbm(x / 8, y / 8, 32, 3) + 0.1 * tileNoise(x / 2, y / 2, S / 2)
+  - 0.12 * ss(0.06, 0.0, Math.abs(tileFbm(x / 64, y / 64, 4, 3) - 0.5)));
+const stoneTex = texFromArray(S, stoneArr, true, (v) => { const k = 0.42 + v * 0.6; return [k, k * 0.97, k * 0.93]; });
 const stoneN = normalFromArray(S, stoneArr, 6);
 
 // --- bark ---

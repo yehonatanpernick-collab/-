@@ -12,23 +12,23 @@ const P = player.obj;
 const KP = {};   // knight parts
 
 const KM = (() => {
-  const steel = new THREE.MeshStandardMaterial({ color: 0x9a9da4, metalness: 1, roughness: 0.36, map: grimeTex, roughnessMap: scratchTex, envMapIntensity: 1.25 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x45464c, metalness: 1, roughness: 0.42, map: grimeTex, roughnessMap: scratchTex });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x8e8780, metalness: 1, roughness: 0.36, map: grimeTex, roughnessMap: scratchTex, envMapIntensity: 1.25 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x3a3532, metalness: 1, roughness: 0.42, map: grimeTex, roughnessMap: scratchTex });
   const mail = new THREE.MeshStandardMaterial({ color: 0x7a7c82, metalness: 1, roughness: 0.5, map: withRepeat(chainTex, 7, 7), normalMap: withRepeat(chainN, 7, 7), normalScale: new V2(1.4, 1.4), side: THREE.DoubleSide });
   const bronze = new THREE.MeshStandardMaterial({ color: 0x8c6a3a, metalness: 1, roughness: 0.34, map: grimeTex });
   const leather = new THREE.MeshStandardMaterial({ color: 0x3a281d, roughness: 0.72, map: clothTex });
-  const cloth = new THREE.MeshStandardMaterial({ color: 0xd2c7ae, roughness: 0.95, map: clothTex, normalMap: clothN, side: THREE.DoubleSide, alphaMap: tatterAlpha(64, 128, 0.82, 6, 5), alphaTest: 0.5 });
-  const fur = new THREE.MeshStandardMaterial({ color: 0x5a4838, roughness: 1, map: furTex, normalMap: furN, normalScale: new V2(2.2, 2.2), side: THREE.DoubleSide });
-  const cape = new THREE.MeshStandardMaterial({ color: 0x5e1a17, roughness: 0.9, map: clothTex, normalMap: clothN, side: THREE.DoubleSide, alphaMap: tatterAlpha(128, 256, 0.8, 26, 2), alphaTest: 0.5 });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x3a2a22, roughness: 0.95, map: clothTex, normalMap: clothN, side: THREE.DoubleSide, alphaMap: tatterAlpha(64, 128, 0.82, 6, 5), alphaTest: 0.5 });
+  const fur = new THREE.MeshStandardMaterial({ color: 0x3e2e22, roughness: 1, map: furTex, normalMap: furN, normalScale: new V2(2.2, 2.2), side: THREE.DoubleSide });
+  const cape = new THREE.MeshStandardMaterial({ color: 0x4a120e, roughness: 0.9, map: clothTex, normalMap: clothN, side: THREE.DoubleSide, alphaMap: tatterAlpha(128, 256, 0.8, 26, 2), alphaTest: 0.5 });
   // surcoat with the order's sigil: a sword falling through a crescent moon
   const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d');
-  x.fillStyle = '#d9cfb8'; x.fillRect(0, 0, 512, 256);
-  for (let i = 0; i < 9000; i++) { x.fillStyle = `rgba(60,45,30,${Math.random() * 0.08})`; x.fillRect(Math.random() * 512, Math.random() * 256, 2, 2); }
+  x.fillStyle = '#3a2b24'; x.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 9000; i++) { x.fillStyle = `rgba(10,6,4,${Math.random() * 0.18})`; x.fillRect(Math.random() * 512, Math.random() * 256, 2, 2); }
   const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(40,30,20,0)'); gr.addColorStop(1, 'rgba(40,30,20,.45)'); x.fillStyle = gr; x.fillRect(0, 0, 512, 256);
   x.save(); x.translate(256, 120);
-  x.fillStyle = '#8b1c16'; x.beginPath(); x.arc(0, 0, 46, 0, TAU); x.fill();
+  x.fillStyle = '#c0601f'; x.beginPath(); x.arc(0, 0, 46, 0, TAU); x.fill();
   x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(14, -10, 40, 0, TAU); x.fill(); x.globalCompositeOperation = 'source-over';
-  x.fillStyle = '#8b1c16'; x.fillRect(-5, -70, 10, 130); x.fillRect(-26, -50, 52, 9); x.beginPath(); x.moveTo(-5, 60); x.lineTo(5, 60); x.lineTo(0, 78); x.fill();
+  x.fillStyle = '#c0601f'; x.fillRect(-5, -70, 10, 130); x.fillRect(-26, -50, 52, 9); x.beginPath(); x.moveTo(-5, 60); x.lineTo(5, 60); x.lineTo(0, 78); x.fill();
   x.restore();
   for (let i = 0; i < 6; i++) { x.fillStyle = `rgba(70,10,8,${0.2 + Math.random() * 0.3})`; x.beginPath(); x.ellipse(Math.random() * 512, 150 + Math.random() * 100, 4 + Math.random() * 18, 3 + Math.random() * 10, Math.random() * 3, 0, TAU); x.fill(); }
   const surTex = new THREE.CanvasTexture(c); surTex.colorSpace = THREE.SRGBColorSpace;
@@ -42,7 +42,7 @@ const KM = (() => {
   for (let i = 0; i < 300; i++) { y.fillStyle = `rgba(${Math.random() < 0.5 ? '200,190,170' : '10,5,3'},${Math.random() * 0.35})`; y.fillRect(Math.random() * 256, Math.random() * 384, 1 + Math.random() * 6, 1 + Math.random() * 2); }
   const shTex = new THREE.CanvasTexture(s); shTex.colorSpace = THREE.SRGBColorSpace; shTex.repeat.set(1 / 0.64, 1 / 0.95); shTex.offset.set(0.5, 0.6);
   const shield = new THREE.MeshStandardMaterial({ map: shTex, roughness: 0.75, normalMap: withRepeat(barkN, 1, 1), normalScale: new V2(0.4, 0.4) });
-  const eye = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.5, 2.2) });
+  const eye = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.0, 0.3) });
   return { steel, dark, mail, bronze, leather, cloth, fur, cape, surcoat, shield, eye };
 })();
 
@@ -142,19 +142,46 @@ const KM = (() => {
   KP.lanternLight = new THREE.PointLight(0xffa868, 6, 18, 1.6); KP.lanternLight.position.set(1.3, 2.4, 1.3); P.add(KP.lanternLight);
   // ---------------- longsword ----------------
   const sword = new THREE.Group(); sword.position.set(0, -0.33, 0.0); AR.el.add(sword); KP.sword = sword;
-  const bs = new THREE.Shape(); bs.moveTo(-0.042, 0); bs.lineTo(0.042, 0); bs.lineTo(0.036, -0.98); bs.quadraticCurveTo(0.02, -1.12, 0, -1.2); bs.quadraticCurveTo(-0.02, -1.12, -0.036, -0.98); bs.closePath();
-  const bg = new THREE.ExtrudeGeometry(bs, { depth: 0.004, bevelEnabled: true, bevelThickness: 0.009, bevelSize: 0.011, bevelSegments: 1, curveSegments: 6 });
-  bg.translate(0, -0.13, -0.002);
-  const blade = mk(bg, new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 1, roughness: 0.2, map: grimeTex, roughnessMap: scratchTex, envMapIntensity: 1.8 }), sword);
-  for (const zz of [-0.0115, 0.0115]) mk(new THREE.BoxGeometry(0.012, 0.75, 0.002), KM.dark, sword, 0, -0.55, zz);
-  KP.runeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.4, 1.3, 1.8) });
-  for (const zz of [-0.0125, 0.0125]) for (let i = 0; i < 4; i++) mk(new THREE.BoxGeometry(i % 2 ? 0.02 : 0.008, i % 2 ? 0.006 : 0.03, 0.002), KM.runeMat || KP.runeMat, sword, 0, -0.2 - i * 0.05, zz).castShadow = false;
-  const guard = mk(new THREE.BoxGeometry(0.34, 0.035, 0.05), KM.dark, sword, 0, -0.12, 0);
-  for (const sd of [-1, 1]) { const q = mk(new THREE.CylinderGeometry(0.014, 0.022, 0.09, 6), KM.dark, sword, sd * 0.19, -0.145, 0); q.rotation.z = sd * 0.5; }
-  mk(new THREE.CylinderGeometry(0.024, 0.028, 0.22, 8), KM.leather, sword, 0, 0, 0);
-  for (let i = 0; i < 5; i++) { const w = mk(new THREE.TorusGeometry(0.027, 0.005, 4, 10), KM.leather, sword, 0, -0.08 + i * 0.04, 0); w.rotation.x = Math.PI / 2; }
-  const pom = mk(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 14), KM.dark, sword, 0, 0.13, 0); pom.rotation.z = Math.PI / 2;
-  KP.tip = new THREE.Object3D(); KP.tip.position.y = -1.32; sword.add(KP.tip);
+  // blade: lenticular cross-section, tapered, with an ember edge that wakes when swung
+  {
+    const N = 22, L = 1.12, pos = [], uv = [];
+    const W = (t) => t < 0.9 ? lerp(0.043, 0.03, t / 0.9) : 0.03 * Math.sqrt(Math.max(0, (1 - t) / 0.1));
+    const T = (t) => lerp(0.011, 0.006, t);
+    const ring = (t) => { const y = -0.15 - t * L, w = W(t), th = T(t); return [[-w, y, 0], [0, y, th], [w, y, 0], [0, y, -th]]; };
+    const ru = [0, 0.5, 1, 0.5];
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N, t1 = (i + 1) / N, A0 = ring(t0), A1 = ring(t1);
+      for (let k = 0; k < 4; k++) {
+        const k2 = (k + 1) % 4, a = A0[k], b = A0[k2], c = A1[k], d = A1[k2];
+        pos.push(...a, ...c, ...b, ...b, ...c, ...d);
+        uv.push(ru[k], t0, ru[k], t1, ru[k2] === 0.5 && k2 === 3 ? 0.5 : ru[k2], t0, ru[k2], t0, ru[k], t1, ru[k2], t1);
+      }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+    // forge pattern + glowing edge map
+    const c = document.createElement('canvas'); c.width = 64; c.height = 512; const x = c.getContext('2d');
+    x.fillStyle = '#7d7672'; x.fillRect(0, 0, 64, 512);
+    for (let i = 0; i < 90; i++) { x.strokeStyle = `rgba(${Math.random() < 0.5 ? '40,34,30' : '170,160,150'},${0.15 + Math.random() * 0.2})`; x.lineWidth = 1; x.beginPath(); let px = Math.random() * 64, py = Math.random() * 512; x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += Math.sin(py * 0.05) * 4; py += 8; x.lineTo(px, py); } x.stroke(); }
+    const forge = new THREE.CanvasTexture(c); forge.colorSpace = THREE.SRGBColorSpace;
+    const e = document.createElement('canvas'); e.width = 64; e.height = 8; const ex = e.getContext('2d');
+    const gr = ex.createLinearGradient(0, 0, 64, 0); gr.addColorStop(0, '#fff'); gr.addColorStop(0.12, '#331a08'); gr.addColorStop(0.42, '#000'); gr.addColorStop(0.58, '#000'); gr.addColorStop(0.88, '#331a08'); gr.addColorStop(1, '#fff');
+    ex.fillStyle = gr; ex.fillRect(0, 0, 64, 8);
+    KP.bladeMat = new THREE.MeshStandardMaterial({ color: 0xd8d0c8, map: forge, metalness: 1, roughness: 0.22, roughnessMap: scratchTex, envMapIntensity: 1.6, emissive: new THREE.Color(1.0, 0.38, 0.08), emissiveMap: new THREE.CanvasTexture(e), emissiveIntensity: 0.3, flatShading: true });
+    const blade = new THREE.Mesh(g, KP.bladeMat); blade.castShadow = true; blade.userData.keep = true; sword.add(blade);
+  }
+  // ricasso + curved quillons + ember stone
+  mk(new THREE.BoxGeometry(0.07, 0.06, 0.022), KM.dark, sword, 0, -0.15, 0);
+  { const curve = new THREE.QuadraticBezierCurve3(new V3(-0.21, -0.17, 0), new V3(0, -0.09, 0), new V3(0.21, -0.17, 0));
+    mk(new THREE.TubeGeometry(curve, 16, 0.016, 6, false), KM.dark, sword);
+    for (const sd of [-1, 1]) mk(new THREE.SphereGeometry(0.024, 10, 8), KM.bronze, sword, sd * 0.21, -0.17, 0); }
+  mk(new THREE.BoxGeometry(0.09, 0.05, 0.05), KM.bronze, sword, 0, -0.11, 0);
+  const gem = mk(new THREE.OctahedronGeometry(0.019, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.9, 0.2) }), sword, 0, -0.11, 0.03); gem.castShadow = false; gem.userData.keep = true;
+  KP.runeMat = gem.material;
+  // grip: waisted leather with cord wraps, faceted pommel
+  mk(new THREE.LatheGeometry([new V2(0.026, -0.09), new V2(0.022, 0), new V2(0.026, 0.1)], 10), KM.leather, sword);
+  for (let i = 0; i < 6; i++) { const w = mk(new THREE.TorusGeometry(0.025, 0.004, 4, 12), KM.leather, sword, 0, -0.075 + i * 0.03, 0); w.rotation.x = Math.PI / 2; }
+  const pom = mk(new THREE.LatheGeometry([new V2(0.0, 0.1), new V2(0.03, 0.105), new V2(0.045, 0.13), new V2(0.03, 0.16), new V2(0.0, 0.17)], 8), KM.bronze, sword);
+  KP.tip = new THREE.Object3D(); KP.tip.position.y = -1.27; sword.add(KP.tip);
   KP.base = new THREE.Object3D(); KP.base.position.y = -0.3; sword.add(KP.base);
   bake(P);
 }
@@ -261,9 +288,13 @@ function animateKnight(dt, time, k) {
   } else {
     KP.rollPivot.rotation.x = 0; KP.rollPivot.position.y = 0.85;
   }
-  KP.body.position.y = -0.85 + Math.abs(Math.cos(ph)) * 0.06 * k - 0.035 * k + Math.sin(time * 2) * 0.006;
+  KP.body.position.y = -0.85 + Math.abs(Math.cos(ph)) * 0.055 * k - 0.04 * k + Math.sin(time * 2) * 0.006;
+  // weight: bank into turns, sway the hips, counter-rotate the chest
+  KP.body.rotation.z = damp(KP.body.rotation.z, clamp(-(player.turnVel || 0) * 0.05, -0.2, 0.2) * k, 8, dt);
+  KP.hips.rotation.y = Math.sin(ph) * 0.16 * k; KP.hips.rotation.z = Math.cos(ph) * 0.04 * k;
+  KP.bladeMat.emissiveIntensity = damp(KP.bladeMat.emissiveIntensity, player.atkT >= 0 ? 2.6 : 0.28 + Math.sin(time * 3) * 0.06, player.atkT >= 0 ? 20 : 4, dt);
   // attack pose
-  let A = { x: -0.25 + sw * 0.35, y: -0.15, z: -0.12, el: -0.45, ty: Math.sin(ph) * 0.12 * k, tx: 0.1 * k };
+  let A = { x: -0.25 - sw * 0.38, y: -0.15, z: -0.12, el: -0.45 - k * 0.25, ty: -Math.sin(ph) * 0.1 * k, tx: 0.14 * k + clamp(player.accel || 0, -1, 1) * 0.06 };
   if (player.atkT >= 0) {
     const S = SWINGS[player.combo], t = player.atkT, rest = A;
     const mix = (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), el: lerp(a.el, b.el, f), ty: lerp(a.ty, b.ty, f), tx: lerp(a.tx, b.tx, f) });

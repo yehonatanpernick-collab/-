@@ -56,7 +56,7 @@ const fx = new Particles(LOW ? 3500 : 6000, true);
 const fxDark = new Particles(LOW ? 1800 : 3500, false);
 
 const FIRE_ORANGE = [[3.4, 1.4, 0.35], [1.2, 0.12, 0.02]];
-const FIRE_SOUL = [[1.0, 2.6, 3.4], [0.05, 0.3, 0.9]];
+const FIRE_SOUL = [[3.4, 2.5, 1.2], [1.0, 0.3, 0.04]];
 const FIRE_CURSED = [[2.4, 0.3, 0.2], [0.45, 0.02, 0.02]];
 const FIRE_EMBER = [[3.0, 0.9, 0.25], [0.8, 0.08, 0.0]];
 

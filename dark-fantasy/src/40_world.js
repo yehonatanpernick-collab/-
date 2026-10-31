@@ -107,7 +107,7 @@ const ironMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.5
   const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
   const pos = g.attributes.position, cols = new Float32Array(pos.count * 3);
   const C = (h) => new THREE.Color(h);
-  const cGrass = C(0x3b4232), cDirt = C(0x4b3f34), cAsh = C(0x6a655e), cPath = C(0x5e4d3c), cMud = C(0x1d1914), cBlood = C(0x4a2420), cStone = C(0x5c5852), t = new THREE.Color();
+  const cGrass = C(0x3a3322), cDirt = C(0x4a3424), cAsh = C(0x5e5249), cPath = C(0x5c4230), cMud = C(0x1a120c), cBlood = C(0x4e1d14), cStone = C(0x5a4f46), t = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, heightAt(x, z));
     const n = fbm(x * 0.045 + 10, z * 0.045), n2 = fbm(x * 0.13, z * 0.13 + 5), n3 = fbm(x * 0.03 - 40, z * 0.03 + 9);
@@ -267,7 +267,7 @@ let grassMesh = null, grassTotal = 0;
       d.position.set(x, y - 0.04, z); d.rotation.set(R(-.35, .35), rand() * TAU, R(-.35, .35));
       const s = R(0.6, 1.5); d.scale.set(s, s * (reed ? R(1.8, 2.8) : R(0.7, 1.4)), s); d.updateMatrix();
       im.setMatrixAt(i, d.matrix);
-      if (reed) c.setHSL(R(0.12, 0.17), R(0.15, 0.3), R(0.07, 0.12)); else c.setHSL(hue + R(-0.02, 0.03), R(0.25, 0.45), R(0.15, 0.27));
+      if (reed) c.setHSL(R(0.12, 0.17), R(0.15, 0.3), R(0.07, 0.12)); else c.setHSL(hue + R(-0.03, 0.01), R(0.35, 0.55), R(0.13, 0.23));
       im.setColorAt(i, c); i++;
     }
   }
@@ -590,10 +590,10 @@ const cages = [];
   posts.updateMatrixWorld(true); scene.add(flatten(posts));
   // warm pools of light on the road under each lantern (cheap decals, no extra lights)
   const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
-  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,0.32)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
   const pm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: new THREE.Color(1.0, 0.5, 0.18), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
-  const pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(6, 6).rotateX(-Math.PI / 2), pm, lightPools.length);
+  const pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(4.2, 4.2).rotateX(-Math.PI / 2), pm, lightPools.length);
   lightPools.forEach((p, i) => pools.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, heightAt(p.x, p.z) + 0.06, p.z)));
   pools.renderOrder = 2; scene.add(pools);
 }
@@ -627,11 +627,12 @@ function updateCandles(time) {
 // =====================================================================
 const mists = [];
 {
+  // warm haze
   const c = document.createElement('canvas'); c.width = c.height = 128; const ctx = c.getContext('2d');
   for (let i = 0; i < 18; i++) { const x = 64 + R(-26, 26), y = 64 + R(-14, 14), r = R(18, 42); const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,0.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, 128, 128); }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   for (let i = 0; i < (LOW ? 40 : 70); i++) {
-    const m = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color().setHSL(0.6, 0.06, R(0.3, 0.45)), transparent: true, opacity: R(0.06, 0.15), depthWrite: false });
+    const m = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color().setHSL(0.06, 0.25, R(0.22, 0.34)), transparent: true, opacity: R(0.06, 0.15), depthWrite: false });
     const s = new THREE.Sprite(m); const a = rand() * TAU, r = Math.sqrt(rand()) * 105;
     s.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); s.position.y = heightAt(s.position.x, s.position.z) + R(0.6, 2);
     const sz = R(14, 30); s.scale.set(sz, sz * 0.35, 1); s.userData.v = new V3(R(-.4, .4), 0, R(-.4, .4)); s.renderOrder = 3;
