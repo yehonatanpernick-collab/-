@@ -295,10 +295,10 @@ vec3 horizonCol(vec3 dir) {
 vec3 applyFog(vec3 col, vec3 rel) {
   float d = length(rel); vec3 dir = rel / max(d, 0.001);
   float cy = max(cameraPosition.y, 0.0), fy = dir.y;
-  const float DENS = 0.00024, FALL = 0.0018;
+  const float DENS = 0.00011, FALL = 0.0018;
   float amt = abs(fy) < 0.0005 ? DENS * exp(-cy * FALL) * d : (DENS / FALL) * exp(-cy * FALL) * (1.0 - exp(-d * fy * FALL)) / fy;
   amt = 1.0 - exp(-max(amt, 0.0));
-  amt = max(amt, pow(smoothstep(${(FOG_FAR * 0.45).toFixed(1)}, ${FOG_FAR.toFixed(1)}, d), 1.6));
+  amt = max(amt, pow(smoothstep(${(FOG_FAR * 0.62).toFixed(1)}, ${FOG_FAR.toFixed(1)}, d), 2.0));
   return mix(col, horizonCol(dir), clamp(amt, 0.0, 1.0));
 }`;
 const GLSL_NOISE = `
@@ -325,7 +325,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(FOG_COL, 0.001);
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.5, 40000);
 
-const hemi = new THREE.HemisphereLight(LIN(0xb4a6b4), LIN(0x6a5440), 0.55);
+const hemi = new THREE.HemisphereLight(LIN(0xb4a6b4), LIN(0x6a5440), 0.45);
 scene.add(hemi);
 const moonLight = new THREE.DirectionalLight(LIN(0xa8b0ff), 0.22);
 moonLight.position.copy(MOON).multiplyScalar(1000);
@@ -721,13 +721,13 @@ const clouds = new THREE.Mesh(cloudGeo, new THREE.ShaderMaterial({
       float c = cos(iRot), s = sin(iRot);
       mv.xy += vec2(c * position.x - s * position.y, s * position.x + c * position.y) * iScale;
       vUv = uv; vShade = iShade; vRel = ${GLSL_REL};
-      vFade = smoothstep(iScale * 0.15, iScale * 0.9, -mv.z);
+      vFade = smoothstep(iScale * 0.7, iScale * 2.2, -mv.z);
       gl_Position = projectionMatrix * mv;
     }`,
   fragmentShader: `uniform sampler2D map; uniform float flash; uniform vec3 flashPos; varying vec2 vUv; varying float vShade; varying vec3 vRel; varying float vFade;
     ${GLSL_ATMO}
     void main(){
-      float a = texture2D(map, vUv).a;
+      float a = smoothstep(0.1, 0.5, texture2D(map, vUv).a);
       vec3 dir = normalize(vRel);
       float scat = pow(max(dot(dir, SUN_DIR), 0.0), 5.0);
       vec3 col = mix(vec3(0.22, 0.12, 0.3), vec3(1.35, 0.68, 0.55), vShade * 0.8 + 0.15);
@@ -1337,10 +1337,10 @@ const rtOpts = { type: isGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType, for
 const rt = isGL2 ? new THREE.WebGLMultisampleRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts) : new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, rtOpts);
 const composer = new THREE.EffectComposer(renderer, rt);
 composer.addPass(new THREE.RenderPass(scene, camera));
-const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.25, 1.6);
+const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.16, 0.15, 2.2);
 composer.addPass(bloom);
 const finalPass = new THREE.ShaderPass({
-  uniforms: { tDiffuse: { value: null }, aberr: { value: 0 }, damage: { value: 0 }, exposure: { value: 1.1 } },
+  uniforms: { tDiffuse: { value: null }, aberr: { value: 0 }, damage: { value: 0 }, exposure: { value: 0.92 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float aberr, damage, exposure; varying vec2 vUv;
     vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
@@ -1352,7 +1352,7 @@ const finalPass = new THREE.ShaderPass({
       col = aces(col);
       col = pow(col, vec3(1.0 / 2.2));
       col = mix(col, col * col * (3.0 - 2.0 * col), 0.22);
-      col *= 1.0 - dot(dc, dc) * 0.5;
+      col *= 1.0 - dot(dc, dc) * 0.7;
       col = mix(col, vec3(0.75, 0.04, 0.06), damage * smoothstep(0.12, 0.75, length(dc) * 1.4));
       gl_FragColor = vec4(col, 1.0);
     }`
@@ -2101,7 +2101,7 @@ function updateLightning(dt) {
   bolt.visible = G.boltLife > 0 && Math.random() > 0.2;
   G.flash = Math.max(0, G.flash - dt * 3.5);
   const f = G.flash * (0.6 + Math.random() * 0.4);
-  hemi.intensity = 0.55 + f * 0.9;
+  hemi.intensity = 0.45 + f * 0.9;
   boltLight.intensity = f * 6;
   clouds.material.uniforms.flash.value = f;
   skyMat.uniforms.flash.value = f;
@@ -2847,7 +2847,7 @@ function updatePost(dt) {
   G.damage = Math.max(0, G.damage - dt * 1.4);
   const u = finalPass.uniforms;
   u.damage.value = Math.max(G.damage, G.state === 'play' && P.hp < 30 ? 0.25 + Math.sin(G.time * 6) * 0.1 : 0);
-  u.aberr.value = G.damage * 0.012 + (P.boosting ? 0.004 : 0) + G.shake * 0.003;
+  u.aberr.value = G.damage * 0.008;
 }
 function spawnEmbers() {
   const pal = [C.embA, C.embB, C.moteC, C.moteP];
@@ -2862,8 +2862,10 @@ function adaptResolution(rdt) {
   if (G.fpsAcc < 2.5) return;
   const fps = G.fpsN / G.fpsAcc;
   G.fpsAcc = 0; G.fpsN = 0;
-  const np = fps < 34 ? Math.max(Math.min(PR, 1.5), dynPR - 0.25) : fps > 57 ? Math.min(PR, dynPR + 0.25) : dynPR;
-  if (np !== dynPR) { dynPR = np; renderer.setPixelRatio(dynPR); composer.setPixelRatio(dynPR); resize(); }
+  G.slowN = fps < 34 ? (G.slowN || 0) + 1 : 0;
+  const np = G.slowN >= 2 ? Math.max(Math.min(PR, 1.5), dynPR - 0.25) : dynPR;
+  if (np !== dynPR) {
+    G.slowN = 0; dynPR = np; renderer.setPixelRatio(dynPR); composer.setPixelRatio(dynPR); resize(); }
 }
 function setPointScale() {
   const s = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
