@@ -113,3 +113,13 @@ function makeSkeleton(mat, eyeColor, opt = {}) {
 // shared helper to tint every material of an object for hit-flashes
 function collectMats(obj) { const s = new Set(); obj.traverse(o => { if (o.isMesh && o.material && o.material.emissive && !SHARED.has(o.material)) s.add(o.material); }); return [...s]; }
 const SHARED = new Set([boneMat, rustMat, ragMat]);
+// cold fresnel rim so the dead read against the dark
+function addRim(mat, r, g, b, p = 3.0) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float rimF = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), ${p.toFixed(1)});
+      totalEmissiveRadiance += vec3(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}) * rimF;`);
+  };
+  mat.customProgramCacheKey = () => 'rim' + r + g + b + p;
+  return mat;
+}

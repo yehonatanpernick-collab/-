@@ -3,11 +3,12 @@
 // Audio — everything synthesised, nothing loaded
 // =====================================================================
 const AudioFX = {
-  ctx: null, master: null,
+  ctx: null, master: null, vol: 0.75,
+  setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; },
   init() {
     if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    const ctx = this.ctx = new AC(); this.master = ctx.createGain(); this.master.gain.value = 0.75;
+    const ctx = this.ctx = new AC(); this.master = ctx.createGain(); this.master.gain.value = this.vol;
     const comp = ctx.createDynamicsCompressor(); this.master.connect(comp); comp.connect(ctx.destination);
     const len = ctx.sampleRate * 3.5, ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
@@ -54,6 +55,7 @@ const AudioFX = {
   roar(death) { const b = death ? 70 : 90; this.tone(b, 2.2, 0.35, 'sawtooth', 0.6); this.tone(b * 1.5, 2.0, 0.18, 'sawtooth', 0.55); this.noise(2.2, 900, 120, 0.35, 0.8, 'lowpass', 0.8); },
   slam() { this.noise(1.6, 300, 30, 0.9, 0.5, 'lowpass', 0.8); this.tone(55, 1.2, 0.5, 'sine', 0.5); },
   ignite() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 2.6, 0.08, 'sine', 1, i * 0.13)); this.noise(1.2, 200, 1500, 0.22, 0.5, 'lowpass'); },
+  drink() { this.noise(0.5, 400, 1200, 0.08, 2, 'bandpass', 0.2); [392, 523, 659].forEach((f, i) => this.tone(f, 1.6, 0.05, 'sine', 1, 0.35 + i * 0.09)); },
   bell() { [220, 220 * 2.76, 220 * 5.4].forEach((f, i) => this.tone(f * 0.5, 6, 0.03 / (i + 1), 'sine', 1, 0, 1.2)); },
   thunder(dist = 1) { this.noise(3.5, 400, 40, 0.6 * dist, 0.5, 'lowpass', 0.8); this.noise(2.5, 200, 30, 0.4 * dist, 0.5, 'lowpass', 0.8, 0.3); },
   win() { [196, 247, 294, 392, 494, 587].forEach((f, i) => this.tone(f, 5, 0.07, 'sine', 1, i * 0.25)); },

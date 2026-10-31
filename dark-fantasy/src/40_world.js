@@ -235,6 +235,7 @@ function makeTreeGeo(seed, gnarl = 1) {
 // Dead grass + pond reeds (wind animated)
 // =====================================================================
 const windU = { value: 0 };
+let grassMesh = null, grassTotal = 0;
 {
   const H = 0.8, blade = new THREE.PlaneGeometry(0.1, H, 1, 4); blade.translate(0, H / 2, 0);
   const bp = blade.attributes.position, bc = new Float32Array(bp.count * 3);
@@ -270,7 +271,7 @@ const windU = { value: 0 };
       im.setColorAt(i, c); i++;
     }
   }
-  im.count = i; im.receiveShadow = true; scene.add(im);
+  im.count = i; grassMesh = im; grassTotal = i; im.receiveShadow = true; scene.add(im);
 }
 
 // =====================================================================

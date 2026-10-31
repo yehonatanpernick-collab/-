@@ -10,6 +10,8 @@ const clock = new THREE.Clock();
 const swordTrail = new Trail(16, [0.9, 1.25, 1.4]);
 const king = new King();
 const soulWisps = [];
+let checkpoint = new V3(0, PLAZA_TOP, 8), checkpointName = 'בחצר המלך', wasLocked = false, toastT = 0;
+function toast(t, dur = 2.2) { $('toast').textContent = t; $('toast').classList.add('on'); toastT = dur; }
 const tmpA = new V3(), tmpB = new V3();
 
 // =====================================================================
@@ -38,8 +40,19 @@ addEventListener('keydown', e => {
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { tryRoll(); e.preventDefault(); }
   if (e.code === 'KeyJ' || e.code === 'KeyK') tryAttack();
+  if (e.code === 'KeyR' || e.code === 'KeyQ') tryDrink();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
+let pausedAt = 0;
+addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play') setPaused(true); else if (state === 'paused' && performance.now() - pausedAt > 400) setPaused(false); } });
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === renderer.domElement) wasLocked = true;
+  else if (wasLocked && state === 'play' && player.hp > 0 && !won) setPaused(true);
+});
+function setPaused(on) {
+  if (on && state === 'play') { state = 'paused'; pausedAt = performance.now(); for (const k in keys) keys[k] = false; $('pauseScreen').classList.remove('hidden'); document.exitPointerLock?.(); }
+  else if (!on && state === 'paused') { state = 'play'; $('pauseScreen').classList.add('hidden'); if (!IS_TOUCH) lockPointer(); }
+}
 const canvas = renderer.domElement;
 let dragging = false;
 function lockPointer() { try { const p = canvas.requestPointerLock?.(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
@@ -90,7 +103,7 @@ const touchBtn = (id, down, up) => {
   el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (state === 'play') down(); }, { passive: false });
   el.addEventListener('touchend', e => { e.preventDefault(); up && up(); }); el.addEventListener('touchcancel', () => up && up());
 };
-touchBtn('tbAtk', () => tryAttack()); touchBtn('tbDash', () => tryRoll()); touchBtn('tbUse', () => { keys.KeyE = true; }, () => { keys.KeyE = false; });
+touchBtn('tbAtk', () => tryAttack()); touchBtn('tbHeal', () => tryDrink()); touchBtn('tbPause', () => setPaused(true)); touchBtn('tbDash', () => tryRoll()); touchBtn('tbUse', () => { keys.KeyE = true; }, () => { keys.KeyE = false; });
 
 function camForward() { return new V3(-Math.sin(yaw), 0, -Math.cos(yaw)); }
 function moveInput() {
@@ -139,9 +152,14 @@ function doHit(S) {
   }
   if (any) { AudioFX.hit(S.dmg > 1); hitStop = S.dmg > 1 ? 0.09 : 0.055; shake = Math.max(shake, S.dmg > 1 ? 0.3 : 0.16); }
 }
+function tryDrink() {
+  if (state !== 'play' || won || player.hp <= 0 || player.drinkT >= 0 || player.rollT >= 0 || player.atkT >= 0) return;
+  if (player.flasks <= 0) { $('flasks').classList.remove('pulse'); void $('flasks').offsetWidth; $('flasks').classList.add('pulse'); toast('הבקבוקים ריקים — מלא אותם ליד להבה דולקת'); return; }
+  player.flasks--; player.drinkT = 0; player.healed = false; AudioFX.drink();
+}
 function tryRoll() {
   if (state !== 'play' || won || player.hp <= 0 || player.rollT >= 0 || player.st < 18) return;
-  player.atkT = -1; player.queued = false; player.combo = 0;
+  player.atkT = -1; player.queued = false; player.combo = 0; player.drinkT = -1;
   const m = moveInput(); if (m.lengthSq() < 0.01) m.set(Math.sin(player.facing), 0, Math.cos(player.facing));
   player.rollDir.copy(m.normalize()); player.facing = Math.atan2(m.x, m.z); player.rollT = 0;
   player.st -= 24; player.stDelay = 0.8; AudioFX.roll();
@@ -150,7 +168,7 @@ function damagePlayer(n, from) {
   if (state !== 'play' || won || player.hp <= 0) return;
   if (player.rollT > 0.04 && player.rollT < 0.78) return;   // i-frames
   player.hp = Math.max(0, player.hp - n); player.lastHurt = time; hurtFlash = 1; shake = Math.max(shake, 0.4); player.flinch = 1; AudioFX.hurt();
-  player.atkT = -1; player.queued = false;
+  player.atkT = -1; player.queued = false; player.drinkT = -1;
   if (from) { tmpA.subVectors(P.position, from).setY(0).normalize(); player.vel.addScaledVector(tmpA, 8); }
   for (let i = 0; i < 16; i++) fxDark.spawn(P.position.x, P.position.y + 1.3, P.position.z, R(-2, 2), R(0, 3), R(-2, 2), R(0.5, 1), R(0.12, 0.25), [0.35, 0.03, 0.02], [0.1, 0, 0], { g: 6, a: 0.9 });
   if (player.hp <= 0) playerDied();
@@ -180,12 +198,29 @@ function ignite(s) {
   s.beam.material.uniforms.uColor.value.setRGB(0.35, 1.0, 1.4); s.beam.material.uniforms.uOpacity.value = 0.6;
   s.flame.palette = FIRE_SOUL; s.flame.rate = 70; s.flame.scale = 1.2; s.flame.spread = 0.4;
   candleEls[litCount].classList.add('lit'); litCount++;
+  player.maxFlasks = 3 + Math.floor(litCount / 2); player.flasks = player.maxFlasks; setCheckpoint(s);
   AudioFX.ignite(); shake = 0.25; flash = 0.35;
   for (let i = 0; i < 120; i++) { const a = rand() * TAU; fx.spawn(s.bowl.x, s.bowl.y + 0.3, s.bowl.z, Math.cos(a) * R(2, 7), R(0, 5), Math.sin(a) * R(2, 7), R(0.8, 1.6), R(0.15, 0.4), FIRE_SOUL[0], FIRE_SOUL[1], { g: 1, drag: 1.5 }); }
   if (litCount < SHRINE_COUNT) {
     chapter(`להבה ${ORD[litCount - 1]}`, 'להבת הנשמה הוצתה', 'האדמה סביב המקדש נסדקת…');
     setTimeout(() => { for (let i = 0; i < 2; i++) { const a = rand() * TAU; spawnAt(s.pos.x + Math.cos(a) * 7, s.pos.z + Math.sin(a) * 7, 'hollow'); } if (litCount > 1) { const a = rand() * TAU; spawnAt(s.pos.x + Math.cos(a) * 14, s.pos.z + Math.sin(a) * 14, 'wraith'); } }, 1200);
   } else chapter('חמש להבות', 'הכס רועד', 'שוב אל חצר המלך — הוא מחכה לך', 6);
+}
+function setCheckpoint(s) {
+  const toC = new V3(-s.pos.x, 0, -s.pos.z).normalize();
+  checkpoint.set(s.pos.x + toC.x * 5.5, 0, s.pos.z + toC.z * 5.5); checkpoint.y = groundAt(checkpoint.x, checkpoint.z);
+  checkpointName = `ליד הלהבה ה${['ראשונה', 'שנייה', 'שלישית', 'רביעית', 'חמישית'][litCount - 1] || ''}`;
+}
+function respawn() {
+  $('deadScreen').classList.add('hidden'); $('hud').classList.add('on'); $('touch').classList.add('on');
+  player.hp = player.maxHp; player.st = 100; player.flasks = player.maxFlasks; player.rollT = player.atkT = player.drinkT = -1; player.flinch = 0; player.vel.set(0, 0, 0); hpTrail = player.hp;
+  KP.rollPivot.rotation.x = 0; KP.rollPivot.position.y = 0.85;
+  P.position.copy(checkpoint); player.facing = Math.atan2(-checkpoint.x, -checkpoint.z); P.rotation.y = player.facing; yaw = player.facing + Math.PI;
+  Cape.place();
+  for (const e of [...enemies]) if (e !== king && !e.dead) { e.remove(); scene.remove(e.g); }
+  if (kingActive && !king.dead) king.reset();
+  state = 'play'; spawnTimer = 9; if (!IS_TOUCH) lockPointer();
+  chapter('', 'קַמְתָּ שוב', checkpointName, 3.5);
 }
 function spawnAt(x, z, kind) {
   const r = Math.hypot(x, z); if (r > WORLD_R - 2) { x *= (WORLD_R - 2) / r; z *= (WORLD_R - 2) / r; }
@@ -219,7 +254,15 @@ function updatePlayer(dt) {
   player.stDelay -= dt; if (player.stDelay <= 0) player.st = Math.min(100, player.st + 38 * dt);
   const active = state === 'play' && !won;
   const mv = active ? moveInput() : new V3(); if (mv.length() > 1) mv.normalize();
-  const desired = mv.multiplyScalar(player.atkT >= 0 ? 1.0 : 6.0);
+  const desired = mv.multiplyScalar(player.atkT >= 0 ? 1.0 : player.drinkT >= 0 ? 1.8 : 6.0);
+  if (player.drinkT >= 0) {
+    player.drinkT += dt / 1.05;
+    if (player.drinkT > 0.55 && !player.healed) {
+      player.healed = true; player.hp = Math.min(player.maxHp, player.hp + 45); hpTrail = Math.max(hpTrail, player.hp);
+      for (let i = 0; i < 40; i++) { const a = rand() * TAU; fx.spawn(P.position.x + Math.cos(a) * 0.5, P.position.y + R(0.2, 1.8), P.position.z + Math.sin(a) * 0.5, -Math.cos(a) * 0.4, R(0.6, 1.6), -Math.sin(a) * 0.4, R(0.6, 1.1), R(0.08, 0.16), FIRE_SOUL[0], FIRE_SOUL[1], { turb: 1 }); }
+    }
+    if (player.drinkT >= 1) player.drinkT = -1;
+  }
   if (player.rollT >= 0) {
     player.rollT += dt / 0.55;
     desired.copy(player.rollDir).multiplyScalar(3 + 9 * Math.max(0, 1 - player.rollT));
@@ -344,6 +387,30 @@ function updateCamera(dt) {
 // HUD
 // =====================================================================
 function setBar(rect, k) { rect.setAttribute('x', (300 * (1 - k)).toFixed(1)); rect.setAttribute('width', (300 * k).toFixed(1)); }
+const compassMarks = [];
+{
+  const flameSvg = '<svg viewBox="0 0 20 28"><path d="M10 1 C 16 9, 17 15, 10 27 C 3 15, 4 9, 10 1 Z"/></svg>';
+  const crownSvg = '<svg viewBox="0 0 24 20"><path d="M2 18 L3 6 L8 11 L12 2 L16 11 L21 6 L22 18 Z"/></svg>';
+  shrines.forEach(s => { const d = document.createElement('div'); d.className = 'cm'; d.innerHTML = flameSvg + '<small></small>'; $('compassMarks').appendChild(d); compassMarks.push({ el: d, pos: s.pos, s }); });
+  const t = document.createElement('div'); t.className = 'cm throne'; t.innerHTML = crownSvg + '<small></small>'; $('compassMarks').appendChild(t); compassMarks.push({ el: t, pos: new V3(0, 0, 0), throne: true });
+}
+function updateCompass() {
+  const f = camForward(), r = new V3(-f.z, 0, f.x), FOVC = 1.6;
+  let nearest = null, nd = 1e9;
+  for (const m of compassMarks) {
+    const show = m.throne ? litCount >= SHRINE_COUNT && !king.dead : true;
+    const dx = m.pos.x - P.position.x, dz = m.pos.z - P.position.z, d = Math.hypot(dx, dz);
+    const ang = Math.atan2(dx * r.x + dz * r.z, dx * f.x + dz * f.z);
+    const vis = show && Math.abs(ang) < FOVC && d > 4;
+    m.el.style.opacity = vis ? (1 - ss(FOVC * 0.7, FOVC, Math.abs(ang))).toFixed(2) : 0;
+    if (vis) m.el.style.left = (50 + ang / FOVC * 50).toFixed(2) + '%';
+    if (m.s) m.el.classList.toggle('lit', m.s.lit);
+    m.el.querySelector('small').textContent = '';
+    const wanted = m.throne ? show : !m.s.lit;
+    if (vis && wanted && d < nd) { nd = d; nearest = m; }
+  }
+  if (nearest) nearest.el.querySelector('small').textContent = Math.round(nd) + ' צעדים';
+}
 function updateHUD(dt) {
   const k = player.hp / player.maxHp; hpTrail = damp(hpTrail, player.hp, 2.5, dt); hpTrail = Math.max(hpTrail, player.hp);
   setBar($('hpRect'), k); setBar($('hpTrailRect'), hpTrail / player.maxHp); setBar($('stRect'), player.st / 100);
@@ -359,6 +426,14 @@ function updateHUD(dt) {
   if (state === 'play' && !won && player.hp > 0) for (const s of shrines) if (!s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 4.8) target = s;
   $('tbUse').classList.toggle('ready', !!target);
   const hl = $('holdLine').querySelector('path');
+  // resting at a lit flame refills the flasks and moves the checkpoint
+  if (state === 'play' && player.hp > 0) for (const s of shrines) if (s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 5) {
+    if (player.flasks < player.maxFlasks) { player.flasks = player.maxFlasks; toast('הבקבוקים מולאו מן הלהבה'); AudioFX.drink(); }
+    if (!s.rested) { s.rested = true; const lc = litCount; setCheckpoint(s); checkpointName = 'ליד להבת נשמה'; }
+  }
+  $('flaskCount').textContent = player.flasks; $('flasks').classList.toggle('empty', player.flasks <= 0);
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+  updateCompass();
   if (target) {
     const txt = `${HOLD} כדי להצית את הלהבה`; $('prompt').classList.add('on'); if ($('promptText').innerHTML !== txt) $('promptText').innerHTML = txt;
     if (keys.KeyE) { holdT += dt; if (rand() < 0.6) fx.spawn(P.position.x + R(-.3, .3), P.position.y + 1.1, P.position.z + R(-.3, .3), (target.bowl.x - P.position.x) * 1.2, R(0.5, 1.5), (target.bowl.z - P.position.z) * 1.2, 0.8, 0.14, FIRE_SOUL[0], FIRE_SOUL[1]); }
@@ -375,6 +450,7 @@ function frame() {
   requestAnimationFrame(frame);
   let dt = Math.min(clock.getDelta(), 1 / 20);
   if (hitStop > 0) { hitStop -= dt; dt *= 0.1; }
+  if (state === 'paused') dt = 0;
   time += dt; if (state === 'play' && !won) gameTime += dt;
   updatePlayer(dt);
   Cape.step(dt, time);
@@ -411,4 +487,27 @@ $('startBtn').addEventListener('click', () => {
   state = 'play'; spawnTimer = 10;
   setTimeout(() => chapter('פרק ראשון', 'חצר המלך ואלדרן', 'חמש להבות כבו. מצא את המקדשים לאורך הדרכים', 5.5), 700);
 });
-window.__game = { player, shrines, enemies, king, ignite, Cape, KP, get state() { return state; }, setView(y, p, d) { yaw = y; pitch = p; camDist = d; } };
+// ---- pause menu & quality ----
+const QUALITY = {
+  low: { pr: Math.min(devicePixelRatio, 0.85), shadow: 1024, grass: 0.35, bloom: false },
+  medium: { pr: Math.min(devicePixelRatio, 1.25), shadow: 2048, grass: 0.7, bloom: true },
+  high: { pr: Math.min(devicePixelRatio, 1.75), shadow: 4096, grass: 1, bloom: true },
+};
+function applyQuality(q) {
+  const c = QUALITY[q] || QUALITY.medium;
+  renderer.setPixelRatio(c.pr);
+  if (moonLight.shadow.mapSize.x !== c.shadow) { moonLight.shadow.mapSize.set(c.shadow, c.shadow); if (moonLight.shadow.map) { moonLight.shadow.map.dispose(); moonLight.shadow.map = null; } }
+  if (grassMesh) grassMesh.count = Math.floor(grassTotal * c.grass);
+  bloom.enabled = c.bloom; onResize();
+  document.querySelectorAll('.qbtns button').forEach(b => b.classList.toggle('on', b.dataset.q === q));
+  try { localStorage.setItem('ashen-quality', q); } catch (e) {}
+}
+let savedQ = null; try { savedQ = localStorage.getItem('ashen-quality'); } catch (e) {}
+applyQuality(savedQ || (LOW ? 'medium' : 'high'));
+document.querySelectorAll('.qbtns button').forEach(b => b.addEventListener('click', () => applyQuality(b.dataset.q)));
+let savedV = null; try { savedV = localStorage.getItem('ashen-volume'); } catch (e) {}
+if (savedV !== null) { AudioFX.setVolume(+savedV); $('vol').value = savedV; }
+$('vol').addEventListener('input', e => { AudioFX.setVolume(+e.target.value); try { localStorage.setItem('ashen-volume', e.target.value); } catch (er) {} });
+$('resumeBtn').addEventListener('click', () => setPaused(false));
+$('respawnBtn').addEventListener('click', () => respawn());
+window.__game = { player, shrines, enemies, king, ignite, damagePlayer, respawn, Cape, KP, get state() { return state; }, setView(y, p, d) { yaw = y; pitch = p; camDist = d; } };

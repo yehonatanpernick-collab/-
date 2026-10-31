@@ -29,7 +29,7 @@
 
   #vitals { position: absolute; top: 18px; right: 26px; width: 330px; }
   #vitals .smudge { inset: -30px -40px -30px -60px; }
-  .vlabel { position: relative; font-size: 13px; letter-spacing: 3px; color: var(--bone-dim); margin: 0 4px 2px; display: flex; justify-content: space-between; }
+  .vlabel { position: relative; font-size: 13px; letter-spacing: 3px; color: var(--bone-dim); margin: 0 4px 2px; display: flex; gap: 10px; align-items: baseline; }
   .vlabel b { font-weight: 400; color: var(--bone); font-family: 'IM Fell English SC', serif; letter-spacing: 1px; }
   svg.stroke { position: relative; display: block; width: 100%; overflow: visible; }
   svg.stroke .bg { fill: rgba(10,8,7,.85); }
@@ -119,6 +119,41 @@
     font-family: 'Noto Rashi Hebrew', serif; color: var(--bone-dim); font-size: 20px; letter-spacing: 3px; }
   #loading.done { opacity: 0; pointer-events: none; }
 
+  /* ================= Flasks, compass, toast, pause ================= */
+  #flasks { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 9px; direction: rtl; }
+  #flasks svg { width: 14px; height: 21px; }
+  #flasks svg path { fill: #2a6f7c; stroke: #cfe7ea; stroke-width: 1; }
+  #flasks.empty svg path { fill: #1b1715; stroke: #6d6556; }
+  #flasks b { font-family: 'IM Fell English SC', serif; font-weight: 400; font-size: 17px; color: var(--bone); }
+  #flasks .hint { font-family: 'IM Fell English SC'; font-size: 11px; color: var(--bone-dim); border: 1px solid #5d564b; padding: 0 5px; }
+  body.touch #flasks .hint { display: none; }
+  #flasks.pulse b { animation: pulse .5s 2; }
+  @keyframes pulse { 50% { color: var(--blood-hi); transform: scale(1.3); } }
+  #compass { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(420px, 40vw); height: 34px; direction: ltr; pointer-events: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+  #compass > svg { position: absolute; left: 0; top: 9px; width: 100%; height: 6px; }
+  #compass > svg path { fill: none; stroke: rgba(221,211,191,.45); stroke-width: 1.4; }
+  #compass .tick { position: absolute; top: 4px; width: 2px; height: 14px; margin-left: -1px; background: var(--blood-hi); }
+  .cm { position: absolute; top: 0; width: 16px; margin-left: -8px; text-align: center; transition: opacity .2s; }
+  .cm svg { width: 14px; height: 20px; }
+  .cm svg path { fill: var(--blood-hi); }
+  .cm.lit svg path { fill: var(--soul); }
+  .cm.throne svg path { fill: var(--bone); }
+  .cm small { display: block; font-size: 10px; color: var(--bone-dim); white-space: nowrap; margin-left: -12px; width: 40px; }
+  #toast { position: absolute; bottom: 24%; left: 50%; transform: translateX(-50%); font-size: 17px; color: var(--soul); opacity: 0; transition: opacity .5s; text-shadow: 0 0 8px #000; white-space: nowrap; }
+  #toast.on { opacity: 1; }
+  #pauseScreen { display: grid; place-items: center; background: rgba(4,4,4,.93); z-index: 7; }
+  .pauseBox { text-align: center; min-width: 300px; }
+  .pauseBox .big { font-family: 'Noto Rashi Hebrew', serif; font-size: 54px; color: var(--bone); filter: url(#ink); }
+  .opt { display: flex; justify-content: space-between; align-items: center; gap: 22px; margin: 16px 0; font-size: 18px; color: #b3a995; }
+  .opt input[type=range] { width: 160px; accent-color: #9e1a14; }
+  .qbtns { display: flex; gap: 6px; }
+  .qbtns button, .linkBtn { pointer-events: auto; background: none; border: 1px solid #5d564b; color: var(--bone-dim); font-family: 'David Libre', serif; font-size: 15px; padding: 4px 12px; cursor: pointer; }
+  .qbtns button.on { border-color: var(--blood-hi); color: var(--bone); }
+  .linkBtn { border: 0; text-decoration: underline; margin-top: 14px; }
+  #tbPause { width: 40px; height: 40px; left: 50%; top: 52px; margin-left: -20px; opacity: .7; }
+  #tbHeal { width: 58px; height: 58px; right: calc(150px + env(safe-area-inset-right)); bottom: 110px; }
+
   /* ================= Touch controls ================= */
   body.touch, body.touch canvas { touch-action: none; -webkit-touch-callout: none; }
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 4; }
@@ -178,12 +213,15 @@
       <clipPath id="stClip"><rect id="stRect" x="0" y="0" width="300" height="26"/></clipPath>
       <use href="#brush" class="bg"/><use href="#brush" class="st" clip-path="url(#stClip)"/>
     </svg>
+    <div id="flasks"><svg viewBox="0 0 16 24"><path d="M6 1 h4 v6 c3 1 5 4 5 8 a7 7 0 0 1 -14 0 c0 -4 2 -7 5 -8 z"/></svg><b id="flaskCount">3</b><span class="hint">R</span></div>
   </div>
   <div id="quest">
     <div class="smudge"></div>
     <div id="candles"></div>
     <div id="questText"></div>
   </div>
+  <div id="compass"><svg viewBox="0 0 400 6" preserveAspectRatio="none"><path d="M0 3 C 100 1, 300 5, 400 3"/></svg><div class="tick" style="left:50%"></div><div id="compassMarks"></div></div>
+  <div id="toast"></div>
   <div id="prompt"><div id="promptText"></div><svg id="holdLine" viewBox="0 0 240 8"><path d="M2 4 C 60 1, 120 7, 238 3"/></svg></div>
   <div id="chapter"><div class="kicker" id="chKicker"></div><div class="main" id="chMain"></div>
     <svg viewBox="0 0 300 14" preserveAspectRatio="none" class="ink"><path d="M10 7 C 80 3, 150 9, 290 6 L 290 8 C 150 12, 80 6, 10 9 Z"/></svg>
@@ -204,6 +242,8 @@
   <div id="stickBase"><div id="stickKnob"></div></div>
   <button class="tb" id="tbAtk" aria-label="attack"><svg viewBox="0 0 24 24"><path d="M5 19 L17 7 M15 5 L19 9 M14 4 L20 10 M7 15 L9 17 M4 20 L6 18"/></svg></button>
   <button class="tb" id="tbDash" aria-label="roll"><svg viewBox="0 0 24 24"><path d="M4 14 C 4 7, 13 4, 18 9 M18 9 L18 4 M18 9 L13 9 M7 19 L17 19"/></svg></button>
+  <button class="tb" id="tbHeal" aria-label="heal"><svg viewBox="0 0 24 24"><path d="M10 3 h4 v5 c3 1 5 3.5 5 7 a7 7 0 0 1 -14 0 c0 -3.5 2 -6 5 -7 z M8 15 h8"/></svg></button>
+  <button class="tb" id="tbPause" aria-label="pause"><svg viewBox="0 0 24 24"><path d="M9 6 L9 18 M15 6 L15 18"/></svg></button>
   <button class="tb" id="tbUse" aria-label="ignite"><svg viewBox="0 0 24 24"><path d="M12 3 C 16 8, 17 12, 12 20 C 7 12, 8 8, 12 3 Z M12 12 C 13.5 14, 13 16, 12 18"/></svg></button>
 </div>
 
@@ -218,11 +258,11 @@
       הצת את חמשת המקדשים, היכנס אל חצר המלך, והסר את הכתר מן הראש שאינו חי.</p>
     <div class="controls desk">
       <span>W A S D</span> תנועה<i>·</i><span>עכבר</span> מבט<i>·</i><span>קליק</span> מכה (לחץ שוב לרצף)<br>
-      <span>רווח / Shift</span> גלגול<i>·</i><span>E</span> (החזק) הצתה
+      <span>רווח / Shift</span> גלגול<i>·</i><span>E</span> (החזק) הצתה<i>·</i><span>R</span> שיקוי<i>·</i><span>Esc</span> עצירה
     </div>
     <div class="controls mobile">
       <span>אגודל שמאל</span> תנועה<i>·</i><span>גרירה מימין</span> מבט<br>
-      <span>חרב</span> מכה<i>·</i><span>חץ</span> גלגול<i>·</i><span>להבה</span> הצתה<br>
+      <span>חרב</span> מכה<i>·</i><span>חץ</span> גלגול<i>·</i><span>להבה</span> הצתה<i>·</i><span>בקבוק</span> שיקוי<br>
       <span style="color:#7d7565">מומלץ לסובב את המסך לרוחב</span>
     </div>
     <button class="seal" id="startBtn"><span>קוּם</span></button>
@@ -233,9 +273,10 @@
   <div>
     <div class="big">נָפַלְתָּ</div>
     <div class="latinSm">Thou art fallen</div>
-    <p>האפר מכסה את שמך. אך המסדר אינו נגמר באביר אחד.</p>
+    <p>האפר מכסה את שמך. אך המסדר אינו נגמר באביר אחד — תקום ליד הלהבה האחרונה שהצתת.</p>
     <div class="stats" id="deadStats"></div>
-    <button class="seal" onclick="location.reload()"><span>שוב</span></button>
+    <button class="seal" id="respawnBtn"><span>קוּם שוב</span></button>
+    <button class="linkBtn" onclick="location.reload()">התחל את הכרוניקה מחדש</button>
   </div>
 </div>
 
@@ -246,6 +287,16 @@
     <p>מלך האפר שב אל העפר, והירח מחוויר לראשונה מזה שלוש שנים. המתים שבים אל מנוחתם. השחר עוד רחוק, אבל הוא בדרך.</p>
     <div class="stats" id="winStats"></div>
     <button class="seal" onclick="location.reload()"><span>מחדש</span></button>
+  </div>
+</div>
+
+<div class="screen endScreen hidden" id="pauseScreen">
+  <div class="pauseBox">
+    <div class="big">עצירה</div>
+    <div class="opt"><span>עוצמת קול</span><input type="range" id="vol" min="0" max="1" step="0.05" value="0.75"></div>
+    <div class="opt"><span>איכות גרפיקה</span><div class="qbtns"><button data-q="low">נמוכה</button><button data-q="medium">בינונית</button><button data-q="high">גבוהה</button></div></div>
+    <button class="seal" id="resumeBtn"><span>המשך</span></button>
+    <button class="linkBtn" onclick="location.reload()">התחל את הכרוניקה מחדש</button>
   </div>
 </div>
 

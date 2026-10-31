@@ -29,7 +29,7 @@
 
   #vitals { position: absolute; top: 18px; right: 26px; width: 330px; }
   #vitals .smudge { inset: -30px -40px -30px -60px; }
-  .vlabel { position: relative; font-size: 13px; letter-spacing: 3px; color: var(--bone-dim); margin: 0 4px 2px; display: flex; justify-content: space-between; }
+  .vlabel { position: relative; font-size: 13px; letter-spacing: 3px; color: var(--bone-dim); margin: 0 4px 2px; display: flex; gap: 10px; align-items: baseline; }
   .vlabel b { font-weight: 400; color: var(--bone); font-family: 'IM Fell English SC', serif; letter-spacing: 1px; }
   svg.stroke { position: relative; display: block; width: 100%; overflow: visible; }
   svg.stroke .bg { fill: rgba(10,8,7,.85); }
@@ -119,6 +119,41 @@
     font-family: 'Noto Rashi Hebrew', serif; color: var(--bone-dim); font-size: 20px; letter-spacing: 3px; }
   #loading.done { opacity: 0; pointer-events: none; }
 
+  /* ================= Flasks, compass, toast, pause ================= */
+  #flasks { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 9px; direction: rtl; }
+  #flasks svg { width: 14px; height: 21px; }
+  #flasks svg path { fill: #2a6f7c; stroke: #cfe7ea; stroke-width: 1; }
+  #flasks.empty svg path { fill: #1b1715; stroke: #6d6556; }
+  #flasks b { font-family: 'IM Fell English SC', serif; font-weight: 400; font-size: 17px; color: var(--bone); }
+  #flasks .hint { font-family: 'IM Fell English SC'; font-size: 11px; color: var(--bone-dim); border: 1px solid #5d564b; padding: 0 5px; }
+  body.touch #flasks .hint { display: none; }
+  #flasks.pulse b { animation: pulse .5s 2; }
+  @keyframes pulse { 50% { color: var(--blood-hi); transform: scale(1.3); } }
+  #compass { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(420px, 40vw); height: 34px; direction: ltr; pointer-events: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+  #compass > svg { position: absolute; left: 0; top: 9px; width: 100%; height: 6px; }
+  #compass > svg path { fill: none; stroke: rgba(221,211,191,.45); stroke-width: 1.4; }
+  #compass .tick { position: absolute; top: 4px; width: 2px; height: 14px; margin-left: -1px; background: var(--blood-hi); }
+  .cm { position: absolute; top: 0; width: 16px; margin-left: -8px; text-align: center; transition: opacity .2s; }
+  .cm svg { width: 14px; height: 20px; }
+  .cm svg path { fill: var(--blood-hi); }
+  .cm.lit svg path { fill: var(--soul); }
+  .cm.throne svg path { fill: var(--bone); }
+  .cm small { display: block; font-size: 10px; color: var(--bone-dim); white-space: nowrap; margin-left: -12px; width: 40px; }
+  #toast { position: absolute; bottom: 24%; left: 50%; transform: translateX(-50%); font-size: 17px; color: var(--soul); opacity: 0; transition: opacity .5s; text-shadow: 0 0 8px #000; white-space: nowrap; }
+  #toast.on { opacity: 1; }
+  #pauseScreen { display: grid; place-items: center; background: rgba(4,4,4,.93); z-index: 7; }
+  .pauseBox { text-align: center; min-width: 300px; }
+  .pauseBox .big { font-family: 'Noto Rashi Hebrew', serif; font-size: 54px; color: var(--bone); filter: url(#ink); }
+  .opt { display: flex; justify-content: space-between; align-items: center; gap: 22px; margin: 16px 0; font-size: 18px; color: #b3a995; }
+  .opt input[type=range] { width: 160px; accent-color: #9e1a14; }
+  .qbtns { display: flex; gap: 6px; }
+  .qbtns button, .linkBtn { pointer-events: auto; background: none; border: 1px solid #5d564b; color: var(--bone-dim); font-family: 'David Libre', serif; font-size: 15px; padding: 4px 12px; cursor: pointer; }
+  .qbtns button.on { border-color: var(--blood-hi); color: var(--bone); }
+  .linkBtn { border: 0; text-decoration: underline; margin-top: 14px; }
+  #tbPause { width: 40px; height: 40px; left: 50%; top: 52px; margin-left: -20px; opacity: .7; }
+  #tbHeal { width: 58px; height: 58px; right: calc(150px + env(safe-area-inset-right)); bottom: 110px; }
+
   /* ================= Touch controls ================= */
   body.touch, body.touch canvas { touch-action: none; -webkit-touch-callout: none; }
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 4; }
@@ -178,12 +213,15 @@
       <clipPath id="stClip"><rect id="stRect" x="0" y="0" width="300" height="26"/></clipPath>
       <use href="#brush" class="bg"/><use href="#brush" class="st" clip-path="url(#stClip)"/>
     </svg>
+    <div id="flasks"><svg viewBox="0 0 16 24"><path d="M6 1 h4 v6 c3 1 5 4 5 8 a7 7 0 0 1 -14 0 c0 -4 2 -7 5 -8 z"/></svg><b id="flaskCount">3</b><span class="hint">R</span></div>
   </div>
   <div id="quest">
     <div class="smudge"></div>
     <div id="candles"></div>
     <div id="questText"></div>
   </div>
+  <div id="compass"><svg viewBox="0 0 400 6" preserveAspectRatio="none"><path d="M0 3 C 100 1, 300 5, 400 3"/></svg><div class="tick" style="left:50%"></div><div id="compassMarks"></div></div>
+  <div id="toast"></div>
   <div id="prompt"><div id="promptText"></div><svg id="holdLine" viewBox="0 0 240 8"><path d="M2 4 C 60 1, 120 7, 238 3"/></svg></div>
   <div id="chapter"><div class="kicker" id="chKicker"></div><div class="main" id="chMain"></div>
     <svg viewBox="0 0 300 14" preserveAspectRatio="none" class="ink"><path d="M10 7 C 80 3, 150 9, 290 6 L 290 8 C 150 12, 80 6, 10 9 Z"/></svg>
@@ -204,6 +242,8 @@
   <div id="stickBase"><div id="stickKnob"></div></div>
   <button class="tb" id="tbAtk" aria-label="attack"><svg viewBox="0 0 24 24"><path d="M5 19 L17 7 M15 5 L19 9 M14 4 L20 10 M7 15 L9 17 M4 20 L6 18"/></svg></button>
   <button class="tb" id="tbDash" aria-label="roll"><svg viewBox="0 0 24 24"><path d="M4 14 C 4 7, 13 4, 18 9 M18 9 L18 4 M18 9 L13 9 M7 19 L17 19"/></svg></button>
+  <button class="tb" id="tbHeal" aria-label="heal"><svg viewBox="0 0 24 24"><path d="M10 3 h4 v5 c3 1 5 3.5 5 7 a7 7 0 0 1 -14 0 c0 -3.5 2 -6 5 -7 z M8 15 h8"/></svg></button>
+  <button class="tb" id="tbPause" aria-label="pause"><svg viewBox="0 0 24 24"><path d="M9 6 L9 18 M15 6 L15 18"/></svg></button>
   <button class="tb" id="tbUse" aria-label="ignite"><svg viewBox="0 0 24 24"><path d="M12 3 C 16 8, 17 12, 12 20 C 7 12, 8 8, 12 3 Z M12 12 C 13.5 14, 13 16, 12 18"/></svg></button>
 </div>
 
@@ -218,11 +258,11 @@
       הצת את חמשת המקדשים, היכנס אל חצר המלך, והסר את הכתר מן הראש שאינו חי.</p>
     <div class="controls desk">
       <span>W A S D</span> תנועה<i>·</i><span>עכבר</span> מבט<i>·</i><span>קליק</span> מכה (לחץ שוב לרצף)<br>
-      <span>רווח / Shift</span> גלגול<i>·</i><span>E</span> (החזק) הצתה
+      <span>רווח / Shift</span> גלגול<i>·</i><span>E</span> (החזק) הצתה<i>·</i><span>R</span> שיקוי<i>·</i><span>Esc</span> עצירה
     </div>
     <div class="controls mobile">
       <span>אגודל שמאל</span> תנועה<i>·</i><span>גרירה מימין</span> מבט<br>
-      <span>חרב</span> מכה<i>·</i><span>חץ</span> גלגול<i>·</i><span>להבה</span> הצתה<br>
+      <span>חרב</span> מכה<i>·</i><span>חץ</span> גלגול<i>·</i><span>להבה</span> הצתה<i>·</i><span>בקבוק</span> שיקוי<br>
       <span style="color:#7d7565">מומלץ לסובב את המסך לרוחב</span>
     </div>
     <button class="seal" id="startBtn"><span>קוּם</span></button>
@@ -233,9 +273,10 @@
   <div>
     <div class="big">נָפַלְתָּ</div>
     <div class="latinSm">Thou art fallen</div>
-    <p>האפר מכסה את שמך. אך המסדר אינו נגמר באביר אחד.</p>
+    <p>האפר מכסה את שמך. אך המסדר אינו נגמר באביר אחד — תקום ליד הלהבה האחרונה שהצתת.</p>
     <div class="stats" id="deadStats"></div>
-    <button class="seal" onclick="location.reload()"><span>שוב</span></button>
+    <button class="seal" id="respawnBtn"><span>קוּם שוב</span></button>
+    <button class="linkBtn" onclick="location.reload()">התחל את הכרוניקה מחדש</button>
   </div>
 </div>
 
@@ -246,6 +287,16 @@
     <p>מלך האפר שב אל העפר, והירח מחוויר לראשונה מזה שלוש שנים. המתים שבים אל מנוחתם. השחר עוד רחוק, אבל הוא בדרך.</p>
     <div class="stats" id="winStats"></div>
     <button class="seal" onclick="location.reload()"><span>מחדש</span></button>
+  </div>
+</div>
+
+<div class="screen endScreen hidden" id="pauseScreen">
+  <div class="pauseBox">
+    <div class="big">עצירה</div>
+    <div class="opt"><span>עוצמת קול</span><input type="range" id="vol" min="0" max="1" step="0.05" value="0.75"></div>
+    <div class="opt"><span>איכות גרפיקה</span><div class="qbtns"><button data-q="low">נמוכה</button><button data-q="medium">בינונית</button><button data-q="high">גבוהה</button></div></div>
+    <button class="seal" id="resumeBtn"><span>המשך</span></button>
+    <button class="linkBtn" onclick="location.reload()">התחל את הכרוניקה מחדש</button>
   </div>
 </div>
 
@@ -939,6 +990,16 @@ function makeSkeleton(mat, eyeColor, opt = {}) {
 // shared helper to tint every material of an object for hit-flashes
 function collectMats(obj) { const s = new Set(); obj.traverse(o => { if (o.isMesh && o.material && o.material.emissive && !SHARED.has(o.material)) s.add(o.material); }); return [...s]; }
 const SHARED = new Set([boneMat, rustMat, ragMat]);
+// cold fresnel rim so the dead read against the dark
+function addRim(mat, r, g, b, p = 3.0) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float rimF = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), ${p.toFixed(1)});
+      totalEmissiveRadiance += vec3(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}) * rimF;`);
+  };
+  mat.customProgramCacheKey = () => 'rim' + r + g + b + p;
+  return mat;
+}
 
 // ---- 40_world.js ----
 
@@ -1178,6 +1239,7 @@ function makeTreeGeo(seed, gnarl = 1) {
 // Dead grass + pond reeds (wind animated)
 // =====================================================================
 const windU = { value: 0 };
+let grassMesh = null, grassTotal = 0;
 {
   const H = 0.8, blade = new THREE.PlaneGeometry(0.1, H, 1, 4); blade.translate(0, H / 2, 0);
   const bp = blade.attributes.position, bc = new Float32Array(bp.count * 3);
@@ -1213,7 +1275,7 @@ const windU = { value: 0 };
       im.setColorAt(i, c); i++;
     }
   }
-  im.count = i; im.receiveShadow = true; scene.add(im);
+  im.count = i; grassMesh = im; grassTotal = i; im.receiveShadow = true; scene.add(im);
 }
 
 // =====================================================================
@@ -1596,7 +1658,7 @@ const bats = [];
 const player = {
   obj: new THREE.Group(), hp: 100, maxHp: 100, st: 100, stDelay: 0, facing: 0, vel: new V3(),
   atkT: -1, combo: 0, queued: false, comboReset: 0, hitDone: false,
-  rollT: -1, rollDir: new V3(), lastHurt: -10, flinch: 0, souls: 0, kills: 0, walkPhase: 0, stepAcc: 0,
+  rollT: -1, rollDir: new V3(), drinkT: -1, flasks: 3, maxFlasks: 3, lastHurt: -10, flinch: 0, souls: 0, kills: 0, walkPhase: 0, stepAcc: 0,
 };
 scene.add(player.obj);
 const P = player.obj;
@@ -1855,6 +1917,7 @@ function animateKnight(dt, time, k) {
     const mix = (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), el: lerp(a.el, b.el, f), ty: lerp(a.ty, b.ty, f), tx: lerp(a.tx, b.tx, f) });
     A = t < 0.24 ? mix(rest, S.wind, easeOut(t / 0.24)) : t < 0.52 ? mix(S.wind, S.hit, easeInOut((t - 0.24) / 0.28)) : mix(S.hit, rest, easeInOut((t - 0.52) / 0.48));
   }
+  if (player.drinkT >= 0) A = { x: -2.25, y: 0.55, z: 0, el: -2.25, ty: 0.1, tx: -0.12 };
   if (rolling) A = { x: -1.2, y: 0, z: -0.3, el: -1.6, ty: 0, tx: 0 };
   const sp = player.atkT >= 0 ? 40 : 14;
   KP.armR.rotation.x = damp(KP.armR.rotation.x, A.x, sp, dt); KP.armR.rotation.y = damp(KP.armR.rotation.y, A.y, sp, dt); KP.armR.rotation.z = damp(KP.armR.rotation.z, A.z, sp, dt);
@@ -1925,7 +1988,7 @@ const _rust = rustMat;
 class Hollow extends Enemy {
   constructor(x, z, rising = true) {
     super(x, z);
-    const bm = boneMat.clone(); bm.color.setHex([0xa39478, 0x8d816b, 0xb0a084][RI(0, 2)]);
+    const bm = addRim(boneMat.clone(), 0.16, 0.17, 0.2); bm.color.setHex([0xa39478, 0x8d816b, 0xb0a084][RI(0, 2)]);
     this.sk = makeSkeleton(bm, new THREE.Color(4, 0.7, 0.15)); this.g.add(this.sk.root);
     const rm = ragMat.clone(); rm.color.setHex([0x2a2520, 0x3a2a22, 0x22201e][RI(0, 2)]);
     for (const sd of [1, -1]) { const p = addMesh(this.sk.hips, new THREE.PlaneGeometry(0.34, 0.55, 1, 4).translate(0, -0.27, 0), rm, 0, 0.03, sd * 0.11); if (sd < 0) p.rotation.y = Math.PI; }
@@ -2038,7 +2101,7 @@ const wraithRobeGeo = (() => {
 class Wraith extends Enemy {
   constructor(x, z) {
     super(x, z);
-    const robe = new THREE.MeshStandardMaterial({ color: 0x100e10, roughness: 1, map: clothTex, normalMap: clothN, alphaMap: wraithAlpha, alphaTest: 0.42, side: THREE.DoubleSide });
+    const robe = addRim(new THREE.MeshStandardMaterial({ color: 0x100e10, roughness: 1, map: clothTex, normalMap: clothN, alphaMap: wraithAlpha, alphaTest: 0.42, side: THREE.DoubleSide }), 0.12, 0.05, 0.08, 2.0);
     this.robe = robe;
     const body = new THREE.Group(); this.g.add(body); this.body = body;
     addMesh(body, wraithRobeGeo, robe);
@@ -2114,7 +2177,7 @@ class King extends Enemy {
   constructor() {
     super(THRONE.x, THRONE.z);
     const S = 2.15; this.S = S;
-    const bm = boneMat.clone(); bm.color.setHex(0x8e826c);
+    const bm = addRim(boneMat.clone(), 0.25, 0.08, 0.03); bm.color.setHex(0x8e826c);
     this.sk = makeSkeleton(bm, new THREE.Color(1.2, 0.25, 0.05)); this.sk.root.scale.setScalar(S); this.g.add(this.sk.root);
     const iron = new THREE.MeshStandardMaterial({ color: 0x4a3f38, metalness: 0.85, roughness: 0.55, map: grimeTex, roughnessMap: scratchTex });
     const gold = new THREE.MeshStandardMaterial({ color: 0x6e5428, metalness: 1, roughness: 0.4, map: grimeTex });
@@ -2175,6 +2238,10 @@ class King extends Enemy {
     sk.arms.forEach(A => { A.sh.rotation.set(-0.35, 0, A.s * 0.35); A.el.rotation.x = -0.9; });
     this.eye.color.setRGB(0.6, 0.1, 0.02);
   }
+  reset() {
+    this.hp = this.maxHp; this.state = 'guard'; this.t = 0; this.tele.visible = false; this.enraged = false; this.summoned = false; this.invuln = false;
+    this.pos.set(0, PLAZA_TOP, 0); this.kb.set(0, 0, 0); $('bossBar').classList.remove('on'); AudioFX.bossMusic(false);
+  }
   wake() { if (this.state !== 'throne') return; this.state = 'waking'; this.t = 0; AudioFX.roar(); }
   onHurt() { AudioFX.hit(true); }
   die(dir) {
@@ -2216,6 +2283,10 @@ class King extends Enemy {
     let speed = 0, mv = dir;
     if (!this.enraged && this.hp < this.maxHp * 0.5 && this.state === 'chase') { this.enraged = true; this.state = 'roar'; this.t = 0; AudioFX.roar(); }
     switch (this.state) {
+      case 'guard':
+        this.face(faceP, 2, dt);
+        if (alive && d < 15) { this.state = 'chase'; this.cd = 1; $('bossBar').classList.add('on'); AudioFX.bossMusic(true); AudioFX.roar(); }
+        break;
       case 'chase':
         if (!alive) break;
         speed = d > 3.2 ? 2.4 * rage : 0; this.face(faceP, 3, dt);
@@ -2296,11 +2367,12 @@ class King extends Enemy {
 // Audio — everything synthesised, nothing loaded
 // =====================================================================
 const AudioFX = {
-  ctx: null, master: null,
+  ctx: null, master: null, vol: 0.75,
+  setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; },
   init() {
     if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    const ctx = this.ctx = new AC(); this.master = ctx.createGain(); this.master.gain.value = 0.75;
+    const ctx = this.ctx = new AC(); this.master = ctx.createGain(); this.master.gain.value = this.vol;
     const comp = ctx.createDynamicsCompressor(); this.master.connect(comp); comp.connect(ctx.destination);
     const len = ctx.sampleRate * 3.5, ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
@@ -2347,6 +2419,7 @@ const AudioFX = {
   roar(death) { const b = death ? 70 : 90; this.tone(b, 2.2, 0.35, 'sawtooth', 0.6); this.tone(b * 1.5, 2.0, 0.18, 'sawtooth', 0.55); this.noise(2.2, 900, 120, 0.35, 0.8, 'lowpass', 0.8); },
   slam() { this.noise(1.6, 300, 30, 0.9, 0.5, 'lowpass', 0.8); this.tone(55, 1.2, 0.5, 'sine', 0.5); },
   ignite() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 2.6, 0.08, 'sine', 1, i * 0.13)); this.noise(1.2, 200, 1500, 0.22, 0.5, 'lowpass'); },
+  drink() { this.noise(0.5, 400, 1200, 0.08, 2, 'bandpass', 0.2); [392, 523, 659].forEach((f, i) => this.tone(f, 1.6, 0.05, 'sine', 1, 0.35 + i * 0.09)); },
   bell() { [220, 220 * 2.76, 220 * 5.4].forEach((f, i) => this.tone(f * 0.5, 6, 0.03 / (i + 1), 'sine', 1, 0, 1.2)); },
   thunder(dist = 1) { this.noise(3.5, 400, 40, 0.6 * dist, 0.5, 'lowpass', 0.8); this.noise(2.5, 200, 30, 0.4 * dist, 0.5, 'lowpass', 0.8, 0.3); },
   win() { [196, 247, 294, 392, 494, 587].forEach((f, i) => this.tone(f, 5, 0.07, 'sine', 1, i * 0.25)); },
@@ -2371,6 +2444,8 @@ const clock = new THREE.Clock();
 const swordTrail = new Trail(16, [0.9, 1.25, 1.4]);
 const king = new King();
 const soulWisps = [];
+let checkpoint = new V3(0, PLAZA_TOP, 8), checkpointName = 'בחצר המלך', wasLocked = false, toastT = 0;
+function toast(t, dur = 2.2) { $('toast').textContent = t; $('toast').classList.add('on'); toastT = dur; }
 const tmpA = new V3(), tmpB = new V3();
 
 // =====================================================================
@@ -2399,8 +2474,19 @@ addEventListener('keydown', e => {
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { tryRoll(); e.preventDefault(); }
   if (e.code === 'KeyJ' || e.code === 'KeyK') tryAttack();
+  if (e.code === 'KeyR' || e.code === 'KeyQ') tryDrink();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
+let pausedAt = 0;
+addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play') setPaused(true); else if (state === 'paused' && performance.now() - pausedAt > 400) setPaused(false); } });
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === renderer.domElement) wasLocked = true;
+  else if (wasLocked && state === 'play' && player.hp > 0 && !won) setPaused(true);
+});
+function setPaused(on) {
+  if (on && state === 'play') { state = 'paused'; pausedAt = performance.now(); for (const k in keys) keys[k] = false; $('pauseScreen').classList.remove('hidden'); document.exitPointerLock?.(); }
+  else if (!on && state === 'paused') { state = 'play'; $('pauseScreen').classList.add('hidden'); if (!IS_TOUCH) lockPointer(); }
+}
 const canvas = renderer.domElement;
 let dragging = false;
 function lockPointer() { try { const p = canvas.requestPointerLock?.(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
@@ -2451,7 +2537,7 @@ const touchBtn = (id, down, up) => {
   el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (state === 'play') down(); }, { passive: false });
   el.addEventListener('touchend', e => { e.preventDefault(); up && up(); }); el.addEventListener('touchcancel', () => up && up());
 };
-touchBtn('tbAtk', () => tryAttack()); touchBtn('tbDash', () => tryRoll()); touchBtn('tbUse', () => { keys.KeyE = true; }, () => { keys.KeyE = false; });
+touchBtn('tbAtk', () => tryAttack()); touchBtn('tbHeal', () => tryDrink()); touchBtn('tbPause', () => setPaused(true)); touchBtn('tbDash', () => tryRoll()); touchBtn('tbUse', () => { keys.KeyE = true; }, () => { keys.KeyE = false; });
 
 function camForward() { return new V3(-Math.sin(yaw), 0, -Math.cos(yaw)); }
 function moveInput() {
@@ -2500,9 +2586,14 @@ function doHit(S) {
   }
   if (any) { AudioFX.hit(S.dmg > 1); hitStop = S.dmg > 1 ? 0.09 : 0.055; shake = Math.max(shake, S.dmg > 1 ? 0.3 : 0.16); }
 }
+function tryDrink() {
+  if (state !== 'play' || won || player.hp <= 0 || player.drinkT >= 0 || player.rollT >= 0 || player.atkT >= 0) return;
+  if (player.flasks <= 0) { $('flasks').classList.remove('pulse'); void $('flasks').offsetWidth; $('flasks').classList.add('pulse'); toast('הבקבוקים ריקים — מלא אותם ליד להבה דולקת'); return; }
+  player.flasks--; player.drinkT = 0; player.healed = false; AudioFX.drink();
+}
 function tryRoll() {
   if (state !== 'play' || won || player.hp <= 0 || player.rollT >= 0 || player.st < 18) return;
-  player.atkT = -1; player.queued = false; player.combo = 0;
+  player.atkT = -1; player.queued = false; player.combo = 0; player.drinkT = -1;
   const m = moveInput(); if (m.lengthSq() < 0.01) m.set(Math.sin(player.facing), 0, Math.cos(player.facing));
   player.rollDir.copy(m.normalize()); player.facing = Math.atan2(m.x, m.z); player.rollT = 0;
   player.st -= 24; player.stDelay = 0.8; AudioFX.roll();
@@ -2511,7 +2602,7 @@ function damagePlayer(n, from) {
   if (state !== 'play' || won || player.hp <= 0) return;
   if (player.rollT > 0.04 && player.rollT < 0.78) return;   // i-frames
   player.hp = Math.max(0, player.hp - n); player.lastHurt = time; hurtFlash = 1; shake = Math.max(shake, 0.4); player.flinch = 1; AudioFX.hurt();
-  player.atkT = -1; player.queued = false;
+  player.atkT = -1; player.queued = false; player.drinkT = -1;
   if (from) { tmpA.subVectors(P.position, from).setY(0).normalize(); player.vel.addScaledVector(tmpA, 8); }
   for (let i = 0; i < 16; i++) fxDark.spawn(P.position.x, P.position.y + 1.3, P.position.z, R(-2, 2), R(0, 3), R(-2, 2), R(0.5, 1), R(0.12, 0.25), [0.35, 0.03, 0.02], [0.1, 0, 0], { g: 6, a: 0.9 });
   if (player.hp <= 0) playerDied();
@@ -2541,12 +2632,29 @@ function ignite(s) {
   s.beam.material.uniforms.uColor.value.setRGB(0.35, 1.0, 1.4); s.beam.material.uniforms.uOpacity.value = 0.6;
   s.flame.palette = FIRE_SOUL; s.flame.rate = 70; s.flame.scale = 1.2; s.flame.spread = 0.4;
   candleEls[litCount].classList.add('lit'); litCount++;
+  player.maxFlasks = 3 + Math.floor(litCount / 2); player.flasks = player.maxFlasks; setCheckpoint(s);
   AudioFX.ignite(); shake = 0.25; flash = 0.35;
   for (let i = 0; i < 120; i++) { const a = rand() * TAU; fx.spawn(s.bowl.x, s.bowl.y + 0.3, s.bowl.z, Math.cos(a) * R(2, 7), R(0, 5), Math.sin(a) * R(2, 7), R(0.8, 1.6), R(0.15, 0.4), FIRE_SOUL[0], FIRE_SOUL[1], { g: 1, drag: 1.5 }); }
   if (litCount < SHRINE_COUNT) {
     chapter(`להבה ${ORD[litCount - 1]}`, 'להבת הנשמה הוצתה', 'האדמה סביב המקדש נסדקת…');
     setTimeout(() => { for (let i = 0; i < 2; i++) { const a = rand() * TAU; spawnAt(s.pos.x + Math.cos(a) * 7, s.pos.z + Math.sin(a) * 7, 'hollow'); } if (litCount > 1) { const a = rand() * TAU; spawnAt(s.pos.x + Math.cos(a) * 14, s.pos.z + Math.sin(a) * 14, 'wraith'); } }, 1200);
   } else chapter('חמש להבות', 'הכס רועד', 'שוב אל חצר המלך — הוא מחכה לך', 6);
+}
+function setCheckpoint(s) {
+  const toC = new V3(-s.pos.x, 0, -s.pos.z).normalize();
+  checkpoint.set(s.pos.x + toC.x * 5.5, 0, s.pos.z + toC.z * 5.5); checkpoint.y = groundAt(checkpoint.x, checkpoint.z);
+  checkpointName = `ליד הלהבה ה${['ראשונה', 'שנייה', 'שלישית', 'רביעית', 'חמישית'][litCount - 1] || ''}`;
+}
+function respawn() {
+  $('deadScreen').classList.add('hidden'); $('hud').classList.add('on'); $('touch').classList.add('on');
+  player.hp = player.maxHp; player.st = 100; player.flasks = player.maxFlasks; player.rollT = player.atkT = player.drinkT = -1; player.flinch = 0; player.vel.set(0, 0, 0); hpTrail = player.hp;
+  KP.rollPivot.rotation.x = 0; KP.rollPivot.position.y = 0.85;
+  P.position.copy(checkpoint); player.facing = Math.atan2(-checkpoint.x, -checkpoint.z); P.rotation.y = player.facing; yaw = player.facing + Math.PI;
+  Cape.place();
+  for (const e of [...enemies]) if (e !== king && !e.dead) { e.remove(); scene.remove(e.g); }
+  if (kingActive && !king.dead) king.reset();
+  state = 'play'; spawnTimer = 9; if (!IS_TOUCH) lockPointer();
+  chapter('', 'קַמְתָּ שוב', checkpointName, 3.5);
 }
 function spawnAt(x, z, kind) {
   const r = Math.hypot(x, z); if (r > WORLD_R - 2) { x *= (WORLD_R - 2) / r; z *= (WORLD_R - 2) / r; }
@@ -2580,7 +2688,15 @@ function updatePlayer(dt) {
   player.stDelay -= dt; if (player.stDelay <= 0) player.st = Math.min(100, player.st + 38 * dt);
   const active = state === 'play' && !won;
   const mv = active ? moveInput() : new V3(); if (mv.length() > 1) mv.normalize();
-  const desired = mv.multiplyScalar(player.atkT >= 0 ? 1.0 : 6.0);
+  const desired = mv.multiplyScalar(player.atkT >= 0 ? 1.0 : player.drinkT >= 0 ? 1.8 : 6.0);
+  if (player.drinkT >= 0) {
+    player.drinkT += dt / 1.05;
+    if (player.drinkT > 0.55 && !player.healed) {
+      player.healed = true; player.hp = Math.min(player.maxHp, player.hp + 45); hpTrail = Math.max(hpTrail, player.hp);
+      for (let i = 0; i < 40; i++) { const a = rand() * TAU; fx.spawn(P.position.x + Math.cos(a) * 0.5, P.position.y + R(0.2, 1.8), P.position.z + Math.sin(a) * 0.5, -Math.cos(a) * 0.4, R(0.6, 1.6), -Math.sin(a) * 0.4, R(0.6, 1.1), R(0.08, 0.16), FIRE_SOUL[0], FIRE_SOUL[1], { turb: 1 }); }
+    }
+    if (player.drinkT >= 1) player.drinkT = -1;
+  }
   if (player.rollT >= 0) {
     player.rollT += dt / 0.55;
     desired.copy(player.rollDir).multiplyScalar(3 + 9 * Math.max(0, 1 - player.rollT));
@@ -2705,6 +2821,30 @@ function updateCamera(dt) {
 // HUD
 // =====================================================================
 function setBar(rect, k) { rect.setAttribute('x', (300 * (1 - k)).toFixed(1)); rect.setAttribute('width', (300 * k).toFixed(1)); }
+const compassMarks = [];
+{
+  const flameSvg = '<svg viewBox="0 0 20 28"><path d="M10 1 C 16 9, 17 15, 10 27 C 3 15, 4 9, 10 1 Z"/></svg>';
+  const crownSvg = '<svg viewBox="0 0 24 20"><path d="M2 18 L3 6 L8 11 L12 2 L16 11 L21 6 L22 18 Z"/></svg>';
+  shrines.forEach(s => { const d = document.createElement('div'); d.className = 'cm'; d.innerHTML = flameSvg + '<small></small>'; $('compassMarks').appendChild(d); compassMarks.push({ el: d, pos: s.pos, s }); });
+  const t = document.createElement('div'); t.className = 'cm throne'; t.innerHTML = crownSvg + '<small></small>'; $('compassMarks').appendChild(t); compassMarks.push({ el: t, pos: new V3(0, 0, 0), throne: true });
+}
+function updateCompass() {
+  const f = camForward(), r = new V3(-f.z, 0, f.x), FOVC = 1.6;
+  let nearest = null, nd = 1e9;
+  for (const m of compassMarks) {
+    const show = m.throne ? litCount >= SHRINE_COUNT && !king.dead : true;
+    const dx = m.pos.x - P.position.x, dz = m.pos.z - P.position.z, d = Math.hypot(dx, dz);
+    const ang = Math.atan2(dx * r.x + dz * r.z, dx * f.x + dz * f.z);
+    const vis = show && Math.abs(ang) < FOVC && d > 4;
+    m.el.style.opacity = vis ? (1 - ss(FOVC * 0.7, FOVC, Math.abs(ang))).toFixed(2) : 0;
+    if (vis) m.el.style.left = (50 + ang / FOVC * 50).toFixed(2) + '%';
+    if (m.s) m.el.classList.toggle('lit', m.s.lit);
+    m.el.querySelector('small').textContent = '';
+    const wanted = m.throne ? show : !m.s.lit;
+    if (vis && wanted && d < nd) { nd = d; nearest = m; }
+  }
+  if (nearest) nearest.el.querySelector('small').textContent = Math.round(nd) + ' צעדים';
+}
 function updateHUD(dt) {
   const k = player.hp / player.maxHp; hpTrail = damp(hpTrail, player.hp, 2.5, dt); hpTrail = Math.max(hpTrail, player.hp);
   setBar($('hpRect'), k); setBar($('hpTrailRect'), hpTrail / player.maxHp); setBar($('stRect'), player.st / 100);
@@ -2720,6 +2860,14 @@ function updateHUD(dt) {
   if (state === 'play' && !won && player.hp > 0) for (const s of shrines) if (!s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 4.8) target = s;
   $('tbUse').classList.toggle('ready', !!target);
   const hl = $('holdLine').querySelector('path');
+  // resting at a lit flame refills the flasks and moves the checkpoint
+  if (state === 'play' && player.hp > 0) for (const s of shrines) if (s.lit && Math.hypot(P.position.x - s.pos.x, P.position.z - s.pos.z) < 5) {
+    if (player.flasks < player.maxFlasks) { player.flasks = player.maxFlasks; toast('הבקבוקים מולאו מן הלהבה'); AudioFX.drink(); }
+    if (!s.rested) { s.rested = true; const lc = litCount; setCheckpoint(s); checkpointName = 'ליד להבת נשמה'; }
+  }
+  $('flaskCount').textContent = player.flasks; $('flasks').classList.toggle('empty', player.flasks <= 0);
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+  updateCompass();
   if (target) {
     const txt = `${HOLD} כדי להצית את הלהבה`; $('prompt').classList.add('on'); if ($('promptText').innerHTML !== txt) $('promptText').innerHTML = txt;
     if (keys.KeyE) { holdT += dt; if (rand() < 0.6) fx.spawn(P.position.x + R(-.3, .3), P.position.y + 1.1, P.position.z + R(-.3, .3), (target.bowl.x - P.position.x) * 1.2, R(0.5, 1.5), (target.bowl.z - P.position.z) * 1.2, 0.8, 0.14, FIRE_SOUL[0], FIRE_SOUL[1]); }
@@ -2736,6 +2884,7 @@ function frame() {
   requestAnimationFrame(frame);
   let dt = Math.min(clock.getDelta(), 1 / 20);
   if (hitStop > 0) { hitStop -= dt; dt *= 0.1; }
+  if (state === 'paused') dt = 0;
   time += dt; if (state === 'play' && !won) gameTime += dt;
   updatePlayer(dt);
   Cape.step(dt, time);
@@ -2772,7 +2921,30 @@ $('startBtn').addEventListener('click', () => {
   state = 'play'; spawnTimer = 10;
   setTimeout(() => chapter('פרק ראשון', 'חצר המלך ואלדרן', 'חמש להבות כבו. מצא את המקדשים לאורך הדרכים', 5.5), 700);
 });
-window.__game = { player, shrines, enemies, king, ignite, Cape, KP, get state() { return state; }, setView(y, p, d) { yaw = y; pitch = p; camDist = d; } };
+// ---- pause menu & quality ----
+const QUALITY = {
+  low: { pr: Math.min(devicePixelRatio, 0.85), shadow: 1024, grass: 0.35, bloom: false },
+  medium: { pr: Math.min(devicePixelRatio, 1.25), shadow: 2048, grass: 0.7, bloom: true },
+  high: { pr: Math.min(devicePixelRatio, 1.75), shadow: 4096, grass: 1, bloom: true },
+};
+function applyQuality(q) {
+  const c = QUALITY[q] || QUALITY.medium;
+  renderer.setPixelRatio(c.pr);
+  if (moonLight.shadow.mapSize.x !== c.shadow) { moonLight.shadow.mapSize.set(c.shadow, c.shadow); if (moonLight.shadow.map) { moonLight.shadow.map.dispose(); moonLight.shadow.map = null; } }
+  if (grassMesh) grassMesh.count = Math.floor(grassTotal * c.grass);
+  bloom.enabled = c.bloom; onResize();
+  document.querySelectorAll('.qbtns button').forEach(b => b.classList.toggle('on', b.dataset.q === q));
+  try { localStorage.setItem('ashen-quality', q); } catch (e) {}
+}
+let savedQ = null; try { savedQ = localStorage.getItem('ashen-quality'); } catch (e) {}
+applyQuality(savedQ || (LOW ? 'medium' : 'high'));
+document.querySelectorAll('.qbtns button').forEach(b => b.addEventListener('click', () => applyQuality(b.dataset.q)));
+let savedV = null; try { savedV = localStorage.getItem('ashen-volume'); } catch (e) {}
+if (savedV !== null) { AudioFX.setVolume(+savedV); $('vol').value = savedV; }
+$('vol').addEventListener('input', e => { AudioFX.setVolume(+e.target.value); try { localStorage.setItem('ashen-volume', e.target.value); } catch (er) {} });
+$('resumeBtn').addEventListener('click', () => setPaused(false));
+$('respawnBtn').addEventListener('click', () => respawn());
+window.__game = { player, shrines, enemies, king, ignite, damagePlayer, respawn, Cape, KP, get state() { return state; }, setView(y, p, d) { yaw = y; pitch = p; camDist = d; } };
 
 </script>
 </body>

@@ -49,7 +49,7 @@ const _rust = rustMat;
 class Hollow extends Enemy {
   constructor(x, z, rising = true) {
     super(x, z);
-    const bm = boneMat.clone(); bm.color.setHex([0xa39478, 0x8d816b, 0xb0a084][RI(0, 2)]);
+    const bm = addRim(boneMat.clone(), 0.16, 0.17, 0.2); bm.color.setHex([0xa39478, 0x8d816b, 0xb0a084][RI(0, 2)]);
     this.sk = makeSkeleton(bm, new THREE.Color(4, 0.7, 0.15)); this.g.add(this.sk.root);
     const rm = ragMat.clone(); rm.color.setHex([0x2a2520, 0x3a2a22, 0x22201e][RI(0, 2)]);
     for (const sd of [1, -1]) { const p = addMesh(this.sk.hips, new THREE.PlaneGeometry(0.34, 0.55, 1, 4).translate(0, -0.27, 0), rm, 0, 0.03, sd * 0.11); if (sd < 0) p.rotation.y = Math.PI; }
@@ -162,7 +162,7 @@ const wraithRobeGeo = (() => {
 class Wraith extends Enemy {
   constructor(x, z) {
     super(x, z);
-    const robe = new THREE.MeshStandardMaterial({ color: 0x100e10, roughness: 1, map: clothTex, normalMap: clothN, alphaMap: wraithAlpha, alphaTest: 0.42, side: THREE.DoubleSide });
+    const robe = addRim(new THREE.MeshStandardMaterial({ color: 0x100e10, roughness: 1, map: clothTex, normalMap: clothN, alphaMap: wraithAlpha, alphaTest: 0.42, side: THREE.DoubleSide }), 0.12, 0.05, 0.08, 2.0);
     this.robe = robe;
     const body = new THREE.Group(); this.g.add(body); this.body = body;
     addMesh(body, wraithRobeGeo, robe);
@@ -238,7 +238,7 @@ class King extends Enemy {
   constructor() {
     super(THRONE.x, THRONE.z);
     const S = 2.15; this.S = S;
-    const bm = boneMat.clone(); bm.color.setHex(0x8e826c);
+    const bm = addRim(boneMat.clone(), 0.25, 0.08, 0.03); bm.color.setHex(0x8e826c);
     this.sk = makeSkeleton(bm, new THREE.Color(1.2, 0.25, 0.05)); this.sk.root.scale.setScalar(S); this.g.add(this.sk.root);
     const iron = new THREE.MeshStandardMaterial({ color: 0x4a3f38, metalness: 0.85, roughness: 0.55, map: grimeTex, roughnessMap: scratchTex });
     const gold = new THREE.MeshStandardMaterial({ color: 0x6e5428, metalness: 1, roughness: 0.4, map: grimeTex });
@@ -299,6 +299,10 @@ class King extends Enemy {
     sk.arms.forEach(A => { A.sh.rotation.set(-0.35, 0, A.s * 0.35); A.el.rotation.x = -0.9; });
     this.eye.color.setRGB(0.6, 0.1, 0.02);
   }
+  reset() {
+    this.hp = this.maxHp; this.state = 'guard'; this.t = 0; this.tele.visible = false; this.enraged = false; this.summoned = false; this.invuln = false;
+    this.pos.set(0, PLAZA_TOP, 0); this.kb.set(0, 0, 0); $('bossBar').classList.remove('on'); AudioFX.bossMusic(false);
+  }
   wake() { if (this.state !== 'throne') return; this.state = 'waking'; this.t = 0; AudioFX.roar(); }
   onHurt() { AudioFX.hit(true); }
   die(dir) {
@@ -340,6 +344,10 @@ class King extends Enemy {
     let speed = 0, mv = dir;
     if (!this.enraged && this.hp < this.maxHp * 0.5 && this.state === 'chase') { this.enraged = true; this.state = 'roar'; this.t = 0; AudioFX.roar(); }
     switch (this.state) {
+      case 'guard':
+        this.face(faceP, 2, dt);
+        if (alive && d < 15) { this.state = 'chase'; this.cd = 1; $('bossBar').classList.add('on'); AudioFX.bossMusic(true); AudioFX.roar(); }
+        break;
       case 'chase':
         if (!alive) break;
         speed = d > 3.2 ? 2.4 * rage : 0; this.face(faceP, 3, dt);

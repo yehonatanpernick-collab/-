@@ -5,7 +5,7 @@
 const player = {
   obj: new THREE.Group(), hp: 100, maxHp: 100, st: 100, stDelay: 0, facing: 0, vel: new V3(),
   atkT: -1, combo: 0, queued: false, comboReset: 0, hitDone: false,
-  rollT: -1, rollDir: new V3(), lastHurt: -10, flinch: 0, souls: 0, kills: 0, walkPhase: 0, stepAcc: 0,
+  rollT: -1, rollDir: new V3(), drinkT: -1, flasks: 3, maxFlasks: 3, lastHurt: -10, flinch: 0, souls: 0, kills: 0, walkPhase: 0, stepAcc: 0,
 };
 scene.add(player.obj);
 const P = player.obj;
@@ -264,6 +264,7 @@ function animateKnight(dt, time, k) {
     const mix = (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), el: lerp(a.el, b.el, f), ty: lerp(a.ty, b.ty, f), tx: lerp(a.tx, b.tx, f) });
     A = t < 0.24 ? mix(rest, S.wind, easeOut(t / 0.24)) : t < 0.52 ? mix(S.wind, S.hit, easeInOut((t - 0.24) / 0.28)) : mix(S.hit, rest, easeInOut((t - 0.52) / 0.48));
   }
+  if (player.drinkT >= 0) A = { x: -2.25, y: 0.55, z: 0, el: -2.25, ty: 0.1, tx: -0.12 };
   if (rolling) A = { x: -1.2, y: 0, z: -0.3, el: -1.6, ty: 0, tx: 0 };
   const sp = player.atkT >= 0 ? 40 : 14;
   KP.armR.rotation.x = damp(KP.armR.rotation.x, A.x, sp, dt); KP.armR.rotation.y = damp(KP.armR.rotation.y, A.y, sp, dt); KP.armR.rotation.z = damp(KP.armR.rotation.z, A.z, sp, dt);
