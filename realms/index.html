@@ -58,7 +58,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: var(--body); }
 .shadowed { text-shadow: 0 1px 2px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.5); }
-#vitals { position: absolute; top: max(22px, env(safe-area-inset-top)); right: max(26px, env(safe-area-inset-right)); width: min(300px, 40vw); }
+#vitals { position: absolute; top: max(24px, env(safe-area-inset-top)); left: max(78px, calc(env(safe-area-inset-left) + 60px)); width: min(260px, 30vw); }
+#vitals .bar { transform: scaleX(-1); }
 .bar { position: relative; height: 6px; background: rgba(0,0,0,.45); outline: 1px solid rgba(239,231,214,.18); outline-offset: 2px; margin-bottom: 10px; }
 .bar > i { position: absolute; inset: 0; transform-origin: right; transition: transform .12s; }
 #hp-lag { background: #f2d0a0; opacity: .55; transition: none; }
@@ -69,7 +70,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 @keyframes glow { to { box-shadow: 0 0 22px var(--gold2); } }
 #en-hint { font-size: 11px; color: var(--gold2); opacity: 0; transition: opacity .3s; margin-top: -4px; }
 #vitals.full #en-hint { opacity: 1; }
-#objective { position: absolute; top: max(96px, calc(env(safe-area-inset-top) + 80px)); right: max(26px, env(safe-area-inset-right)); max-width: min(340px, 44vw); }
+#objective { position: absolute; top: max(22px, env(safe-area-inset-top)); right: max(26px, env(safe-area-inset-right)); max-width: min(320px, 30vw); }
 #objective .lbl { font-family: var(--disp); font-size: 12px; letter-spacing: .4em; color: var(--gold); }
 #ob-text { font-size: 17px; line-height: 1.5; margin-top: 3px; }
 #ob-prog { font-family: var(--disp); font-size: 15px; color: var(--gold2); margin-top: 2px; }
@@ -79,7 +80,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 #motes-w svg { width: 11px; height: 16px; }
 #motes-w.bump svg { animation: bump .5s ease; }
 @keyframes bump { 40% { transform: scale(1.6); } }
-#compass { position: absolute; top: max(16px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 460px; max-width: 46vw; height: 34px; overflow: hidden; direction: ltr;
+#compass { position: absolute; top: max(16px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 460px; max-width: max(150px, calc(100vw - 720px)); height: 34px; overflow: hidden; direction: ltr;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent); }
 #cmp-strip { position: absolute; top: 0; left: 0; height: 100%; }
 #cmp-strip .tk { position: absolute; top: 10px; width: 1px; height: 6px; background: rgba(239,231,214,.45); }
@@ -163,7 +164,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 #ending p { font-size: 17px; }
 @media (max-height: 520px) {
   .title { font-size: 50px; } .mi { font-size: 20px; padding: 6px 0; } #m-list { margin-top: 14px; } .foot { margin-top: 14px; } .subtitle { margin-bottom: 12px; }
-  #objective { top: 74px; } #ob-text { font-size: 14px; } #cb-n { font-size: 46px; } #dl-text { font-size: 15px; min-height: 2.6em; } #dialog { padding-top: 40px; }
+  #ob-text { font-size: 14px; } #cb-n { font-size: 46px; } #dl-text { font-size: 15px; min-height: 2.6em; } #dialog { padding-top: 40px; }
   #c-rank { font-size: 72px; } #c-stats div { padding: 4px 2px; } .overlay h2 { font-size: 38px; margin: 2px 0 4px; } #c-stats { margin: 8px 0 12px; }
 }
 </style>

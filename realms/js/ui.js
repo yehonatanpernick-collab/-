@@ -90,7 +90,7 @@ export class UI {
   }
   toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(this.tt); this.tt = setTimeout(() => el.classList.remove('show'), 2600); }
   compass(yaw, hp, marker, portal) {
-    const W = 460, el = $('cmp-strip');
+    const W = $('compass').clientWidth || 460, el = $('cmp-strip');
     if (!this.cmpBuilt) {
       this.cmpBuilt = true; const dirs = [['צ', 0], ['מז', 90], ['ד', 180], ['מע', 270]];
       let html = '';

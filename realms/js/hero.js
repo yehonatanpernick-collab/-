@@ -12,7 +12,7 @@ const SPIN = { clip: '2H_Melee_Attack_Spin', speed: 1.35, hit: 0.3, hit2: 0.55, 
 
 export class Hero {
   async init(scene) {
-    const c = this.char = await A.character('Knight', { rim: '#a8c8ff', rimStr: 0.28 });
+    const c = this.char = await A.character('Knight', { rim: '#a8c8ff', rimStr: 0.16 });
     this.root = new THREE.Group(); this.root.add(c.root); scene.add(this.root);
     c.root.scale.setScalar(0.92);
     this.mixer = c.mixer; this.actions = {};
@@ -189,14 +189,14 @@ export class Hero {
 export class Fairy {
   constructor(scene) {
     this.g = new THREE.Group(); scene.add(this.g);
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshStandardMaterial({ color: '#fff6d0', emissive: '#ffe7a0', emissiveIntensity: 8 }));
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshStandardMaterial({ color: '#fff6d0', emissive: '#ffe7a0', emissiveIntensity: 3 }));
     this.g.add(core);
-    const wm = new THREE.MeshBasicMaterial({ color: '#cff6ff', transparent: true, opacity: 0.45, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+    const wm = new THREE.MeshBasicMaterial({ color: '#cff6ff', transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
     const wg = new THREE.CircleGeometry(0.3, 16); wg.scale(1, 0.5, 1); wg.translate(0.28, 0.06, 0);
     const wg2 = new THREE.CircleGeometry(0.22, 16); wg2.scale(1, 0.45, 1); wg2.translate(0.2, -0.1, 0);
     this.wings = [];
     for (const s of [-1, 1]) for (const geo of [wg, wg2]) { const w = new THREE.Mesh(geo, wm); w.scale.x = s; this.g.add(w); this.wings.push([w, s]); }
-    this.light = new THREE.PointLight('#ffe3a0', 6, 7, 2); this.g.add(this.light);
+    this.light = new THREE.PointLight('#ffe3a0', 0.9, 6, 2); this.g.add(this.light);
     this.pos = this.g.position; this.t = 0;
   }
   update(dt, target, facing, fx) {

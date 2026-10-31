@@ -24,7 +24,7 @@ export const STAGES = [
   exposure: 1.0, hdr: 'env/spruit_sunrise_1k.hdr', envInt: 0.55,
   sun: { dir: [0.55, 0.42, 0.35], color: '#ffe2b8', intensity: 3.4 }, hemi: { sky: '#bcd8ff', ground: '#6a7a40', intensity: 0.7 },
   sky: { top: '#3f7fd6', horizon: '#ffe0b8', ground: '#c8b89a', clouds: 0.55, cloudCol: '#fffaf0', cloudShade: '#9aa8c0', sunDisc: '#fff0d0' },
-  fog: { color: '#d8e6f4', density: 0.012, base: 0, falloff: 0.045, scatter: 0.7, rays: 0.55 },
+  fog: { color: '#d8e6f4', density: 0.0066, base: 0, falloff: 0.045, scatter: 0.7, rays: 0.55 },
   grade: { tint: '#fff4e6', shadow: '#e6f0ff', sat: 1.12, contrast: 1.06, vignette: 0.35 },
   particles: { color: '#ffe9a8', rise: 0 },
   grassColors: { base: '#24391a', tip: '#8fbf4f', tip2: '#d6cd6a', height: 1.05 },
@@ -58,8 +58,8 @@ export const STAGES = [
     await L.trees('Oak Large', { height: 15, seed: 3 }, L.scatter(L.n(26), ok, 9, 0.9, 1.25));
     await L.trees('Oak Medium', { height: 11, seed: 7, leafTint: 0xd8f0a0 }, L.scatter(L.n(30), ok, 8, 0.85, 1.2));
     await L.trees('Aspen Medium', { height: 12, seed: 5 }, L.scatter(L.n(24), (x, z, h, sl) => ok(x, z, h, sl) && n2(x * 0.03, z * 0.03) > -0.1, 6, 0.85, 1.2));
-    await L.trees('Bush 1', { height: 2.6, seed: 2, radius: 0 }, L.scatter(L.n(60), ok, 3, 0.7, 1.4));
-    await L.trees('Bush 2', { height: 2.2, seed: 9, radius: 0 }, L.scatter(L.n(40), ok, 3, 0.7, 1.3));
+    await L.trees('Bush 1', { height: 1.6, seed: 2, radius: 0.5 }, L.scatter(L.n(60), ok, 3, 0.7, 1.4));
+    await L.trees('Bush 2', { height: 1.5, seed: 9, radius: 0.5 }, L.scatter(L.n(40), ok, 3, 0.7, 1.3));
     for (const f of ['flower_yellow', 'flower_white', 'flower_blue']) await L.props(`nature/${f}.glb`, L.scatter(L.n(170), (x, z, h, sl) => h > 0.8 && sl < 0.3 && pathDist(x, z, T.path) > 2.5 && n1(x * 0.04 + 9, z * 0.04) > 0.05, 1.2, 1.4, 2.4), { shadow: false });
     for (const r of ['rock1', 'rock2', 'rock3']) {
       await L.props(`nature/${r}.glb`, L.scatter(L.n(14), (x, z, h, sl) => h > 0.3 && !avoid(x, z, 2), 6, 1.2, 3.2, true), { collide: 0.9 });
@@ -104,10 +104,10 @@ export const STAGES = [
 {
   id: 'fairy', num: 'II', name: 'היער המכושף', genre: 'פנטזיית אגדות', mood: 1,
   lore: 'ביער שבו הפטריות זוהרות והעצים לוחשים, מכשפה כלאה את פיות האור.',
-  exposure: 1.05, hdr: 'env/moonless_golf_1k.hdr', envInt: 0.9,
-  sun: { dir: [-0.5, 0.3, 0.55], color: '#ffb6e0', intensity: 1.9 }, hemi: { sky: '#9a8cff', ground: '#24384a', intensity: 0.9 },
+  exposure: 1.35, hdr: 'env/moonless_golf_1k.hdr', envInt: 1.3,
+  sun: { dir: [-0.5, 0.3, 0.55], color: '#ffb6e0', intensity: 2.6 }, hemi: { sky: '#a89aff', ground: '#3a4a5a', intensity: 1.5 },
   sky: { top: '#1c1650', horizon: '#ff9ac8', ground: '#3a2a4a', clouds: 0.45, cloudCol: '#ffc8e8', cloudShade: '#4a3a7a', sunDisc: '#ffd8f0', stars: 0.7, aurora: 0.8, auroraCol: '#50ffd0', moon: true, moonDir: [0.5, 0.5, -0.7], moonCol: '#e8e0ff' },
-  fog: { color: '#7a62b0', density: 0.022, base: 0, falloff: 0.07, scatter: 0.5, rays: 0.4 },
+  fog: { color: '#7a62b0', density: 0.0121, base: 0, falloff: 0.07, scatter: 0.5, rays: 0.4 },
   grade: { tint: '#f6eaff', shadow: '#c8d8ff', sat: 1.2, contrast: 1.1, vignette: 0.45 },
   particles: { color: '#a8ffe8', rise: 0.15 },
   grassColors: { base: '#13261f', tip: '#3f8a6a', tip2: '#7a5ab0', height: 1.0 },
@@ -175,7 +175,7 @@ export const STAGES = [
   exposure: 1.0, hdr: 'env/venice_sunset_1k.hdr', envInt: 0.6,
   sun: { dir: [-0.6, 0.28, 0.5], color: '#ffc88a', intensity: 3.6 }, hemi: { sky: '#ffd8a8', ground: '#7a6040', intensity: 0.7 },
   sky: { top: '#3a64b8', horizon: '#ffb070', ground: '#c09070', clouds: 0.4, cloudCol: '#ffe0c0', cloudShade: '#b07a70', sunDisc: '#ffe0b0', sunSize: 1.5 },
-  fog: { color: '#f0c898', density: 0.011, base: 0, falloff: 0.04, scatter: 0.9, rays: 0.7 },
+  fog: { color: '#f0c898', density: 0.006, base: 0, falloff: 0.04, scatter: 0.9, rays: 0.7 },
   grade: { tint: '#fff0d8', shadow: '#d8e0ff', sat: 1.12, contrast: 1.1, vignette: 0.4 },
   particles: { color: '#fff0c0', rise: 0.05 },
   grassColors: { base: '#4a4020', tip: '#c8b060', tip2: '#e8d898', height: 0.9 },
@@ -264,7 +264,7 @@ export const STAGES = [
   exposure: 1.0, hdr: 'env/spruit_sunrise_1k.hdr', envInt: 0.7,
   sun: { dir: [0.4, 0.6, -0.5], color: '#fff4e8', intensity: 3.8 }, hemi: { sky: '#cfe6ff', ground: '#5a6a7a', intensity: 0.85 },
   sky: { top: '#1f63c8', horizon: '#d8ecff', ground: '#9ab0c8', clouds: 0.5, cloudCol: '#ffffff', cloudShade: '#8aa0c0', sunDisc: '#ffffff' },
-  fog: { color: '#c8dcf0', density: 0.01, base: -10, falloff: 0.035, scatter: 0.6, rays: 0.5 },
+  fog: { color: '#c8dcf0', density: 0.0055, base: -10, falloff: 0.035, scatter: 0.6, rays: 0.5 },
   grade: { tint: '#f4f8ff', shadow: '#d8e8ff', sat: 1.08, contrast: 1.08, vignette: 0.35 },
   particles: { color: '#ffffff', rise: -0.4 },
   grassColors: { base: '#1e3a22', tip: '#6a9a4a', tip2: '#a8c070', height: 0.75 },
@@ -329,10 +329,10 @@ export const STAGES = [
 {
   id: 'dark', num: 'V', name: 'ממלכת הצללים', genre: 'פנטזיה אפלה', mood: 4,
   lore: 'תחת ירח הדם, בין נהרות של אש וקברים עתיקים, יושב המלך החלול על כס של עצמות.',
-  exposure: 1.15, hdr: 'env/moonless_golf_1k.hdr', envInt: 0.55,
-  sun: { dir: [-0.4, 0.45, -0.8], color: '#ff8a7a', intensity: 1.6 }, hemi: { sky: '#7a4a9a', ground: '#3a1418', intensity: 0.75 },
+  exposure: 1.35, hdr: 'env/moonless_golf_1k.hdr', envInt: 0.9,
+  sun: { dir: [-0.4, 0.45, -0.8], color: '#ff8a7a', intensity: 1.6 }, hemi: { sky: '#8a5aaa', ground: '#4a2024', intensity: 1.2 },
   sky: { top: '#07030c', horizon: '#6a1a28', ground: '#1a0a10', clouds: 0.55, cloudCol: '#5a2030', cloudShade: '#14080e', sunDisc: '#ff5a4a', sunSize: 0, stars: 1, moon: true, moonDir: [-0.4, 0.45, -0.8], moonCol: '#ff6a5a' },
-  fog: { color: '#3a1424', density: 0.02, base: 0, falloff: 0.06, scatter: 0.6, rays: 0.6 },
+  fog: { color: '#3a1424', density: 0.011, base: 0, falloff: 0.06, scatter: 0.6, rays: 0.6 },
   grade: { tint: '#ffe8e8', shadow: '#c8b8ff', sat: 1.1, contrast: 1.14, vignette: 0.55 },
   particles: { color: '#ff7a3a', rise: 0.8 },
   grassColors: { base: '#141014', tip: '#4a3a40', tip2: '#5a2a2a', height: 0.7 },

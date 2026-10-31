@@ -44,7 +44,7 @@ const composer = new EffectComposer(renderer, rt);
 const renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
 const atmo = new AtmospherePass(camera, null, Q.rays); composer.addPass(atmo);
 const _atmoRender = atmo.render.bind(atmo); atmo.render = (r, w, rb) => { atmo.uniforms.tDepth.value = rb.depthTexture; _atmoRender(r, w, rb); };
-let bloom = null; if (Q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.55, 0.88); composer.addPass(bloom); }
+let bloom = null; if (Q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.38, 0.5, 1.6); composer.addPass(bloom); }
 const grade = new GradePass(); composer.addPass(grade);
 composer.addPass(new OutputPass());
 let fxaa = null; if (!Q.msaa) { fxaa = new FXAAPass(); composer.addPass(fxaa); }
@@ -62,13 +62,13 @@ const ui = new UI(isTouch);
 const sound = new Sound();
 let hero, fairy, enemies, fx, L = null, stageIdx = 0;
 let state = 'boot', time = 0, last = performance.now(), hitstop = 0, shake = 0, flashV = 0, dmgV = 0;
-let camYaw = 0, camPitch = 0.28, camDist = isTouch ? 8.5 : 7.8;
+let camDistS, camYaw = 0, camPitch = 0.28, camDist = isTouch ? 8.5 : 7.8;
 const camTarget = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 const sun = new THREE.DirectionalLight(0xffffff, 3), hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
 sun.castShadow = true; sun.shadow.mapSize.set(Q.shadows, Q.shadows);
 { const c = sun.shadow.camera; c.left = -42; c.right = 42; c.top = 42; c.bottom = -42; c.near = 1; c.far = 260; }
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.035;
-const sunDir = new THREE.Vector3(0, 1, 0);
+const sunDir = new THREE.Vector3(0, 1, 0), partCol = new THREE.Color();
 const run = { kills: 0, combo: 0, maxCombo: 0, comboT: 0, dmgTaken: 0, motes: 0, start: 0, deaths: 0 };
 
 // ---------------------------------------------------------------- input
@@ -98,7 +98,7 @@ canvas.addEventListener('mousedown', e => {
   if (isTouch) return; sound.init();
   if (state === 'dialog') { ui.nextDialog(); return; }
   if (state !== 'play') return;
-  if (document.pointerLockElement !== canvas) { safeLock(); return; }
+  if (document.pointerLockElement !== canvas) safeLock();
   if (e.button === 0) inp.attack = true; if (e.button === 2) inp.magic = true; if (e.button === 1) inp.special = true;
 });
 addEventListener('mousemove', e => { if ((state === 'play' || state === 'dialog') && !isTouch && document.pointerLockElement === canvas) { camYaw -= e.movementX * 0.0024; camPitch += e.movementY * 0.002; } });
@@ -221,7 +221,7 @@ function mkGroup(children) { const g = new THREE.Group(); for (const c of childr
 async function loadStage(idx, { menu = false } = {}) {
   state = 'loading'; stageIdx = idx;
   const def = STAGES[idx];
-  ui.loading(true, def, menu);
+  ui.loading(true, def, menu); if (!menu) ui.menu(false);
   await new Promise(r => setTimeout(r, 60));
   // dispose old
   scene.traverse(o => { if (o.geometry && !o.userData.keep) o.geometry.dispose?.(); });
@@ -382,19 +382,24 @@ function updateLevel(dt) {
 
 // ---------------------------------------------------------------- camera
 function updateCamera(dt) {
-  camPitch = THREE.MathUtils.clamp(camPitch, -0.35, 1.2);
+  camPitch = THREE.MathUtils.clamp(camPitch, -0.12, 1.2);
   if (isTouch && !touch.cam && hero.speed > 2 && hero.state === 'move') { let d = hero.facing - camYaw; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) < 2.2) camYaw += d * Math.min(1, dt * 0.7); }
   const k = 1 - Math.exp(-dt * 12);
   camTarget.x += (hero.pos.x - camTarget.x) * k; camTarget.z += (hero.pos.z - camTarget.z) * k; camTarget.y += (hero.pos.y + 1.75 - camTarget.y) * (1 - Math.exp(-dt * 7));
-  const dist = camDist + (enemies.bossActive ? 3.5 : 0), cp = Math.cos(camPitch);
+  let dist = camDist + (enemies.bossActive ? 3.5 : 0); const cp = Math.cos(camPitch);
   const side = 0.55;
-  let cx = camTarget.x - Math.sin(camYaw) * cp * dist + Math.cos(camYaw) * -side, cz = camTarget.z - Math.cos(camYaw) * cp * dist - Math.sin(camYaw) * -side, cy = camTarget.y + Math.sin(camPitch) * dist;
-  for (let i = 1; i <= 5; i++) { const f = i / 5, x = camTarget.x + (cx - camTarget.x) * f, z = camTarget.z + (cz - camTarget.z) * f, g = L.h(x, z) + 0.6, yy = camTarget.y + (cy - camTarget.y) * f; if (yy < g) cy += (g - yy) / f; }
-  camera.position.set(cx, Math.max(cy, L.h(cx, cz) + 0.6), cz);
+  const dx = -Math.sin(camYaw) * cp - Math.cos(camYaw) * side / dist, dz = -Math.cos(camYaw) * cp + Math.sin(camYaw) * side / dist, dy = Math.sin(camPitch);
+  // pull the camera in when terrain blocks the view
+  let free = dist;
+  for (let i = 1; i <= 12; i++) { const f = dist * i / 12, x = camTarget.x + dx * f, z = camTarget.z + dz * f; if (L.h(x, z) + 0.4 > camTarget.y + Math.max(dy, 0.05) * f) { free = Math.max(2.6, f * 0.85); break; } }
+  camDistS = camDistS === undefined ? free : (free < camDistS ? free : camDistS + (free - camDistS) * Math.min(1, dt * 3));
+  const cx = camTarget.x + dx * camDistS, cz = camTarget.z + dz * camDistS;
+  camera.position.set(cx, Math.max(camTarget.y + dy * camDistS, L.h(cx, cz) + 0.7), cz);
   if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake * 0.5; camera.position.y += (Math.random() - 0.5) * shake * 0.5; shake = Math.max(0, shake - dt * 2.4); }
   camera.lookAt(camTarget.x + Math.cos(camYaw) * -side * 0.6, camTarget.y, camTarget.z - Math.sin(camYaw) * -side * 0.6);
 }
 function updateEnv(dt) {
+  if (window.__dbgCam) { const d = window.__dbgCam; camera.position.set(...d.p); camera.lookAt(...d.l); }
   windU.value = time;
   L.sky.update(time, camera, sunDir);
   const snap = 84 / Q.shadows, px = Math.round(hero.pos.x / snap) * snap, pz = Math.round(hero.pos.z / snap) * snap;
@@ -402,7 +407,7 @@ function updateEnv(dt) {
   L.grass.update(hero.pos, sunDir, sun, hemi);
   if (L.liquid) L.liquid.update(time, sunDir, sun);
   atmo.update(sunDir);
-  fx.update(dt, time, hero.pos, tmp2.set(L.def.particles.color), L.def.particles.rise);
+  fx.update(dt, time, hero.pos, partCol.set(L.def.particles.color), L.def.particles.rise);
   grade.uniforms.uTime.value = time; flashV = Math.max(0, flashV - dt * 1.6); grade.uniforms.uFlash.value = flashV;
   dmgV = Math.max(0, dmgV - dt * 2); grade.uniforms.uDamage.value = Math.max(dmgV * 0.6, hero.hp / hero.maxHp < 0.25 ? 0.35 + Math.sin(time * 5) * 0.1 : 0);
 }
@@ -437,7 +442,7 @@ function startEnding() {
 }
 function loop(now) {
   requestAnimationFrame(loop);
-  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let dt = Math.min(0.05, (now - last) / 1000) * (window.__ts || 1); last = now;
   if (hitstop > 0) { hitstop -= dt; dt *= 0.08; }
   time += dt;
   if (!L || state === 'loading' || state === 'boot') { return; }
@@ -500,4 +505,4 @@ ui.onMenu({
     requestAnimationFrame(loop);
   } catch (e) { console.error(e); ui.error(e); }
 })();
-window.__game = { get state() { return state; }, get hero() { return hero; }, get L() { return L; }, get enemies() { return enemies; }, camera, run, load: loadStage, setYaw: y => camYaw = y };
+window.__game = { next: () => nextStep(), get state() { return state; }, get hero() { return hero; }, get L() { return L; }, get enemies() { return enemies; }, camera, run, load: loadStage, setYaw: y => camYaw = y };

@@ -39,8 +39,8 @@ export async function animations() {
 }
 
 // rim light + hit flash injected into character materials
-export function characterMaterial(src, { rim = '#9fc8ff', rimStr = 0.35, tint = null, stone = false, dark = false } = {}) {
-  const m = new THREE.MeshStandardMaterial({ map: src.map, color: tint ? new THREE.Color(tint) : src.color.clone(), roughness: stone ? 0.75 : 0.62, metalness: stone ? 0.0 : 0.08, envMapIntensity: 0.9 });
+export function characterMaterial(src, { rim = '#9fc8ff', rimStr = 0.22, tint = null, stone = false, dark = false } = {}) {
+  const m = new THREE.MeshStandardMaterial({ map: src.map, color: tint ? new THREE.Color(tint) : src.color.clone().multiplyScalar(0.82), roughness: stone ? 0.75 : 0.62, metalness: stone ? 0.0 : 0.08, envMapIntensity: 0.55 });
   m.userData.rim = { value: new THREE.Color(rim).multiplyScalar(rimStr) };
   m.userData.flash = { value: 0 };
   m.userData.dissolve = { value: 0 };

@@ -127,7 +127,7 @@ export class GrassField {
           vec2 wp = aOff + 2. * uR * floor((uCenter - aOff + uR) / (2. * uR));
           vec2 hm = hs(wp);
           float dC = length(wp - uCenter);
-          float keep = step(aRnd.w, hm.y) * smoothstep(uR, uR * 0.65, dC);
+          float keep = step(aRnd.w, hm.y) * smoothstep(uR, uR * 0.65, dC) * smoothstep(1.2, 3.5, distance(vec3(wp.x, hm.x, wp.y), cameraPosition));
           float H = (0.45 + aRnd.y * 0.7) * uHeightScale * keep;
           float t = position.y;
           float ca = cos(aRnd.x), sa = sin(aRnd.x);
