@@ -214,3 +214,5 @@ label { font-size: 10.5px; letter-spacing: 0.08em; color: var(--bone-3); }
   #panel { width: 270px; }
   #log { display: none; }
 }
+#bar, #bar * { white-space: nowrap; }
+@media (max-width: 1250px) { #bar .mark span { display: none; } #bar .cell { padding: 0 12px; } }

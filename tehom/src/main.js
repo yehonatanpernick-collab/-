@@ -331,7 +331,7 @@ function endGame(result) {
   $('#end-text').textContent = win ? 'אחרון העולמות של אופל נפל. הגחלת שוב שקטה — לעת עתה.' : 'העולם האחרון של המשמרת נפל. מה שנשאר מהצי נסוג אל החושך.';
   const P = g.factions.player, E = g.factions.enemy;
   $('#end-stats').innerHTML = [
-    ['ספינות שנבנו', P.built + 16], ['ספינות אויב שהושמדו', P.killed], ['ספינות שאבדו', P.lost],
+    ['ספינות שנבנו', P.built], ['ספינות אויב שהושמדו', P.killed], ['ספינות שאבדו', P.lost],
     ['עולמות בשליטה', `${g.bodyOf('player').length}/${bodies.length}`],
   ].map(([a, b]) => `<tr><td>${a}</td><td class="num">${b}</td></tr>`).join('');
   $('#hud').classList.add('off');
