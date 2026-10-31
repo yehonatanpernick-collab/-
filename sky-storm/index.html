@@ -482,7 +482,7 @@ const LOW = SETTINGS.quality === 'low' || (SETTINGS.quality === 'auto' && isTouc
 // ---------- Atmosphere constants (shared by every shader) ----------
 const SUN = new THREE.Vector3(-0.62, 0.27, -0.74).normalize();
 const MOON = new THREE.Vector3(0.5, 0.45, 0.74).normalize();
-const FOG_COOL = HDR(0.15, 0.05, 0.19), FOG_WARM = HDR(0.85, 0.24, 0.08), SUN_GLOW = HDR(1.0, 0.4, 0.12), GROUND_COL = HDR(0.035, 0.018, 0.045);
+const FOG_COOL = HDR(0.17, 0.045, 0.24), FOG_WARM = HDR(0.78, 0.2, 0.15), SUN_GLOW = HDR(0.95, 0.36, 0.2), GROUND_COL = HDR(0.035, 0.018, 0.045);
 const FOG_COL = FOG_COOL;
 const FOG_FAR = LOW ? 2250 : 3100;
 const GLSL_ATMO = `
@@ -571,42 +571,115 @@ const skyMat = new THREE.ShaderMaterial({
       vec3 tint = mix(vec3(0.7, 0.8, 1.25), vec3(1.25, 0.85, 0.6), h31(id + 7.7));
       return tint * st * tw * (0.35 + k * k * gain);
     }
+    const vec3 PLANET = vec3(0.8231, 0.3970, -0.4058);
+    const vec3 COMET = vec3(-0.1, 0.62, 0.778);
+    vec3 glintStars(vec3 d) {
+      vec3 p = d * 34.0, id = floor(p);
+      float r = h31(id + 11.0);
+      if (r < 0.985) return vec3(0.0);
+      vec3 ctr = id + 0.5 + (vec3(h31(id + 3.1), h31(id + 5.3), h31(id + 9.7)) - 0.5) * 0.4;
+      vec3 o = p - ctr;
+      vec3 t1 = normalize(cross(d, vec3(0.0, 1.0, 0.0))), t2 = cross(d, t1);
+      float u = dot(o, t1), v = dot(o, t2), l = length(vec2(u, v));
+      float tw = 0.65 + 0.35 * sin(time * (0.8 + r * 9.0) + r * 60.0);
+      float g = exp(-l * l * 900.0) * 3.0 + exp(-l * l * 60.0) * 0.25 + (exp(-abs(u) * 140.0) * exp(-abs(v) * 9.0) + exp(-abs(v) * 140.0) * exp(-abs(u) * 9.0)) * 0.9;
+      vec3 tint = mix(vec3(0.75, 0.85, 1.3), vec3(1.3, 0.7, 1.1), h31(id + 17.0));
+      return tint * g * tw * (r - 0.985) / 0.015;
+    }
+    vec3 aurora(vec3 d, float side, float h) {
+      vec2 q = normalize(d.xz + 1e-5);
+      vec3 acc = vec3(0.0);
+      for (int i = 0; i < 2; i++) {
+        float fi = float(i);
+        float base = 0.11 + fi * 0.09 + 0.07 * sin(vnoise(q * (2.2 + fi) + vec2(time * 0.012, fi * 5.0)) * 9.0);
+        float y = h - base;
+        float curtain = smoothstep(-0.02, 0.0, y) * exp(-max(y, 0.0) * (9.0 - fi * 2.0));
+        float rays = 0.3 + 0.7 * vnoise(q * (110.0 + fi * 40.0) + vec2(time * 0.25, h * 3.0));
+        rays *= 0.5 + 0.5 * vnoise(q * 34.0 - vec2(fi * 3.0, time * 0.16));
+        rays *= rays;
+        float m = smoothstep(0.28, 0.62, vnoise(q * 3.1 + vec2(fi * 7.0, time * 0.02)));
+        vec3 lo = mix(vec3(0.05, 1.0, 0.55), vec3(0.1, 0.75, 1.0), fi);
+        vec3 ac = mix(lo, vec3(0.75, 0.1, 0.7), smoothstep(0.04, 0.16, y) * 0.75);
+        acc += ac * curtain * rays * m;
+      }
+      return acc * smoothstep(0.62, 0.22, side) * smoothstep(0.03, 0.09, h);
+    }
     void main(){
       vec3 d = normalize(vD);
       float h = d.y, s = max(dot(d, SUN_DIR), 0.0);
       float side = dot(normalize(d.xz + 1e-5), normalize(SUN_DIR.xz)) * 0.5 + 0.5;
-      vec3 band = mix(vec3(0.16, 0.03, 0.17), vec3(0.62, 0.08, 0.12), pow(side, 1.6));
-      vec3 c = mix(horizonCol(d), band, smoothstep(0.0, 0.16, h));
-      c = mix(c, vec3(0.014, 0.006, 0.04), smoothstep(0.1, 0.65, h));
-      c += vec3(0.35, 0.08, 0.2) * (1.0 - side) * smoothstep(0.0, 0.08, h) * smoothstep(0.3, 0.1, h);
+      vec3 band = mix(vec3(0.19, 0.03, 0.24), vec3(0.5, 0.05, 0.17), pow(side, 1.8));
+      vec3 c = mix(horizonCol(d), band, smoothstep(0.0, 0.13, h));
+      vec3 zen = mix(vec3(0.04, 0.012, 0.085), vec3(0.07, 0.014, 0.06), side);
+      c = mix(c, zen, smoothstep(0.1, 0.6, h));
+      c += vec3(0.26, 0.03, 0.24) * (1.0 - side) * smoothstep(0.0, 0.07, h) * smoothstep(0.3, 0.06, h);
       c = mix(c, GROUND_COL, smoothstep(-0.05, -0.45, h));
-      c += vec3(1.0, 0.45, 0.25) * pow(s, 24.0) * 0.35 + vec3(1.0, 0.6, 0.3) * pow(s, 160.0) * 1.4 + vec3(1.0, 0.85, 0.6) * pow(s, 900.0) * 3.0;
-      c += vec3(1.0, 0.72, 0.42) * smoothstep(0.99955, 0.9997, s) * disc;
+      c += vec3(1.0, 0.38, 0.3) * pow(s, 24.0) * 0.24 + vec3(1.0, 0.55, 0.38) * pow(s, 160.0) * 1.3 + vec3(1.0, 0.85, 0.65) * pow(s, 900.0) * 3.0;
+      c += vec3(1.0, 0.72, 0.5) * smoothstep(0.99955, 0.9997, s) * disc;
       if (h > 0.0) {
         vec2 cp = d.xz / (h + 0.12) * 1.6;
         float ci = vnoise(cp * vec2(0.6, 2.6) + vec2(time * 0.01, 0.0)) * 0.6 + vnoise(cp * vec2(1.3, 5.0)) * 0.4;
         ci = smoothstep(0.55, 0.85, ci) * smoothstep(0.02, 0.1, h) * smoothstep(0.45, 0.18, h);
-        vec3 lit = mix(vec3(0.5, 0.12, 0.35), vec3(1.6, 0.6, 0.35), pow(side, 1.5)) + vec3(1.0, 0.7, 0.4) * pow(s, 6.0) * 1.5;
-        c = mix(c, lit, ci * 0.75);
+        vec3 lit = mix(vec3(0.42, 0.08, 0.4), vec3(1.35, 0.42, 0.55), pow(side, 1.5)) + vec3(1.0, 0.6, 0.45) * pow(s, 6.0) * 1.2;
+        c = mix(c, lit, ci * 0.7);
       }
-      if (stars > 0.0 && h > 0.02) {
-        float night = smoothstep(0.04, 0.4, h) * (1.0 - smoothstep(0.5, 0.95, s)) * stars;
-        float mw = exp(-pow(dot(d, MW_N) / 0.2, 2.0));
+      if (stars > 0.0 && h > 0.0) {
+        float night = smoothstep(0.015, 0.32, h) * (1.0 - smoothstep(0.55, 0.97, s)) * stars;
+        // Painted nebulae: magenta, violet and crimson veils across the upper sky
+        float n1 = fbm3(d * 2.3 + vec3(0.0, 0.0, time * 0.002)), n2 = fbm3(d * 4.6 + 7.0), n3 = fbm3(d * 3.1 + 2.0);
+        vec3 nebC = mix(vec3(0.6, 0.04, 0.38), vec3(0.24, 0.07, 0.62), n2);
+        nebC = mix(nebC, vec3(0.8, 0.08, 0.12), smoothstep(0.5, 0.68, n3));
+        c += nebC * smoothstep(0.5, 0.85, n1) * (0.4 + n2 * 0.7) * night * 0.28;
+        // Galaxy band with a bright pink core and dark dust lanes
+        float mwd = dot(d, MW_N);
+        float mw = exp(-pow(mwd / 0.27, 2.0)), core = exp(-pow(mwd / 0.075, 2.0));
         float neb = fbm3(d * 6.0);
         float dust = smoothstep(0.45, 0.7, fbm3(d * 11.0 + 3.0));
-        vec3 mwc = mix(vec3(0.25, 0.12, 0.45), vec3(0.65, 0.38, 0.72), neb) * (0.35 + neb) * (1.0 - dust * 0.75);
-        c += mwc * mw * night * 0.55;
-        c += starLayer(d, 180.0, 0.985, 6.0) * night;
-        c += starLayer(d, 420.0, 0.975 - mw * 0.04, 2.0) * night * 0.7;
-        vec2 q = normalize(d.xz + 1e-5);
-        float base = 0.13 + 0.06 * sin(vnoise(q * 2.6 + vec2(time * 0.012, 0.0)) * 9.0);
-        float y = h - base;
-        float curtain = smoothstep(-0.025, 0.0, y) * exp(-max(y, 0.0) * 6.5);
-        float rays = 0.35 + 0.65 * vnoise(q * 95.0 + vec2(time * 0.22, h * 3.0));
-        rays *= 0.55 + 0.45 * vnoise(q * 30.0 - vec2(0.0, time * 0.15));
-        float amask = smoothstep(0.5, 0.15, side) * smoothstep(0.3, 0.65, vnoise(q * 3.4 + vec2(0.0, time * 0.02)));
-        vec3 ac = mix(vec3(0.08, 1.0, 0.5), vec3(0.85, 0.12, 0.8), smoothstep(0.0, 0.16, y));
-        c += ac * curtain * rays * amask * 0.6 * stars;
+        vec3 mwc = mix(vec3(0.32, 0.1, 0.6), vec3(1.0, 0.38, 0.72), neb) * (0.35 + neb);
+        c += (mwc * mw * 0.4 + vec3(1.0, 0.7, 0.86) * core * neb * 0.24) * (1.0 - dust * 0.85) * night;
+        c += starLayer(d, 180.0, 0.982, 8.0) * night;
+        c += starLayer(d, 420.0, 0.968 - mw * 0.05, 2.5) * night * 0.8;
+        c += starLayer(d, 900.0, 0.95 - mw * 0.12, 1.0) * night * 0.4 * (0.4 + mw);
+        c += glintStars(d) * night;
+        c += aurora(d, side, h) * 0.55 * stars;
+        // Comet with an ion tail and a curved dust tail
+        vec3 cA = normalize(cross(COMET, vec3(0.0, 1.0, 0.0))), cB = cross(cA, COMET);
+        vec3 tdir = normalize(cA * 0.8 - cB * 0.6), tper = cross(COMET, tdir);
+        vec3 rel = d - COMET;
+        float along = dot(rel, tdir), perp = dot(rel, tper);
+        if (along > -0.02 && along < 0.5 && dot(d, COMET) > 0.8) {
+          float w1 = 0.0025 + along * 0.05, w2 = 0.004 + along * 0.09, pc = perp - along * along * 0.5;
+          float fade = exp(-max(along, 0.0) * 5.0) * smoothstep(-0.004, 0.003, along);
+          c += vec3(0.45, 0.75, 1.3) * exp(-perp * perp / (w1 * w1)) * fade * 0.9 * night;
+          c += vec3(1.1, 0.5, 0.75) * exp(-pc * pc / (w2 * w2)) * fade * 0.45 * night;
+          c += vec3(0.9, 0.95, 1.2) * exp(-dot(rel, rel) * 160000.0) * 4.0 * night;
+        }
+      }
+      // Ringed giant planet
+      float pd = dot(d, PLANET);
+      if (pd > 0.9) {
+        vec3 pA = normalize(cross(PLANET, vec3(0.0, 1.0, 0.0))), pB = cross(pA, PLANET);
+        const float PR = 0.085;
+        vec2 q = vec2(dot(d, pA), dot(d, pB)) / PR;
+        float ct = cos(0.38), st = sin(0.38);
+        vec2 rq = vec2(ct * q.x - st * q.y, st * q.x + ct * q.y);
+        vec2 eq = vec2(rq.x, rq.y / 0.24);
+        float er = length(eq);
+        float ringBand = smoothstep(1.32, 1.36, er) * smoothstep(2.35, 2.25, er) * (0.55 + 0.45 * sin(er * 38.0)) * (1.0 - smoothstep(1.78, 1.84, er) * smoothstep(1.92, 1.86, er) * 0.9);
+        vec3 ringCol = mix(vec3(0.9, 0.55, 0.65), vec3(0.55, 0.35, 0.8), smoothstep(1.4, 2.3, er)) * 0.75;
+        float pr = length(q), disc = smoothstep(1.0, 0.985, pr);
+        if (rq.y > 0.0) c = mix(c, ringCol, ringBand * 0.85 * (1.0 - disc));
+        if (pr < 1.0) {
+          vec3 n = pA * q.x + pB * q.y - PLANET * sqrt(max(1.0 - pr * pr, 0.0));
+          float lit = max(dot(n, SUN_DIR), 0.0);
+          float bands = sin(rq.y * 11.0 + fbm3(vec3(q * 3.0, 1.0)) * 3.0) * 0.5 + 0.5;
+          vec3 pcol = mix(vec3(0.35, 0.12, 0.42), vec3(0.95, 0.45, 0.5), bands);
+          pcol = mix(pcol, vec3(1.0, 0.75, 0.6), smoothstep(0.75, 1.0, bands) * 0.4);
+          vec3 shade = pcol * (0.06 + lit * 1.1) + vec3(0.5, 0.15, 0.6) * pow(pr, 6.0) * 0.6;
+          c = mix(c, shade, disc);
+        }
+        c += vec3(0.6, 0.2, 0.7) * exp(-pow(max(pr - 1.0, 0.0) * 9.0, 2.0)) * step(1.0, pr) * 0.35;
+        if (rq.y <= 0.0) c = mix(c, ringCol, ringBand * 0.85);
       }
       float m = dot(d, MOON_DIR);
       if (m > 0.99) {
@@ -2036,7 +2109,7 @@ function drawHudCanvas() {
     v3.copy(e.pos).applyMatrix4(camera.matrixWorldInverse);
     const s = project(e.pos), dist = e.pos.distanceTo(P.pos);
     const onScreen = v3.z < 0 && s.x > 20 && s.x < w - 20 && s.y > 20 && s.y < h - 20;
-    const col = e === G.lockTarget ? '#e2363f' : e.isTarget ? '#ff7a33' : e.type === 'wraith' ? '#c08bff' : e.type === 'heavy' ? '#ffb14d' : '#ff8f7a';
+    const col = e === G.lockTarget ? '#e2363f' : e.isTarget ? '#ff7a33' : e.rank === 2 ? '#ffd24d' : e.rank === 1 ? '#ff6fae' : e.type === 'wraith' ? '#c08bff' : e.type === 'heavy' ? '#ffb14d' : '#ff8f7a';
     hctx.save(); hctx.strokeStyle = col; hctx.fillStyle = col; hctx.shadowColor = 'rgba(0,0,0,.85)';
     if (onScreen) {
       const r = clamp((e.r * 1.4) * (h / 2) / (-v3.z * Math.tan(camera.fov * Math.PI / 360)), 9, 60), k = r * 0.45;
@@ -2049,6 +2122,8 @@ function drawHudCanvas() {
       hctx.textAlign = 'center'; hctx.font = '700 15px Karantina, sans-serif';
       hctx.fillText((dist / 1000).toFixed(1), s.x, s.y + r + 11);
       if (e.maxHp && e.hp < e.maxHp) { const bw = Math.max(r * 1.6, 22); hctx.fillRect(s.x - bw / 2, s.y - r - 8, bw * Math.max(0, e.hp / e.maxHp), 3); hctx.strokeRect(s.x - bw / 2, s.y - r - 8, bw, 3); }
+      if (e.shieldMax) { const bw = Math.max(r * 1.6, 22); hctx.save(); hctx.fillStyle = '#c08bff'; hctx.fillRect(s.x - bw / 2, s.y - r - 14, bw * Math.max(0, e.shield / e.shieldMax), 3); hctx.restore(); }
+      if (e.rank) { hctx.font = '700 16px Karantina, sans-serif'; hctx.direction = 'rtl'; hctx.fillText(e.rank === 2 ? `★ ${e.name}` : 'עילית', s.x, s.y - r - (e.shieldMax ? 24 : 16)); hctx.direction = 'ltr'; }
     } else {
       const ang = Math.atan2(v3.y, v3.x);
       hctx.translate(cx + Math.cos(ang) * w * 0.44, cy - Math.sin(ang) * h * 0.4); hctx.rotate(-ang);
@@ -2529,23 +2604,51 @@ function killPlayer() {
   for (const t of contrails.concat(exhaust)) t.mat.uniforms.opacity.value = 0;
   G.state = 'dead'; G.deadT = 3; G.timeScale = 0.35;
 }
-function spawnEnemy(dist, type) {
+function spawnEnemy(dist, type, opts = {}) {
   const w = G.wave;
   if (!type) { const r = Math.random(); type = w >= 3 && r < 0.18 ? 'heavy' : w >= 2 && r < 0.45 ? 'wraith' : 'fighter'; }
   const T = ENEMY_TYPES[type];
   const mesh = T.tpl.clone(); scene.add(mesh);
+  // Threat grows with the wave: more hull, shields, sharper flying and aiming, elites and named aces
+  const skill = clamp((w - 1) / 9, 0, 1);
+  const rank = opts.ace ? 2 : w >= 3 && Math.random() < Math.min(0.06 + w * 0.035, 0.4) ? 1 : 0;
+  const hpMul = (1 + (w - 1) * 0.16) * (rank === 2 ? 2.6 : rank === 1 ? 1.7 : 1);
+  const hpv = Math.round(T.hp * hpMul);
+  const shield = rank === 2 ? 8 + w * 0.6 : rank === 1 ? 3 + w * 0.3 : w >= 6 && Math.random() < 0.25 ? 2 + w * 0.2 : 0;
+  if (shield) { const sh = new THREE.Mesh(shieldGeo, shieldMat.clone()); sh.scale.setScalar(T.r * 1.25 / mesh.scale.x); mesh.add(sh); }
   const a = rand(0, Math.PI * 2), d = dist || rand(900, 1300);
   const pos = new THREE.Vector3(P.pos.x + Math.cos(a) * d, 0, P.pos.z + Math.sin(a) * d);
   pos.y = Math.max(ground(pos.x, pos.z) + 160, P.pos.y + rand(-80, 160));
   mesh.position.copy(pos);
   enemies.push({
     mesh, pos: mesh.position, dir: new THREE.Vector3().copy(P.pos).sub(pos).normalize(),
-    type, score: T.score, speed: Math.min(105 + w * 7, 200) * rand(0.9, 1.1) * T.speed, turn: Math.min(1.1 + w * 0.09, 2.2) * T.turn,
-    hp: T.hp + Math.floor(w / 3), maxHp: T.hp + Math.floor(w / 3), mcd: rand(5, 11), canMsl: w >= 3 || type === 'heavy', flares: w >= 2 ? (type === 'wraith' ? 2 : 1) : 0,
+    type, score: Math.round(T.score * (1 + rank * 1.2)), speed: Math.min(105 + w * 7, 200) * rand(0.9, 1.1) * T.speed * (1 + rank * 0.08), turn: Math.min(1.1 + w * 0.09, 2.2) * T.turn * (1 + rank * 0.15),
+    skill: Math.min(1, skill + rank * 0.25), rank, name: opts.name || null, shield, shieldMax: shield, shT: 0, jinkCd: rand(1, 3), flank: Math.random() < 0.5 ? -1 : 1,
+    hp: hpv, maxHp: hpv, mcd: rand(5, 11), canMsl: w >= 3 || type === 'heavy' || rank > 0, flares: (w >= 2 ? (type === 'wraith' ? 2 : 1) : 0) + rank * 2,
     cd: rand(1.5, 3), bank: 0, wob: rand(0, 10), breakT: 0, breakDir: new THREE.Vector3(), r: T.r,
-    trail: new Trail(22, 1.3 * T.scale, T.trail.clone(), 0.8, true, 0.3),
+    trail: new Trail(22, 1.3 * T.scale * (rank ? 1.4 : 1), rank === 2 ? new THREE.Vector3(9, 5.2, 0.8) : rank === 1 ? new THREE.Vector3(8, 0.6, 2.6) : T.trail.clone(), 0.8, true, 0.3),
     smokeTrail: new Trail(60, 1.2, new THREE.Vector3(0.12, 0.11, 0.11), 0, false, 6)
   });
+}
+const shieldGeo = new THREE.IcosahedronGeometry(1, 2);
+const shieldMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+  uniforms: { hit: { value: 0 }, time: { value: 0 }, col: { value: new THREE.Color(0.9, 0.4, 2.4) } },
+  vertexShader: 'varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vP = position; gl_Position = projectionMatrix * mv; }',
+  fragmentShader: `uniform float hit; uniform float time; uniform vec3 col; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+    void main(){
+      float fr = pow(1.0 - abs(dot(vN, vV)), 3.0);
+      float hex = smoothstep(0.82, 1.0, abs(sin(vP.x * 9.0 + time * 2.0) * sin(vP.y * 9.0) * sin(vP.z * 9.0 - time)));
+      float a = fr * (0.22 + hit * 1.6) + hex * (0.05 + hit * 0.6);
+      gl_FragColor = vec4(col * a, 1.0);
+    }`
+});
+const ACE_NAMES = ['עקרב השחור', 'זאב הדמדומים', 'להב הצל', 'עין הסערה', 'נחש האפר', 'בז הדם', 'כנף הלילה', 'רוח הגחלים'];
+function spawnAce() {
+  const name = ACE_NAMES[(Math.random() * ACE_NAMES.length) | 0];
+  spawnEnemy(1100, Math.random() < 0.6 ? 'wraith' : 'fighter', { ace: true, name });
+  banner('אס בשמיים', name);
+  feed(`אס אויב: ${name}`, 'מגן · נורים', '#ffc94d');
 }
 function spawnBoss() {
   const mesh = makeBoss(); scene.add(mesh);
@@ -2567,6 +2670,7 @@ function nextWave() {
   } else {
     banner(`גל ${G.wave}`, `${3 + G.wave * 2} אויבים בדרך`);
     for (let i = 0; i < 3 + G.wave * 2; i++) spawnEnemy();
+    if (G.wave >= 5) setTimeout(() => { if (G.state === 'play') spawnAce(); }, 3500);
   }
 }
 function removeEnemy(e) {
@@ -2581,14 +2685,24 @@ function killEnemy(e, crashed) {
   G.kills++;
   G.runCoins += crashed ? 3 : COIN[e.type] || 6;
   if (!crashed) buzz(25);
-  if (crashed) feed(`${name} התרסק`, `+${pts}`, '#ff7a33');
-  else { feed(`הפלת ${name}`, `+${pts}`, '#ff8f7a'); showKill(name, pts); }
+  if (!crashed && e.rank) { G.runCoins += e.rank === 2 ? 60 : 15; if (e.rank === 2) { banner('האס הופל', e.name || ''); shockwave(e.pos, 60); dropOrb(e.pos, 'shield'); } }
+  const label = e.rank === 2 ? `האס ${e.name}` : e.rank === 1 ? `${name} עילית` : name;
+  if (crashed) feed(`${label} התרסק`, `+${pts}`, '#ff7a33');
+  else { feed(`הפלת ${label}`, `+${pts}`, e.rank === 2 ? '#ffc94d' : e.rank === 1 ? '#ff6fae' : '#ff8f7a'); showKill(label, pts); }
   if (!crashed) {
     G.streak = G.streakT > 0 ? G.streak + 1 : 1; G.streakT = 3.5;
     if (G.streak >= 2) showStreak(['', '', 'הפלה כפולה', 'הפלה משולשת', 'הפלה מרובעת'][G.streak] || 'השתוללות ×' + G.streak);
     if (Math.random() < (e.type === 'heavy' ? 0.9 : 0.28)) dropOrb(e.pos, P.hp < 40 && Math.random() < 0.6 ? 'hp' : null);
   }
   removeEnemy(e);
+}
+function jink(e, threatDir) {
+  if (e.jinkCd > 0 || e.breakT > 0) return;
+  aiR.crossVectors(threatDir, YAXIS).normalize();
+  e.breakDir.copy(aiR).multiplyScalar(Math.random() < 0.5 ? 1 : -1).addScaledVector(e.dir, 0.5).add(v4.set(0, rand(-0.5, 0.6), 0)).normalize();
+  e.breakT = rand(0.45, 0.8);
+  e.jinkCd = rand(1.4, 3) * (1.3 - e.skill * 0.6);
+  e.boostT = 0.8;
 }
 function hurtEnemy(e, d) {
   if (e.isTarget) {
@@ -2597,8 +2711,21 @@ function hurtEnemy(e, d) {
     if (e.hp <= 0 && gtargets.includes(e)) destroyTarget(e);
     return;
   }
+  if (e.shield > 0) {
+    e.shield -= d; e.shT = 0; hitMarker();
+    const sh = e.mesh.children[e.mesh.children.length - 1];
+    if (sh && sh.material.uniforms) sh.material.uniforms.hit.value = 1;
+    for (let i = 0; i < 4; i++) fire.spawn(e.pos.x, e.pos.y, e.pos.z, rand(-60, 60), rand(-60, 60), rand(-60, 60), 0.3, 2.4, 0.4, C.arcane, C.embB, 1, 1);
+    if (e.shield <= 0) {
+      e.shield = 0; sfx.hit();
+      for (let i = 0; i < 40; i++) { v1.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(40, 110)); fire.spawn(e.pos.x, e.pos.y, e.pos.z, v1.x, v1.y, v1.z, rand(0.4, 0.8), 3, 0.5, C.arcane, C.embB, 1, 1.5); }
+      shockwave(e.pos, 22); popup('המגן נשבר', e.pos, '#c08bff');
+    } else sfxTone('sine', 1400, 900, 0.06, 0.03);
+    if (Math.random() < e.skill * 0.5) jink(e, v1.copy(e.pos).sub(P.pos));
+    return;
+  }
   e.hp -= d; hitMarker(); sfx.hit();
-  if (e !== boss) e.bank += rand(-0.7, 0.7);
+  if (e !== boss) { e.bank += rand(-0.7, 0.7); if (Math.random() < e.skill * 0.35) jink(e, v1.copy(e.pos).sub(P.pos)); }
   for (let i = 0; i < 6; i++) fire.spawn(e.pos.x, e.pos.y, e.pos.z, rand(-50, 50), rand(-50, 50), rand(-50, 50), 0.35, 2.2, 0.4, C.spark, C.sparkB, 1, 1);
   if (e === boss) { if (e.hp <= 0 && !e.dying) { e.dying = 2.4; G.lockTarget = null; G.timeScale = 0.3; } return; }
   if (e.hp > 0 && e.hp <= 2) e.smokeTrail.mat.uniforms.opacity.value = 0.7;
@@ -2628,7 +2755,7 @@ function fireMissile() {
   m.alive = true; m.mesh.visible = true; m.life = 6; m.age = 0;
   m.pos.copy(v1);
   m.vel.copy(fwd).multiplyScalar(P.speed).addScaledVector(up, -15);
-  m.target = G.lockT >= U.lockTime ? G.lockTarget : null;
+  m.target = G.lockT >= U.lockTime ? G.lockTarget : null; m.dodged = false;
   m.flareChecked = false;
   m.trail = new Trail(90, 2.0, new THREE.Vector3(0.95, 0.95, 0.95), 0.8, false, 7);
   m.glow = new Trail(14, 1.2, new THREE.Vector3(10, 5, 1.8), 0.95, true, 0.3);
@@ -2769,6 +2896,7 @@ function spawnMissionWave() {
   G.mWave++;
   banner(`גל ${G.mWave}/${M.goal}`, `${n} אויבים בדרך`);
   for (let i = 0; i < n; i++) spawnEnemy();
+  if (M.diff >= 4 && G.mWave === M.goal) setTimeout(() => { if (G.state === 'play') spawnAce(); }, 3000);
 }
 function updateMission(dt) {
   const M = G.mission;
@@ -3314,7 +3442,22 @@ function updateEnemies(dt) {
       e.breakDir.copy(aiR).multiplyScalar(Math.random() < 0.5 ? 1 : -1).add(v4.set(0, rand(0.1, 0.5), 0)).normalize();
     }
     let want = e.speed;
-    if (e.breakT > 0) { e.breakT -= dt; desired.copy(e.breakDir); }
+    e.jinkCd -= dt;
+    if (e.shieldMax && e.shield < e.shieldMax && (e.shT += dt) > 6) e.shield = Math.min(e.shieldMax, e.shield + dt * 1.5);
+    const shM = e.shieldMax ? e.mesh.children[e.mesh.children.length - 1] : null;
+    if (shM && shM.material.uniforms) { const u = shM.material.uniforms; u.hit.value = Math.max(0, u.hit.value - dt * 3); u.time.value = G.time; shM.visible = e.shield > 0; }
+    if (e.skill > 0 && P.alive && dist < 650 && e.breakT <= 0 && e.jinkCd <= 0) {
+      const inSights = -toP.dot(fwd) / dist > 0.985;
+      if (inSights && Math.random() < e.skill * dt * 4) jink(e, toP);
+    }
+    if (e.skill > 0.2 && e.breakT <= 0) for (const m of missiles) {
+      if (!m.alive || m.target !== e || m.dodged) continue;
+      const md = m.pos.distanceTo(e.pos);
+      if (md < 260) { m.dodged = true; if (Math.random() < e.skill * 0.55) { e.jinkCd = 0; jink(e, m.vel || toP); e.breakT = 1.1; } }
+    }
+    if (e.boostT > 0) { e.boostT -= dt; want *= 1.35; }
+    if (e.rank && G.frame % 3 === 0) { const c = e.rank === 2 ? C.gold : C.pink; fire.spawn(e.pos.x + rand(-3, 3), e.pos.y + rand(-3, 3), e.pos.z + rand(-3, 3), rand(-6, 6), rand(-6, 6), rand(-6, 6), 0.6, 2.2, 0.3, c, c, 0.9, 1); }
+    if (e.breakT > 0) { e.breakT -= dt; desired.copy(e.breakDir); if (e.boostT > 0) want *= 1.35; }
     else if (dist > 1100) { desired.copy(toP).normalize(); want = Math.max(e.speed * 1.25, P.speed * 1.2); }
     else if (e.run) {
       aiR.crossVectors(fwd, YAXIS).normalize();
@@ -3325,7 +3468,9 @@ function updateEnemies(dt) {
       if (gap < 220) desired.multiplyScalar(gap / 220).addScaledVector(fwd, 1).addScaledVector(aiR, Math.sin(e.wob * 1.6) * 0.5);
       want = ahead > 0.4 ? P.speed * (dist < 250 ? 1.08 : dist > 450 ? 0.85 : 0.96) : Math.max(e.speed * 1.2, P.speed * 1.6);
     } else {
-      desired.copy(P.pos).addScaledVector(fwd, P.speed * Math.min(dist / 450, 1.5)).sub(e.pos).normalize();
+      desired.copy(P.pos).addScaledVector(fwd, P.speed * Math.min(dist / 450, 1.5));
+      if (e.skill > 0.25 && dist > 220) desired.addScaledVector(right, e.flank * Math.min(dist - 220, 320) * e.skill);
+      desired.sub(e.pos).normalize();
       desired.x += Math.sin(e.wob * 0.9) * 0.2; desired.y += Math.cos(e.wob * 0.7) * 0.12; desired.z += Math.cos(e.wob * 1.1) * 0.2;
       if (ahead < 0) want = Math.max(e.speed, P.speed * 1.1);
     }
@@ -3349,9 +3494,9 @@ function updateEnemies(dt) {
     }
     e.cd -= dt;
     if (P.alive && G.state === 'play' && dist < 700 && e.cd <= 0 && e.dir.dot(toP) / dist > 0.95) {
-      e.cd = Math.max(0.5, rand(1.0, 1.8) - G.wave * 0.05);
-      const aim = new THREE.Vector3().copy(P.pos).addScaledVector(fwd, P.speed * dist / 450).sub(e.pos).normalize();
-      for (let k = 0; k < 3; k++) setTimeout(() => { if (enemies.includes(e) && G.state === 'play') enemyShoot(e.pos, aim.clone().add(new THREE.Vector3(rand(-.02, .02), rand(-.02, .02), rand(-.02, .02))).normalize(), 450, 6); }, k * 90);
+      e.cd = Math.max(0.5, rand(1.0, 1.8) - G.wave * 0.05) * (1 - e.rank * 0.15);
+      const aim = new THREE.Vector3().copy(P.pos).addScaledVector(fwd, P.speed * dist / 450).sub(e.pos).normalize(), sp = 0.024 - e.skill * 0.012;
+      for (let k = 0; k < 3 + e.rank; k++) setTimeout(() => { if (enemies.includes(e) && G.state === 'play') enemyShoot(e.pos, aim.clone().add(new THREE.Vector3(rand(-sp, sp), rand(-sp, sp), rand(-sp, sp))).normalize(), 450, 6); }, k * 90);
       sfx.enemyShot();
     }
     if (dist < 260 && toP.dot(fwd) > 0 && e.dir.dot(toP) / dist > 0.8) tail = true;
@@ -3520,7 +3665,8 @@ function addFireSite(x, z, life) {
 function launchMeteor() {
   const impact = G.state !== 'menu' && Math.random() < 0.35;
   const yaw = P.yaw + rand(-1.1, 1.1), fx = -Math.sin(yaw), fz = -Math.cos(yaw), a = rand(0, 6.28);
-  const m = { p: new THREE.Vector3(), v: new THREE.Vector3(), impact, k: impact ? 1.3 : rand(0.5, 1), life: impact ? 9 : rand(1.1, 1.8) };
+  const pal = impact ? [C.hot, C.embA] : [[C.hot, C.embA], [C.pink, C.embB], [C.cyan, C.moteC], [C.gold, C.pink]][(Math.random() * 4) | 0];
+  const m = { p: new THREE.Vector3(), v: new THREE.Vector3(), impact, c0: pal[0], c1: pal[1], k: impact ? 1.3 : rand(0.5, 1), life: impact ? 9 : rand(1.1, 1.8) };
   if (impact) {
     const d = rand(800, 1500), tx = P.pos.x + fx * d, tz = P.pos.z + fz * d;
     m.v.set(Math.cos(a) * 0.8, -0.6, Math.sin(a) * 0.8).normalize();
@@ -3550,14 +3696,14 @@ function updateFX(dt) {
   for (let i = 0; i < crystalMats.length; i++) crystalMats[i].color.copy(crystalBase[i]).multiplyScalar(0.7 + 0.45 * Math.max(0, Math.sin(G.time * (1.1 + i * 0.37) + i * 2.1)) ** 2);
   // Meteors and shooting stars
   FX.metT -= dt;
-  if (FX.metT <= 0) { FX.metT = rand(2.5, 6.5); launchMeteor(); }
+  if (FX.metT <= 0) { FX.metT = rand(1.5, 4.5); launchMeteor(); }
   for (let i = FX.meteors.length - 1; i >= 0; i--) {
     const m = FX.meteors[i], k = m.k;
     m.life -= dt;
     m.p.addScaledVector(m.v, dt);
     for (let s = 0; s < 3; s++) {
       const f = s / 3 * dt;
-      fire.spawn(m.p.x - m.v.x * f, m.p.y - m.v.y * f, m.p.z - m.v.z * f, m.v.x * 0.04, m.v.y * 0.04, m.v.z * 0.04, rand(0.35, 0.6) * (m.impact ? 1.7 : 1), 16 * k, 3 * k, C.hot, C.embA, 0.9, 1.5, 0);
+      fire.spawn(m.p.x - m.v.x * f, m.p.y - m.v.y * f, m.p.z - m.v.z * f, m.v.x * 0.04, m.v.y * 0.04, m.v.z * 0.04, rand(0.35, 0.6) * (m.impact ? 1.7 : 1), 16 * k, 3 * k, m.c0, m.c1, 0.9, 1.5, 0);
     }
     fire.spawn(m.p.x, m.p.y, m.p.z, 0, 0, 0, 0.05, 30 * k, 20 * k, C.white, C.hot, 1);
     if (m.impact && G.frame % 2 === 0) smoke.spawn(m.p.x, m.p.y, m.p.z, 0, 0, 0, rand(3, 5), 10, 50, C.smokeD, C.smokeL, 0.45, 0.3, -2);
