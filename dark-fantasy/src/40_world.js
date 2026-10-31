@@ -107,7 +107,7 @@ const ironMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.5
   const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
   const pos = g.attributes.position, cols = new Float32Array(pos.count * 3);
   const C = (h) => new THREE.Color(h);
-  const cGrass = C(0x2a2b22), cDirt = C(0x37302a), cAsh = C(0x57524c), cPath = C(0x463b31), cMud = C(0x17130f), cBlood = C(0x331a17), cStone = C(0x4a4642), t = new THREE.Color();
+  const cGrass = C(0x3b4232), cDirt = C(0x4b3f34), cAsh = C(0x6a655e), cPath = C(0x5e4d3c), cMud = C(0x1d1914), cBlood = C(0x4a2420), cStone = C(0x5c5852), t = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, heightAt(x, z));
     const n = fbm(x * 0.045 + 10, z * 0.045), n2 = fbm(x * 0.13, z * 0.13 + 5), n3 = fbm(x * 0.03 - 40, z * 0.03 + 9);
@@ -121,7 +121,7 @@ const ironMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.5
   }
   g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, map: withRepeat(groundTex, 75, 75), normalMap: withRepeat(groundN, 75, 75), normalScale: new V2(1.7, 1.7), envMapIntensity: 0.5 });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, map: withRepeat(groundTex, 75, 75), normalMap: withRepeat(groundN, 75, 75), normalScale: new V2(1.0, 1.0), envMapIntensity: 0.5 });
   const ground = new THREE.Mesh(g, mat); ground.receiveShadow = true; scene.add(ground);
 }
 
@@ -267,7 +267,7 @@ let grassMesh = null, grassTotal = 0;
       d.position.set(x, y - 0.04, z); d.rotation.set(R(-.35, .35), rand() * TAU, R(-.35, .35));
       const s = R(0.6, 1.5); d.scale.set(s, s * (reed ? R(1.8, 2.8) : R(0.7, 1.4)), s); d.updateMatrix();
       im.setMatrixAt(i, d.matrix);
-      if (reed) c.setHSL(R(0.12, 0.17), R(0.15, 0.3), R(0.07, 0.12)); else c.setHSL(hue + R(-0.015, 0.015), R(0.18, 0.38), R(0.08, 0.17));
+      if (reed) c.setHSL(R(0.12, 0.17), R(0.15, 0.3), R(0.07, 0.12)); else c.setHSL(hue + R(-0.02, 0.03), R(0.25, 0.45), R(0.15, 0.27));
       im.setColorAt(i, c); i++;
     }
   }
@@ -571,9 +571,9 @@ const cages = [];
 // Road lanterns
 // =====================================================================
 {
-  const glass = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.1, 0.35) });
+  const glass = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 1.8, 0.6) });
   const deadGlass = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
-  const posts = new THREE.Group();
+  const posts = new THREE.Group(), lightPools = [];
   paths.forEach((p, pi) => {
     for (let k = 4; k < p.length - 2; k += 6) {
       const a = p[k], b = p[k + 1], dir = b.clone().sub(a).normalize(), side = (k / 6) % 2 ? 1 : -1;
@@ -582,11 +582,20 @@ const cages = [];
       addMesh(g, new THREE.BoxGeometry(0.16, 2.6, 0.16), woodMat, 0, 1.3, 0);
       addMesh(g, new THREE.BoxGeometry(0.1, 0.1, 0.7), woodMat, 0, 2.5, 0.3);
       addMesh(g, new THREE.BoxGeometry(0.22, 0.32, 0.22), ironMat, 0, 2.15, 0.6);
-      addMesh(g, new THREE.BoxGeometry(0.15, 0.22, 0.15), rand() < 0.75 ? glass : deadGlass, 0, 2.15, 0.6, false);
+      const lit = rand() < 0.8; addMesh(g, new THREE.BoxGeometry(0.15, 0.22, 0.15), lit ? glass : deadGlass, 0, 2.15, 0.6, false);
+      if (lit) { g.updateMatrixWorld(true); lightPools.push(new V3(0, 0, 0.6).applyMatrix4(g.matrixWorld)); }
       posts.add(g);
     }
   });
   posts.updateMatrixWorld(true); scene.add(flatten(posts));
+  // warm pools of light on the road under each lantern (cheap decals, no extra lights)
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const pm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: new THREE.Color(1.0, 0.5, 0.18), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
+  const pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(6, 6).rotateX(-Math.PI / 2), pm, lightPools.length);
+  lightPools.forEach((p, i) => pools.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, heightAt(p.x, p.z) + 0.06, p.z)));
+  pools.renderOrder = 2; scene.add(pools);
 }
 
 // candles: instanced bodies + flickering flames

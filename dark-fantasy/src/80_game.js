@@ -348,7 +348,7 @@ function updateWorld(dt) {
   // storm
   lightningT -= dt;
   if (lightningT <= 0) { lightningT = R(10, 24); flash = R(0.6, 1.1); setTimeout(() => { flash = Math.max(flash, 0.8); }, 120); setTimeout(() => AudioFX.thunder(R(0.5, 1)), R(600, 1900)); }
-  flash = Math.max(0, flash - dt * 2.8); skyMat.uniforms.uFlash.value = flash; hemi.intensity = 0.5 + flash * 2.2;
+  flash = Math.max(0, flash - dt * 2.8); skyMat.uniforms.uFlash.value = flash; hemi.intensity = 0.8 + flash * 2.2;
   // the throne wakes when the knight returns
   if (litCount >= SHRINE_COUNT && !kingActive && state === 'play' && Math.hypot(P.position.x, P.position.z) < 17) {
     kingActive = true; king.wake(); AudioFX.bossMusic(true); $('bossBar').classList.add('on');
@@ -374,7 +374,7 @@ function updateCamera(dt) {
   const right = new V3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(IS_TOUCH ? 0.2 : 0.5);
   tgt.add(right);
   camTarget.lerp(tgt, 1 - Math.exp(-14 * dt));
-  const dist = (won ? camDist * 1.6 : camDist) + bossD;
+  const dist = (won ? camDist * 1.6 : camDist) * (camera.aspect < 1 ? 0.78 : 1) + bossD;
   const off = new V3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(dist);
   const want = camTarget.clone().add(off);
   want.y = Math.max(want.y, groundAt(want.x, want.z) + 0.5);
@@ -490,7 +490,7 @@ $('startBtn').addEventListener('click', () => {
 // ---- pause menu & quality ----
 const QUALITY = {
   low: { pr: Math.min(devicePixelRatio, 0.85), shadow: 1024, grass: 0.35, bloom: false },
-  medium: { pr: Math.min(devicePixelRatio, 1.25), shadow: 2048, grass: 0.7, bloom: true },
+  medium: { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, grass: 0.7, bloom: true },
   high: { pr: Math.min(devicePixelRatio, 1.75), shadow: 4096, grass: 1, bloom: true },
 };
 function applyQuality(q) {

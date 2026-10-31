@@ -176,7 +176,7 @@ const Cape = (() => {
     if (r < CH - 1 && c < CW - 1) { cons.push([i, i + CW + 1, Math.hypot(w(r), dy)]); cons.push([i + 1, i + CW, Math.hypot(w(r), dy)]); }
     if (r < CH - 2) cons.push([i, i + 2 * CW, dy * 2]);
   }
-  const tmp = new V3(), anchors = anchorLocal.map(() => new V3()), spheres = [];
+  const tmp = new V3(), lp = new V3(), invT = new THREE.Matrix4(), anchors = anchorLocal.map(() => new V3()), spheres = [];
   let ready = false;
   function place() {
     KP.torso.updateWorldMatrix(true, false);
@@ -196,6 +196,7 @@ const Cape = (() => {
     spheres.push([new V3(0, 0.08, 0.0).applyMatrix4(KP.torso.matrixWorld), 0.32]);
     spheres.push([new V3(0, -0.2, 0).applyMatrix4(KP.hips.matrixWorld), 0.42]);
     for (const L of KP.legs) { L.th.updateWorldMatrix(true, false); spheres.push([new V3(0, -0.3, -0.02).applyMatrix4(L.th.matrixWorld), 0.17]); }
+    invT.copy(KP.torso.matrixWorld).invert();
     const sub = 2, h = Math.min(dt, 1 / 30) / sub, wind = Math.sin(time * 0.7) * 0.6 + Math.sin(time * 2.3) * 0.25;
     for (let s = 0; s < sub; s++) {
       for (let i = 0; i < N; i++) {
@@ -219,6 +220,10 @@ const Cape = (() => {
             const dx = p[j] - c.x, dyy = p[j + 1] - c.y, dz = p[j + 2] - c.z, d = Math.sqrt(dx * dx + dyy * dyy + dz * dz);
             if (d < r && d > 1e-5) { const k = r / d; p[j] = c.x + dx * k; p[j + 1] = c.y + dyy * k; p[j + 2] = c.z + dz * k; }
           }
+          // keep the cloth behind the back and below the shoulders (never over the helm)
+          lp.set(p[j], p[j + 1], p[j + 2]).applyMatrix4(invT);
+          const row = Math.floor(i / CW), maxZ = -0.22 - row * 0.012;
+          if (lp.z > maxZ || lp.y > 0.58) { lp.z = Math.min(lp.z, maxZ); lp.y = Math.min(lp.y, 0.58); lp.applyMatrix4(KP.torso.matrixWorld); p[j] = lp.x; p[j + 1] = lp.y; p[j + 2] = lp.z; }
           const gy = heightAt(p[j], p[j + 2]) + 0.03; if (p[j + 1] < gy) p[j + 1] = gy;
         }
       }
