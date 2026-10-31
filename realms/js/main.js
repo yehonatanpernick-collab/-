@@ -135,8 +135,8 @@ addEventListener('mousemove', e => {
 });
 addEventListener('wheel', e => { if (state === 'play') camDist = THREE.MathUtils.clamp(camDist + e.deltaY * 0.01, 5, 16); }, { passive: true });
 let lockGrace = 0;
-const lock = () => { lockGrace = performance.now() + 800; lock(); };
-const unlock = () => { lockGrace = performance.now() + 800; unlock(); };
+const lock = () => { lockGrace = performance.now() + 800; if (!isTouch) canvas.requestPointerLock?.(); };
+const unlock = () => { lockGrace = performance.now() + 800; document.exitPointerLock?.(); };
 document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && !isTouch && performance.now() > lockGrace) pause(); });
 
 // touch / pointer controls
