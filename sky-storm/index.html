@@ -466,17 +466,54 @@ tGeo.rotateX(-Math.PI / 2);
 const tPos = tGeo.attributes.position, tNor = tGeo.attributes.normal;
 const tCol = new Float32Array(TCOUNT * 3);
 tGeo.setAttribute('color', new THREE.BufferAttribute(tCol, 3));
+function tileNoise(x, y, px, py) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const g = (a, b) => hash(((a % px) + px) % px, ((b % py) + py) % py);
+  const A = g(xi, yi), B = g(xi + 1, yi), Cc = g(xi, yi + 1), D = g(xi + 1, yi + 1);
+  return A + (B - A) * u + (Cc - A) * v + (A - B - Cc + D) * u * v;
+}
+function makeDetailTex(kind) {
+  const S = LOW ? 256 : 512, d = new Uint8Array(S * S * 4);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let v = 0, amp = 0.5, p = 8;
+    for (let o = 0; o < 5; o++) { v += tileNoise(x / S * p, y / S * p, p, p) * amp; p *= 2; amp *= 0.5; }
+    if (kind === 'grass') {
+      // tufts and short blade streaks over soft mottling
+      v = v * 0.6 + tileNoise(x / S * 128, y / S * 32, 128, 32) * 0.25 + tileNoise(x / S * 256, y / S * 256, 256, 256) * 0.15;
+    } else {
+      // layered rock with fine cracks
+      const cr = Math.abs(tileNoise(x / S * 12, y / S * 12, 12, 12) - 0.5);
+      v = v * 0.85 + Math.sin((y / S + v * 0.15) * Math.PI * 2 * 9) * 0.06;
+      if (cr < 0.025) v *= 0.55 + cr * 12;
+    }
+    const b = clamp(v, 0, 1) * 255, i = (y * S + x) * 4;
+    d[i] = d[i + 1] = d[i + 2] = b; d[i + 3] = 255;
+  }
+  const t = new THREE.DataTexture(d, S, S, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.needsUpdate = true;
+  return t;
+}
+const grassTex = makeDetailTex('grass'), rockTex = makeDetailTex('rock');
 const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.55 });
 const terrainTime = { value: 0 };
 terrainMat.extensions = { derivatives: true };
 terrainMat.onBeforeCompile = sh => {
   sh.uniforms.uTime = terrainTime;
+  sh.uniforms.grassTex = { value: grassTex };
+  sh.uniforms.rockTex = { value: rockTex };
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvTN = normal;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;\nuniform float uTime;\n' + GLSL_NOISE)
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;\nuniform float uTime;\nuniform sampler2D grassTex;\nuniform sampler2D rockTex;\n' + GLSL_NOISE)
     .replace('#include <color_fragment>', `#include <color_fragment>
       float dn = vnoise(vTW.xz * 0.018) * 0.55 + vnoise(vTW.xz * 0.09) * 0.45;
       diffuseColor.rgb *= 0.78 + 0.4 * dn;
+      vec3 tnN = normalize(vTN);
+      float gD = texture2D(grassTex, vTW.xz * 0.055).r * 0.65 + texture2D(grassTex, vTW.xz * 0.011).r * 0.35;
+      vec3 bw = pow(abs(tnN), vec3(4.0)); bw /= (bw.x + bw.y + bw.z);
+      float rD = texture2D(rockTex, vTW.zy * 0.035).r * bw.x + texture2D(rockTex, vTW.xz * 0.035).r * bw.y + texture2D(rockTex, vTW.xy * 0.035).r * bw.z;
+      float detail = mix(gD, rD, smoothstep(0.2, 0.42, 1.0 - tnN.y));
+      diffuseColor.rgb *= 0.55 + 0.9 * detail;
       float tDist = length(vViewPosition);
       float rockMask = smoothstep(0.22, 0.42, 1.0 - normalize(vTN).y) * smoothstep(900.0, 150.0, tDist);
       float strata = 0.5 + 0.5 * sin(vTW.y * 0.42 + vnoise(vTW.xz * 0.015) * 7.0);
@@ -484,10 +521,12 @@ terrainMat.onBeforeCompile = sh => {
       float shore = smoothstep(2.4, 0.5, vTW.y) * smoothstep(-0.3, 0.5, vTW.y);
       float surf = 0.5 + 0.5 * sin(vTW.x * 0.07 + vTW.z * 0.05 + uTime * 1.6);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.88, 0.86), shore * (0.3 + 0.45 * surf));`)
+    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor = mix(roughnessFactor, 0.42, smoothstep(0.7, 0.9, dot(vColor, vec3(0.3, 0.5, 0.2))));`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       {
         float bmpFade = smoothstep(700.0, 150.0, length(vViewPosition));
-        float hh = (vnoise(vTW.xz * 0.08) * 2.6 + vnoise(vTW.xz * 0.33) * 0.35) * bmpFade;
+        float hh = (vnoise(vTW.xz * 0.08) * 2.2 + detail * 1.4) * bmpFade;
         vec3 bmpSx = dFdx(-vViewPosition), bmpSy = dFdy(-vViewPosition);
         vec3 bmpR1 = cross(bmpSy, normal), bmpR2 = cross(normal, bmpSx);
         float bmpDet = dot(bmpSx, bmpR1);
@@ -543,6 +582,8 @@ function shadeRows(r0, r1) {
     tA.lerp(TC.snow, smooth(610, 670, h + n1 * 60) * (1 - smooth(0.42, 0.6, slope)));
     tA.lerp(TC.sand, smooth(9, 3, h));
     if (h < 0.5) tA.copy(TC.sandW);
+    const curv = (H[iy * TN + Math.max(ix - 3, 0)] + H[iy * TN + Math.min(ix + 3, T_SEG)] + H[Math.max(iy - 3, 0) * TN + ix] + H[Math.min(iy + 3, T_SEG) * TN + ix]) * 0.25 - h;
+    tA.multiplyScalar(clamp(1 - curv * 0.01, 0.62, 1.12));
     col[i * 3] = tA.r; col[i * 3 + 1] = tA.g; col[i * 3 + 2] = tA.b;
   }
 }
@@ -590,6 +631,17 @@ for (let i = 0; i < MAX_ROCKS; i++) rocks.setColorAt(i, rockCols[i % rockCols.le
 foliage.frustumCulled = broad.frustumCulled = trunks.frustumCulled = rocks.frustumCulled = false;
 rocks.receiveShadow = true;
 scene.add(foliage, broad, trunks, rocks);
+function treeSway(sh) {
+  sh.uniforms.uTime = terrainTime;
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;')
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+        float swPh = instanceMatrix[3].x * 0.05 + instanceMatrix[3].z * 0.07;
+        transformed.x += sin(uTime * 1.6 + swPh) * 0.035 * position.y * position.y;
+        transformed.z += cos(uTime * 1.3 + swPh) * 0.025 * position.y * position.y;
+      #endif`);
+}
+foliage.material.onBeforeCompile = broad.material.onBeforeCompile = treeSway;
 const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tsv = new THREE.Vector3(), tpv = new THREE.Vector3(), teu = new THREE.Euler(), YAXIS = new THREE.Vector3(0, 1, 0);
 function placeTrees() {
   const STEP = 30, R = LOW ? 1500 : 2100, cx = job.cx, cz = job.cz;
@@ -671,6 +723,13 @@ waterNormals.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const water = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({
   color: LIN(0x0c2034), roughness: 0.05, metalness: 0.05, normalMap: waterNormals, normalScale: new THREE.Vector2(0.28, 0.28), envMapIntensity: 1.2
 }));
+const waveOff = { value: new THREE.Vector2() };
+water.material.onBeforeCompile = sh => {
+  sh.uniforms.uWave = waveOff;
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec2 uWave;')
+    .replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace('vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;',
+      'vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0 + texture2D( normalMap, vUv * 0.43 + uWave ).xyz * 2.0 - 1.0;'));
+};
 water.rotation.x = -Math.PI / 2;
 water.position.y = 0.3;
 water.receiveShadow = true;
@@ -1167,6 +1226,8 @@ function makeJet(o) {
   const g = new THREE.Group();
   const mBody = new THREE.MeshPhysicalMaterial({ color: LIN(o.body), metalness: 0.45, roughness: 0.38, map: panelTex, clearcoat: 0.8, clearcoatRoughness: 0.12 });
   const mWing = mBody.clone(); mWing.map = panelWingTex;
+  mBody.bumpMap = panelTex; mWing.bumpMap = panelWingTex;
+  mBody.bumpScale = mWing.bumpScale = 0.025;
   const mAcc = new THREE.MeshStandardMaterial({ color: LIN(o.accent), metalness: 0.4, roughness: 0.45, emissive: o.emissive || new THREE.Color(0, 0, 0) });
   const mDark = new THREE.MeshStandardMaterial({ color: LIN(o.dark), metalness: 0.5, roughness: 0.55 });
   const mGlass = new THREE.MeshStandardMaterial({ color: LIN(o.glass), metalness: 1, roughness: 0.04, envMapIntensity: 2.2 });
@@ -2786,6 +2847,7 @@ function updateWorld() {
   stepTerrain(LOW ? 3500 : 6000);
   water.position.x = Math.round(P.pos.x / 140) * 140; water.position.z = Math.round(P.pos.z / 140) * 140;
   waterNormals.offset.set(G.time * 0.006, G.time * 0.004);
+  waveOff.value.set(-G.time * 0.009, G.time * 0.006);
   sky.position.copy(camera.position);
   for (let c = 0; c < CLUSTERS; c++) {
     const v = cloudClusters[c], d = Math.hypot(v.x - P.pos.x, v.z - P.pos.z);
