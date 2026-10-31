@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>משמר האפר — Ashen Vigil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=Frank+Ruhl+Libre:wght@300;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blood: #8e1a1a; --blood-hi: #d0342c; --ember: #ff8a3a; --gold: #b8955a; --gold-dim: #6b5634;
+    --bone: #d8cdb8; --ink: #07050a; --violet: #8a4dff;
+    --serif: 'Frank Ruhl Libre', 'David Libre', 'Times New Roman', serif;
+    --latin: 'Cinzel', 'Times New Roman', serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: var(--serif); color: var(--bone); user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ---------- loading ---------- */
+  #loading { position: fixed; inset: 0; background: #000; display: grid; place-items: center; z-index: 50; transition: opacity 1.2s; font-family: var(--latin); letter-spacing: .5em; color: var(--gold-dim); }
+  #loading.hide { opacity: 0; pointer-events: none; }
+
+  /* ---------- title ---------- */
+  #title { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; transition: opacity 1s, transform 1.2s; background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.75) 100%); }
+  #title.hide { opacity: 0; pointer-events: none; transform: scale(1.05); }
+  .sigil { font-size: 34px; color: var(--blood-hi); text-shadow: 0 0 18px #ff2a1a; margin-bottom: 4px; animation: pulse 3s ease-in-out infinite; }
+  #title h1 { margin: 0; font-weight: 900; font-size: clamp(54px, 10vw, 128px); letter-spacing: .04em; line-height: 1;
+    background: linear-gradient(180deg, #f3e6cc 0%, #c9a874 45%, #6b3c22 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(200,40,20,.45)) drop-shadow(0 4px 2px #000); }
+  #title .en { font-family: 'Cinzel Decorative', var(--latin); letter-spacing: .6em; font-size: clamp(13px, 1.6vw, 20px); color: var(--gold); margin: 12px 0 0; padding-right: .6em; direction: ltr; }
+  .divider { width: min(420px, 70vw); height: 14px; margin: 22px 0; background:
+    linear-gradient(90deg, transparent, var(--gold-dim) 30%, var(--gold) 50%, var(--gold-dim) 70%, transparent) center/100% 1px no-repeat; position: relative; }
+  .divider::after { content: '✦'; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-52%); color: var(--gold); font-size: 13px; background: transparent; text-shadow: 0 0 8px #000, 0 0 4px #000; }
+  .lore { max-width: 560px; text-align: center; font-size: clamp(15px, 1.6vw, 19px); line-height: 1.7; color: #b9ab95; font-weight: 300; padding: 0 20px; text-shadow: 0 2px 6px #000; }
+  .btn { margin-top: 30px; font-family: var(--serif); font-weight: 700; font-size: 22px; letter-spacing: .12em; color: var(--bone);
+    background: linear-gradient(180deg, rgba(60,14,14,.85), rgba(20,6,8,.9)); border: 1px solid var(--gold-dim); padding: 13px 54px; cursor: pointer; position: relative;
+    box-shadow: inset 0 0 18px rgba(0,0,0,.8), 0 0 30px rgba(140,20,20,.25); transition: all .25s; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); }
+  .btn:hover { color: #fff; border-color: var(--gold); box-shadow: inset 0 0 18px rgba(0,0,0,.6), 0 0 40px rgba(220,50,30,.5); background: linear-gradient(180deg, rgba(110,20,18,.9), rgba(40,8,8,.95)); letter-spacing: .18em; }
+  .btn.ghost { background: rgba(10,6,8,.6); font-size: 17px; padding: 10px 40px; margin-top: 14px; }
+  .controls { margin-top: 34px; display: grid; grid-template-columns: repeat(4, auto); gap: 10px 26px; font-size: 14px; color: #8f8270; }
+  .controls b { font-family: var(--latin); color: var(--gold); font-weight: 600; margin-left: 6px; font-size: 12px; border: 1px solid #3a3022; padding: 2px 6px; background: rgba(0,0,0,.4); }
+  #bestTitle { margin-top: 18px; color: var(--gold-dim); font-size: 14px; letter-spacing: .1em; }
+  body.touch .controls { display: none; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: 0; transition: opacity .8s; }
+  #hud.show { opacity: 1; }
+  .bars { position: absolute; top: max(22px, env(safe-area-inset-top)); right: 26px; display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .bar { position: relative; height: 14px; background: rgba(5,3,4,.75); border: 1px solid #4a3c28; box-shadow: 0 0 0 1px #000, inset 0 0 6px #000; transition: width .4s; }
+  .bar::before, .bar::after { content: ''; position: absolute; top: 50%; width: 7px; height: 7px; border: 1px solid var(--gold); background: #120c08; transform: translateY(-50%) rotate(45deg); z-index: 2; }
+  .bar::before { right: -5px; } .bar::after { left: -5px; }
+  .fill { position: absolute; top: 1px; bottom: 1px; right: 1px; transition: width .12s linear; }
+  #hpBar { width: 30vw; height: 16px; }
+  #hpFill { background: linear-gradient(180deg, #d23a30, #7a1010 60%, #4a0808); box-shadow: 0 0 10px rgba(220,40,30,.5); z-index: 1; }
+  #hpGhost { background: #e8c8a0; opacity: .55; }
+  #stBar { width: 25vw; height: 10px; }
+  #stFill { background: linear-gradient(180deg, #c9c08a, #6e6a3a); }
+  #focusBar { width: 18vw; height: 8px; }
+  #fcFill { background: linear-gradient(180deg, #b088ff, #4a1f99); box-shadow: 0 0 8px rgba(140,80,255,.6); }
+  .nope { animation: nope .4s; }
+  @keyframes nope { 0%,100% { transform: none; } 25% { transform: translateX(-4px); filter: brightness(2); } 75% { transform: translateX(4px); } }
+
+  .topleft { position: absolute; top: max(18px, env(safe-area-inset-top)); left: 26px; text-align: left; direction: ltr; }
+  .wave { font-family: 'Cinzel Decorative', var(--latin); font-size: 34px; color: var(--bone); text-shadow: 0 0 14px rgba(200,40,20,.6), 0 2px 3px #000; line-height: 1; }
+  .wave small { display: block; font-family: var(--serif); font-size: 13px; letter-spacing: .25em; color: var(--gold-dim); margin-bottom: 2px; direction: rtl; text-align: left; }
+  .souls { position: absolute; bottom: max(26px, env(safe-area-inset-bottom)); left: 30px; display: flex; align-items: center; gap: 10px; direction: ltr;
+    background: linear-gradient(90deg, rgba(0,0,0,.7), transparent); padding: 8px 40px 8px 14px; border-left: 2px solid var(--gold-dim); }
+  .souls .orb { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #b38bff 40%, #4a1f99 75%); box-shadow: 0 0 14px #9a5cff; animation: pulse 2s infinite; }
+  .souls span { font-family: var(--latin); font-size: 24px; color: #efe4d0; min-width: 60px; }
+  .slots { position: absolute; bottom: max(26px, env(safe-area-inset-bottom)); right: 30px; display: flex; gap: 12px; }
+  .slot { width: 62px; height: 62px; border: 1px solid #4a3c28; background: radial-gradient(circle, rgba(30,20,16,.85), rgba(4,2,2,.9)); display: grid; place-items: center; position: relative; transform: rotate(45deg); box-shadow: 0 0 0 1px #000, inset 0 0 12px #000; }
+  .slot > * { transform: rotate(-45deg); }
+  .slot .ic { font-size: 26px; }
+  .slot .k { position: absolute; bottom: -6px; left: -6px; font-family: var(--latin); font-size: 11px; color: var(--gold); background: #000; border: 1px solid #3a3022; padding: 0 5px; }
+  .slot .n { position: absolute; top: -4px; right: -4px; font-family: var(--latin); font-size: 14px; color: #fff; background: #3a0c0c; border: 1px solid var(--gold-dim); width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; }
+  #flask .ic { color: #ffb070; text-shadow: 0 0 12px #ff7020; }
+  #flask.empty { filter: grayscale(1) brightness(.5); }
+  #spell .ic { color: #6a5590; }
+  #spell.ready .ic { color: #d0b8ff; text-shadow: 0 0 14px #9a5cff; }
+  #spell.ready { border-color: #7a5cc0; }
+
+  #bossBar { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); width: min(720px, 64vw); opacity: 0; transition: opacity 1s; text-align: center; }
+  #bossBar.show { opacity: 1; }
+  #bossBar .name { font-size: 20px; letter-spacing: .2em; color: var(--bone); text-shadow: 0 2px 4px #000; margin-bottom: 6px; text-align: right; }
+  #bossBar .bar { width: 100%; height: 12px; }
+  #bossFill { background: linear-gradient(180deg, #a02818, #500a06); width: 100%; }
+
+  #banner { position: fixed; top: 32%; left: 0; right: 0; text-align: center; pointer-events: none; z-index: 12; opacity: 0; transition: opacity .8s, transform 1.4s; transform: scale(.96); }
+  #banner.show { opacity: 1; transform: scale(1); }
+  #banner::before { content: ''; position: absolute; left: 0; right: 0; top: -20px; bottom: -20px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.65) 25%, rgba(0,0,0,.65) 75%, transparent); z-index: -1; }
+  #bTitle { font-size: clamp(40px, 6vw, 76px); font-weight: 900; letter-spacing: .1em; color: #e8dcc4; text-shadow: 0 0 24px rgba(200,50,20,.5), 0 3px 4px #000; }
+  #bSub { font-size: 18px; letter-spacing: .3em; color: var(--gold); margin-top: 4px; }
+  #banner.boss #bTitle { color: #ff5a40; text-shadow: 0 0 30px rgba(255,40,10,.8), 0 3px 4px #000; }
+  #banner.victory #bTitle { color: #f0d090; text-shadow: 0 0 30px rgba(255,180,60,.6), 0 3px 4px #000; }
+
+  #nums { position: fixed; inset: 0; pointer-events: none; z-index: 11; overflow: hidden; }
+  .dmg { position: absolute; left: 0; top: 0; font-family: var(--latin); font-weight: 600; font-size: 20px; color: #f0e2c8; text-shadow: 0 0 6px #000, 0 2px 2px #000; will-change: transform; }
+  .dmg.crit { color: #ffb040; font-size: 28px; text-shadow: 0 0 12px #ff5010, 0 2px 2px #000; }
+
+  /* ---------- overlays ---------- */
+  .overlay { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 1.2s; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  #death { background: radial-gradient(ellipse at center, rgba(40,0,0,.35), rgba(0,0,0,.85)); }
+  #death h2 { margin: 0; font-size: clamp(60px, 11vw, 150px); font-weight: 900; color: #a01810; letter-spacing: .12em; text-shadow: 0 0 40px rgba(200,20,10,.7), 0 0 4px #000; transform: scale(1.1); transition: transform 4s ease-out, letter-spacing 4s; }
+  #death.show h2 { transform: scale(1); letter-spacing: .2em; }
+  #death .sub { color: #8f7d6a; letter-spacing: .4em; font-size: 16px; margin-top: 6px; }
+  #dStats { margin-top: 26px; color: #b9ab95; font-size: 18px; text-align: center; line-height: 1.9; }
+  #dStats b { color: #f0dcb8; font-family: var(--latin); }
+  #dStats .best { color: var(--gold-dim); font-size: 15px; letter-spacing: .1em; }
+  #pause, #choose { background: rgba(0,0,0,.72); backdrop-filter: blur(3px); transition: opacity .3s; }
+  #pause h2, #choose h2 { margin: 0; font-size: 46px; letter-spacing: .2em; color: #e8dcc4; font-weight: 700; }
+  #choose .sub { color: var(--gold); letter-spacing: .3em; margin-top: 6px; }
+  #cards { display: flex; gap: 24px; margin-top: 34px; flex-wrap: wrap; justify-content: center; padding: 0 16px; }
+  .card { width: 210px; min-height: 270px; padding: 26px 18px 18px; background: linear-gradient(180deg, rgba(36,18,16,.95), rgba(10,6,8,.97)); border: 1px solid var(--gold-dim);
+    color: var(--bone); font-family: var(--serif); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 12px; position: relative;
+    box-shadow: inset 0 0 30px rgba(0,0,0,.9), 0 10px 40px rgba(0,0,0,.6); transition: transform .25s, box-shadow .25s, border-color .25s; animation: cardIn .5s both; }
+  .card::before { content: ''; position: absolute; inset: 6px; border: 1px solid rgba(184,149,90,.2); pointer-events: none; }
+  .card:hover { transform: translateY(-8px); border-color: var(--gold); box-shadow: inset 0 0 30px rgba(0,0,0,.7), 0 0 40px rgba(200,60,30,.35); }
+  .card .ci { font-size: 48px; color: #ffb070; text-shadow: 0 0 20px #ff5010; margin-top: 6px; }
+  .card .cn { font-size: 22px; font-weight: 700; color: #f0dcb8; }
+  .card .cd { font-size: 15px; color: #a8987f; line-height: 1.5; text-align: center; }
+  .card .ck { margin-top: auto; font-family: var(--latin); font-size: 12px; color: var(--gold-dim); border: 1px solid #3a3022; padding: 1px 8px; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0%,100% { opacity: .85; } 50% { opacity: 1; filter: brightness(1.3); } }
+
+  /* ---------- touch ---------- */
+  #touchUI { display: none; }
+  body.touch #touchUI { display: block; }
+  #stick { position: fixed; width: 120px; height: 120px; border-radius: 50%; border: 1px solid rgba(184,149,90,.4); background: rgba(0,0,0,.25); display: none; z-index: 15; pointer-events: none; }
+  #knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle, rgba(184,149,90,.5), rgba(60,40,20,.4)); border: 1px solid var(--gold); }
+  .tb { position: fixed; z-index: 15; border-radius: 50%; border: 1px solid var(--gold-dim); background: radial-gradient(circle, rgba(50,14,14,.7), rgba(5,2,2,.75)); color: var(--bone); font-size: 26px; display: grid; place-items: center; pointer-events: auto; touch-action: none; }
+  #bAtk { width: 86px; height: 86px; right: 26px; bottom: 120px; font-size: 34px; }
+  #bDodge { width: 62px; height: 62px; right: 124px; bottom: 100px; }
+  #bSpell { width: 58px; height: 58px; right: 112px; bottom: 182px; color: #c8b0ff; }
+  #bFlask { width: 54px; height: 54px; right: 38px; bottom: 222px; color: #ffb070; }
+  #bPause { width: 40px; height: 40px; left: 50%; top: 14px; transform: translateX(-50%); font-size: 16px; }
+  #bFlask::after { content: attr(data-n); position: absolute; top: -4px; right: -4px; font-size: 12px; font-family: var(--latin); background: #3a0c0c; border: 1px solid var(--gold-dim); border-radius: 50%; width: 20px; height: 20px; display: grid; place-items: center; color: #fff; }
+  #bSpell.dim { opacity: .45; }
+  body.touch .slots { display: none; }
+  body.touch #bossBar { bottom: 40px; }
+  @media (max-width: 700px) {
+    .card { width: 150px; min-height: 210px; padding: 16px 10px; } .card .ci { font-size: 36px; } .card .cn { font-size: 18px; } .card .cd { font-size: 13px; }
+    #cards { gap: 10px; } .bars { right: 16px; } #hpBar { width: 44vw !important; } #stBar { width: 36vw !important; } #focusBar { width: 28vw; }
+  }
+</style>
+<script type="importmap">
+  { "imports": { "three": "./lib/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading">ASHEN VIGIL</div>
+
+<!-- Title -->
+<div id="title">
+  <div class="sigil">✠</div>
+  <h1>משמר האפר</h1>
+  <div class="en">ASHEN VIGIL</div>
+  <div class="divider"></div>
+  <p class="lore">הירח נשפך דם, והמתים אינם נחים עוד.<br>אתה האביר האחרון של המשמר — שומר הגביש הסגול בלב בית הקברות.<br>החזק מעמד מול גלי האופל, אסוף את נשמותיהם, והבס את המלך החלול.</p>
+  <button class="btn" id="startBtn">קום, אביר</button>
+  <div class="controls">
+    <div><b>WASD</b> תנועה</div><div><b>MOUSE</b> מצלמה</div><div><b>CLICK</b> התקפה ×3</div><div><b>SPACE</b> התחמקות</div>
+    <div><b>SHIFT</b> ריצה</div><div><b>Q / RMB</b> אש הנשמה</div><div><b>E</b> שיקוי מרפא</div><div><b>ESC</b> השהיה</div>
+  </div>
+  <div id="bestTitle"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="bars">
+    <div class="bar" id="hpBar"><div class="fill" id="hpGhost"></div><div class="fill" id="hpFill"></div></div>
+    <div class="bar" id="stBar"><div class="fill" id="stFill"></div></div>
+    <div class="bar" id="focusBar"><div class="fill" id="fcFill"></div></div>
+  </div>
+  <div class="topleft"><div class="wave"><small>גל</small><span id="wave">I</span></div></div>
+  <div class="souls"><div class="orb"></div><span id="souls">0</span></div>
+  <div class="slots">
+    <div class="slot" id="flask"><div class="ic">⚱</div><div class="n" id="flaskN">3</div><div class="k">E</div></div>
+    <div class="slot" id="spell"><div class="ic">✷</div><div class="k">Q</div></div>
+  </div>
+  <div id="bossBar"><div class="name">המלך החלול</div><div class="bar"><div class="fill" id="bossFill"></div></div></div>
+</div>
+<div id="nums"></div>
+<div id="banner" class="banner"><div id="bTitle"></div><div id="bSub"></div></div>
+
+<!-- Overlays -->
+<div class="overlay" id="death">
+  <h2>האור כבה</h2>
+  <div class="sub">הלהבה דועכת אל תוך האפר</div>
+  <div id="dStats"></div>
+  <button class="btn" id="retryBtn">קום שוב</button>
+</div>
+<div class="overlay" id="pause">
+  <h2>מושהה</h2>
+  <button class="btn" id="resumeBtn">המשך</button>
+  <button class="btn ghost" id="quitBtn">חזרה לתפריט</button>
+</div>
+<div class="overlay" id="choose">
+  <h2>בחר ברכה</h2>
+  <div class="sub">האפר לוחש לך כוח</div>
+  <div id="cards"></div>
+</div>
+
+<!-- Touch -->
+<div id="touchUI">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tb" id="bAtk">⚔</div>
+  <div class="tb" id="bDodge">☾</div>
+  <div class="tb" id="bSpell">✷</div>
+  <div class="tb" id="bFlask">⚱</div>
+  <div class="tb" id="bPause">❚❚</div>
+</div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>
