@@ -6,11 +6,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import * as G from './glsl.js';
 import { BODY_DEFS, PAL, STAR, BELT, FACTIONS } from './data.js';
+import { Q } from './quality.js';
 
-export const LOWQ = typeof location !== "undefined" && /lowq/.test(location.search);
 export function createRenderer(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-  const pr = LOWQ ? 0.6 : Math.min(window.devicePixelRatio || 1, 1.75);
+  const pr = Q.startPR;
   renderer.setPixelRatio(pr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -21,14 +21,14 @@ export function createRenderer(canvas) {
   const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 30000);
 
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: LOWQ ? 0 : 4 });
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: Q.msaa });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.72, 0.3, 0.88);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass({
-    uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(size.x, size.y) }, uFlash: { value: 0 } },
+    uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(size.x, size.y) }, uFlash: { value: 0 }, uSun: { value: new THREE.Vector3(0.5, 0.5, 0) } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: G.GRADE_FRAG,
   });
@@ -43,12 +43,14 @@ export function createRenderer(canvas) {
     grade.uniforms.uRes.value.set(s.x, s.y);
   }
   window.addEventListener('resize', resize);
-  return { renderer, scene, camera, composer, bloom, grade, pixelRatio: pr };
+  const api = { renderer, scene, camera, composer, bloom, grade, pixelRatio: pr };
+  api.setPixelRatio = (p) => { api.pixelRatio = p; renderer.setPixelRatio(p); composer.setPixelRatio(p); resize(); };
+  return api;
 }
 
 // ---------------------------------------------------------------- sky
 export function buildSky(renderer, scene) {
-  const cubeRT = new THREE.WebGLCubeRenderTarget(LOWQ ? 128 : 1024, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+  const cubeRT = new THREE.WebGLCubeRenderTarget(Q.cube, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
   const skyScene = new THREE.Scene();
   const sky = new THREE.Mesh(new THREE.SphereGeometry(100, 64, 32), new THREE.ShaderMaterial({
     vertexShader: G.SKY_VERT, fragmentShader: G.SKY_FRAG, side: THREE.BackSide, depthWrite: false,
@@ -67,7 +69,7 @@ export function buildSky(renderer, scene) {
   pmrem.dispose();
 
   // point stars, denser along the galactic plane
-  const N = 9000;
+  const N = Q.stars;
   const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), ph = new Float32Array(N);
   const gN = new THREE.Vector3(0.25, 1, 0.35).normalize();
   const v = new THREE.Vector3(), c = new THREE.Color();
@@ -127,13 +129,13 @@ export function buildStar(scene) {
   scene.add(new THREE.AmbientLight(0x1a2230, 0.6));
   return {
     group: g, sphere,
-    update(t, camera) {
+    update(t, camera, boost = 0) {
       starMat.uniforms.uTime.value = t; coronaMat.uniforms.uTime.value = t;
       // a star that fills the frame must not flood the bloom
       const d = camera.position.length();
       const k = THREE.MathUtils.smoothstep(d, 110, 650);
-      starMat.uniforms.uGain.value = 1.05 + 2.9 * k;
-      coronaMat.uniforms.uGain.value = 0.25 + 0.75 * k;
+      starMat.uniforms.uGain.value = 1.05 + 2.9 * k + boost * 3;
+      coronaMat.uniforms.uGain.value = 0.25 + 0.75 * k + boost * 2.5;
       corona.quaternion.copy(camera.quaternion);
       sphere.rotation.y = t * 0.01;
     },
@@ -176,8 +178,8 @@ export function buildBodies(scene) {
   const byKey = Object.fromEntries(bodies.map((b) => [b.key, b]));
   for (const b of bodies) if (b.parent) b.parentBody = byKey[b.parent];
 
-  const sphereHi = new THREE.SphereGeometry(1, 96, 64);
-  const sphereLo = new THREE.SphereGeometry(1, 64, 40);
+  const sphereHi = new THREE.SphereGeometry(1, Q.sphereSeg, Q.sphereSeg * 0.66 | 0);
+  const sphereLo = new THREE.SphereGeometry(1, Q.sphereSeg * 0.6 | 0, Q.sphereSeg * 0.4 | 0);
 
   for (const b of bodies) {
     const pal = PAL[b.pal];
@@ -188,7 +190,9 @@ export function buildBodies(scene) {
         uAtmo: { value: new THREE.Color(b.atmo).multiplyScalar(0.55) },
         uCity: { value: FACTIONS.neutral.color.clone() }, uCityAmt: { value: 0.2 },
         uSea: { value: b.sea ?? 0.0 }, uCloud: { value: b.cloud },
+        uRot: { value: new THREE.Matrix3() }, uBump: { value: b.type === 4 ? 0 : b.type === 2 ? 0.5 : 0.8 },
       },
+      defines: Q.bump ? { BUMP: 1 } : {},
       vertexShader: G.PLANET_VERT, fragmentShader: G.PLANET_FRAG,
     });
     const g = new THREE.Group();
@@ -240,6 +244,7 @@ export function buildBodies(scene) {
   return bodies;
 }
 
+const _rot = new THREE.Matrix4();
 export function updateBodies(bodies, dt, t) {
   const v = new THREE.Vector3();
   for (const b of bodies) if (!b.parentBody) step(b);
@@ -252,6 +257,8 @@ export function updateBodies(bodies, dt, t) {
     b.group.position.copy(v);
     b.mesh.rotation.y = t * (b.type === 4 ? 0.05 : 0.02) + b.idx;
     b.mat.uniforms.uTime.value = t;
+    b.mesh.updateMatrixWorld(true);
+    b.mat.uniforms.uRot.value.setFromMatrix4(_rot.extractRotation(b.mesh.matrixWorld));
     b.orbitMat.uniforms.uPhase.value = ((b.angle / (Math.PI * 2)) % 1 + 1) % 1;
   }
 }
@@ -275,11 +282,12 @@ export function buildBelt(scene) {
   }
   base.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ color: 0x6d655c, roughness: 0.95, metalness: 0.05, flatShading: true });
-  const inst = new THREE.InstancedMesh(base, mat, BELT.count);
+  const COUNT = Q.belt;
+  const inst = new THREE.InstancedMesh(base, mat, COUNT);
   const data = [];
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), e = new THREE.Euler();
   const tint = new THREE.Color();
-  for (let i = 0; i < BELT.count; i++) {
+  for (let i = 0; i < COUNT; i++) {
     const r = BELT.inner + Math.pow(Math.random(), 0.8) * (BELT.outer - BELT.inner) + (Math.random() - 0.5) * 10;
     const a = Math.random() * Math.PI * 2;
     const y = (Math.random() - 0.5) * 7 * (1 - Math.abs((r - 267) / 30));

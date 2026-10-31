@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import * as G from './glsl.js';
+import { Q } from './quality.js';
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _m = new THREE.Matrix4();
 const Z = new THREE.Vector3(0, 0, 1);
+const _v2 = new THREE.Vector3();
 
 export class Particles {
-  constructor(scene, cap = 40000) {
+  constructor(scene, cap = Q.particles) {
     this.cap = cap; this.i = 0; this.time = 0;
     this.pos = new Float32Array(cap * 3);
     this.vel = new Float32Array(cap * 3);
@@ -158,12 +160,139 @@ export class Flares {
   }
 }
 
+
+export class Fireballs {
+  constructor(scene, cap = 40) {
+    this.pool = [];
+    const geo = new THREE.PlaneGeometry(2, 2);
+    for (let i = 0; i < cap; i++) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uT: { value: 1 }, uSeed: { value: Math.random() * 50 } },
+        vertexShader: G.CORONA_VERT, fragmentShader: G.FIRE_FRAG,
+        transparent: true, depthWrite: false,
+        blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      });
+      const m = new THREE.Mesh(geo, mat); m.visible = false; m.renderOrder = 6; scene.add(m);
+      this.pool.push({ m, t: 0, life: 1, size: 1, vel: new THREE.Vector3() });
+    }
+    this.k = 0;
+  }
+  add(pos, size, life = 1.4, vel = null) {
+    const f = this.pool[this.k]; this.k = (this.k + 1) % this.pool.length;
+    f.m.position.copy(pos); f.m.visible = true; f.t = 0; f.life = life; f.size = size;
+    f.vel.copy(vel || _v.set(0, 0, 0));
+    f.m.material.uniforms.uSeed.value = Math.random() * 50;
+    f.m.rotation.z = Math.random() * 6.28;
+  }
+  update(dt, camera) {
+    for (const f of this.pool) {
+      if (!f.m.visible) continue;
+      f.t += dt;
+      const k = f.t / f.life;
+      if (k >= 1) { f.m.visible = false; continue; }
+      f.m.position.addScaledVector(f.vel, dt);
+      f.m.quaternion.copy(camera.quaternion);
+      f.m.scale.setScalar(f.size * (0.35 + 0.9 * (1 - Math.pow(1 - k, 3))));
+      f.m.material.uniforms.uT.value = k;
+    }
+  }
+}
+
+export class Shields {
+  constructor(scene, cap = 28) {
+    this.pool = [];
+    const geo = new THREE.IcosahedronGeometry(1, 4);
+    for (let i = 0; i < cap; i++) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uT: { value: 1 }, uCol: { value: new THREE.Color() }, uHit: { value: new THREE.Vector3(0, 0, 1) } },
+        vertexShader: G.SHIELD_VERT, fragmentShader: G.SHIELD_FRAG,
+        blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(geo, mat); m.visible = false; scene.add(m);
+      this.pool.push({ m, t: 0, ship: null });
+    }
+    this.k = 0;
+  }
+  add(ship, radius, from, color) {
+    // one bubble per ship at a time; re-trigger it
+    let s = this.pool.find((p) => p.ship === ship && p.m.visible);
+    if (!s) { s = this.pool[this.k]; this.k = (this.k + 1) % this.pool.length; }
+    s.ship = ship; s.t = 0; s.m.visible = true;
+    s.m.scale.set(radius * 0.75, radius * 0.5, radius);
+    s.m.quaternion.copy(ship.mesh.quaternion);
+    _v.subVectors(from, ship.pos).applyQuaternion(_q.copy(ship.mesh.quaternion).invert()).normalize();
+    s.m.material.uniforms.uHit.value.copy(_v);
+    s.m.material.uniforms.uCol.value.copy(color).multiplyScalar(1.1);
+  }
+  update(dt) {
+    for (const s of this.pool) {
+      if (!s.m.visible) continue;
+      s.t += dt;
+      const k = s.t / 0.55;
+      if (k >= 1 || s.ship.dead) { s.m.visible = false; s.ship = null; continue; }
+      s.m.position.copy(s.ship.pos);
+      s.m.quaternion.copy(s.ship.mesh.quaternion);
+      s.m.material.uniforms.uT.value = k;
+    }
+  }
+}
+
+// hull fragments that tumble away from a dead ship
+export class Debris {
+  constructor(scene, cap = 360) {
+    const geo = new THREE.TetrahedronGeometry(0.5, 0);
+    geo.scale(1.6, 0.4, 1);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x8a8580, metalness: 0.8, roughness: 0.5, flatShading: true, emissive: 0xff5a14, emissiveIntensity: 0 });
+    mat.onBeforeCompile = (sh) => {
+      // per-instance heat stored in instanceColor.r drives the ember glow
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_INSTANCING_COLOR\n totalEmissiveRadiance = vec3(3.0,0.9,0.25) * vColor.g;\n diffuseColor.rgb = vec3(0.55,0.52,0.5);\n#endif');
+    };
+    this.mesh = new THREE.InstancedMesh(geo, mat, cap);
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+    this.mesh.frustumCulled = false; this.mesh.count = 0;
+    scene.add(this.mesh);
+    this.list = []; this.cap = cap;
+  }
+  add(pos, n, speed, size) {
+    for (let i = 0; i < n; i++) {
+      if (this.list.length >= this.cap) this.list.shift();
+      this.list.push({
+        p: pos.clone(), v: new THREE.Vector3().randomDirection().multiplyScalar(speed * (0.3 + Math.random())),
+        q: new THREE.Quaternion().random(), ax: new THREE.Vector3().randomDirection(), w: (Math.random() - 0.5) * 8,
+        s: size * (0.4 + Math.random()), t: 0, life: 4 + Math.random() * 4,
+      });
+    }
+  }
+  update(dt) {
+    let n = 0;
+    for (let i = this.list.length - 1; i >= 0; i--) if ((this.list[i].t += dt) > this.list[i].life) this.list.splice(i, 1);
+    for (const d of this.list) {
+      d.p.addScaledVector(d.v, dt);
+      d.v.multiplyScalar(Math.exp(-dt * 0.25));
+      _q.setFromAxisAngle(d.ax, d.w * dt); d.q.premultiply(_q);
+      const k = d.t / d.life;
+      _s.setScalar(d.s * (k > 0.8 ? (1 - k) * 5 : 1));
+      _m.compose(d.p, d.q, _s);
+      this.mesh.setMatrixAt(n, _m);
+      this.mesh.setColorAt(n, _c.setRGB(1, Math.max(0, 1 - d.t * 0.6), 1));
+      n++;
+    }
+    this.mesh.count = n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
+  }
+}
+const _c = new THREE.Color();
+
 export class FX {
   constructor(scene) {
     this.p = new Particles(scene);
     this.beams = new Beams(scene);
     this.shocks = new Shocks(scene);
     this.flares = new Flares(scene);
+    this.fire = new Fireballs(scene);
+    this.shields = new Shields(scene);
+    this.debris = new Debris(scene);
     this.shake = 0;
   }
   explosion(pos, scale, color, camPos) {
@@ -190,6 +319,13 @@ export class FX {
       _v.randomDirection().multiplyScalar(3 + Math.random() * 8);
       P.emit(pos.x, pos.y, pos.z, _v.x, _v.y, _v.z, 3 + Math.random() * 3, 0.5, 1.4, 0.55, 0.25, 0, 0.3);
     }
+    if (scale >= 0.6) {
+      this.fire.add(pos, 2.2 + scale * 3.2, 0.9 + scale * 0.35);
+      if (scale >= 1.2) for (let i = 0; i < Math.round(scale * 1.5); i++) {
+        this.fire.add(_v2.randomDirection().multiplyScalar(scale * 1.6).add(pos), 1.5 + scale * 1.6, 1.0 + scale * 0.4, _v.randomDirection().multiplyScalar(2 + scale));
+      }
+      this.debris.add(pos, Math.round(3 + scale * 6), 4 + scale * 3, 0.35 + scale * 0.25);
+    }
     if (scale >= 1) {
       this.shocks.add(pos, 6 + scale * 9, color, 0.8 + scale * 0.25);
       this.flares.add(pos, scale, new THREE.Color(1, 0.62, 0.32), 0.6 + scale * 0.2);
@@ -206,7 +342,10 @@ export class FX {
     }
     this.p.emit(pos.x, pos.y, pos.z, 0, 0, 0, 0.15, 1.4, color.r * 2, color.g * 2, color.b * 2, 2);
   }
-  update(dt, time, scale) {
+  update(dt, time, scale, camera) {
+    this.fire.update(dt, camera);
+    this.shields.update(dt);
+    this.debris.update(dt);
     this.beams.update(dt);
     this.shocks.update(dt);
     this.flares.update(dt);

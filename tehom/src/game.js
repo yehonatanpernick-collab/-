@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { SHIPS, STRUCTURES, FACTIONS } from './data.js';
-import { Ship } from './ships.js';
+import { Ship, SHIELD_R } from './ships.js';
 import { paintOwner } from './world.js';
 
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
 const ORIGIN = new THREE.Vector3();
+const FWD = new THREE.Vector3(0, 0, 1);
 const ACCEL = { corvette: 2.6, frigate: 1.6, dreadnought: 0.8 };
 const TURN = { corvette: 6, frigate: 3, dreadnought: 1.4 };
 const EXPLO = { corvette: 0.7, frigate: 1.4, dreadnought: 3.0 };
@@ -93,6 +94,7 @@ export class Game {
     this.capture(dt);
     for (let i = 0; i < this.ships.length; i++) this.stepShip(this.ships[i], dt, t);
     this.defences(dt);
+    this.flare(dt);
     this.resolve(t);
     // reap
     if (this.ships.some((s) => s.dead)) this.ships = this.ships.filter((s) => !s.dead);
@@ -269,11 +271,19 @@ export class Game {
     let look = null;
     if (tgt && v < d.speed * 0.4 && s.pos.distanceTo(tgt.pos) < d.range * 1.3) look = _c.subVectors(tgt.pos, s.pos);
     else if (v > 0.6) look = _c.copy(s.vel);
+    if (!s.q) s.q = s.mesh.quaternion.clone();
     if (look && look.lengthSq() > 1e-6) {
       _m.lookAt(look.normalize(), ORIGIN, UP);
       _q.setFromRotationMatrix(_m);
-      s.mesh.quaternion.slerp(_q, 1 - Math.exp(-dt * TURN[s.cls]));
-    }
+      _d.set(0, 0, 1).applyQuaternion(s.q);
+      s.q.slerp(_q, 1 - Math.exp(-dt * TURN[s.cls]));
+      // roll into the turn
+      _b.set(0, 0, 1).applyQuaternion(s.q);
+      const yawRate = dt > 0 ? _d.cross(_b).y / dt : 0;
+      const want = THREE.MathUtils.clamp(-yawRate * (s.cls === 'dreadnought' ? 1.5 : 0.9), -0.7, 0.7);
+      s.bank += (want - s.bank) * (1 - Math.exp(-dt * 3));
+    } else s.bank *= Math.exp(-dt * 2);
+    s.mesh.quaternion.copy(s.q).multiply(_q.setFromAxisAngle(FWD, s.bank));
 
     // ---- engine trail
     if (v > 3) {
@@ -324,14 +334,14 @@ export class Game {
         this.fx.p.emit(_a.x - _c.x * o, _a.y - _c.y * o, _a.z - _c.z * o, _c.x, _c.y, _c.z, tof, 0.55 - k * 0.12, F.r * 5, F.g * 4, F.b * 3, 0, 0);
       }
       const hit = Math.random() < EVADE[tgt.cls];
-      this.pending.push({ at: this.time + tof, tgt, dmg: d.dmg, src: s.cls, faction: s.faction, pos: _b.clone(), hit, splash: 0 });
+      this.pending.push({ at: this.time + tof, tgt, dmg: d.dmg, src: s.cls, faction: s.faction, pos: _b.clone(), hit, splash: 0, from: s.pos.clone() });
       this.audio?.shot('bolt', near);
     } else if (d.kind === 'beam') {
       _a.set(0, 0.38, 2.6).applyQuaternion(q).add(s.pos);
       _b.copy(tgt.pos).add(_c.randomDirection().multiplyScalar(0.7));
       this.fx.beams.add(_a, _b, F, 0.11, 0.3, 9);
       this.fx.sparks(_b, F, 5);
-      this.damage(tgt, d.dmg, s.cls, s.faction);
+      this.damage(tgt, d.dmg, s.cls, s.faction, s.pos);
       this.audio?.shot('beam', near);
     } else {
       const guns = s.assets.def.guns;
@@ -354,28 +364,36 @@ export class Game {
     const keep = [];
     for (const p of this.pending) {
       if (p.at > t) { keep.push(p); continue; }
-      const F = FACTIONS[p.faction].color;
+      const F = (FACTIONS[p.faction] || STARF).color;
       if (p.splash) {
         this.fx.explosion(p.pos, 0.35, F, null);
+        this.fx.fire.add(p.pos, 2.0, 0.75);
         for (const o of this.ships) {
           if (o.faction === p.faction || o.dead) continue;
           const dd = o.pos.distanceTo(p.pos);
-          if (dd < p.splash) this.damage(o, p.dmg * (1 - dd / p.splash * 0.6), p.src, p.faction);
+          if (dd < p.splash) this.damage(o, p.dmg * (1 - dd / p.splash * 0.6), p.src, p.faction, p.pos);
         }
       } else if (p.hit && !p.tgt.dead) {
-        this.damage(p.tgt, p.dmg, p.src, p.faction);
-        this.fx.sparks(p.tgt.pos, F, 3);
+        this.damage(p.tgt, p.dmg, p.src, p.faction, p.from);
+        if (p.tgt.cls === 'corvette') this.fx.sparks(p.tgt.pos, F, 3);
       }
     }
     this.pending = keep;
   }
 
-  damage(o, dmg, srcCls, faction) {
+  damage(o, dmg, srcCls, faction, from) {
     if (o.dead) return;
     const mult = srcCls && SHIPS[srcCls] ? (SHIPS[srcCls].bonus[o.cls] || 1) : 1;
     o.hp -= dmg * mult;
     o.hit = 1;
-    if (o.host) o.host.underAttack = 4;
+    if (SHIELD_R[o.cls] && this.time - o.shieldT > 0.12 && this.fx.shields) {
+      o.shieldT = this.time;
+      this.fx.shields.add(o, SHIELD_R[o.cls], from || _c.copy(o.pos).add(_d.randomDirection()), FACTIONS[o.faction].color);
+    }
+    if (o.host) {
+      o.host.underAttack = 4;
+      this.alarm(o.host, o.faction);
+    }
     if (o.hp <= 0) this.kill(o, faction);
   }
 
@@ -409,12 +427,43 @@ export class Game {
       const neutral = b.owner === 'neutral';
       const col = neutral ? NATIVE : FACTIONS[b.owner].color;
       _a.subVectors(best.pos, b.pos).normalize().multiplyScalar(b.r * 1.02).add(b.pos);
-      this.fx.beams.add(_a, best.pos, col, neutral ? 0.12 : 0.22, 0.35, neutral ? 5 : 10);
+      this.fx.beams.add(_a, best.pos, col, neutral ? 0.09 : 0.13, 0.3, neutral ? 3.5 : 5.5);
       this.fx.sparks(best.pos, col, 4);
       const capital = b.home === b.owner;
-      this.damage(best, neutral ? 7 * b.native : capital ? 46 : 34, null, b.owner);
+      this.damage(best, neutral ? 7 * b.native : capital ? 46 : 34, null, b.owner, b.pos);
       b.batteryCd = neutral ? 1.6 : capital ? 0.7 : 1.0;
       this.audio?.shot('battery', this.camera.position.distanceTo(b.pos));
+    }
+  }
+
+  // tell the player once in a while that one of their worlds is being hit
+  alarm(b, faction) {
+    if (faction !== 'player' || b.owner !== 'player') return;
+    if (this.time - (b.alarmT ?? -99) < 25) return;
+    b.alarmT = this.time;
+    this.emit('attacked', b);
+  }
+
+  // The star throws a flare every few minutes. Anything close to it gets scorched.
+  flare(dt) {
+    if (this.flareAt == null) this.flareAt = 170 + Math.random() * 60;
+    const left = this.flareAt - this.time;
+    this.flareIn = left;
+    if (left <= 14 && !this.flareWarned) { this.flareWarned = true; this.emit('flare-warn', 14); }
+    if (left > 0) return;
+    this.flareWarned = false;
+    this.flareAt = this.time + 190 + Math.random() * 90;
+    this.flareT = 0;
+    this.emit('flare');
+    this.fx.shocks.add(ORIGIN, 320, new THREE.Color(1.0, 0.55, 0.25), 3.2);
+    this.fx.shocks.add(ORIGIN, 200, new THREE.Color(1.0, 0.75, 0.45), 2.2);
+    for (const s of this.ships) {
+      const r = s.pos.length();
+      if (r < 160) {
+        const k = 1 - r / 160;
+        // delay by distance so the burn rides the shock front
+        this.pending.push({ at: this.time + r / 110, tgt: s, dmg: 40 + 200 * k * k, src: null, faction: 'star', pos: s.pos.clone(), hit: true, splash: 0, from: ORIGIN });
+      }
     }
   }
 
@@ -427,3 +476,4 @@ export class Game {
 }
 
 const NATIVE = new THREE.Color('#d8d2c0');
+const STARF = { color: new THREE.Color(1.0, 0.6, 0.3) };

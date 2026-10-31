@@ -2,13 +2,15 @@
 
 A real-time 3D fleet strategy game in a single HTML file. Fourteen worlds orbit a dying star; two fleets fight over them.
 
-**Play:** open `tehom/index.html` in a modern desktop browser (Chrome / Edge / Firefox / Safari). No server needed.
+**Play:** open `tehom/index.html` in any modern browser — desktop or phone. No server needed.
+
+On touch screens: tap a world to select it and its fleet, drag from one world to another to send ships, drag empty space to pan, pinch to zoom, twist with two fingers to rotate, slide two fingers to tilt, double-tap to follow a world.
 
 ## Controls
 | | |
 |---|---|
 | Left click | select a world and the fleet in its orbit |
-| Left drag | box-select ships |
+| Left drag | from a world: send its fleet to another world · on empty space: box-select |
 | Right click | send selected ships to a world (or a point in space) |
 | Right drag | rotate camera · wheel: zoom · WASD / arrows: pan · double-click: follow a world |
 | Z / X / C | build corvette / frigate / dreadnought at the selected shipyard |

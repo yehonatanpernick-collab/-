@@ -61,23 +61,30 @@ void main(){
 }`;
 
 export const PLANET_FRAG = /* glsl */ `
-uniform int uType; uniform float uSeed; uniform float uTime;
+uniform int uType; uniform float uSeed; uniform float uTime; uniform mat3 uRot;
 uniform vec3 uA; uniform vec3 uB; uniform vec3 uC; uniform vec3 uD;
-uniform vec3 uAtmo; uniform vec3 uCity; uniform float uCityAmt; uniform float uSea; uniform float uCloud;
+uniform vec3 uAtmo; uniform vec3 uCity; uniform float uCityAmt; uniform float uSea; uniform float uCloud; uniform float uBump;
 varying vec3 vObj; varying vec3 vN; varying vec3 vW;
 ${NOISE}
+float terrain(vec3 p){
+  vec3 sp = p + vec3(uSeed);
+  if (uType == 0) return fbm(sp*1.8) + 0.25*ridged(sp*3.0) - 0.12;
+  if (uType == 1) return fbm(sp*1.5) + 0.35*ridged(sp*2.4);
+  if (uType == 2) return fbm(sp*2.0) - 0.3*smoothstep(0.82, 0.98, ridged(sp*3.5));
+  if (uType == 3) return fbm(sp*2.2) - 0.5*smoothstep(0.72, 0.95, ridged(sp*2.8));
+  return 0.0;
+}
 void main(){
   vec3 p = normalize(vObj);
   vec3 N = normalize(vN);
-  vec3 L = normalize(-vW);            // the star sits at the origin
+  vec3 L = normalize(-vW);
   vec3 V = normalize(cameraPosition - vW);
-  float NdL = dot(N,L);
-  vec3 sp = p * 1.0 + vec3(uSeed);
+  vec3 sp = p + vec3(uSeed);
   vec3 base; float spec = 0.0; float land = 1.0; float emissive = 0.0; vec3 emiss = vec3(0.0);
   float lat = abs(p.y);
+  float h = terrain(p);
 
-  if (uType == 0) {            // temperate world
-    float h = fbm(sp*1.8) + 0.25*ridged(sp*3.0) - 0.12;
+  if (uType == 0) {
     land = smoothstep(uSea, uSea+0.02, h);
     vec3 ocean = mix(uA*0.55, uA, smoothstep(uSea-0.35, uSea, h));
     float hh = smoothstep(uSea, uSea+0.55, h);
@@ -87,75 +94,83 @@ void main(){
     float cap = smoothstep(0.78, 0.86, lat + 0.06*fbm3(sp*4.0));
     base = mix(base, vec3(0.85,0.88,0.9), cap);
     spec = (1.0-land)*(1.0-cap);
-  } else if (uType == 1) {     // arid
-    float h = fbm(sp*1.5);
+  } else if (uType == 1) {
     float dunes = 0.5+0.5*sin((p.y*24.0 + fbm3(sp*3.0)*6.0));
     base = mix(uA, uB, smoothstep(-0.4,0.5,h));
-    base = mix(base, uC, smoothstep(0.2,0.7, ridged(sp*2.4))*0.8);
+    base = mix(base, uC, smoothstep(0.35,0.9, h)*0.8);
     base *= 0.86 + 0.14*dunes;
-    base = mix(base, uD, smoothstep(0.55,0.75, h));
-    land = 1.0;
-  } else if (uType == 2) {     // frozen
-    float h = fbm(sp*2.0);
+    base = mix(base, uD, smoothstep(0.65,0.85, h));
+  } else if (uType == 2) {
     float cracks = smoothstep(0.82, 0.98, ridged(sp*3.5));
     base = mix(uA, uB, smoothstep(-0.5,0.5,h));
     base = mix(base, uC, cracks*0.9);
     base = mix(base, uD, smoothstep(0.4,0.8, fbm3(sp*6.0))*0.35);
     spec = 0.25;
-  } else if (uType == 3) {     // molten
-    float h = fbm(sp*2.2);
+  } else if (uType == 3) {
     float r = ridged(sp*2.8 + vec3(0.0, uTime*0.004, 0.0));
     float lava = smoothstep(0.72, 0.95, r);
     base = mix(uA, uB, smoothstep(-0.4,0.6,h));
     emissive = lava;
     emiss = mix(uC, uD, lava) * (2.2 + 1.2*snoise(sp*8.0 + uTime*0.05));
-    land = 1.0;
-  } else {                     // gas giant
+  } else {
     float w = fbm(vec3(p.x*2.0, p.y*1.2, p.z*2.0) + vec3(uSeed) + vec3(uTime*0.002,0.0,0.0));
     float b = p.y*7.0 + w*1.6;
     float bands = 0.5+0.5*sin(b*3.1);
     float fine = 0.5+0.5*sin(b*11.0 + w*4.0);
     base = mix(uA, uB, bands);
     base = mix(base, uC, fine*0.35);
-    // great storm
     vec3 sc = normalize(vec3(0.6,-0.25,0.75));
-    float sd = distance(p, sc);
-    float storm = smoothstep(0.26, 0.05, sd + 0.04*snoise(p*20.0));
+    float storm = smoothstep(0.26, 0.05, distance(p, sc) + 0.04*snoise(p*20.0));
     base = mix(base, uD, storm*0.85);
     base *= 0.92 + 0.08*snoise(p*30.0);
     land = 0.0; spec = 0.0;
   }
 
-  // clouds
+#ifdef BUMP
+  if (uType < 4 && uBump > 0.0) {
+    // relief: perturb the normal with the terrain gradient (land only on wet worlds)
+    vec3 t1 = normalize(cross(p, abs(p.y) < 0.99 ? vec3(0.0,1.0,0.0) : vec3(1.0,0.0,0.0)));
+    vec3 t2 = cross(p, t1);
+    float e = 0.01;
+    float h1 = terrain(normalize(p + t1*e));
+    float h2 = terrain(normalize(p + t2*e));
+    float k = uBump * (uType == 0 ? land : 1.0);
+    vec3 nObj = normalize(p - (t1*(h1-h) + t2*(h2-h)) * k / e * 0.06);
+    N = normalize(uRot * nObj);
+  }
+#endif
+
+  float NdL = dot(N,L);
   float cloud = 0.0;
   if (uCloud > 0.0) {
     vec3 cp = p*2.4 + vec3(uSeed*1.3) + vec3(uTime*0.006, 0.0, uTime*0.003);
     float c = fbm(cp + 0.5*vec3(fbm3(cp*1.5)));
     cloud = smoothstep(0.05, 0.55, c) * uCloud;
+    // cloud shadow on the ground
+    base *= 1.0 - 0.35*smoothstep(0.05, 0.55, fbm3(cp + vec3(0.03))) * uCloud;
   }
 
-  float diff = smoothstep(-0.12, 0.9, NdL);
-  float wrap = clamp((NdL + 0.25)/1.25, 0.0, 1.0);
+  float NdLg = dot(normalize(vN), L);   // geometric terminator, so relief does not light the night side
+  float diff = smoothstep(-0.12, 0.9, NdL) * smoothstep(-0.2, 0.05, NdLg);
+  float wrap = clamp((NdLg + 0.25)/1.25, 0.0, 1.0);
   vec3 H = normalize(L+V);
   float sp1 = pow(max(dot(N,H),0.0), 60.0) * spec * step(0.0,NdL);
-  vec3 sun = vec3(1.0,0.95,0.86) * 1.6;
-  vec3 col = base * sun * diff + sp1 * vec3(1.0,0.9,0.75) * 1.4;
+  // sunlight reddens as it grazes the terminator
+  vec3 sun = mix(vec3(1.0,0.42,0.18), vec3(1.0,0.95,0.86), smoothstep(-0.05, 0.4, NdLg)) * 1.6;
+  vec3 col = base * sun * diff + sp1 * vec3(1.0,0.86,0.68) * 1.6;
   col = mix(col, vec3(0.95)*sun*wrap, cloud);
-  // faint ambient so the night side reads as a shape
-  col += base * 0.018;
+  col += base * 0.016;
 
-  // night side: lights of whoever holds this world
-  float night = smoothstep(0.08, -0.25, NdL);
+  float night = smoothstep(0.08, -0.25, NdLg);
   float cells = hash13(floor(p*60.0 + uSeed*7.0));
   float clusters = smoothstep(0.1, 0.6, snoise(sp*5.0));
   float city = step(0.7, cells) * clusters * land * (1.0-cloud*0.8);
   col += uCity * city * night * uCityAmt * 2.4;
-
   col += emiss * emissive * (0.35 + 0.65*(1.0-diff*0.5));
 
-  // atmosphere rim inside the disk
-  float fres = pow(1.0 - max(dot(N,V),0.0), 3.0);
-  col += uAtmo * fres * smoothstep(-0.35, 0.6, NdL) * 1.3;
+  float fres = pow(1.0 - max(dot(normalize(vN),V),0.0), 3.0);
+  vec3 rimCol = mix(vec3(1.0,0.45,0.2)*length(uAtmo), uAtmo, smoothstep(-0.1, 0.45, NdLg));
+  col += rimCol * fres * smoothstep(-0.35, 0.6, NdLg) * 1.3;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -172,7 +187,9 @@ void main(){
   // forward scattering when backlit
   float fwd = pow(max(dot(-V, L), 0.0), 6.0) * 0.8;
   float k = a * (lit + fwd) * smoothstep(1.0, 0.82, rim);
-  gl_FragColor = vec4(uAtmo * k * 1.6, k);
+  float dusk = smoothstep(0.35, -0.05, dot(N, L)) * smoothstep(-0.45, -0.1, dot(N, L));
+  vec3 c = mix(uAtmo, vec3(1.0,0.48,0.22)*length(uAtmo)*0.9, dusk*0.75);
+  gl_FragColor = vec4(c * k * 1.6, k);
 }`;
 
 // ---------------------------------------------------------------- rings
@@ -409,7 +426,7 @@ void main(){
 
 // ---------------------------------------------------------------- final grade
 export const GRADE_FRAG = /* glsl */ `
-uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; uniform float uFlash;
+uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; uniform float uFlash; uniform vec3 uSun;
 varying vec2 vUv;
 float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 void main(){
@@ -431,8 +448,61 @@ void main(){
   float vig = smoothstep(0.95, 0.25, r2*1.9);
   col *= mix(0.62, 1.0, vig);
   col += uFlash * vec3(1.0,0.85,0.7) * 0.25;
+  vec2 sd = uv - uSun.xy; sd.x *= uRes.x / uRes.y;
+  float streak = exp(-abs(sd.y)*420.0) * exp(-abs(sd.x)*1.6) + exp(-abs(sd.y)*90.0) * exp(-abs(sd.x)*4.0) * 0.3;
+  col += vec3(1.0,0.66,0.4) * streak * uSun.z * 0.45;
   // grain
   float g = h12(uv*uRes + fract(uTime*7.31)*917.0) - 0.5;
   col += g * 0.035 * (1.0 - l*0.6);
   gl_FragColor = vec4(col, 1.0);
+}`;
+
+// ---------------------------------------------------------------- fireball billboard
+export const FIRE_FRAG = /* glsl */ `
+uniform float uT; uniform float uSeed;
+varying vec2 vUv;
+${NOISE}
+void main(){
+  vec2 p = vUv;
+  float d = length(p);
+  if (d > 1.0) discard;
+  float n = fbm3(vec3(p*1.9, uSeed + uT*1.3));
+  float n2 = snoise(vec3(p*5.0, uSeed*2.0 - uT*2.5));
+  float r = d + n*0.38 + n2*0.07;
+  float body = smoothstep(0.92, 0.35, r);
+  float heat = clamp(1.05 - r*1.25 - uT*1.05 + n*0.35, 0.0, 1.0);
+  vec3 smoke = vec3(0.07,0.06,0.055);
+  vec3 col = mix(smoke, vec3(1.0,0.32,0.06)*2.2, smoothstep(0.02,0.35,heat));
+  col = mix(col, vec3(1.0,0.78,0.42)*4.0, smoothstep(0.45,0.85,heat));
+  col = mix(col, vec3(1.0,0.95,0.85)*7.0, smoothstep(0.85,1.0,heat));
+  float fade = 1.0 - smoothstep(0.55, 1.0, uT);
+  float a = body * fade;
+  float cover = a * mix(0.75, 0.25, smoothstep(0.0,0.4,heat));   // smoke occludes, fire adds
+  gl_FragColor = vec4(col * a, cover);
+}`;
+
+// ---------------------------------------------------------------- shield bubble
+export const SHIELD_VERT = /* glsl */ `
+varying vec3 vObj; varying vec3 vNv; varying vec3 vVv;
+void main(){
+  vObj = normalize(position);
+  vec4 mv = modelViewMatrix*vec4(position,1.0);
+  vNv = normalize(normalMatrix*normal);
+  vVv = normalize(-mv.xyz);
+  gl_Position = projectionMatrix*mv;
+}`;
+export const SHIELD_FRAG = /* glsl */ `
+uniform float uT; uniform vec3 uCol; uniform vec3 uHit;
+varying vec3 vObj; varying vec3 vNv; varying vec3 vVv;
+void main(){
+  float fres = pow(1.0 - abs(dot(vNv, vVv)), 2.2);
+  vec3 p = vObj * 9.0;
+  vec3 a = vec3(1.0,0.0,0.0), b = vec3(-0.5,0.0,0.866), c = vec3(-0.5,0.0,-0.866);
+  float g = max(max(abs(sin(dot(p.xz,a.xz)*3.14159 + p.y)), abs(sin(dot(p.xz,b.xz)*3.14159 + p.y))), abs(sin(dot(p.xz,c.xz)*3.14159 + p.y)));
+  float lines = smoothstep(0.9, 1.0, g);
+  float dh = distance(vObj, uHit);
+  float hit = exp(-dh*3.5);
+  float wave = smoothstep(0.12, 0.0, abs(dh - uT*2.2)) * (1.0 - uT);
+  float k = (fres*hit*0.25 + lines*hit*0.55 + wave*0.5 + hit*hit*0.3) * pow(1.0 - uT, 2.0);
+  gl_FragColor = vec4(uCol * k, k);
 }`;
