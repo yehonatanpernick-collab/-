@@ -91,6 +91,16 @@ export class Sound {
       case 'eshoot': this.tone(500, 200, 0.25, 'triangle', 0.08); break;
       case 'barrier': this.tone(200, 180, 0.3, 'sine', 0.15, true); break;
       case 'ui': this.tone(660, 990, 0.08, 'sine', 0.1); break;
+      case 'rise': this.noise(0.6, 300, 'lowpass', 0.4, 1, 80); this.tone(80, 40, 0.6, 'sawtooth', 0.08); break;
+      case 'swing2': this.noise(0.22, 1200, 'bandpass', 0.3, 1.2, 400); break;
+      case 'block': this.tone(1400, 900, 0.12, 'square', 0.08); this.noise(0.1, 3000, 'highpass', 0.3); break;
+      case 'blink': this.tone(1800, 300, 0.3, 'sine', 0.15, true); break;
+      case 'cast': this.tone(300, 900, 0.5, 'triangle', 0.12, true); break;
+      case 'special': this.noise(0.5, 900, 'bandpass', 0.5, 0.8, 3000); this.tone(200, 800, 0.4, 'sawtooth', 0.12, true); break;
+      case 'beacon': this.noise(0.8, 600, 'lowpass', 0.4, 1, 2000); { const c = this.ctx; [0, 7, 12, 19].forEach((iv, i) => setTimeout(() => this.bell(mtof(64 + iv), c.currentTime, 0.12), i * 110)); } break;
+      case 'fairy': { const c = this.ctx; [0, 4, 7, 11, 14, 19, 23].forEach((iv, i) => setTimeout(() => this.bell(mtof(76 + iv), c.currentTime, 0.1), i * 70)); } break;
+      case 'portal': this.tone(120, 600, 1.4, 'sine', 0.2, true); this.noise(1.2, 400, 'bandpass', 0.3, 1, 2400); break;
+      case 'mote': this.bell(mtof(84 + [0, 4, 7, 12][Math.floor(Math.random() * 4)]), this.ctx.currentTime, 0.1); break;
       case 'victory': { const c = this.ctx; [0, 4, 7, 12, 7, 12, 16, 19, 24].forEach((iv, i) => setTimeout(() => this.bell(mtof(60 + iv), c.currentTime, 0.18), i * 160)); break; }
     }
   }
