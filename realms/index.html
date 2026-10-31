@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0716">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>ממלכות אֶתֶרְיָה – Realms of Aetheria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+</script>
+<style>
+:root { --gold: #f3c969; --gold2: #b8862f; --ink: #0b0716; --panel: rgba(14, 9, 28, 0.72); }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: #fff; font-family: 'Heebo', 'Segoe UI', Arial, sans-serif; touch-action: none; overscroll-behavior: none; }
+#game canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hide { display: none !important; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ---------- loading ---------- */
+#loading { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: radial-gradient(ellipse at center, #2a1850 0%, #0b0716 70%); transition: opacity .8s; }
+#loading.hide { display: flex !important; opacity: 0; pointer-events: none; }
+#loading .rune { width: 90px; height: 90px; border: 2px solid var(--gold); border-radius: 50%; position: relative; animation: spin 6s linear infinite; box-shadow: 0 0 30px #f3c96955, inset 0 0 30px #f3c96933; }
+#loading .rune::before, #loading .rune::after { content: ''; position: absolute; inset: 12px; border: 1px solid #f3c969aa; transform: rotate(45deg); }
+#loading .rune::after { inset: 26px; border-radius: 50%; background: radial-gradient(#fff6d0, #f3c969 40%, transparent 70%); border: none; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 50% { opacity: .4; transform: scale(.8); } }
+#loadwrap { width: min(340px, 70vw); height: 6px; background: #ffffff18; border-radius: 6px; overflow: hidden; }
+#loadbar { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold2), var(--gold), #fff6d0); transition: width .4s; box-shadow: 0 0 12px var(--gold); }
+#loadtxt { font-family: 'Frank Ruhl Libre', serif; font-size: 18px; color: #e8dcff; letter-spacing: .5px; }
+
+/* ---------- title ---------- */
+#title { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+  background: radial-gradient(ellipse at center, rgba(10,5,25,0.15) 0%, rgba(10,5,25,0.75) 85%); animation: fadein 1.2s ease; }
+@keyframes fadein { from { opacity: 0; } }
+.logo-en { font-family: 'Cinzel Decorative', serif; font-size: clamp(14px, 2.2vw, 22px); letter-spacing: 8px; color: #fff3cf; text-shadow: 0 0 18px #ffcf6a; opacity: .9; direction: ltr; }
+.logo { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: clamp(48px, 10vw, 118px); line-height: 1.05; margin: 6px 0 4px;
+  background: linear-gradient(180deg, #fffbe8 0%, #ffe39a 35%, #e0a43c 65%, #8a5a1a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 0 #3a2208) drop-shadow(0 0 30px rgba(255, 200, 100, .55)); }
+.tagline { font-family: 'Frank Ruhl Libre', serif; font-size: clamp(15px, 2.2vw, 22px); color: #f0e6ff; text-shadow: 0 2px 8px #000; margin-bottom: 22px; max-width: 720px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 30px; }
+.chip { padding: 6px 14px; border-radius: 30px; font-size: 14px; font-weight: 600; background: rgba(0,0,0,.45); border: 1px solid var(--c); color: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 40%, transparent), inset 0 0 10px color-mix(in srgb, var(--c) 25%, transparent); backdrop-filter: blur(4px); }
+.btn { position: relative; padding: 16px 54px; font-size: 22px; font-weight: 800; color: #2a1606; border: none; border-radius: 14px;
+  background: linear-gradient(180deg, #fff1c2, #f3c969 45%, #c8902f); box-shadow: 0 6px 0 #7a4f14, 0 10px 30px rgba(255, 190, 80, .45), inset 0 2px 0 #fff8; transition: transform .1s, box-shadow .1s; }
+.btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #7a4f14, 0 6px 20px rgba(255, 190, 80, .4); }
+.btn2 { margin-top: 14px; padding: 9px 22px; font-size: 15px; color: #f3e6ff; background: rgba(20, 12, 40, .6); border: 1px solid #f3c96988; border-radius: 10px; backdrop-filter: blur(6px); }
+.btn2:hover { background: rgba(60, 40, 100, .6); }
+.hint { margin-top: 22px; font-size: 13px; color: #d8cfee; opacity: .85; max-width: 640px; line-height: 1.7; text-shadow: 0 1px 4px #000; }
+.touch .hint .pc, body:not(.touch) .hint .mob { display: none; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+.panel { background: var(--panel); border: 1px solid #f3c96955; border-radius: 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0,0,0,.4), inset 0 0 20px rgba(243, 201, 105, .06); }
+#stats { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); padding: 10px 14px; width: min(290px, 42vw); }
+.bar { height: 14px; border-radius: 8px; background: #00000080; overflow: hidden; border: 1px solid #ffffff22; position: relative; margin: 4px 0; }
+.bar > div { height: 100%; transition: width .2s; border-radius: 8px; }
+#hpfill { background: linear-gradient(90deg, #ff9a7a, #e8344a); box-shadow: 0 0 10px #ff4a5a; float: right; }
+#mpfill { background: linear-gradient(90deg, #a6e8ff, #3a8aff); box-shadow: 0 0 10px #4aa8ff; float: right; }
+#mpbar { height: 9px; }
+#hptxt { position: absolute; inset: 0; font-size: 10px; line-height: 14px; text-align: center; font-weight: 800; text-shadow: 0 1px 2px #000; }
+#shards { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+#shards span.lbl { font-size: 12px; color: #e8dcff; margin-left: 4px; }
+.gem { width: 18px; height: 26px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); background: #ffffff22; transition: all .5s; }
+.gem.on { background: var(--c); box-shadow: 0 0 12px var(--c); filter: drop-shadow(0 0 6px var(--c)) brightness(1.3); transform: scale(1.15); }
+#mmwrap { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); width: 150px; height: 150px; border-radius: 50%; padding: 4px;
+  background: conic-gradient(from 0deg, #f3c969, #8a5a1a, #f3c969, #8a5a1a, #f3c969); box-shadow: 0 6px 24px #0008; }
+#minimap { width: 100%; height: 100%; border-radius: 50%; display: block; }
+#mmwrap .n { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); font: 800 12px 'Cinzel Decorative', serif; color: #fff3cf; text-shadow: 0 0 4px #000; }
+#objective { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 8px 18px 8px 14px; display: flex; align-items: center; gap: 12px; max-width: 46vw; }
+#objarrow { width: 30px; height: 30px; flex: none; transition: transform .1s linear; filter: drop-shadow(0 0 6px #f3c969); }
+#objtxt { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 16px; color: #fff3cf; }
+#objdist { font-size: 12px; color: #c9b8f0; margin-top: 1px; }
+#banner { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0; pointer-events: none; white-space: nowrap; }
+#banner.show { animation: ban 4.5s ease forwards; }
+@keyframes ban { 0% { opacity: 0; letter-spacing: 14px; } 15% { opacity: 1; letter-spacing: 2px; } 75% { opacity: 1; } 100% { opacity: 0; } }
+#ban-tag { font-size: 15px; letter-spacing: 6px; color: var(--c); text-shadow: 0 0 12px var(--c), 0 2px 4px #000; font-weight: 600; }
+#ban-name { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: clamp(34px, 6vw, 64px); color: #fff; text-shadow: 0 0 24px var(--c), 0 0 4px var(--c), 0 4px 8px #000; }
+#banner::after { content: ''; display: block; height: 2px; margin: 6px auto 0; width: 70%; background: linear-gradient(90deg, transparent, var(--c), transparent); }
+#toast { position: absolute; bottom: 30%; left: 50%; transform: translate(-50%, 20px); padding: 10px 22px; font-size: 16px; font-weight: 600; opacity: 0; transition: all .35s; white-space: nowrap; max-width: 90vw; white-space: normal; text-align: center; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#bossbar { position: absolute; bottom: max(26px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(560px, 56vw); text-align: center; padding: 8px 14px 12px; }
+#bossbar .nm { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: 18px; color: #e0b8ff; text-shadow: 0 0 10px #b05cff; letter-spacing: 2px; }
+#bossbar .bar { height: 16px; }
+#bossfill { width: 100%; background: linear-gradient(90deg, #ff3a6a, #8a2aff); box-shadow: 0 0 14px #b05cff; float: right; }
+#pops { position: absolute; inset: 0; overflow: hidden; }
+.pop { position: absolute; left: 0; top: 0; font-weight: 800; font-size: 20px; text-shadow: 0 2px 0 #000, 0 0 8px rgba(0,0,0,.6); white-space: nowrap; will-change: transform; }
+.pop.big { font-size: 28px; }
+#vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 0, 30, .55) 100%); opacity: 0; }
+#vignette.flash { animation: vig .5s ease-out; }
+@keyframes vig { 0% { opacity: 1; } 100% { opacity: 0; } }
+#b-pause { position: absolute; pointer-events: auto; top: max(172px, calc(env(safe-area-inset-top) + 160px)); left: max(14px, env(safe-area-inset-left)); width: 44px; height: 44px; border-radius: 12px; font-size: 18px; color: #fff3cf; }
+
+/* ---------- touch controls ---------- */
+#touchui { display: none; }
+.touch #touchui { display: block; }
+#joy { position: absolute; width: 120px; height: 120px; border-radius: 50%; left: 40px; top: calc(100% - 180px); border: 2px solid #ffffff44; background: radial-gradient(#ffffff10, #ffffff05); opacity: .35; transition: opacity .2s; }
+#joy.on { opacity: 1; }
+#knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff6d0, #f3c969 60%, #a8741f); box-shadow: 0 0 16px #f3c96988; }
+.tbtn { position: absolute; pointer-events: auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #fff; touch-action: none;
+  background: radial-gradient(circle at 40% 30%, rgba(255,255,255,.25), rgba(20,12,40,.55)); border: 2px solid #f3c969aa; box-shadow: 0 0 18px rgba(0,0,0,.5), inset 0 0 14px rgba(243,201,105,.2); backdrop-filter: blur(4px); }
+.tbtn.press { transform: scale(.9); background: radial-gradient(circle, rgba(243,201,105,.5), rgba(20,12,40,.6)); }
+.tbtn.dim { opacity: .45; }
+#b-attack { width: 92px; height: 92px; right: max(34px, env(safe-area-inset-right)); bottom: max(34px, env(safe-area-inset-bottom)); font-size: 38px; border-color: #ffe39a; }
+#b-magic { width: 64px; height: 64px; right: max(138px, calc(env(safe-area-inset-right) + 128px)); bottom: max(30px, env(safe-area-inset-bottom)); border-color: #7fdcff; color: #bff2ff; }
+#b-jump { width: 64px; height: 64px; right: max(40px, env(safe-area-inset-right)); bottom: max(138px, calc(env(safe-area-inset-bottom) + 128px)); }
+#b-dash { width: 58px; height: 58px; right: max(128px, calc(env(safe-area-inset-right) + 118px)); bottom: max(112px, calc(env(safe-area-inset-bottom) + 104px)); font-size: 24px; }
+.touch #bossbar { bottom: auto; top: 76px; width: 44vw; }
+
+/* ---------- dialog & overlays ---------- */
+#dialog { position: fixed; z-index: 20; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(760px, 92vw); padding: 16px 22px 14px; animation: dlg .35s ease; }
+@keyframes dlg { from { opacity: 0; transform: translate(-50%, 20px); } }
+#dialog::before { content: ''; position: absolute; top: -24px; right: 26px; width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffbe8, #ffd27a 45%, #c8902f); box-shadow: 0 0 22px #ffd27a, 0 0 50px #ffd27a88; border: 2px solid #fff3cf; }
+#dialog.dark::before { background: radial-gradient(circle at 40% 35%, #ff6a7a, #6a1a8a 50%, #1a0a20); box-shadow: 0 0 22px #b05cff, 0 0 50px #ff2a3a88; border-color: #b05cff; }
+#dialog.dark { border-color: #b05cff88; }
+#dlg-name { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; color: var(--gold); font-size: 17px; margin-right: 64px; }
+#dialog.dark #dlg-name { color: #e0a8ff; }
+#dlg-text { font-size: 18px; line-height: 1.6; margin-top: 6px; color: #fbf6ff; min-height: 2.6em; }
+#dlg-next { text-align: left; font-size: 12px; color: #d8c8ff; opacity: .8; animation: pulse 1.4s infinite; }
+.overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(8, 4, 20, .55); backdrop-filter: blur(3px); }
+.overlay .panel { padding: 30px 40px; text-align: center; min-width: min(380px, 88vw); }
+.overlay h2 { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: 42px; margin: 0 0 8px; color: var(--gold); text-shadow: 0 0 20px #f3c96988; }
+.overlay p { color: #e8dcff; font-size: 16px; line-height: 1.6; }
+.overlay .col { display: flex; flex-direction: column; gap: 10px; align-items: stretch; margin-top: 16px; }
+#death h2 { color: #ff6a7a; text-shadow: 0 0 20px #ff2a3a88; }
+#victory h2 { font-size: 52px; background: linear-gradient(180deg, #fffbe8, #ffe39a, #e0a43c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@media (max-height: 500px) {
+  .logo { font-size: 54px; } .tagline { margin-bottom: 10px; font-size: 14px; } .chips { margin-bottom: 14px; } .chip { font-size: 12px; padding: 4px 10px; } .hint { margin-top: 10px; }
+  .btn { padding: 12px 40px; font-size: 19px; }
+  #mmwrap { width: 108px; height: 108px; } #b-pause { top: 128px; }
+  #stats { padding: 7px 10px; } #objective { padding: 5px 12px; } #objtxt { font-size: 13px; } #objarrow { width: 22px; height: 22px; }
+  #dlg-text { font-size: 15px; } #dialog { padding: 10px 18px; }
+}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="loading"><div class="rune"></div><div id="loadwrap"><div id="loadbar"></div></div><div id="loadtxt">פותח את שערי הממלכות...</div></div>
+
+<div id="title" class="hide">
+  <div class="logo-en">REALMS OF AETHERIA</div>
+  <div class="logo">ממלכות אֶתֶרְיָה</div>
+  <div class="tagline">חמש ממלכות. לב אחד מנופץ. גיבור אחד שיכול להחזיר את האור.</div>
+  <div class="chips">
+    <span class="chip" style="--c:#ffd66b">☀ פנטזיית אור</span>
+    <span class="chip" style="--c:#ff7ad9">🍄 פנטזיית אגדות</span>
+    <span class="chip" style="--c:#ffc04a">⚱ פנטזיה מיתית</span>
+    <span class="chip" style="--c:#5ff0ff">⛰ פנטזיית הרפתקאות</span>
+    <span class="chip" style="--c:#b05cff">☾ פנטזיה אפלה</span>
+  </div>
+  <button class="btn" id="startbtn">התחל מסע</button>
+  <button class="btn2" id="qbtn">איכות גרפיקה</button>
+  <div class="hint">
+    <span class="pc">WASD – תנועה • עכבר – מצלמה • קליק שמאלי – חרב • קליק ימני / Q – קסם • רווח – קפיצה • Shift – התחמקות • גלגלת – זום • Esc – תפריט</span>
+    <span class="mob">ג׳ויסטיק משמאל – תנועה • גרירה מימין – מצלמה • כפתורים מימין – חרב, קסם, קפיצה, התחמקות • מומלץ לסובב את הטלפון לרוחב 📱↔</span>
+  </div>
+</div>
+
+<div id="hud" class="hide">
+  <div id="pops"></div>
+  <div id="vignette"></div>
+  <div id="stats" class="panel">
+    <div class="bar"><div id="hpfill"></div><div id="hptxt"></div></div>
+    <div class="bar" id="mpbar"><div id="mpfill"></div></div>
+    <div id="shards"><span class="lbl">רסיסי הלב</span>
+      <div class="gem" id="sh1" style="--c:#ff7ad9"></div><div class="gem" id="sh2" style="--c:#ffc04a"></div><div class="gem" id="sh3" style="--c:#5ff0ff"></div><div class="gem" id="sh4" style="--c:#b05cff"></div>
+    </div>
+  </div>
+  <div id="mmwrap"><canvas id="minimap" width="160" height="160"></canvas><div class="n">N</div></div>
+  <button id="b-pause" class="panel">❚❚</button>
+  <div id="objective" class="panel">
+    <svg id="objarrow" viewBox="0 0 30 30"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d0"/><stop offset="1" stop-color="#c8902f"/></linearGradient></defs><path d="M15 2 L25 24 L15 18 L5 24 Z" fill="url(#ag)" stroke="#3a2208" stroke-width="1.2"/></svg>
+    <div><div id="objtxt"></div><div id="objdist"></div></div>
+  </div>
+  <div id="banner"><div id="ban-tag"></div><div id="ban-name"></div></div>
+  <div id="toast" class="panel"></div>
+  <div id="bossbar" class="panel hide"><div class="nm">☠ המלך החלול ☠</div><div class="bar"><div id="bossfill"></div></div></div>
+  <div id="touchui">
+    <div id="joy"><div id="knob"></div></div>
+    <div class="tbtn" id="b-attack">⚔</div>
+    <div class="tbtn" id="b-magic">✦</div>
+    <div class="tbtn" id="b-jump">⤒</div>
+    <div class="tbtn" id="b-dash">»</div>
+  </div>
+</div>
+
+<div id="dialog" class="panel hide"><div id="dlg-name"></div><div id="dlg-text"></div><div id="dlg-next">▼ המשך</div></div>
+
+<div id="pause" class="overlay hide"><div class="panel"><h2>מנוחה</h2><p>העולם ממתין לגיבור שלו.</p>
+  <div class="col"><button class="btn" id="p-resume">המשך</button><button class="btn2" id="p-sound">צליל: פועל</button><button class="btn2" id="p-q">איכות</button><button class="btn2" id="p-restart">התחל מחדש</button></div></div></div>
+<div id="death" class="overlay hide"><div class="panel"><h2>נפלת...</h2><p>אבל האור שבך עוד לא כבה.<br>ליאורה תחזיר אותך אל המזבח.</p><div class="col"><button class="btn" id="respawn">קום שוב</button></div></div></div>
+<div id="victory" class="overlay hide"><div class="panel"><h2>האור חזר!</h2><p>לב האֶתֶר אוחה, והשחר עולה מעל ממלכת הצללים.<br>חמש הממלכות שוב בהרמוניה – בזכותך, גיבור.</p><p id="v-stats"></p><div class="col"><button class="btn" id="v-continue">המשך לחקור</button></div></div></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
