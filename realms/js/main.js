@@ -134,7 +134,10 @@ addEventListener('mousemove', e => {
   if (document.pointerLockElement === canvas) { camYaw -= e.movementX * 0.0026; camPitch += e.movementY * 0.0022; }
 });
 addEventListener('wheel', e => { if (state === 'play') camDist = THREE.MathUtils.clamp(camDist + e.deltaY * 0.01, 5, 16); }, { passive: true });
-document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && !isTouch) pause(); });
+let lockGrace = 0;
+const lock = () => { lockGrace = performance.now() + 800; lock(); };
+const unlock = () => { lockGrace = performance.now() + 800; unlock(); };
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && !isTouch && performance.now() > lockGrace) pause(); });
 
 // touch / pointer controls
 const joyEl = $('joy'), knob = $('knob');
@@ -191,7 +194,7 @@ $('startbtn').addEventListener('click', () => {
   sound.init(); sound.play('ui');
   $('title').classList.add('hide'); $('hud').classList.remove('hide');
   game.start = time;
-  if (!isTouch) canvas.requestPointerLock?.();
+  lock();
   state = 'play';
   if (!game.talked) setTimeout(() => startDialog(introLines(), () => { game.talked = true; }), 600);
   try { if (isTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); screen.orientation?.lock?.('landscape').catch(() => { }); } catch (e) { }
@@ -199,7 +202,7 @@ $('startbtn').addEventListener('click', () => {
 const cycleQ = () => { const order = ['high', 'medium', 'low']; const n = order[(order.indexOf(qName) + 1) % 3]; localStorage.setItem('aeth-q', n); location.reload(); };
 $('qbtn').addEventListener('click', cycleQ); $('p-q').addEventListener('click', cycleQ);
 function pause() { if (state !== 'play') return; state = 'paused'; $('pause').classList.remove('hide'); $('p-q').textContent = 'איכות: ' + Q_NAMES[qName]; }
-function resume() { $('pause').classList.add('hide'); state = 'play'; if (!isTouch) canvas.requestPointerLock?.(); }
+function resume() { $('pause').classList.add('hide'); state = 'play'; lock(); }
 $('p-resume').addEventListener('click', resume);
 $('p-sound').addEventListener('click', () => { sound.setEnabled(!sound.enabled); $('p-sound').textContent = 'צליל: ' + (sound.enabled ? 'פועל' : 'כבוי'); });
 $('p-restart').addEventListener('click', () => location.reload());
@@ -207,17 +210,17 @@ $('respawn').addEventListener('click', () => {
   $('death').classList.add('hide'); respawnHero();
   for (const e of enemies.list) if (e.alive && e.state !== 'idle') { e.state = 'return'; }
   if (enemies.boss && enemies.boss.alive) { enemies.boss.hp = enemies.boss.maxHp; enemies.bossActive = false; $('bossbar').classList.add('hide'); }
-  state = 'play'; if (!isTouch) canvas.requestPointerLock?.();
+  state = 'play'; lock();
 });
-$('v-continue').addEventListener('click', () => { $('victory').classList.add('hide'); state = 'play'; if (!isTouch) canvas.requestPointerLock?.(); });
+$('v-continue').addEventListener('click', () => { $('victory').classList.add('hide'); state = 'play'; lock(); });
 
 // ---------- dialog ----------
 let dlgQueue = [], dlgDone = null;
-function startDialog(lines, done) { dlgQueue = lines.slice(); dlgDone = done; state = 'dialog'; document.exitPointerLock?.(); $('dialog').classList.remove('hide'); nextDialog(true); }
+function startDialog(lines, done) { dlgQueue = lines.slice(); dlgDone = done; state = 'dialog'; unlock(); $('dialog').classList.remove('hide'); nextDialog(true); }
 function nextDialog(first) {
   if (!first) sound.play('ui');
   const l = dlgQueue.shift();
-  if (!l) { $('dialog').classList.add('hide'); state = 'play'; if (!isTouch) canvas.requestPointerLock?.(); const d = dlgDone; dlgDone = null; d && d(); return; }
+  if (!l) { $('dialog').classList.add('hide'); state = 'play'; lock(); const d = dlgDone; dlgDone = null; d && d(); return; }
   $('dlg-name').textContent = l[0]; $('dlg-text').textContent = l[1];
   $('dialog').className = 'panel ' + (l[2] || '');
 }
@@ -413,7 +416,7 @@ function checkBossAndAltar(dt) {
   if (c[1] && c[2] && c[3] && c[4] && !game.won && hero.pos.distanceTo(world.altar) < 10) startVictory();
 }
 function startVictory() {
-  game.won = true; state = 'cine'; game.cine = 0; document.exitPointerLock?.();
+  game.won = true; state = 'cine'; game.cine = 0; unlock();
   sound.play('victory'); $('hud').classList.add('hide');
 }
 function updateCine(dt) {
@@ -524,7 +527,7 @@ function loop(now) {
     fx.update(dt, time, hero.pos, world.blend.part, world.cur[4] * (1 - world.healed) * 0.8);
     for (const em of world.emitters) if (Math.random() < em.rate * dt && Math.abs(em.x - hero.pos.x) < 90 && Math.abs(em.z - hero.pos.z) < 90) fx.emit(em, { count: 1, color: em.color, speed: 0.4, up: em.up, life: em.life, size: em.size, spread: em.spread });
     updateCamera(dt); updateHUD(dt); updatePops(dt);
-    if (hero.dead) { game.deathT -= dt; if (game.deathT <= 0 && state === 'play') { state = 'dead'; document.exitPointerLock?.(); $('death').classList.remove('hide'); } }
+    if (hero.dead) { game.deathT -= dt; if (game.deathT <= 0 && state === 'play') { state = 'dead'; unlock(); $('death').classList.remove('hide'); } }
   } else if (state === 'cine') {
     updateCine(dt); world.update(dt, time, camera, hero.pos); fx.update(dt, time, hero.pos, world.blend.part, 0);
     hero.animate(dt, 0); fairy.update(dt, hero.pos, hero.facing, fx); updatePops(dt);
