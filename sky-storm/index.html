@@ -739,6 +739,9 @@ function height(x, z) {
   return (base - 0.43) * 430 + m * ridged(x * 0.0015, z * 0.0015) * 600 + m * 30;
 }
 const ground = (x, z) => Math.max(height(x, z), 0);
+// Biomes: low values are pink/red crystal fields, high values are lava lands, the middle is violet ash highlands
+const biomeN = (x, z) => noise(x * 0.00045 + 17.3, z * 0.00045 - 8.1) * 0.75 + noise(x * 0.0016 - 4.2, z * 0.0016 + 9.9) * 0.25;
+function biomeW(x, z) { const b = biomeN(x, z); return [smooth(0.5, 0.6, b), smooth(0.47, 0.38, b)]; }
 function terrainAhead(x, z, yaw, range) {
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
   let m = 0;
@@ -752,6 +755,8 @@ tGeo.rotateX(-Math.PI / 2);
 const tPos = tGeo.attributes.position, tNor = tGeo.attributes.normal;
 const tCol = new Float32Array(TCOUNT * 3);
 tGeo.setAttribute('color', new THREE.BufferAttribute(tCol, 3));
+const tBio = new Float32Array(TCOUNT * 2);
+tGeo.setAttribute('bio', new THREE.BufferAttribute(tBio, 2));
 function tileNoise(x, y, px, py) {
   const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
   const g = (a, b) => hash(((a % px) + px) % px, ((b % py) + py) % py);
@@ -788,14 +793,14 @@ terrainMat.onBeforeCompile = sh => {
   sh.uniforms.uTime = terrainTime;
   sh.uniforms.grassTex = { value: grassTex };
   sh.uniforms.rockTex = { value: rockTex };
-  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;')
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvTN = normal;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;\nuniform float uTime;\nuniform sampler2D grassTex;\nuniform sampler2D rockTex;\n' + GLSL_NOISE)
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;\nattribute vec2 bio;\nvarying vec2 vBio;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvTN = normal;\nvBio = bio;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying vec3 vTN;\nvarying vec2 vBio;\nuniform float uTime;\nuniform sampler2D grassTex;\nuniform sampler2D rockTex;\n' + GLSL_NOISE)
     .replace('#include <color_fragment>', `#include <color_fragment>
       float dn = vnoise(vTW.xz * 0.018) * 0.55 + vnoise(vTW.xz * 0.09) * 0.45;
       diffuseColor.rgb *= 0.78 + 0.4 * dn;
       vec3 tnN = normalize(vTN);
-      float gD = texture2D(grassTex, vTW.xz * 0.055).r * 0.65 + texture2D(grassTex, vTW.xz * 0.011).r * 0.35;
+      float gD = texture2D(rockTex, vTW.xz * 0.045).r * 0.6 + texture2D(grassTex, vTW.xz * 0.011).r * 0.4;
       vec3 bw = pow(abs(tnN), vec3(4.0)); bw /= (bw.x + bw.y + bw.z);
       float rD = texture2D(rockTex, vTW.zy * 0.035).r * bw.x + texture2D(rockTex, vTW.xz * 0.035).r * bw.y + texture2D(rockTex, vTW.xy * 0.035).r * bw.z;
       float detail = mix(gD, rD, smoothstep(0.2, 0.42, 1.0 - tnN.y));
@@ -806,9 +811,47 @@ terrainMat.onBeforeCompile = sh => {
       diffuseColor.rgb *= mix(1.0, 0.8 + 0.32 * strata, rockMask);
       float shore = smoothstep(2.4, 0.5, vTW.y) * smoothstep(-0.3, 0.5, vTW.y);
       float surf = 0.5 + 0.5 * sin(vTW.x * 0.07 + vTW.z * 0.05 + uTime * 1.6);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.88, 0.86), shore * (0.3 + 0.45 * surf));`)
+      totalEmissiveRadiance += vec3(1.4, 0.18, 0.75) * shore * (0.25 + 0.55 * surf);
+      {
+        float flt = smoothstep(0.7, 0.95, tnN.y);
+        // Lava: meandering rivers along noise contours, fine cracks, a slow flowing glow
+        float lw = vBio.x;
+        if (lw > 0.01) {
+          float flow = vnoise(vTW.xz * 0.045 + uTime * vec2(0.06, 0.035)) * 0.6 + vnoise(vTW.xz * 0.11 - uTime * vec2(0.03, 0.08)) * 0.4;
+          float rv = abs(vnoise(vTW.xz * 0.0055 + 3.7) - 0.5);
+          float river = smoothstep(0.04, 0.012, rv) * (0.2 + 0.8 * flt);
+          float cr = abs(vnoise(vTW.xz * 0.034 + 9.1) - 0.5) * 1.3 + abs(vnoise(vTW.xz * 0.09 - 2.0) - 0.5) * 0.5;
+          float crack = smoothstep(0.03, 0.0, cr) * smoothstep(1100.0, 250.0, tDist) * (0.4 + 0.6 * flt);
+          float core = smoothstep(0.02, 0.0, rv) * (0.6 + 0.4 * flow);
+          float lm = max(river, crack * 0.8) * lw;
+          vec3 lava = mix(vec3(2.6, 0.35, 0.05), vec3(6.5, 2.8, 0.45), clamp(core + flow * 0.35 * river, 0.0, 1.0));
+          totalEmissiveRadiance += lava * lm * (0.7 + 0.5 * flow);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.015, 0.012), smoothstep(0.08, 0.03, rv) * lw * 0.85);
+        }
+        // Crystal fields: pink and red sparkles plus thin magenta veins
+        float cw = vBio.y;
+        if (cw > 0.01) {
+          vec2 cell = floor(vTW.xz * 0.6);
+          float hr = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+          vec2 f = fract(vTW.xz * 0.6) - 0.5;
+          float sp = step(0.93, hr) * smoothstep(0.3, 0.0, length(f)) * (0.5 + 0.5 * sin(uTime * (2.0 + hr * 6.0) + hr * 40.0));
+          float vn = abs(vnoise(vTW.xz * 0.02 + 5.0) - 0.5);
+          float vein = smoothstep(0.005, 0.0, vn) * smoothstep(1100.0, 200.0, tDist) * smoothstep(0.45, 0.7, vnoise(vTW.xz * 0.007 + 2.0));
+          vec3 pc = mix(vec3(2.6, 0.35, 0.9), vec3(2.4, 0.2, 0.3), hr);
+          totalEmissiveRadiance += vec3(0.14, 0.02, 0.07) * cw;
+          totalEmissiveRadiance += (pc * sp * smoothstep(450.0, 60.0, tDist) * 2.0 + vec3(1.8, 0.2, 1.1) * vein * (0.6 + 0.4 * sin(uTime * 0.8 + vTW.x * 0.01))) * cw;
+        }
+        // Ash highlands: violet and cyan veins
+        float hw = max(0.0, 1.0 - lw - cw);
+        if (hw > 0.01) {
+          float vn = abs(vnoise(vTW.xz * 0.016 - 1.3) - 0.5);
+          float vein = smoothstep(0.004, 0.0, vn) * smoothstep(1000.0, 200.0, tDist) * smoothstep(0.45, 0.7, vnoise(vTW.xz * 0.006 - 4.0));
+          totalEmissiveRadiance += mix(vec3(0.9, 0.3, 2.4), vec3(0.3, 1.6, 2.2), vnoise(vTW.xz * 0.004)) * vein * hw * (0.55 + 0.45 * sin(uTime * 0.7 + vTW.z * 0.01));
+        }
+      }`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-      roughnessFactor = mix(roughnessFactor, 0.42, smoothstep(0.7, 0.9, dot(vColor, vec3(0.3, 0.5, 0.2))));`)
+      roughnessFactor = mix(roughnessFactor, 0.4, smoothstep(0.55, 0.8, dot(vColor, vec3(0.3, 0.5, 0.2))));
+      roughnessFactor = mix(roughnessFactor, 0.45, vBio.x * 0.7);`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       {
         float bmpFade = smoothstep(700.0, 150.0, length(vViewPosition));
@@ -826,11 +869,13 @@ terrain.receiveShadow = true;
 scene.add(terrain);
 
 const TC = {
-  sandW: LIN(0x7a6a50), sand: LIN(0xc8b48a), grassA: LIN(0x4d7a2c), grassB: LIN(0x6e8c38), dry: LIN(0x8c7c4a),
-  rock: LIN(0x7a6e62), rockD: LIN(0x52483f), snow: LIN(0xf3f5f9)
+  shoreW: LIN(0x1e1424), shore: LIN(0x2e2034),
+  roseA: LIN(0xa8507a), roseB: LIN(0xc8687e), crimson: LIN(0x7a1a34),
+  obsA: LIN(0x18121a), obsB: LIN(0x2e2024), ashA: LIN(0x3c2e4a), ashB: LIN(0x55426a),
+  rock: LIN(0x4a3a52), rockD: LIN(0x2a2030), cap: LIN(0xf0cfe8)
 };
 const tA = new THREE.Color(), tB = new THREE.Color();
-const job = { active: false, cx: 0, cz: 0, i: 0, row: 0, H: new Float32Array(TCOUNT), N: new Float32Array(TCOUNT * 3), Cc: new Float32Array(TCOUNT * 3) };
+const job = { active: false, cx: 0, cz: 0, i: 0, row: 0, H: new Float32Array(TCOUNT), N: new Float32Array(TCOUNT * 3), Cc: new Float32Array(TCOUNT * 3), B: new Float32Array(TCOUNT * 2) };
 const terrainC = new THREE.Vector2();
 function startTerrain(px, pz) {
   job.cx = Math.round(px / T_STEP) * T_STEP; job.cz = Math.round(pz / T_STEP) * T_STEP;
@@ -862,12 +907,15 @@ function shadeRows(r0, r1) {
     nr[i * 3] = nx; nr[i * 3 + 1] = ny; nr[i * 3 + 2] = nz;
     const wx = cx - HALF + ix * T_STEP, wz = cz - HALF + iy * T_STEP;
     const slope = 1 - ny, n1 = noise(wx * 0.004, wz * 0.004), n2 = noise(wx * 0.013 + 7, wz * 0.013);
-    tA.copy(TC.grassA).lerp(TC.grassB, n1);
-    tA.lerp(TC.dry, smooth(180, 360, h + n2 * 60) * 0.7);
-    tA.lerp(tB.copy(TC.rock).lerp(TC.rockD, n2), smooth(0.2, 0.38, slope + n2 * 0.08));
-    tA.lerp(TC.snow, smooth(610, 670, h + n1 * 60) * (1 - smooth(0.42, 0.6, slope)));
-    tA.lerp(TC.sand, smooth(9, 3, h));
-    if (h < 0.5) tA.copy(TC.sandW);
+    const bw = biomeW(wx, wz), lavaW = bw[0], crysW = bw[1];
+    job.B[i * 2] = lavaW; job.B[i * 2 + 1] = crysW;
+    tA.copy(TC.ashA).lerp(TC.ashB, n1);
+    tA.lerp(tB.copy(TC.roseA).lerp(TC.roseB, n1).lerp(TC.crimson, smooth(120, 20, h) * 0.6 + n2 * 0.25), crysW);
+    tA.lerp(tB.copy(TC.obsA).lerp(TC.obsB, n2), lavaW);
+    tA.lerp(tB.copy(TC.rock).lerp(TC.rockD, n2), smooth(0.2, 0.38, slope + n2 * 0.08) * (1 - lavaW * 0.6));
+    tA.lerp(TC.cap, smooth(590, 660, h + n1 * 60) * (1 - smooth(0.42, 0.6, slope)) * (1 - lavaW * 0.7));
+    tA.lerp(TC.shore, smooth(9, 3, h));
+    if (h < 0.5) tA.copy(TC.shoreW);
     const curv = (H[iy * TN + Math.max(ix - 3, 0)] + H[iy * TN + Math.min(ix + 3, T_SEG)] + H[Math.max(iy - 3, 0) * TN + ix] + H[Math.min(iy + 3, T_SEG) * TN + ix]) * 0.25 - h;
     tA.multiplyScalar(clamp(1 - curv * 0.01, 0.62, 1.12));
     col[i * 3] = tA.r; col[i * 3 + 1] = tA.g; col[i * 3 + 2] = tA.b;
@@ -876,10 +924,10 @@ function shadeRows(r0, r1) {
 function commitTerrain() {
   const p = tPos.array, H = job.H;
   for (let i = 0; i < TCOUNT; i++) p[i * 3 + 1] = H[i];
-  tNor.array.set(job.N); tCol.set(job.Cc);
+  tNor.array.set(job.N); tCol.set(job.Cc); tBio.set(job.B);
   terrain.position.set(job.cx, 0, job.cz);
   terrainC.set(job.cx, job.cz);
-  tPos.needsUpdate = tNor.needsUpdate = tGeo.attributes.color.needsUpdate = true;
+  tPos.needsUpdate = tNor.needsUpdate = tGeo.attributes.color.needsUpdate = tGeo.attributes.bio.needsUpdate = true;
   placeTrees();
 }
 function sampleH(wx, wz) {
@@ -902,29 +950,40 @@ function mergeGeos(list) {
   return out;
 }
 const MAX_TREES = LOW ? 2500 : 12000, MAX_ROCKS = LOW ? 400 : 1600;
-const foliageGeo = mergeGeos([new THREE.ConeGeometry(0.5, 0.62, 7).translate(0, 0.48, 0), new THREE.ConeGeometry(0.38, 0.5, 7).translate(0, 0.78, 0), new THREE.ConeGeometry(0.24, 0.34, 7).translate(0, 1.0, 0)]);
-const broadGeo = mergeGeos([new THREE.IcosahedronGeometry(0.42, 1).scale(1, 0.85, 1).translate(0, 0.62, 0), new THREE.IcosahedronGeometry(0.3, 1).translate(0.2, 0.86, 0.06), new THREE.IcosahedronGeometry(0.28, 1).translate(-0.18, 0.82, -0.1)]);
+// Crystal spire clusters (tall) and crystal carpets (wide, low shards) replace the trees
+const shard = (w, hgt, x, z, rx, rz) => new THREE.OctahedronGeometry(1, 0).scale(w, hgt, w).rotateY(x * 7 + z * 3).rotateX(rx).rotateZ(rz).translate(x, hgt * 0.55, z);
+const foliageGeo = mergeGeos([shard(0.17, 0.62, 0, 0, 0, 0), shard(0.11, 0.42, 0.16, 0.05, 0.1, -0.35), shard(0.1, 0.36, -0.15, 0.08, -0.1, 0.4), shard(0.08, 0.28, 0.02, -0.17, -0.4, 0.05), shard(0.07, 0.22, -0.05, 0.18, 0.45, -0.1)]);
+const broadGeo = mergeGeos(Array.from({ length: 11 }, (_, i) => { const a = i * 2.4, r = 0.15 + (i % 4) * 0.22; return shard(0.06 + (i % 3) * 0.025, 0.12 + ((i * 7) % 5) * 0.05, Math.cos(a) * r, Math.sin(a) * r, Math.sin(a) * 0.35, Math.cos(a) * 0.35); }));
 const trunkGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.36, 5).translate(0, 0.18, 0);
-const foliage = new THREE.InstancedMesh(foliageGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9, color: 0xffffff }), MAX_TREES);
-const broad = new THREE.InstancedMesh(broadGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85, color: 0xffffff }), MAX_TREES);
+const foliage = new THREE.InstancedMesh(foliageGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.22, metalness: 0.15, color: 0xffffff }), MAX_TREES);
+const broad = new THREE.InstancedMesh(broadGeo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.22, metalness: 0.15, color: 0xffffff }), MAX_TREES);
 const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: LIN(0x4a3424), roughness: 1 }), MAX_TREES * 2);
-const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.95, color: 0xffffff }), MAX_ROCKS);
-const treeCols = [LIN(0x2a4a22), LIN(0x355a28), LIN(0x22401e), LIN(0x3e5e2c), LIN(0x2e4f2a), LIN(0x5a2240), LIN(0x3e2c5c)];
-const broadCols = [LIN(0x4a6a2a), LIN(0x5a7a30), LIN(0x3e5a26), LIN(0x8a3a24), LIN(0x9a6222), LIN(0x6a2244)];
-const rockCols = [LIN(0x6e6660), LIN(0x5a524c), LIN(0x7e7468), LIN(0x4a4440)];
+const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.4, metalness: 0.2, color: 0xffffff }), MAX_ROCKS);
+const treeCols = [LIN(0xff4f9a), LIN(0xff6f8a), LIN(0xd8183c), LIN(0xff3a6a), LIN(0xc22ad0), LIN(0xff86c8), LIN(0x9a3aff)];
+const broadCols = [LIN(0xff5aa0), LIN(0xe0204a), LIN(0xff7ab0), LIN(0xb8164a), LIN(0xd040e0), LIN(0xff9ac0)];
+const rockCols = [LIN(0x4a3a54), LIN(0x3a2e44), LIN(0x5a4664), LIN(0x2e2438)];
+const obsCols = [LIN(0x120c10), LIN(0x1e1418), LIN(0x0c080c), LIN(0x24161a)];
 for (let i = 0; i < MAX_TREES; i++) { foliage.setColorAt(i, treeCols[i % treeCols.length]); broad.setColorAt(i, broadCols[i % broadCols.length]); }
 for (let i = 0; i < MAX_ROCKS; i++) rocks.setColorAt(i, rockCols[i % rockCols.length]);
 foliage.frustumCulled = broad.frustumCulled = trunks.frustumCulled = rocks.frustumCulled = false;
 rocks.receiveShadow = true;
+trunks.visible = false;
 scene.add(foliage, broad, trunks, rocks);
 function treeSway(sh) {
+  // Crystal glow: the instance colour lights the shards from inside, brightest at the tips, with a slow pulse
   sh.uniforms.uTime = terrainTime;
-  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;')
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying float vCrY;\nvarying float vCrPh;')
     .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vCrY = position.y;
       #ifdef USE_INSTANCING
-        float swPh = instanceMatrix[3].x * 0.05 + instanceMatrix[3].z * 0.07;
-        transformed.x += sin(uTime * 1.6 + swPh) * 0.035 * position.y * position.y;
-        transformed.z += cos(uTime * 1.3 + swPh) * 0.025 * position.y * position.y;
+        vCrPh = instanceMatrix[3].x * 0.013 + instanceMatrix[3].z * 0.017;
+      #else
+        vCrPh = 0.0;
+      #endif`);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying float vCrY;\nvarying float vCrPh;')
+    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      #if defined( USE_INSTANCING_COLOR ) || defined( USE_COLOR )
+        totalEmissiveRadiance += vColor * (0.18 + 1.5 * smoothstep(0.15, 0.75, vCrY)) * (0.7 + 0.3 * sin(uTime * 1.4 + vCrPh * 6.0));
       #endif`);
 }
 foliage.material.onBeforeCompile = broad.material.onBeforeCompile = treeSway;
@@ -935,24 +994,26 @@ function placeTrees() {
   for (let gz = Math.floor((cz - R) / STEP); gz <= (cz + R) / STEP && k < MAX_TREES * 2; gz++) {
     for (let gx = Math.floor((cx - R) / STEP); gx <= (cx + R) / STEP && k < MAX_TREES * 2; gx++) {
       const mask = noise(gx * 0.07 + 0.5, gz * 0.07 - 3.1);
-      if (mask < 0.48) continue;
-      const r = hash(gx * 7 + 1, gz * 13 + 5);
-      if (r > (mask - 0.48) * 2.8) continue;
+      if (mask < 0.22) continue;
       const wx = gx * STEP + hash(gx, gz + 99) * STEP, wz = gz * STEP + hash(gx + 41, gz) * STEP;
+      const bw = biomeW(wx, wz);
+      if (bw[0] > 0.4) continue;
+      const r = hash(gx * 7 + 1, gz * 13 + 5);
+      if (r > (mask - (bw[1] > 0.5 ? 0.22 : 0.4)) * (bw[1] > 0.5 ? 3.6 : 0.8)) continue;
       if ((wx - cx) ** 2 + (wz - cz) ** 2 > R * R) continue;
       const h = sampleH(wx, wz);
-      if (h < 9 || h > 330) continue;
+      if (h < 6 || h > 560) continue;
       const sl = Math.abs(sampleH(wx + 10, wz) - h) + Math.abs(sampleH(wx, wz + 10) - h);
-      if (sl > 6) continue;
+      if (sl > 14) continue;
       const s = 0.75 + hash(gx + 3, gz + 8) * 0.7;
-      tq.setFromAxisAngle(YAXIS, r * 6.28);
-      if (h < 160 && hash(gx + 17, gz - 5) < 0.45) {
+      tq.setFromEuler(teu.set((hash(gx + 9, gz) - 0.5) * 0.35, r * 6.28, (hash(gx, gz + 9) - 0.5) * 0.35));
+      if (hash(gx + 17, gz - 5) < 0.55) {
         if (b >= MAX_TREES) continue;
-        tm.compose(tpv.set(wx, h - 1, wz), tq, tsv.set(14 * s, 18 * s, 14 * s));
+        tm.compose(tpv.set(wx, h - 1, wz), tq, tsv.set(16 * s, 20 * s, 16 * s));
         broad.setMatrixAt(b, tm); broad.setColorAt(b, broadCols[(hash(gx, gz) * broadCols.length) | 0]); b++;
       } else {
         if (n >= MAX_TREES) continue;
-        tm.compose(tpv.set(wx, h - 1, wz), tq, tsv.set(9 * s, 24 * s, 9 * s));
+        tm.compose(tpv.set(wx, h - 2, wz), tq, tsv.set(13 * s, 38 * s, 13 * s));
         foliage.setMatrixAt(n, tm); foliage.setColorAt(n, treeCols[(hash(gx, gz) * treeCols.length) | 0]); n++;
       }
       trunks.setMatrixAt(k++, tm);
@@ -964,17 +1025,25 @@ function placeTrees() {
   for (let gz = Math.floor((cz - R) / RS); gz <= (cz + R) / RS && q < MAX_ROCKS; gz++) {
     for (let gx = Math.floor((cx - R) / RS); gx <= (cx + R) / RS && q < MAX_ROCKS; gx++) {
       const hr = hash(gx * 3 + 11, gz * 5 - 7);
-      if (hr > 0.2) continue;
+      if (hr > 0.4) continue;
       const wx = gx * RS + hash(gx + 5, gz) * RS, wz = gz * RS + hash(gx, gz + 5) * RS;
+      const lavaR = biomeW(wx, wz)[0] > 0.5;
+      if (!lavaR && hr > 0.16) continue;
       if ((wx - cx) ** 2 + (wz - cz) ** 2 > R * R) continue;
       const h = sampleH(wx, wz);
       if (h < 3) continue;
       const sc = (2 + hash(gx, gz + 3) * 8) * (h > 250 ? 1.4 : 1);
       const drop = Math.max(Math.abs(sampleH(wx + sc, wz) - h), Math.abs(sampleH(wx - sc, wz) - h), Math.abs(sampleH(wx, wz + sc) - h), Math.abs(sampleH(wx, wz - sc) - h));
       if (drop > sc * 0.6) continue;
-      tq.setFromEuler(teu.set(hr * 20, hr * 50, hr * 30));
-      tm.compose(tpv.set(wx, h - sc * 0.3 - drop, wz), tq, tsv.set(sc, sc * 0.7, sc * 1.1));
-      rocks.setMatrixAt(q, tm); rocks.setColorAt(q, rockCols[(hash(gx, gz) * rockCols.length) | 0]); q++;
+      if (lavaR) {
+        tq.setFromEuler(teu.set((hr - 0.2) * 0.8, hr * 50, (hash(gx, gz) - 0.5) * 0.5));
+        tm.compose(tpv.set(wx, h - sc * 0.5 - drop, wz), tq, tsv.set(sc * 0.55, sc * (2.2 + hash(gx + 2, gz) * 2.5), sc * 0.55));
+        rocks.setMatrixAt(q, tm); rocks.setColorAt(q, obsCols[(hash(gx, gz) * obsCols.length) | 0]); q++;
+      } else {
+        tq.setFromEuler(teu.set(hr * 20, hr * 50, hr * 30));
+        tm.compose(tpv.set(wx, h - sc * 0.3 - drop, wz), tq, tsv.set(sc, sc * 0.7, sc * 1.1));
+        rocks.setMatrixAt(q, tm); rocks.setColorAt(q, rockCols[(hash(gx, gz) * rockCols.length) | 0]); q++;
+      }
     }
   }
   rocks.count = q;
@@ -1007,7 +1076,7 @@ const waterNormals = makeWaterNormals();
 waterNormals.repeat.set(60000 / 140, 60000 / 140);
 waterNormals.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const water = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({
-  color: LIN(0x0c2034), roughness: 0.05, metalness: 0.05, normalMap: waterNormals, normalScale: new THREE.Vector2(0.28, 0.28), envMapIntensity: 1.2
+  color: LIN(0x0a0614), roughness: 0.03, metalness: 0.1, normalMap: waterNormals, normalScale: new THREE.Vector2(0.22, 0.22), envMapIntensity: 1.5
 }));
 const waveOff = { value: new THREE.Vector2() };
 water.material.onBeforeCompile = sh => {
@@ -1033,14 +1102,15 @@ function puffTexture() {
   }
   return new THREE.CanvasTexture(cv);
 }
-const CLUSTERS = LOW ? 20 : 30;
-const cloudClusters = [], puffs = [];
-for (let c = 0; c < CLUSTERS; c++) {
-  cloudClusters.push(new THREE.Vector3());
-  const n = 9 + (Math.random() * 9 | 0), w = rand(140, 280);
+const CLUSTERS = LOW ? 20 : 30, GCLUSTERS = LOW ? 10 : 18;
+const cloudClusters = [], puffs = [], clusterPuffs = [];
+for (let c = 0; c < CLUSTERS + GCLUSTERS; c++) {
+  cloudClusters.push(new THREE.Vector3()); clusterPuffs.push([]);
+  const g = c >= CLUSTERS, n = g ? 26 : 9 + (Math.random() * 9 | 0), w = g ? rand(240, 360) : rand(140, 280);
   for (let i = 0; i < n; i++) {
-    const ly = rand(-25, 35) * (1 - Math.abs(i / n - 0.5));
-    puffs.push({ c, lx: rand(-w, w) * 0.6, ly, lz: rand(-w, w) * 0.5, s: rand(90, 170), shade: clamp((ly + 30) / 70, 0, 1), rot: rand(0, 6.28) });
+    const ly = g ? 0 : rand(-25, 35) * (1 - Math.abs(i / n - 0.5));
+    const pf = { c, g, lx: rand(-w, w) * 0.6, ly, lz: rand(-w, w) * (g ? 0.6 : 0.5), s: g ? rand(100, 160) : rand(90, 170), shade: g ? rand(0.4, 0.9) : clamp((ly + 30) / 70, 0, 1), rot: rand(0, 6.28) };
+    puffs.push(pf); clusterPuffs[c].push(pf);
   }
 }
 const cloudGeo = new THREE.InstancedBufferGeometry();
@@ -1050,26 +1120,27 @@ const cloudGeo = new THREE.InstancedBufferGeometry();
   cloudGeo.setAttribute('position', pl.attributes.position);
   cloudGeo.setAttribute('uv', pl.attributes.uv);
 }
-const cOff = new Float32Array(puffs.length * 3), cSc = new Float32Array(puffs.length), cSh = new Float32Array(puffs.length), cRo = new Float32Array(puffs.length);
+const cOff = new Float32Array(puffs.length * 3), cSc = new Float32Array(puffs.length), cSh = new Float32Array(puffs.length), cRo = new Float32Array(puffs.length), cTi = new Float32Array(puffs.length);
 cloudGeo.setAttribute('iOffset', new THREE.InstancedBufferAttribute(cOff, 3));
 cloudGeo.setAttribute('iScale', new THREE.InstancedBufferAttribute(cSc, 1));
 cloudGeo.setAttribute('iShade', new THREE.InstancedBufferAttribute(cSh, 1));
 cloudGeo.setAttribute('iRot', new THREE.InstancedBufferAttribute(cRo, 1));
+cloudGeo.setAttribute('iTint', new THREE.InstancedBufferAttribute(cTi, 1));
 cloudGeo.instanceCount = puffs.length;
 const clouds = new THREE.Mesh(cloudGeo, new THREE.ShaderMaterial({
   transparent: true, depthWrite: false,
   uniforms: { map: { value: puffTexture() }, flash: { value: 0 }, flashPos: { value: new THREE.Vector3() } },
-  vertexShader: `attribute vec3 iOffset; attribute float iScale; attribute float iShade; attribute float iRot;
-    varying vec2 vUv; varying float vShade; varying vec3 vRel; varying float vFade;
+  vertexShader: `attribute vec3 iOffset; attribute float iScale; attribute float iShade; attribute float iRot; attribute float iTint;
+    varying vec2 vUv; varying float vShade; varying vec3 vRel; varying float vFade; varying float vTint;
     void main(){
       vec4 mv = viewMatrix * vec4(iOffset, 1.0);
       float c = cos(iRot), s = sin(iRot);
       mv.xy += vec2(c * position.x - s * position.y, s * position.x + c * position.y) * iScale;
-      vUv = uv; vShade = iShade; vRel = ${GLSL_REL};
+      vUv = uv; vShade = iShade; vTint = iTint; vRel = ${GLSL_REL};
       vFade = smoothstep(iScale * 0.7, iScale * 2.2, -mv.z);
       gl_Position = projectionMatrix * mv;
     }`,
-  fragmentShader: `uniform sampler2D map; uniform float flash; uniform vec3 flashPos; varying vec2 vUv; varying float vShade; varying vec3 vRel; varying float vFade;
+  fragmentShader: `uniform sampler2D map; uniform float flash; uniform vec3 flashPos; varying vec2 vUv; varying float vShade; varying vec3 vRel; varying float vFade; varying float vTint;
     ${GLSL_ATMO}
     void main(){
       float a = smoothstep(0.1, 0.5, texture2D(map, vUv).a);
@@ -1077,10 +1148,11 @@ const clouds = new THREE.Mesh(cloudGeo, new THREE.ShaderMaterial({
       float scat = pow(max(dot(dir, SUN_DIR), 0.0), 5.0);
       vec3 col = mix(vec3(0.22, 0.12, 0.3), vec3(1.35, 0.68, 0.55), vShade * 0.8 + 0.15);
       col += SUN_GLOW * scat * (1.3 - a) * 0.9;
+      col = mix(col, mix(vec3(0.42, 0.07, 0.3), vec3(1.5, 0.42, 0.78), vShade) + SUN_GLOW * scat * 0.5, vTint);
       col = applyFog(col, vRel);
       float near = smoothstep(1200.0, 200.0, distance(cameraPosition + vRel, flashPos));
       col += vec3(0.8, 0.7, 1.4) * flash * (0.15 + 1.6 * near) * (0.4 + 0.6 * vShade);
-      float alpha = a * vFade * 0.88;
+      float alpha = a * vFade * mix(0.88, 0.72, vTint);
       if (alpha < 0.01) discard;
       gl_FragColor = vec4(col, alpha);
     }`
@@ -1091,6 +1163,20 @@ scene.add(clouds);
 const puffOrder = puffs.map((_, i) => i), puffD = new Float32Array(puffs.length);
 function placeCluster(c, px, pz, yaw, ahead) {
   const v = cloudClusters[c];
+  if (c >= CLUSTERS) {
+    // Ground carpets settle into the lowest of a few candidate spots: valleys, lakes and crystal fields
+    let bx = 0, bz = 0, bh = 1e9;
+    for (let t = 0; t < 4; t++) {
+      let x, z;
+      if (ahead) { const fx = -Math.sin(yaw), fz = -Math.cos(yaw), d = rand(1700, 2300); x = px + fx * d + rand(-1300, 1300); z = pz + fz * d + rand(-1300, 1300); }
+      else { x = px + rand(-2300, 2300); z = pz + rand(-2300, 2300); }
+      const gh = ground(x, z) - biomeW(x, z)[1] * 80;
+      if (gh < bh) { bh = gh; bx = x; bz = z; }
+    }
+    v.set(bx, ground(bx, bz), bz);
+    for (const p of clusterPuffs[c]) p.ly = Math.max(ground(bx + p.lx, bz + p.lz), ground(bx, bz)) - v.y + rand(10, 28) + p.s * 0.1;
+    return;
+  }
   if (ahead) {
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), d = rand(1900, 2400);
     v.set(px + fx * d + rand(-1300, 1300), rand(480, 780), pz + fz * d + rand(-1300, 1300));
@@ -1106,15 +1192,15 @@ function sortClouds() {
   for (let k = 0; k < puffOrder.length; k++) {
     const p = puffs[puffOrder[k]], c = cloudClusters[p.c];
     cOff[k * 3] = c.x + p.lx; cOff[k * 3 + 1] = c.y + p.ly; cOff[k * 3 + 2] = c.z + p.lz;
-    cSc[k] = p.s; cSh[k] = p.shade; cRo[k] = p.rot;
+    cSc[k] = p.s; cSh[k] = p.shade; cRo[k] = p.rot; cTi[k] = p.g ? 1 : 0;
   }
-  for (const n of ['iOffset', 'iScale', 'iShade', 'iRot']) cloudGeo.attributes[n].needsUpdate = true;
+  for (const n of ['iOffset', 'iScale', 'iShade', 'iRot', 'iTint']) cloudGeo.attributes[n].needsUpdate = true;
 }
 
 // ---------- Floating islands ----------
 const islandRock = new THREE.MeshStandardMaterial({ color: LIN(0x4a3a50), roughness: 0.92, flatShading: true });
-const islandGrass = new THREE.MeshStandardMaterial({ color: LIN(0x2c4632), roughness: 1, flatShading: true });
-const islandTree = new THREE.MeshStandardMaterial({ color: LIN(0x1f3526), roughness: 0.9, flatShading: true });
+const islandGrass = new THREE.MeshStandardMaterial({ color: LIN(0x5a2846), roughness: 0.9, flatShading: true });
+const islandTree = new THREE.MeshStandardMaterial({ color: LIN(0xff5aa0), emissive: HDR(0.9, 0.12, 0.45), roughness: 0.25, flatShading: true });
 const crystalMats = [HDR(3.4, 0.8, 6.5), HDR(0.6, 3.8, 5.5), HDR(6.5, 1.0, 2.2)].map(c => new THREE.MeshBasicMaterial({ color: c }));
 const crystalGeo = new THREE.OctahedronGeometry(1, 0);
 function makeIsland() {
@@ -3581,7 +3667,7 @@ function updateWorld() {
   waterNormals.offset.set(G.time * 0.006, G.time * 0.004);
   waveOff.value.set(-G.time * 0.009, G.time * 0.006);
   sky.position.copy(camera.position);
-  for (let c = 0; c < CLUSTERS; c++) {
+  for (let c = 0; c < cloudClusters.length; c++) {
     const v = cloudClusters[c], d = Math.hypot(v.x - P.pos.x, v.z - P.pos.z);
     if (d > 2700 || (G.state === 'menu' && d < 520)) placeCluster(c, P.pos.x, P.pos.z, P.yaw, true);
   }
@@ -3653,7 +3739,7 @@ function spawnEmbers() {
 }
 // ---------- Ambient spectacle: meteors, burning craters, island falls, sonic boom, crystal glow ----------
 const crystalBase = crystalMats.map(m => m.color.clone());
-const FX = { metT: 2.5, meteors: [], sites: [], siteT: 3, boom: false };
+const FX = { metT: 2.5, meteors: [], sites: [], siteT: 3, boom: false, eruptions: [] };
 const MAX_SITES = LOW ? 3 : 5;
 const FALL_A = [0.8, 0.66, 0.74], FALL_B = [0.32, 0.27, 0.36], VAPOR = [0.95, 0.92, 0.9];
 for (const m of islands) m.userData.fall = rand(0, 6.28);
@@ -3715,7 +3801,9 @@ function updateFX(dt) {
   if (FX.siteT <= 0) {
     FX.siteT = rand(7, 13);
     const yaw = P.yaw + rand(-0.9, 0.9), d = rand(600, 1300);
-    if (FX.sites.length < MAX_SITES) addFireSite(P.pos.x - Math.sin(yaw) * d, P.pos.z - Math.cos(yaw) * d, rand(45, 90));
+    let sx = P.pos.x - Math.sin(yaw) * d, sz = P.pos.z - Math.cos(yaw) * d;
+    for (let t = 0; t < 5 && biomeW(sx, sz)[0] < 0.5; t++) { const a2 = P.yaw + rand(-1, 1), d2 = rand(600, 1300); sx = P.pos.x - Math.sin(a2) * d2; sz = P.pos.z - Math.cos(a2) * d2; }
+    if (FX.sites.length < MAX_SITES) addFireSite(sx, sz, rand(45, 90));
   }
   for (let i = FX.sites.length - 1; i >= 0; i--) {
     const s = FX.sites[i];
@@ -3726,6 +3814,32 @@ function updateFX(dt) {
     if (G.frame % 4 === 0) fire.spawn(s.x, s.y + 4, s.z, 0, 4, 0, 0.5, r * 3.5, r * 3, C.fireB, C.fireB, 0.5 * k);
     if (Math.random() < 0.15) fire.spawn(s.x + rand(-r, r), s.y + 3, s.z + rand(-r, r), rand(-8, 8), rand(30, 60), rand(-8, 8), rand(1.5, 3), 1.4, 0.4, C.spark, C.sparkB, k, 0.3, 4);
     if (G.frame % 3 === 0) smoke.spawn(s.x + rand(-r, r) * 0.5, s.y + 10, s.z + rand(-r, r) * 0.5, 7 + rand(-2, 2), rand(20, 30), 3 + rand(-2, 2), rand(6, 9), 20, rand(75, 100), C.smokeD, [0.17, 0.12, 0.12], 0.7 * k, 0.08, -1);
+  }
+  // Lava embers, eruptions and crystal spores near the player
+  for (let n = 0; n < (LOW ? 2 : 5); n++) {
+    const x = P.pos.x + rand(-700, 700), z = P.pos.z + rand(-700, 700), gy = ground(x, z);
+    if (gy < 3) continue;
+    const bw = biomeW(x, z);
+    if (bw[0] > 0.6) fire.spawn(x, gy + 2, z, rand(-4, 4), rand(14, 34), rand(-4, 4), rand(2, 4), rand(2.5, 4), 0.6, C.spark, C.fireB, 1, 0.3, -2);
+    else if (bw[1] > 0.6) fire.spawn(x, gy + rand(2, 30), z, rand(-2, 2), rand(3, 9), rand(-2, 2), rand(3, 5), rand(1.6, 2.6), 0.4, C.pink, C.embB, 0.9, 0.2, -0.5);
+  }
+  FX.eruptT = (FX.eruptT ?? 3) - dt;
+  if (FX.eruptT <= 0) {
+    FX.eruptT = rand(3, 7);
+    for (let t = 0; t < 6; t++) {
+      const a = P.yaw + rand(-1, 1), d = rand(400, 1300), x = P.pos.x - Math.sin(a) * d, z = P.pos.z - Math.cos(a) * d, gy = ground(x, z);
+      if (gy < 3 || biomeW(x, z)[0] < 0.7) continue;
+      FX.eruptions.push({ x, y: gy, z, t: rand(1.6, 2.6) });
+      const dd = Math.hypot(x - camera.position.x, z - camera.position.z);
+      setTimeout(() => sfxNoise(1.4, 260, 40, 0.3 * clamp(1.2 - dd / 1400, 0.1, 1)), dd / 900 * 1000);
+      break;
+    }
+  }
+  for (let i = FX.eruptions.length - 1; i >= 0; i--) {
+    const e = FX.eruptions[i]; e.t -= dt;
+    if (e.t <= 0) { FX.eruptions.splice(i, 1); continue; }
+    for (let n = 0; n < (LOW ? 3 : 6); n++) fire.spawn(e.x + rand(-4, 4), e.y + 3, e.z + rand(-4, 4), rand(-22, 22), rand(70, 150), rand(-22, 22), rand(1.4, 2.4), rand(5, 9), 1.5, C.hot, C.fireB, 1, 0.2, 55);
+    if (G.frame % 2 === 0) smoke.spawn(e.x, e.y + 20, e.z, rand(-5, 5), rand(25, 45), rand(-5, 5), rand(4, 6), 14, rand(60, 90), C.smokeD, [0.2, 0.1, 0.1], 0.6, 0.15, -1);
   }
   // Waterfalls and mist streaming off the floating islands
   if (!LOW || G.frame % 2 === 0) for (const m of islands) {
@@ -3847,7 +3961,7 @@ P.pos.set(0, terrainAhead(0, 0, 0, 2000) + 260, 0);
 G.menuAlt = P.pos.y;
 startTerrain(0, 0);
 while (job.active) stepTerrain(1e9);
-for (let c = 0; c < CLUSTERS; c++) placeCluster(c, 0, 0, 0, false);
+for (let c = 0; c < cloudClusters.length; c++) placeCluster(c, 0, 0, 0, false);
 for (const m of islands) placeIsland(m, 0, 0, 0, false);
 for (const t of towers) placeTower(t, 0, 0, 0, false);
 for (const fl of flocks) placeFlock(fl, 0, 0, 0, true);
