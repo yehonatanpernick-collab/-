@@ -540,6 +540,7 @@ function handleUI() {
 
 // ------------------------------------------------------------------ camera director
 const _a = new V3(), _b = new V3(), _c = new V3();
+const _occT = [new V3(), new V3(), new V3(), new V3(), new V3()];
 function updateCamera(dt, t) {
   let pos = _a, look = _b, fov = 38;
   const p1 = player.pos, p2 = enemy.pos;
@@ -597,7 +598,15 @@ function updateCamera(dt, t) {
     const dx = cp.x - sx * 3.16, dz = cp.z - sz * 3.16, d = Math.hypot(dx, dz);
     if (d < 0.75 && cp.y < 1.9) { const k = 0.75 / (d || 0.001); cp.x = sx * 3.16 + dx * k; cp.z = sz * 3.16 + dz * k; }
   }
+  // never inside a fighter
+  for (const f of fighters) {
+    const dx = cp.x - f.pos.x, dz = cp.z - f.pos.z, d = Math.hypot(dx, dz);
+    if (d < 0.55 && cp.y < 2.1) { const k = 0.55 / (d || 0.001); cp.x = f.pos.x + dx * k; cp.z = f.pos.z + dz * k; }
+  }
   camera.position.copy(cp); camera.lookAt(G.camLook);
+  // hide any arena object that blocks the view of the fighters
+  _occT[0].copy(G.camLook); player.headPos(_occT[1]); enemy.headPos(_occT[2]); player.bodyPos(_occT[3]); enemy.bodyPos(_occT[4]);
+  arena.clearView(camera.position, _occT);
   if (G.shake > 0.0005) {
     camera.position.x += (Math.random() - 0.5) * G.shake; camera.position.y += (Math.random() - 0.5) * G.shake; camera.position.z += (Math.random() - 0.5) * G.shake;
     camera.rotateZ((Math.random() - 0.5) * G.shake * 0.6);

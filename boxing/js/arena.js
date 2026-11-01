@@ -78,7 +78,7 @@ export function buildArena(scene, renderer, quality) {
     new THREE.MeshStandardMaterial({ color: 0x1c2a52, roughness: 0.8 }), new THREE.MeshStandardMaterial({ color: 0x1c2a52, roughness: 0.8 }),
     floorMat, floorMat, new THREE.MeshStandardMaterial({ color: 0x1c2a52, roughness: 0.8 }), new THREE.MeshStandardMaterial({ color: 0x1c2a52, roughness: 0.8 })]);
   // remap top uv to cover full canvas
-  ringFloor.position.y = -0.04; ringFloor.receiveShadow = true; arena.add(ringFloor);
+  ringFloor.position.y = -0.04; ringFloor.receiveShadow = true; arena.add(ringFloor); ringFloor.userData.noOcc = true;
 
   // ---------- platform skirt ----------
   const skirtTex = canvasTex(2048, 256, (g, w, h) => {
@@ -156,7 +156,7 @@ export function buildArena(scene, renderer, quality) {
 
   // ---------- arena floor + barrier with LED boards ----------
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0x0c0c0f, roughness: 0.55, metalness: 0.2 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.y = -P; floor.receiveShadow = true; arena.add(floor);
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -P; floor.receiveShadow = true; arena.add(floor); floor.userData.noOcc = true;
   const ledTex = canvasTex(2048, 128, (g, w, h) => {
     g.fillStyle = '#050507'; g.fillRect(0, 0, w, h);
     const items = [['IRON CANVAS', '#ffffff', '#a3141e'], ['VOLTA ENERGY', '#111', '#e2b33c'], ['KRAV GEAR', '#ffffff', '#1d3a8a'], ['NORTHLINE', '#ffffff', '#202024']];
@@ -290,7 +290,26 @@ export function buildArena(scene, renderer, quality) {
     }
   });
 
+  // anything that could get between the camera and the fighters
+  arena.updateMatrixWorld(true);
+  const ropeMeshes = new Set(ropes.map(r => r.mesh));
+  const occluders = arena.children.filter(o => o.isMesh && !o.isInstancedMesh && !o.userData.noOcc && !ropeMeshes.has(o))
+    .map(o => ({ o, box: new THREE.Box3().setFromObject(o).expandByScalar(0.05) }));
+  const _ray = new THREE.Ray(), _hit = new THREE.Vector3();
+  function clearView(cam, targets) {
+    for (const oc of occluders) {
+      let block = oc.box.containsPoint(cam);
+      for (let i = 0; !block && i < targets.length; i++) {
+        const t = targets[i];
+        _ray.origin.copy(cam); _ray.direction.subVectors(t, cam);
+        const len = _ray.direction.length(); _ray.direction.multiplyScalar(1 / (len || 1));
+        if (_ray.intersectBox(oc.box, _hit) && _hit.distanceTo(cam) < len) block = true;
+      }
+      oc.o.visible = !block;
+    }
+  }
   return {
+    clearView,
     group: arena, key, spots, coneMat,
     update(dt, t) { for (const f of update) f(dt, t); },
     ropeImpulse,
