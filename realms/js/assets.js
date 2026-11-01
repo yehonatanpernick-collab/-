@@ -10,8 +10,10 @@ let onProgress = null, pending = 0, done = 0;
 export function setProgressHandler(f) { onProgress = f; }
 function track(p) { pending++; p.finally(() => { done++; onProgress && onProgress(done, pending); }); return p; }
 
+// binaries are shipped as base64-in-JSON (static hosts that only serve text/image types)
+async function bytes(path) { const r = await fetch(base + path + '.json'); const j = await r.json(); const s = atob(j.b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
 export function gltf(path) {
-  if (!cache.has(path)) cache.set(path, track(gltfLoader.loadAsync(base + path)));
+  if (!cache.has(path)) cache.set(path, track(bytes(path).then(buf => gltfLoader.parseAsync(buf, base + path.replace(/[^/]*$/, '')))));
   return cache.get(path);
 }
 export function tex(path, { srgb = true, repeat = true, aniso = 8 } = {}) {
@@ -27,7 +29,7 @@ export function tex(path, { srgb = true, repeat = true, aniso = 8 } = {}) {
 }
 export function hdr(path) {
   const key = 'hdr:' + path;
-  if (!cache.has(key)) cache.set(key, track(hdrLoader.loadAsync(base + path).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; return t; })));
+  if (!cache.has(key)) cache.set(key, track(bytes(path).then(buf => { const d = hdrLoader.parse(buf); const t = new THREE.DataTexture(d.data, d.width, d.height, THREE.RGBAFormat, d.type); t.colorSpace = THREE.LinearSRGBColorSpace; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.flipY = true; t.needsUpdate = true; t.mapping = THREE.EquirectangularReflectionMapping; return t; })));
   return cache.get(key);
 }
 
