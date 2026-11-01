@@ -1814,10 +1814,10 @@ function updatePlayer(dt) {
   let ix = input.mx, iy = input.my; const len = Math.hypot(ix, iy);
   if (len < 0.045) { ix = iy = 0; } else { const k = Math.min(1, (len - 0.045) / 0.955) / len; ix *= k; iy *= k; }
   const roll = (input.rl ? 1 : 0) - (input.rr ? 1 : 0);
-  const agility = P.boosting ? 0.8 : 1;
-  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, 7, dt);
-  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, 7, dt);
-  P.ang.z = damp(P.ang.z, roll * 2.6 - ix * 0.35, 5, dt);
+  const agility = (P.boosting ? 0.8 : 1) * (TOUCH ? 1.35 : 1);
+  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, TOUCH ? 10 : 7, dt);
+  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, TOUCH ? 10 : 7, dt);
+  P.ang.z = damp(P.ang.z, roll * 2.6 - ix * (TOUCH ? 0 : 0.35), 5, dt);
   _pe.set(P.ang.x * dt, P.ang.y * dt, P.ang.z * dt, 'XYZ'); _pq.setFromEuler(_pe);
   P.quat.multiply(_pq).normalize();
   // throttle / boost
@@ -1853,8 +1853,8 @@ function updatePlayer(dt) {
     }
   }
   // visual bank
-  P.bank = damp(P.bank, -P.ang.y * 0.42, 5, dt);
-  P.pitchNudge = damp(P.pitchNudge, P.ang.x * 0.06, 5, dt);
+  P.bank = TOUCH ? 0 : damp(P.bank, -P.ang.y * 0.42, 5, dt);
+  P.pitchNudge = TOUCH ? 0 : damp(P.pitchNudge, P.ang.x * 0.06, 5, dt);
   const ud = playerShip.userData;
   playerShip.position.copy(P.pos); playerShip.quaternion.copy(P.quat);
   ud.body.rotation.set(P.pitchNudge, 0, P.bank);
@@ -2184,9 +2184,9 @@ function updateCamera(dt, rdt) {
   const orbit = _cl.set(Math.sin(t) * 24, 5 + Math.sin(t * 1.7) * 3.5, Math.cos(t) * 24).add(P.pos);
   _cm.lookAt(orbit, _e2.copy(P.pos).add(_e1.set(0, 0.5, 0)), UP); const mq = _q4.setFromRotationMatrix(_cm);
   // chase
-  cam.q.slerp(P.quat, 1 - Math.exp(-(P.boosting ? 9 : 6.5) * rdt));
+  cam.q.slerp(P.quat, 1 - Math.exp(-(TOUCH ? 14 : P.boosting ? 9 : 6.5) * rdt));
   const back = 17 + (P.speed - 90) * 0.012 + (P.boosting ? 2.2 : 0);
-  _co.set(input.mx * -1.2, 4.2 - input.my * 0.6, back).applyQuaternion(cam.q);
+  _co.set(TOUCH ? 0 : input.mx * -1.2, 4.2 - (TOUCH ? 0 : input.my * 0.6), back).applyQuaternion(cam.q);
   const chasePos = _e1.copy(P.pos).add(_co);
   const chaseQ = _cq.copy(cam.q);
   // nudge the view toward where the nose points
