@@ -1477,7 +1477,7 @@ function popup(pos, text) { const el = document.createElement('div'); el.classNa
    enemies
    ===================================================================== */
 const DEFS = {
-  dart: { build: buildDart, hp: 50, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
+  dart: { build: buildDart, hp: 65, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
   brute: { build: buildBrute, hp: 180, radius: 8.5, speed: 62, turn: 1.6, score: 250, name: 'שור', trailW: 0.7 },
 };
 const _av = new V3(), _an = new V3(), _tv = new V3(), _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
@@ -1558,9 +1558,9 @@ class Enemy {
       this.vel.lerp(_a.copy(fwd).multiplyScalar(this.warp > 0 ? this.speed * 3 : this.speed), 1 - Math.exp(-3 * dt));
     } else {
       // hold a slot in front of the player's nose, drifting around it, keeping pace
-      this.jink += dt * (this.kind === 'dart' ? 0.45 : 0.25);
+      this.jink += dt * (this.kind === 'dart' ? 1.0 : 0.45);
       const pf = _a.set(0, 0, -1).applyQuaternion(P.quat), pr = _b.set(1, 0, 0).applyQuaternion(P.quat), pu = _r.set(0, 1, 0).applyQuaternion(P.quat);
-      const R = this.kind === 'dart' ? 150 : 230, rad = this.kind === 'dart' ? 70 : 100;
+      const R = this.kind === 'dart' ? 170 : 240, rad = this.kind === 'dart' ? 115 : 120;
       const anchor = _an.copy(P.pos).addScaledVector(pf, R).addScaledVector(pr, Math.cos(this.jink) * rad).addScaledVector(pu, Math.sin(this.jink * 1.3) * rad * 0.6);
       const tv = _tv.copy(anchor).sub(this.pos).multiplyScalar(0.9).add(P.vel).addScaledVector(av, 40);
       const maxV = P.speed + this.speed; if (tv.length() > maxV) tv.setLength(maxV);
@@ -1575,11 +1575,11 @@ class Enemy {
       const cone = this.kind === 'dart' ? 0.93 : 0.85;
       if (this.fireCd <= 0 && fwd.dot(_a) > cone && dist < (this.kind === 'dart' ? 950 : 1000)) {
         this.burst = this.kind === 'dart' ? 3 : 5;
-        this.fireCd = (this.kind === 'dart' ? rand(1.0, 1.8) : rand(1.7, 2.4)) * Math.max(0.55, 1 - G.wave * 0.045);
+        this.fireCd = (this.kind === 'dart' ? rand(0.75, 1.35) : rand(1.4, 2.0)) * Math.max(0.55, 1 - G.wave * 0.045);
       }
       if (this.burst > 0 && this.burstT <= 0) {
         this.burst--; this.burstT = this.kind === 'dart' ? 0.12 : 0.1;
-        const spread = Math.max(0.01, 0.03 - G.wave * 0.002);
+        const spread = Math.max(0.007, 0.022 - G.wave * 0.002);
         _b.copy(_a).add(randUnit(_r).multiplyScalar(spread)).normalize();
         _r.copy(this.pos).addScaledVector(fwd, this.kind === 'dart' ? 5 : 9);
         if (this.kind === 'brute') _r.addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.quat), -1.5);
@@ -1739,7 +1739,7 @@ function resetPlayer() {
 const _dp1 = new V3(), _dp2 = new V3(), _dp3 = new V3(), _dpq = new Q();
 function damagePlayer(dmg, from) {
   if (!P.alive || G.state !== 'playing') return;
-  dmg *= 0.6;
+  dmg *= 0.75;
   P.shieldDelay = 1.8;
   const dir = _dp1.copy(from).sub(P.pos).normalize();
   const local = _dp2.copy(dir).applyQuaternion(_dpq.copy(P.quat).invert());
@@ -1810,11 +1810,19 @@ function updatePlayer(dt) {
   // steering
   let ix = input.mx, iy = input.my; const len = Math.hypot(ix, iy);
   if (len < 0.045) { ix = iy = 0; } else { const k = Math.min(1, (len - 0.045) / 0.955) / len; ix *= k; iy *= k; }
-  const roll = (input.rl ? 1 : 0) - (input.rr ? 1 : 0);
-  const agility = P.boosting ? 0.8 : 1;
-  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, 7, dt);
-  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, 7, dt);
-  P.ang.z = damp(P.ang.z, roll * 2.6 - ix * 0.35, 5, dt);
+  let roll = (input.rl ? 1 : 0) - (input.rr ? 1 : 0);
+  let agility = P.boosting ? 0.8 : 1, couple = 0.35;
+  if (TOUCH) {
+    // softer response near the center for precise aiming, full turn at the edge
+    const m = Math.hypot(ix, iy); if (m > 0) { const c = m * m * 0.6 + m * 0.4; ix *= c / m; iy *= c / m; }
+    agility *= 0.85; couple = 0;
+    // keep the horizon level so the ship never ends up tumbling
+    const right = _a.set(1, 0, 0).applyQuaternion(P.quat);
+    roll = clamp(-right.y * 1.6, -1, 1);
+  }
+  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, TOUCH ? 5 : 7, dt);
+  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, TOUCH ? 5 : 7, dt);
+  P.ang.z = damp(P.ang.z, roll * 2.6 - ix * couple, 5, dt);
   _pe.set(P.ang.x * dt, P.ang.y * dt, P.ang.z * dt, 'XYZ'); _pq.setFromEuler(_pe);
   P.quat.multiply(_pq).normalize();
   // throttle / boost
@@ -2412,7 +2420,7 @@ if (TOUCH) {
   document.body.classList.add('touch');
   const zone = $('#stick-zone'), stick = $('#stick'), knob = stick.querySelector('i');
   zone.addEventListener('touchstart', e => { const t = e.changedTouches[0]; stickId = t.identifier; stickO = { x: t.clientX, y: t.clientY }; stick.style.display = 'block'; stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; e.preventDefault(); }, { passive: false });
-  zone.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === stickId) { let dx = (t.clientX - stickO.x) / 60, dy = (t.clientY - stickO.y) / 60; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } input.mx = dx; input.my = dy; knob.style.transform = `translate(${dx * 42}px,${dy * 42}px)`; } e.preventDefault(); }, { passive: false });
+  zone.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === stickId) { let dx = (t.clientX - stickO.x) / 70, dy = (t.clientY - stickO.y) / 70; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } input.mx = dx; input.my = dy; knob.style.transform = `translate(${dx * 40}px,${dy * 40}px)`; } e.preventDefault(); }, { passive: false });
   const end = e => { for (const t of e.changedTouches) if (t.identifier === stickId) { stickId = null; input.mx = input.my = 0; stick.style.display = 'none'; knob.style.transform = ''; } };
   zone.addEventListener('touchend', end); zone.addEventListener('touchcancel', end);
   const btn = (id, down, up) => { const el = $(id); el.addEventListener('touchstart', e => { el.classList.add('on'); down(); e.preventDefault(); }, { passive: false }); el.addEventListener('touchend', e => { el.classList.remove('on'); up && up(); e.preventDefault(); }); };
