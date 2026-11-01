@@ -1480,7 +1480,7 @@ const DEFS = {
   dart: { build: buildDart, hp: 50, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
   brute: { build: buildBrute, hp: 180, radius: 8.5, speed: 62, turn: 1.6, score: 250, name: 'שור', trailW: 0.7 },
 };
-const _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
+const _av = new V3(), _an = new V3(), _tv = new V3(), _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
 class Enemy {
   constructor(kind, pos) {
     const def = DEFS[kind];
@@ -1490,7 +1490,7 @@ class Enemy {
     this.vel = new V3(); this.hp = def.hp * (1 + G.wave * 0.04); this.maxHp = this.hp; this.radius = def.radius;
     this.speed = def.speed * (1 + Math.min(G.wave, 12) * 0.012); this.turn = def.turn * (1 + Math.min(G.wave, 12) * 0.02);
     this.state = 'attack'; this.stateT = 0; this.fireCd = rand(1.5, 3.0); this.burst = 0; this.burstT = 0; this.evade = new V3(); this.alive = true;
-    this.warp = 0.7; this.bank = 0; this.flash = 0; this.jink = rand(0, 10); this.score = def.score; this.name = def.name;
+    this.warp = 0.7; this.bank = 0; this.flash = 0; this.jink = rand(0, Math.PI * 2); this.score = def.score; this.name = def.name;
     this.trail = new Ribbon(22, def.trailW, new THREE.Color(2.6, 0.35, 0.5)); scene.add(this.trail.mesh);
     const { pan, vol } = spatial(pos, 1600); SFX.warp(pan, vol);
   }
@@ -1520,22 +1520,11 @@ class Enemy {
     const des = _d;
     const lead = _l.copy(P.pos).addScaledVector(P.vel, dist / EBOLT_SPEED);
     if (!P.alive) { des.copy(fwd).addScaledVector(toP, -0.3 / Math.max(dist, 1)); }
-    else if (this.kind === 'dart') {
-      if (this.state === 'attack') {
-        des.copy(lead).sub(this.pos).normalize();
-        // jink when the player sits on our tail
-        _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
-        if (_a.dot(_b) > 0.97 && dist < 500) { this.jink += dt * 1.5; _r.set(Math.sin(this.jink * 1.7), Math.cos(this.jink * 1.3), 0).applyQuaternion(this.quat); des.addScaledVector(_r, 0.3); }
-        if (dist < 25) { this.state = 'evade'; this.stateT = rand(0.25, 0.4); randUnit(this.evade).addScaledVector(toP, -1.4 / dist).normalize(); }
-      } else { des.copy(this.evade); this.stateT -= dt; if (this.stateT <= 0) this.state = 'attack'; }
-    } else {
-      // brute: hold range and circle
-      _up.set(0, 1, 0).applyQuaternion(this.quat);
-      _r.crossVectors(toP, _up).normalize();
-      const want = dist > 220 ? 1 : dist < 110 ? -0.8 : 0.15;
-      des.copy(toP).normalize().multiplyScalar(want).addScaledVector(_r, 0.9);
-      if (dist < 520) { _a.copy(lead).sub(this.pos).normalize(); des.addScaledVector(_a, 0.9); }
+    else {
+      // always face the player's predicted position and fight
+      des.copy(lead).sub(this.pos).normalize();
     }
+    const av = _av.set(0, 0, 0);
     // asteroid avoidance
     for (const a of asteroids) {
       if (!a.alive) continue;
@@ -1544,7 +1533,7 @@ class Enemy {
       const d2 = _a.lengthSq() - proj * proj, rr = a.r + 14;
       if (d2 < rr * rr) {
         _b.copy(fwd).multiplyScalar(proj).sub(_a); if (_b.lengthSq() < 0.01) _b.set(0, 1, 0);
-        _b.normalize(); des.addScaledVector(_b, 2.8 * (1 - clamp(proj / (190 + a.r), 0, 1)));
+        _b.normalize(); const k = 2.8 * (1 - clamp(proj / (190 + a.r), 0, 1)); des.addScaledVector(_b, k); av.addScaledVector(_b, k);
       }
       const cd = _a.length(), minD = a.r * 0.95 + this.radius;
       if (cd < minD) this.pos.addScaledVector(_a, -(minD - cd) / cd);
@@ -1553,7 +1542,7 @@ class Enemy {
     for (const o of enemies) {
       if (o === this || !o.alive) continue;
       _a.copy(this.pos).sub(o.pos); const d = _a.length();
-      if (d < 30 && d > 0.01) des.addScaledVector(_a, (30 - d) / 30 / d * 1.5);
+      if (d < 30 && d > 0.01) { des.addScaledVector(_a, (30 - d) / 30 / d * 1.5); av.addScaledVector(_a, (30 - d) / 30 / d * 1.5); }
     }
     if (this.pos.length() > 1450) des.addScaledVector(this.pos, -2 / this.pos.length());
     des.normalize();
@@ -1565,11 +1554,18 @@ class Enemy {
     this.bank = damp(this.bank, clamp(-des.dot(_r) * 2.2, -1.1, 1.1), 4, dt);
     ud.body.rotation.z = this.bank;
     fwd.set(0, 0, -1).applyQuaternion(this.quat);
-    _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
-    const chased = P.alive && _a.dot(_b) > 0.9 && dist < 600;
-    const catchUp = (!chased && dist > 200 && fwd.dot(toP) > dist * 0.3) ? clamp((dist - 200) / 200, 0, 1) * 0.4 : 0;
-    const spd = this.warp > 0 ? this.speed * 3 : this.speed * (chased ? 0.55 : 1) * (1 + catchUp);
-    this.vel.lerp(_a.copy(fwd).multiplyScalar(spd), 1 - Math.exp(-3 * dt));
+    if (this.warp > 0 || !P.alive) {
+      this.vel.lerp(_a.copy(fwd).multiplyScalar(this.warp > 0 ? this.speed * 3 : this.speed), 1 - Math.exp(-3 * dt));
+    } else {
+      // hold a slot in front of the player's nose, drifting around it, keeping pace
+      this.jink += dt * (this.kind === 'dart' ? 0.45 : 0.25);
+      const pf = _a.set(0, 0, -1).applyQuaternion(P.quat), pr = _b.set(1, 0, 0).applyQuaternion(P.quat), pu = _r.set(0, 1, 0).applyQuaternion(P.quat);
+      const R = this.kind === 'dart' ? 150 : 230, rad = this.kind === 'dart' ? 70 : 100;
+      const anchor = _an.copy(P.pos).addScaledVector(pf, R).addScaledVector(pr, Math.cos(this.jink) * rad).addScaledVector(pu, Math.sin(this.jink * 1.3) * rad * 0.6);
+      const tv = _tv.copy(anchor).sub(this.pos).multiplyScalar(0.9).add(P.vel).addScaledVector(av, 40);
+      const maxV = P.speed + this.speed; if (tv.length() > maxV) tv.setLength(maxV);
+      this.vel.lerp(tv, 1 - Math.exp(-2 * dt));
+    }
     this.pos.addScaledVector(this.vel, dt);
     this.mesh.updateMatrixWorld();
     // fire
@@ -2186,8 +2182,8 @@ function updateCamera(dt, rdt) {
   _cm.lookAt(orbit, _e2.copy(P.pos).add(_e1.set(0, 0.5, 0)), UP); const mq = _q4.setFromRotationMatrix(_cm);
   // chase
   cam.q.slerp(P.quat, 1 - Math.exp(-(P.boosting ? 9 : 6.5) * rdt));
-  const back = 11.5 + (P.speed - 90) * 0.012 + (P.boosting ? 2.2 : 0);
-  _co.set(input.mx * -1.2, 2.9 - input.my * 0.6, back).applyQuaternion(cam.q);
+  const back = 17 + (P.speed - 90) * 0.012 + (P.boosting ? 2.2 : 0);
+  _co.set(input.mx * -1.6, 4.2 - input.my * 0.8, back).applyQuaternion(cam.q);
   const chasePos = _e1.copy(P.pos).add(_co);
   const chaseQ = _cq.copy(cam.q);
   // nudge the view toward where the nose points
