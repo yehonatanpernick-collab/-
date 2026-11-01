@@ -2186,7 +2186,7 @@ function updateCamera(dt, rdt) {
   // chase
   cam.q.slerp(P.quat, 1 - Math.exp(-(P.boosting ? 9 : 6.5) * rdt));
   const back = 17 + (P.speed - 90) * 0.012 + (P.boosting ? 2.2 : 0);
-  _co.set(input.mx * -1.6, 4.2 - input.my * 0.8, back).applyQuaternion(cam.q);
+  _co.set(input.mx * -1.2, 4.2 - input.my * 0.6, back).applyQuaternion(cam.q);
   const chasePos = _e1.copy(P.pos).add(_co);
   const chaseQ = _cq.copy(cam.q);
   // nudge the view toward where the nose points
