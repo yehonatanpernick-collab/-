@@ -590,7 +590,14 @@ function updateCamera(dt, t) {
   // keep the camera out of the ring posts / inside the arena
   const k = 1 - Math.exp(-(G.state === 'fight' || G.state === 'pre' ? 5 : 2.2) * dt);
   G.camPos.lerp(pos, k); G.camLook.lerp(look, Math.min(1, k * 1.4));
-  camera.position.copy(G.camPos); camera.lookAt(G.camLook);
+  // never let the camera end up inside the stands, the barrier walls or a corner post
+  const cp = G.camPos, LIM = 5.5;
+  cp.x = clamp(cp.x, -LIM, LIM); cp.z = clamp(cp.z, -LIM, LIM); cp.y = Math.max(cp.y, 0.35);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const dx = cp.x - sx * 3.16, dz = cp.z - sz * 3.16, d = Math.hypot(dx, dz);
+    if (d < 0.75 && cp.y < 1.9) { const k = 0.75 / (d || 0.001); cp.x = sx * 3.16 + dx * k; cp.z = sz * 3.16 + dz * k; }
+  }
+  camera.position.copy(cp); camera.lookAt(G.camLook);
   if (G.shake > 0.0005) {
     camera.position.x += (Math.random() - 0.5) * G.shake; camera.position.y += (Math.random() - 0.5) * G.shake; camera.position.z += (Math.random() - 0.5) * G.shake;
     camera.rotateZ((Math.random() - 0.5) * G.shake * 0.6);
