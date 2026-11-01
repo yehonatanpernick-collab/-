@@ -1853,7 +1853,7 @@ function updatePlayer(dt) {
     }
   }
   // visual bank
-  P.bank = damp(P.bank, -P.ang.y * 0.42, 5, dt);
+  P.bank = damp(P.bank, P.ang.y * (TOUCH ? 0.5 : 0.42), TOUCH ? 7 : 5, dt);
   P.pitchNudge = damp(P.pitchNudge, P.ang.x * 0.06, 5, dt);
   const ud = playerShip.userData;
   playerShip.position.copy(P.pos); playerShip.quaternion.copy(P.quat);
