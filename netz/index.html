@@ -1477,8 +1477,8 @@ function popup(pos, text) { const el = document.createElement('div'); el.classNa
    enemies
    ===================================================================== */
 const DEFS = {
-  dart: { build: buildDart, hp: 30, radius: 5.2, speed: 132, turn: 1.9, score: 100, name: 'צרעה', trailW: 0.35 },
-  brute: { build: buildBrute, hp: 150, radius: 8.5, speed: 82, turn: 0.95, score: 250, name: 'שור', trailW: 0.7 },
+  dart: { build: buildDart, hp: 24, radius: 5.2, speed: 100, turn: 1.45, score: 100, name: 'צרעה', trailW: 0.35 },
+  brute: { build: buildBrute, hp: 120, radius: 8.5, speed: 70, turn: 0.95, score: 250, name: 'שור', trailW: 0.7 },
 };
 const _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
 class Enemy {
@@ -1525,8 +1525,8 @@ class Enemy {
         des.copy(lead).sub(this.pos).normalize();
         // jink when the player sits on our tail
         _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
-        if (_a.dot(_b) > 0.97 && dist < 500) { this.jink += dt * 3; _r.set(Math.sin(this.jink * 1.7), Math.cos(this.jink * 1.3), 0).applyQuaternion(this.quat); des.addScaledVector(_r, 0.9); }
-        if (dist < 95) { this.state = 'evade'; this.stateT = rand(1.4, 2.6); randUnit(this.evade).addScaledVector(toP, -1.4 / dist).normalize(); }
+        if (_a.dot(_b) > 0.97 && dist < 500) { this.jink += dt * 1.5; _r.set(Math.sin(this.jink * 1.7), Math.cos(this.jink * 1.3), 0).applyQuaternion(this.quat); des.addScaledVector(_r, 0.3); }
+        if (dist < 55) { this.state = 'evade'; this.stateT = rand(0.6, 1.1); randUnit(this.evade).addScaledVector(toP, -1.4 / dist).normalize(); }
       } else { des.copy(this.evade); this.stateT -= dt; if (this.stateT <= 0) this.state = 'attack'; }
     } else {
       // brute: hold range and circle
@@ -1565,7 +1565,9 @@ class Enemy {
     this.bank = damp(this.bank, clamp(-des.dot(_r) * 2.2, -1.1, 1.1), 4, dt);
     ud.body.rotation.z = this.bank;
     fwd.set(0, 0, -1).applyQuaternion(this.quat);
-    const spd = this.warp > 0 ? this.speed * 3 : this.speed;
+    _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
+    const chased = P.alive && _a.dot(_b) > 0.9 && dist < 600;
+    const spd = this.warp > 0 ? this.speed * 3 : this.speed * (chased ? 0.7 : 1);
     this.vel.lerp(_a.copy(fwd).multiplyScalar(spd), 1 - Math.exp(-3 * dt));
     this.pos.addScaledVector(this.vel, dt);
     this.mesh.updateMatrixWorld();
@@ -1576,11 +1578,11 @@ class Enemy {
       const cone = this.kind === 'dart' ? 0.965 : 0.9;
       if (this.fireCd <= 0 && fwd.dot(_a) > cone && dist < (this.kind === 'dart' ? 720 : 820)) {
         this.burst = this.kind === 'dart' ? 2 : 4;
-        this.fireCd = (this.kind === 'dart' ? rand(1.5, 2.7) : rand(2.6, 3.6)) * Math.max(0.55, 1 - G.wave * 0.045);
+        this.fireCd = (this.kind === 'dart' ? rand(2.0, 3.4) : rand(2.8, 3.8)) * Math.max(0.55, 1 - G.wave * 0.045);
       }
       if (this.burst > 0 && this.burstT <= 0) {
         this.burst--; this.burstT = this.kind === 'dart' ? 0.12 : 0.1;
-        const spread = Math.max(0.012, 0.05 - G.wave * 0.004);
+        const spread = Math.max(0.02, 0.07 - G.wave * 0.004);
         _b.copy(_a).add(randUnit(_r).multiplyScalar(spread)).normalize();
         _r.copy(this.pos).addScaledVector(fwd, this.kind === 'dart' ? 5 : 9);
         if (this.kind === 'brute') _r.addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.quat), -1.5);
@@ -1880,7 +1882,7 @@ function updatePlayer(dt) {
     if (P.target) {
       leadPoint(P.target, _lead);
       _a.copy(_lead).sub(P.pos);
-      if (fwd.angleTo(_a) < 0.075) { _aim.copy(_lead); aimed = true; }
+      if (fwd.angleTo(_a) < (TOUCH ? 0.2 : 0.13)) { _aim.copy(_lead); aimed = true; }
     }
     if (!aimed) _aim.copy(P.pos).addScaledVector(fwd, 420);
     _a.copy(_aim).sub(_mz).normalize();
@@ -1946,7 +1948,7 @@ function updateBolts(dt) {
     if (!dead && b.owner === 'p') {
       for (const t of tl) {
         if (!t.targetable) continue;
-        if (segHit(b.prev, b.pos, t.pos, t.radius + 1.2)) {
+        if (segHit(b.prev, b.pos, t.pos, t.radius + 2.6)) {
           dead = true; G.hits++;
           const killed = t.hit(b.dmg, b.pos);
           G.hitMark = 1;
