@@ -1518,7 +1518,7 @@ class Enemy {
     const fwd = _f.set(0, 0, -1).applyQuaternion(this.quat);
     const toP = _t.copy(P.pos).sub(this.pos); const dist = toP.length();
     const des = _d;
-    const lead = _l.copy(P.pos).addScaledVector(P.vel, dist / EBOLT_SPEED * 0.85);
+    const lead = _l.copy(P.pos).addScaledVector(P.vel, dist / EBOLT_SPEED);
     if (!P.alive) { des.copy(fwd).addScaledVector(toP, -0.3 / Math.max(dist, 1)); }
     else if (this.kind === 'dart') {
       if (this.state === 'attack') {
@@ -1526,13 +1526,13 @@ class Enemy {
         // jink when the player sits on our tail
         _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
         if (_a.dot(_b) > 0.97 && dist < 500) { this.jink += dt * 1.5; _r.set(Math.sin(this.jink * 1.7), Math.cos(this.jink * 1.3), 0).applyQuaternion(this.quat); des.addScaledVector(_r, 0.3); }
-        if (dist < 55) { this.state = 'evade'; this.stateT = rand(0.6, 1.1); randUnit(this.evade).addScaledVector(toP, -1.4 / dist).normalize(); }
+        if (dist < 40) { this.state = 'evade'; this.stateT = rand(0.4, 0.7); randUnit(this.evade).addScaledVector(toP, -1.4 / dist).normalize(); }
       } else { des.copy(this.evade); this.stateT -= dt; if (this.stateT <= 0) this.state = 'attack'; }
     } else {
       // brute: hold range and circle
       _up.set(0, 1, 0).applyQuaternion(this.quat);
       _r.crossVectors(toP, _up).normalize();
-      const want = dist > 380 ? 1 : dist < 210 ? -0.8 : 0.15;
+      const want = dist > 220 ? 1 : dist < 110 ? -0.8 : 0.15;
       des.copy(toP).normalize().multiplyScalar(want).addScaledVector(_r, 0.9);
       if (dist < 520) { _a.copy(lead).sub(this.pos).normalize(); des.addScaledVector(_a, 0.9); }
     }
@@ -1575,18 +1575,18 @@ class Enemy {
     this.fireCd -= dt; this.burstT -= dt;
     if (P.alive && this.warp <= 0 && G.state === 'playing') {
       _a.copy(lead).sub(this.pos).normalize();
-      const cone = this.kind === 'dart' ? 0.965 : 0.9;
-      if (this.fireCd <= 0 && fwd.dot(_a) > cone && dist < (this.kind === 'dart' ? 720 : 820)) {
-        this.burst = this.kind === 'dart' ? 2 : 4;
-        this.fireCd = (this.kind === 'dart' ? rand(2.0, 3.4) : rand(2.8, 3.8)) * Math.max(0.55, 1 - G.wave * 0.045);
+      const cone = this.kind === 'dart' ? 0.93 : 0.85;
+      if (this.fireCd <= 0 && fwd.dot(_a) > cone && dist < (this.kind === 'dart' ? 950 : 1000)) {
+        this.burst = this.kind === 'dart' ? 3 : 5;
+        this.fireCd = (this.kind === 'dart' ? rand(0.7, 1.4) : rand(1.4, 2.1)) * Math.max(0.55, 1 - G.wave * 0.045);
       }
       if (this.burst > 0 && this.burstT <= 0) {
         this.burst--; this.burstT = this.kind === 'dart' ? 0.12 : 0.1;
-        const spread = Math.max(0.02, 0.07 - G.wave * 0.004);
+        const spread = Math.max(0.006, 0.022 - G.wave * 0.002);
         _b.copy(_a).add(randUnit(_r).multiplyScalar(spread)).normalize();
         _r.copy(this.pos).addScaledVector(fwd, this.kind === 'dart' ? 5 : 9);
         if (this.kind === 'brute') _r.addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.quat), -1.5);
-        fireBolt(_r, _b, EBOLT_SPEED, null, 'e', this.kind === 'dart' ? 6 : 9, ECOL, this.kind === 'dart' ? 7 : 10, this.kind === 'dart' ? 0.3 : 0.45, 2.4);
+        fireBolt(_r, _b, EBOLT_SPEED, null, 'e', this.kind === 'dart' ? 4 : 6, ECOL, this.kind === 'dart' ? 7 : 10, this.kind === 'dart' ? 0.3 : 0.45, 2.4);
         fxAdd.emit(_r, 0, 0, 0, 0.07, 3, 6, [6, 0.6, 1], [1, 0.1, 0.2]);
         const { pan, vol } = spatial(this.pos, 1100); SFX.eLaser(pan, vol);
       }
@@ -2090,7 +2090,7 @@ function updateWaves(dt) {
     if (G.spawnT <= 0) {
       const group = Math.min(G.spawnQ.length, G.spawnQ[0] === 'brute' ? 1 : 2 + Math.floor(Math.random() * 2));
       _a.set(0, 0, -1).applyQuaternion(P.quat);
-      const base = _b.copy(randUnit()).addScaledVector(_a, 1.1).normalize().multiplyScalar(rand(650, 900)).add(P.pos);
+      const base = _b.copy(randUnit()).addScaledVector(_a, 1.1).normalize().multiplyScalar(rand(350, 520)).add(P.pos);
       if (base.length() > 1350) base.setLength(1350);
       for (let i = 0; i < group; i++) {
         const kind = G.spawnQ.shift();
