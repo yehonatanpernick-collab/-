@@ -51,11 +51,16 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.05, 120);
 camera.position.set(0, 3, 8);
 
-const rt = new THREE.WebGLRenderTarget(innerWidth * quality.pr, innerHeight * quality.pr, { type: THREE.HalfFloatType, samples: quality.samples });
+// Phones (and GPUs without float render targets) draw straight to the screen:
+// the post-processing chain renders black on many iPhones.
+const hasFloatRT = renderer.extensions.has('EXT_color_buffer_half_float') || renderer.extensions.has('EXT_color_buffer_float');
+const DIRECT = (isMobile || !hasFloatRT || new URLSearchParams(location.search).has('direct')) && !new URLSearchParams(location.search).has('fx');
+if (DIRECT) renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const rt = new THREE.WebGLRenderTarget(DIRECT ? 1 : innerWidth * quality.pr, DIRECT ? 1 : innerHeight * quality.pr, { type: THREE.HalfFloatType, samples: DIRECT ? 0 : quality.samples });
 const composer = new EffectComposer(renderer, rt);
-composer.setPixelRatio(quality.pr);
+if (!DIRECT) composer.setPixelRatio(quality.pr);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.5, 1.6);
+const bloom = new UnrealBloomPass(DIRECT ? new THREE.Vector2(2, 2) : new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.5, 1.6);
 composer.addPass(bloom);
 const grade = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uVig: { value: 0.85 }, uCA: { value: 0.0 }, uDesat: { value: 0 }, uRed: { value: 0 }, uWarm: { value: 0.03 } },
@@ -78,7 +83,7 @@ composer.addPass(grade);
 composer.addPass(new OutputPass());
 
 addEventListener('resize', () => {
-  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  renderer.setSize(innerWidth, innerHeight); if (!DIRECT) composer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 });
 
@@ -698,7 +703,7 @@ function tick(dtR, render) {
   arena.update(dtR, T);
   updateCamera(dtR, T);
   if (hud.el.classList.contains('show')) hud.update(dtR, player, enemy, G.round, G.clock);
-  if (render) composer.render(dtR);
+  if (render) { if (DIRECT) renderer.render(scene, camera); else composer.render(dtR); }
 }
 
 function stepFighters(dt) {
@@ -729,5 +734,5 @@ function stepFighters(dt) {
 boot().catch((e) => { console.error(e); $('loadTxt').textContent = 'ERROR: ' + e.message; });
 window.__G = G;
 // test hooks: advance the simulation without rendering
-window.__sim = (sec, keys) => { paused = true; const n = Math.round(sec * 60); for (let i = 0; i < n; i++) { if (keys && keys[i]) for (const k of keys[i]) { if (k.startsWith('+')) input.down.add(k.slice(1)); else if (k.startsWith('-')) input.down.delete(k.slice(1)); else { input.events.push(k); const A = { KeyJ: 'jab', KeyK: 'cross', KeyL: 'hook', KeyI: 'uppercut', KeyU: 'lowkick', KeyO: 'bodykick', KeyP: 'highkick', KeyH: 'teep' }; if (A[k]) input.pressed.push(A[k]); } } tick(1 / 60, false); } composer.render(0.016); };
+window.__sim = (sec, keys) => { paused = true; const n = Math.round(sec * 60); for (let i = 0; i < n; i++) { if (keys && keys[i]) for (const k of keys[i]) { if (k.startsWith('+')) input.down.add(k.slice(1)); else if (k.startsWith('-')) input.down.delete(k.slice(1)); else { input.events.push(k); const A = { KeyJ: 'jab', KeyK: 'cross', KeyL: 'hook', KeyI: 'uppercut', KeyU: 'lowkick', KeyO: 'bodykick', KeyP: 'highkick', KeyH: 'teep' }; if (A[k]) input.pressed.push(A[k]); } } tick(1 / 60, false); } if (DIRECT) renderer.render(scene, camera); else composer.render(0.016); };
 window.__resume = () => { paused = false; last = performance.now(); }; window.__game = { get player() { return player; }, get enemy() { return enemy; }, newFight, startRound, G };
