@@ -397,6 +397,7 @@ const QUALITIES = {
 };
 let qKey = params.get('q') || localStorage.getItem('netz.q') || (TOUCH ? 'mid' : 'high');
 if (!QUALITIES[qKey]) qKey = 'high';
+if (TOUCH) for (const k in QUALITIES) QUALITIES[k].samples = 0;
 let Qs = QUALITIES[qKey];
 let dynScale = 1;
 
