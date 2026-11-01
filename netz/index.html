@@ -1477,7 +1477,7 @@ function popup(pos, text) { const el = document.createElement('div'); el.classNa
    enemies
    ===================================================================== */
 const DEFS = {
-  dart: { build: buildDart, hp: 65, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
+  dart: { build: buildDart, hp: 75, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
   brute: { build: buildBrute, hp: 180, radius: 8.5, speed: 62, turn: 1.6, score: 250, name: 'שור', trailW: 0.7 },
 };
 const _av = new V3(), _an = new V3(), _tv = new V3(), _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
@@ -1489,7 +1489,7 @@ class Enemy {
     _m4.lookAt(pos, P.pos, UP); this.quat.setFromRotationMatrix(_m4);
     this.vel = new V3(); this.hp = def.hp * (1 + G.wave * 0.04); this.maxHp = this.hp; this.radius = def.radius;
     this.speed = def.speed * (1 + Math.min(G.wave, 12) * 0.012); this.turn = def.turn * (1 + Math.min(G.wave, 12) * 0.02);
-    this.state = 'attack'; this.stateT = 0; this.fireCd = rand(1.5, 3.0); this.burst = 0; this.burstT = 0; this.evade = new V3(); this.alive = true;
+    this.state = 'attack'; this.stateT = rand(4, 8); this.fireCd = rand(1.5, 3.0); this.burst = 0; this.burstT = 0; this.evade = new V3(); this.alive = true;
     this.warp = 0.7; this.bank = 0; this.flash = 0; this.jink = rand(0, Math.PI * 2); this.score = def.score; this.name = def.name;
     this.trail = new Ribbon(22, def.trailW, new THREE.Color(2.6, 0.35, 0.5)); scene.add(this.trail.mesh);
     const { pan, vol } = spatial(pos, 1600); SFX.warp(pan, vol);
@@ -1521,8 +1521,11 @@ class Enemy {
     const lead = _l.copy(P.pos).addScaledVector(P.vel, dist / EBOLT_SPEED);
     if (!P.alive) { des.copy(fwd).addScaledVector(toP, -0.3 / Math.max(dist, 1)); }
     else {
-      // always face the player's predicted position and fight
-      des.copy(lead).sub(this.pos).normalize();
+      this.stateT -= dt;
+      if (this.state === 'attack' && this.stateT <= 0) { this.state = 'break'; this.stateT = this.kind === 'dart' ? rand(1.2, 2.0) : rand(1.5, 2.2); randUnit(this.evade).addScaledVector(toP, -1.2 / dist).normalize(); }
+      else if (this.state === 'break' && this.stateT <= 0) { this.state = 'attack'; this.stateT = rand(5, 9); }
+      if (this.state === 'break') des.copy(this.evade);
+      else des.copy(lead).sub(this.pos).normalize();
     }
     const av = _av.set(0, 0, 0);
     // asteroid avoidance
@@ -1554,8 +1557,8 @@ class Enemy {
     this.bank = damp(this.bank, clamp(-des.dot(_r) * 2.2, -1.1, 1.1), 4, dt);
     ud.body.rotation.z = this.bank;
     fwd.set(0, 0, -1).applyQuaternion(this.quat);
-    if (this.warp > 0 || !P.alive) {
-      this.vel.lerp(_a.copy(fwd).multiplyScalar(this.warp > 0 ? this.speed * 3 : this.speed), 1 - Math.exp(-3 * dt));
+    if (this.warp > 0 || !P.alive || this.state === 'break') {
+      this.vel.lerp(_a.copy(fwd).multiplyScalar(this.warp > 0 ? this.speed * 3 : this.speed * (this.state === 'break' ? 1.5 : 1)), 1 - Math.exp(-3 * dt));
     } else {
       // hold a slot in front of the player's nose, drifting around it, keeping pace
       this.jink += dt * (this.kind === 'dart' ? 1.0 : 0.45);
@@ -1575,7 +1578,7 @@ class Enemy {
       const cone = this.kind === 'dart' ? 0.93 : 0.85;
       if (this.fireCd <= 0 && fwd.dot(_a) > cone && dist < (this.kind === 'dart' ? 950 : 1000)) {
         this.burst = this.kind === 'dart' ? 3 : 5;
-        this.fireCd = (this.kind === 'dart' ? rand(0.75, 1.35) : rand(1.4, 2.0)) * Math.max(0.55, 1 - G.wave * 0.045);
+        this.fireCd = (this.kind === 'dart' ? rand(0.6, 1.1) : rand(1.2, 1.8)) * Math.max(0.55, 1 - G.wave * 0.045);
       }
       if (this.burst > 0 && this.burstT <= 0) {
         this.burst--; this.burstT = this.kind === 'dart' ? 0.12 : 0.1;
@@ -1739,7 +1742,7 @@ function resetPlayer() {
 const _dp1 = new V3(), _dp2 = new V3(), _dp3 = new V3(), _dpq = new Q();
 function damagePlayer(dmg, from) {
   if (!P.alive || G.state !== 'playing') return;
-  dmg *= 0.75;
+  dmg *= 0.85;
   P.shieldDelay = 1.8;
   const dir = _dp1.copy(from).sub(P.pos).normalize();
   const local = _dp2.copy(dir).applyQuaternion(_dpq.copy(P.quat).invert());
@@ -1814,14 +1817,11 @@ function updatePlayer(dt) {
   let agility = P.boosting ? 0.8 : 1, couple = 0.35;
   if (TOUCH) {
     // softer response near the center for precise aiming, full turn at the edge
-    const m = Math.hypot(ix, iy); if (m > 0) { const c = m * m * 0.6 + m * 0.4; ix *= c / m; iy *= c / m; }
-    agility *= 0.85; couple = 0;
-    // keep the horizon level so the ship never ends up tumbling
-    const right = _a.set(1, 0, 0).applyQuaternion(P.quat);
-    roll = clamp(-right.y * 1.6, -1, 1);
+    const m = Math.hypot(ix, iy); if (m > 0) { const c = m * m * 0.3 + m * 0.7; ix *= c / m; iy *= c / m; }
+    agility *= 1.2; couple = 0.2;
   }
-  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, TOUCH ? 5 : 7, dt);
-  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, TOUCH ? 5 : 7, dt);
+  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, TOUCH ? 6 : 7, dt);
+  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, TOUCH ? 6 : 7, dt);
   P.ang.z = damp(P.ang.z, roll * 2.6 - ix * couple, 5, dt);
   _pe.set(P.ang.x * dt, P.ang.y * dt, P.ang.z * dt, 'XYZ'); _pq.setFromEuler(_pe);
   P.quat.multiply(_pq).normalize();
