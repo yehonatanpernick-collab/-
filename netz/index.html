@@ -1477,8 +1477,8 @@ function popup(pos, text) { const el = document.createElement('div'); el.classNa
    enemies
    ===================================================================== */
 const DEFS = {
-  dart: { build: buildDart, hp: 50, radius: 5.2, speed: 105, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
-  brute: { build: buildBrute, hp: 180, radius: 8.5, speed: 80, turn: 1.6, score: 250, name: 'שור', trailW: 0.7 },
+  dart: { build: buildDart, hp: 50, radius: 5.2, speed: 78, turn: 2.6, score: 100, name: 'צרעה', trailW: 0.35 },
+  brute: { build: buildBrute, hp: 180, radius: 8.5, speed: 62, turn: 1.6, score: 250, name: 'שור', trailW: 0.7 },
 };
 const _a = new V3(), _b = new V3(), _f = new V3(), _t = new V3(), _d = new V3(), _l = new V3(), _m4 = new THREE.Matrix4(), _q4 = new Q(), _up = new V3(), _r = new V3();
 class Enemy {
@@ -1488,7 +1488,7 @@ class Enemy {
     this.pos = this.mesh.position.copy(pos); this.quat = this.mesh.quaternion;
     _m4.lookAt(pos, P.pos, UP); this.quat.setFromRotationMatrix(_m4);
     this.vel = new V3(); this.hp = def.hp * (1 + G.wave * 0.04); this.maxHp = this.hp; this.radius = def.radius;
-    this.speed = def.speed * (1 + Math.min(G.wave, 12) * 0.025); this.turn = def.turn * (1 + Math.min(G.wave, 12) * 0.02);
+    this.speed = def.speed * (1 + Math.min(G.wave, 12) * 0.012); this.turn = def.turn * (1 + Math.min(G.wave, 12) * 0.02);
     this.state = 'attack'; this.stateT = 0; this.fireCd = rand(1.5, 3.0); this.burst = 0; this.burstT = 0; this.evade = new V3(); this.alive = true;
     this.warp = 0.7; this.bank = 0; this.flash = 0; this.jink = rand(0, 10); this.score = def.score; this.name = def.name;
     this.trail = new Ribbon(22, def.trailW, new THREE.Color(2.6, 0.35, 0.5)); scene.add(this.trail.mesh);
@@ -1567,8 +1567,8 @@ class Enemy {
     fwd.set(0, 0, -1).applyQuaternion(this.quat);
     _a.set(0, 0, -1).applyQuaternion(P.quat); _b.copy(this.pos).sub(P.pos).normalize();
     const chased = P.alive && _a.dot(_b) > 0.9 && dist < 600;
-    const catchUp = (!chased && dist > 200 && fwd.dot(toP) > dist * 0.3) ? clamp((dist - 200) / 200, 0, 1) * 1.2 : 0;
-    const spd = this.warp > 0 ? this.speed * 3 : this.speed * (chased ? 0.7 : 1) * (1 + catchUp);
+    const catchUp = (!chased && dist > 200 && fwd.dot(toP) > dist * 0.3) ? clamp((dist - 200) / 200, 0, 1) * 0.4 : 0;
+    const spd = this.warp > 0 ? this.speed * 3 : this.speed * (chased ? 0.55 : 1) * (1 + catchUp);
     this.vel.lerp(_a.copy(fwd).multiplyScalar(spd), 1 - Math.exp(-3 * dt));
     this.pos.addScaledVector(this.vel, dt);
     this.mesh.updateMatrixWorld();
