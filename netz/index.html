@@ -1736,7 +1736,7 @@ function resetPlayer() {
   P.pos.set(0, 0, 60); P.vel.set(0, 0, -60); P.quat.identity(); P.ang.set(0, 0, 0); P.throttle = 0.55; P.speed = 60;
   P.boost = 1; P.boosting = false; P.hull = 100; P.shield = 100; P.shieldDelay = 0; P.heat = 0; P.over = false; P.fireCd = 0; P.missiles = 6; P.mslCd = 0;
   P.target = null; P.lockT = 0; P.locked = false; P.alive = true; P.bank = 0;
-  playerShip.visible = true;
+  playerShip.visible = true; playerShip.userData.body.position.set(0, 0, 0); P.sx = P.sy = 0;
   for (const t of P.trails) t.started = false;
 }
 const _dp1 = new V3(), _dp2 = new V3(), _dp3 = new V3(), _dpq = new Q();
@@ -1811,7 +1811,8 @@ const _pf = new V3(), _pe = new THREE.Euler(), _pq = new Q(), _lead = new V3(), 
 function updatePlayer(dt) {
   if (!P.alive) return;
   // steering
-  let ix = input.mx, iy = input.my; const len = Math.hypot(ix, iy);
+  if (TOUCH) { P.sx = damp(P.sx || 0, input.mx, 16, dt); P.sy = damp(P.sy || 0, input.my, 16, dt); }
+  let ix = TOUCH ? P.sx : input.mx, iy = TOUCH ? P.sy : input.my; const len = Math.hypot(ix, iy);
   if (len < 0.045) { ix = iy = 0; } else { const k = Math.min(1, (len - 0.045) / 0.955) / len; ix *= k; iy *= k; }
   const roll = (input.rl ? 1 : 0) - (input.rr ? 1 : 0);
   const agility = (P.boosting ? 0.8 : 1) * (TOUCH ? 1.35 : 1);
@@ -1853,11 +1854,12 @@ function updatePlayer(dt) {
     }
   }
   // visual bank
-  P.bank = damp(P.bank, P.ang.y * (TOUCH ? 0.5 : 0.42), TOUCH ? 7 : 5, dt);
+  P.bank = damp(P.bank, P.ang.y * (TOUCH ? 0.62 : 0.42), TOUCH ? 6 : 5, dt);
   P.pitchNudge = damp(P.pitchNudge, P.ang.x * 0.06, 5, dt);
   const ud = playerShip.userData;
   playerShip.position.copy(P.pos); playerShip.quaternion.copy(P.quat);
-  ud.body.rotation.set(P.pitchNudge, 0, P.bank);
+  ud.body.rotation.set(P.pitchNudge * (TOUCH ? 1.8 : 1), TOUCH ? P.ang.y * 0.12 : 0, P.bank);
+  if (TOUCH) { ud.body.position.x = damp(ud.body.position.x, -P.ang.y * 0.9, 5, dt); ud.body.position.y = damp(ud.body.position.y, P.ang.x * 0.45, 5, dt); }
   playerShip.updateMatrixWorld(true);
 
   // targeting & lock
