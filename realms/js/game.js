@@ -265,7 +265,7 @@ async function loadStage(idx, { menu = false } = {}) {
   run.start = time; run.kills = 0; run.maxCombo = 0; run.dmgTaken = 0; run.motes = 0; run.deaths = 0;
   L.step = -1; ui.hud(true); ui.chapterCard(def);
   state = 'play'; safeLock();
-  setTimeout(() => nextStep(), 1800);
+  setTimeout(() => nextStep(), 900);
 }
 async function nextStep() {
   L.step++; const st = L.def.steps[L.step]; if (!st) return;
@@ -478,7 +478,7 @@ function loop(now) {
 
 // ---------------------------------------------------------------- menu wiring
 ui.onMenu({
-  async start(idx) { sound.init(); sound.play('ui'); ui.menu(false); if (idx === stageIdx && state === 'menu') { hero.revive(); run.start = time; run.kills = run.maxCombo = run.dmgTaken = run.motes = run.deaths = 0; L.step = -1; ui.hud(true); ui.chapterCard(L.def); state = 'play'; safeLock(); setTimeout(() => nextStep(), 1800); } else await loadStage(idx); },
+  async start(idx) { sound.init(); sound.play('ui'); ui.menu(false); if (idx === stageIdx && state === 'menu') { hero.revive(); run.start = time; run.kills = run.maxCombo = run.dmgTaken = run.motes = run.deaths = 0; L.step = -1; ui.hud(true); ui.chapterCard(L.def); state = 'play'; safeLock(); setTimeout(() => nextStep(), 900); } else await loadStage(idx); },
   chapters: () => ({ unlocked: store.get('unlocked', 0), ranks: store.get('ranks', {}), list: STAGES }),
   quality: () => { const order = ['high', 'medium', 'low']; const n = order[(order.indexOf(qName) + 1) % 3]; store.set('q', n); location.reload(); },
   qualityName: () => qName,

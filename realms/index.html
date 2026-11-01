@@ -128,6 +128,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .tb svg { width: 46%; height: 46%; fill: none; stroke: var(--bone); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tb.press { transform: scale(.9); background: rgba(201,164,92,.35); }
 .tb.dim { opacity: .4; }
+.tl { position: absolute; top: 100%; margin-top: 3px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--disp); font-size: 13px; color: var(--bone); text-shadow: 0 1px 3px #000; pointer-events: none; }
+#b-use { width: auto !important; min-width: 64px; padding: 0 16px; border-radius: 32px; gap: 8px; grid-auto-flow: column; animation: usePulse 1s ease-in-out infinite alternate; }
+#b-use svg { width: 26px; height: 26px; }
+#b-use .tl { position: static; transform: none; margin: 0; font-size: 16px; color: #fff3cf; }
+@keyframes usePulse { to { box-shadow: 0 0 22px var(--gold); } }
+.touch .pc-only { display: none; }
+.in-dialog #touchui { opacity: 0; pointer-events: none; }
+#touchui { transition: opacity .25s; }
 #b-attack { width: 86px; height: 86px; right: max(34px, env(safe-area-inset-right)); bottom: max(34px, env(safe-area-inset-bottom)); border-color: var(--gold2); }
 #b-magic { width: 58px; height: 58px; right: max(136px, calc(env(safe-area-inset-right) + 126px)); bottom: max(28px, env(safe-area-inset-bottom)); }
 #b-dodge { width: 58px; height: 58px; right: max(124px, calc(env(safe-area-inset-right) + 114px)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); }
@@ -209,12 +217,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <button id="b-pause" aria-label="תפריט"><svg viewBox="0 0 18 18"><path d="M5 2v14M13 2v14" stroke="#efe7d6" stroke-width="2"/></svg></button>
   <div id="touchui">
     <div id="joy"><div id="knob"></div></div>
-    <div class="tb" id="b-attack"><svg viewBox="0 0 24 24"><path d="M4 20 L16 8 M14 4 L20 4 L20 10 L16 8 Z M6 14 L10 18 M3 21 L5 19"/></svg></div>
-    <div class="tb" id="b-magic"><svg viewBox="0 0 24 24"><path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z"/></svg></div>
-    <div class="tb" id="b-dodge"><svg viewBox="0 0 24 24"><path d="M4 12 C4 7 8 4 12 4 C16 4 20 7 20 12 M20 12 L17 9 M20 12 L23 9 M8 16 L12 20 L16 16"/></svg></div>
-    <div class="tb" id="b-jump"><svg viewBox="0 0 24 24"><path d="M12 20 L12 5 M6 11 L12 5 L18 11"/></svg></div>
-    <div class="tb" id="b-special"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4 A8 8 0 0 1 20 12 M12 20 A8 8 0 0 1 4 12"/><path d="M20 12 l-2.5 -1.5 M4 12 l2.5 1.5"/></svg></div>
-    <div class="tb hide" id="b-use"><svg viewBox="0 0 24 24"><path d="M8 12 V6 a1.5 1.5 0 0 1 3 0 V11 M11 10 V4.5 a1.5 1.5 0 0 1 3 0 V11 M14 10.5 V6 a1.5 1.5 0 0 1 3 0 V14 c0 4 -2.5 7 -6 7 c-3 0 -4.5 -1.5 -6 -4 L3.5 13.5 a1.5 1.5 0 0 1 2.5 -1.6 L8 14"/></svg></div>
+    <div class="tb" id="b-attack"><svg viewBox="0 0 24 24"><path d="M4 20 L16 8 M14 4 L20 4 L20 10 L16 8 Z M6 14 L10 18 M3 21 L5 19"/></svg><span class="tl" id="b-attack-l">חרב</span></div>
+    <div class="tb" id="b-magic"><svg viewBox="0 0 24 24"><path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z"/></svg><span class="tl" id="b-magic-l">קסם</span></div>
+    <div class="tb" id="b-dodge"><svg viewBox="0 0 24 24"><path d="M4 12 C4 7 8 4 12 4 C16 4 20 7 20 12 M20 12 L17 9 M20 12 L23 9 M8 16 L12 20 L16 16"/></svg><span class="tl" id="b-dodge-l">גלגול</span></div>
+    <div class="tb" id="b-jump"><svg viewBox="0 0 24 24"><path d="M12 20 L12 5 M6 11 L12 5 L18 11"/></svg><span class="tl" id="b-jump-l">קפיצה</span></div>
+    <div class="tb" id="b-special"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4 A8 8 0 0 1 20 12 M12 20 A8 8 0 0 1 4 12"/><path d="M20 12 l-2.5 -1.5 M4 12 l2.5 1.5"/></svg><span class="tl" id="b-special-l">מיוחד</span></div>
+    <div class="tb hide" id="b-use"><svg viewBox="0 0 24 24"><path d="M8 12 V6 a1.5 1.5 0 0 1 3 0 V11 M11 10 V4.5 a1.5 1.5 0 0 1 3 0 V11 M14 10.5 V6 a1.5 1.5 0 0 1 3 0 V14 c0 4 -2.5 7 -6 7 c-3 0 -4.5 -1.5 -6 -4 L3.5 13.5 a1.5 1.5 0 0 1 2.5 -1.6 L8 14"/></svg><span class="tl" id="b-use-l">פעולה</span></div>
   </div>
 </div>
 

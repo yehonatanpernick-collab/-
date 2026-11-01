@@ -86,7 +86,7 @@ export class UI {
   prompt(label) {
     if (label === this.lastPrompt) return; this.lastPrompt = label;
     $('prompt').classList.toggle('hide', !label); $('b-use').classList.toggle('hide', !label);
-    if (label) $('pr-text').textContent = label;
+    if (label) { $('pr-text').textContent = label; $('b-use-l').textContent = label; }
   }
   toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(this.tt); this.tt = setTimeout(() => el.classList.remove('show'), 2600); }
   compass(yaw, hp, marker, portal) {
@@ -121,15 +121,15 @@ export class UI {
     }
   }
   // ---- dialog
-  dialog(lines, done) { this.dlg = { lines: lines.slice(), done }; $('dialog').classList.remove('hide'); this.nextDialog(true); }
+  dialog(lines, done) { document.body.classList.add('in-dialog'); this.dlg = { lines: lines.slice(), done }; $('dialog').classList.remove('hide'); this.nextDialog(true); }
   nextDialog(first) {
     if (!this.dlg) return;
     if (!first && this.typing) { this.typing = false; $('dl-text').textContent = this.full; return; }
     const l = this.dlg.lines.shift();
-    if (!l) { $('dialog').classList.add('hide'); const d = this.dlg.done; this.dlg = null; d && d(); return; }
+    if (!l) { document.body.classList.remove('in-dialog'); $('dialog').classList.add('hide'); const d = this.dlg.done; this.dlg = null; d && d(); return; }
     $('dl-name').textContent = l[0]; $('dialog').className = l[2] || '';
     this.full = l[1]; this.typing = true; let i = 0; const el = $('dl-text'); el.textContent = '';
-    clearInterval(this.ti); this.ti = setInterval(() => { if (!this.typing) { clearInterval(this.ti); return; } i += 2; el.textContent = this.full.slice(0, i); if (i >= this.full.length) { this.typing = false; clearInterval(this.ti); } }, 22);
+    clearInterval(this.ti); this.ti = setInterval(() => { if (!this.typing) { clearInterval(this.ti); return; } i += 4; el.textContent = this.full.slice(0, i); if (i >= this.full.length) { this.typing = false; clearInterval(this.ti); } }, 22);
   }
   // ---- touch
   joy(on, x, y, dx = 0, dy = 0) { const j = $('joy'); j.classList.toggle('on', on); if (on) { j.style.left = (x - 64) + 'px'; j.style.top = (y - 64) + 'px'; $('knob').style.transform = `translate(${dx}px,${dy}px)`; } }
