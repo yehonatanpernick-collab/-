@@ -23,6 +23,7 @@ export class AtmospherePass extends Pass {
         vec3 worldAt(vec2 uv, float d){ vec4 v = uProjInv * vec4(uv*2.-1., d*2.-1., 1.); v /= v.w; return (uViewInv * v).xyz; }
         void main(){
           vec4 col = texture2D(tDiffuse, vUv); float d = texture2D(tDepth, vUv).x;
+          if (!(col.r < 6e4) || !(col.g < 6e4) || !(col.b < 6e4) || !(col.r >= 0.) || !(col.g >= 0.) || !(col.b >= 0.)) col.rgb = vec3(0.);
           vec3 wp = worldAt(vUv, d); vec3 rd = wp - uCamPos; float dist = length(rd); rd /= dist;
           float sky = step(0.99999, d);
           if (sky > 0.5) dist = 600.;
@@ -34,7 +35,7 @@ export class AtmospherePass extends Pass {
           float f = 1. - exp(-max(fogAmt, 0.));
           float sunAmt = pow(max(dot(rd, uSunDir), 0.), 8.);
           vec3 fogCol = mix(uFogColor, uSunColor, sunAmt * uScatter);
-          if (sky > 0.5) f *= smoothstep(0.35, -0.02, rd.y) * 0.85;
+          if (sky > 0.5) f *= (1. - smoothstep(-0.02, 0.35, rd.y)) * 0.85;
           col.rgb = mix(col.rgb, fogCol, clamp(f, 0., 1.));
           #if RAYS
           if (uSunVis > 0.001) {
@@ -46,7 +47,7 @@ export class AtmospherePass extends Pass {
             col.rgb += uSunColor * acc * uRays * uSunVis * fall * (1. - sky * 0.6);
           }
           #endif
-          gl_FragColor = col;
+          gl_FragColor = vec4(clamp(col.rgb, 0., 6e4), 1.);
         }`,
     });
     this.fsQuad = new FullScreenQuad(this.material);
@@ -87,6 +88,8 @@ export class GradePass extends Pass {
         float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
         void main(){
           vec3 c = texture2D(tDiffuse, vUv).rgb;
+          if (!(c.r < 6e4) || !(c.g < 6e4) || !(c.b < 6e4) || !(c.r >= 0.) || !(c.g >= 0.) || !(c.b >= 0.)) c = vec3(0.);
+          c = min(c, vec3(64.));
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
           c *= mix(uShadowTint, uTint, smoothstep(0.0, 0.6, l));
           l = dot(c, vec3(0.2126, 0.7152, 0.0722));

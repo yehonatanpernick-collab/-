@@ -142,5 +142,6 @@ export class UI {
     };
     bind('b-attack', () => h.attack(true), () => h.attack(false)); bind('b-magic', h.magic); bind('b-jump', h.jump); bind('b-dodge', h.dodge); bind('b-special', h.special); bind('b-use', h.use);
     $('b-pause').addEventListener('click', e => { e.stopPropagation(); h.pause(); });
+    $('dialog').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (getState() === 'dialog') next(); });
   }
 }

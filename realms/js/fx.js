@@ -3,7 +3,7 @@ import * as THREE from 'three';
 const PVERT = `attribute float aSize; attribute float aAlpha; attribute vec3 aColor; varying vec3 vC; varying float vA; uniform float uScale;
 void main(){ vC = aColor; vA = aAlpha; vec4 mv = modelViewMatrix*vec4(position,1.); gl_PointSize = aSize*uScale/ -mv.z; gl_Position = projectionMatrix*mv; }`;
 const PFRAG = `varying vec3 vC; varying float vA; void main(){ vec2 d = gl_PointCoord-0.5; float r = length(d); if(r>0.5) discard;
-float a = smoothstep(0.5,0.0,r); a = a*a; gl_FragColor = vec4(vC*a*vA*1.6, 1.0); }`;
+float a = (1. - smoothstep(0.0,0.5,r)); a = a*a; gl_FragColor = vec4(vC*a*vA*1.6, 1.0); }`;
 
 export class FX {
   constructor(scene, pixelScale) {
@@ -32,9 +32,9 @@ export class FX {
         void main(){ vec3 p = position; float t = uTime*(0.3+aRnd*0.4);
           p += vec3(sin(t+aRnd*30.)*2., sin(t*1.3+aRnd*10.)*1.2 + uTime*uRise*(0.5+aRnd), cos(t*0.8+aRnd*20.)*2.);
           p.xz = mod(p.xz - uCenter.xz + 40., 80.) - 40. + uCenter.xz; p.y = mod(p.y, 24.) + uCenter.y - 6.;
-          vec4 mv = modelViewMatrix*vec4(p,1.); vA = (0.5+0.5*sin(uTime*2.+aRnd*50.)) * smoothstep(45.,10.,-mv.z);
+          vec4 mv = modelViewMatrix*vec4(p,1.); vA = (0.5+0.5*sin(uTime*2.+aRnd*50.)) * (1. - smoothstep(10.,45.,-mv.z));
           vA *= smoothstep(1.5,5.,-mv.z); gl_PointSize = min((0.25+aRnd*0.35)*uScale/-mv.z, 24.); gl_Position = projectionMatrix*mv; }`,
-      fragmentShader: `uniform vec3 uColor; varying float vA; void main(){ float r = length(gl_PointCoord-0.5); if(r>0.5) discard; float a = smoothstep(0.5,0.,r); gl_FragColor = vec4(uColor*a*a*vA*2.,1.); }`,
+      fragmentShader: `uniform vec3 uColor; varying float vA; void main(){ float r = length(gl_PointCoord-0.5); if(r>0.5) discard; float a = (1. - smoothstep(0.,0.5,r)); gl_FragColor = vec4(uColor*a*a*vA*2.,1.); }`,
     }));
     this.ambient.frustumCulled = false; scene.add(this.ambient);
     // ---- rings / shockwaves ----

@@ -20,12 +20,12 @@ export class Sky {
         void main(){
           vec3 d = normalize(vDir); float h = d.y;
           vec3 c = mix(uHorizon, uTop, pow(smoothstep(-0.02, 0.75, h), 0.6));
-          c = mix(c, uGround, smoothstep(0.0, -0.25, h));
+          c = mix(c, uGround, (1. - smoothstep(-0.25, 0.0, h)));
           float s = max(dot(d, uSunDir), 0.);
           c += uSunCol * (pow(s, 6.) * 0.25 + pow(s, 64.) * 0.6) ;
           c += uSunCol * smoothstep(1. - 0.00012 * uSunSize, 1. - 0.00004 * uSunSize, s) * 30.;
           // haze band near horizon
-          c = mix(c, uHorizon * 1.05, smoothstep(0.25, 0.0, abs(h)) * 0.35);
+          c = mix(c, uHorizon * 1.05, (1. - smoothstep(0.0, 0.25, abs(h))) * 0.35);
           // stars
           vec3 sp = floor(d * 300.); float st = step(0.9975, hash(sp)) * smoothstep(0.02, 0.35, h);
           c += vec3(st * uStars * (0.6 + 0.4 * sin(uTime * 2. + hash(sp + 3.) * 60.)) * 2.5);
@@ -34,7 +34,7 @@ export class Sky {
             float cr = texture2D(tNoise, (d.xy - uMoonDir.xy) * 18.).r;
             c = mix(c, uMoonCol * (2.2 + cr * 1.2), disc); c += uMoonCol * pow(max(m, 0.), 90.) * 0.6 + uMoonCol * pow(max(m, 0.), 8.) * 0.08; }
           // aurora
-          if (uAurora > 0.) { float band = fbm(vec2(d.x * 0.6 + uTime * 0.004, d.z * 0.3)) ; float a = smoothstep(0.12, 0.45, h) * smoothstep(0.85, 0.45, h);
+          if (uAurora > 0.) { float band = fbm(vec2(d.x * 0.6 + uTime * 0.004, d.z * 0.3)) ; float a = smoothstep(0.12, 0.45, h) * (1. - smoothstep(0.45, 0.85, h));
             c += uAuroraCol * pow(smoothstep(0.45, 0.75, band), 2.) * a * uAurora * 1.5; }
           // clouds
           if (h > 0.0 && uClouds > 0.) {
@@ -80,7 +80,7 @@ export async function makeLiquid(scene, terrain, def) {
           vec2 uv = vW.xz * 0.06; vec4 n1 = texture2D(tLavaC, uv * 0.6 + vec2(uTime * 0.01, uTime * 0.006));
           vec2 tuv = uv + (n1.rg - 0.5) * 0.25 + vec2(uTime * 0.012, -uTime * 0.008);
           vec3 lc = texture2D(tLava, tuv).rgb; float heat = pow(dot(lc, vec3(0.5, 0.35, 0.15)), 1.6) * 3.2;
-          vec3 col = lc * vec3(2.6, 1.2, 0.5) * (0.6 + heat) + vec3(1.6, 0.35, 0.05) * smoothstep(0.6, 0.0, depth) * (0.6 + 0.4 * sin(uTime * 2. + vW.x));
+          vec3 col = lc * vec3(2.6, 1.2, 0.5) * (0.6 + heat) + vec3(1.6, 0.35, 0.05) * (1. - smoothstep(0.0, 0.6, depth)) * (0.6 + 0.4 * sin(uTime * 2. + vW.x));
           gl_FragColor = vec4(col, 1.);
         } else {
           vec2 uv = vW.xz * 0.035;
@@ -91,7 +91,7 @@ export async function makeLiquid(scene, terrain, def) {
           vec3 body = mix(uShallow, uDeep, smoothstep(0., 4.5, depth));
           vec3 col = mix(body, uSky, fres);
           vec3 R = reflect(-V, N); col += uSun * pow(max(dot(R, uSunDir), 0.), 220.) * 6. + uSun * pow(max(dot(R, uSunDir), 0.), 18.) * 0.15;
-          float foam = smoothstep(0.35, 0.0, depth + (n1.x * 0.15)) * (0.6 + 0.4 * sin(uTime * 1.5 + vW.x * 0.8 + vW.z * 0.5));
+          float foam = (1. - smoothstep(0.0, 0.35, depth + (n1.x * 0.15))) * (0.6 + 0.4 * sin(uTime * 1.5 + vW.x * 0.8 + vW.z * 0.5));
           col = mix(col, vec3(0.9, 0.95, 1.), foam * 0.6);
           float a = clamp(smoothstep(0.0, 1.6, depth) * 0.85 + fres * 0.5 + foam * 0.5, 0., 0.97);
           gl_FragColor = vec4(col, a);

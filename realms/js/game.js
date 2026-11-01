@@ -23,7 +23,7 @@ const store = { get(k, d) { try { const v = localStorage.getItem('aeth2-' + k); 
 
 const PRESETS = {
   high: { pr: 1.75, shadows: 2048, msaa: 4, bloom: true, rays: true, terrainRes: 256, grass: 90000, grassR: 30, grassSegs: 5, density: 1, maxLights: 8 },
-  medium: { pr: 1.3, shadows: 2048, msaa: 0, bloom: true, rays: true, terrainRes: 192, grass: 42000, grassR: 24, grassSegs: 4, density: 0.7, maxLights: 4 },
+  medium: { pr: 1.2, shadows: 1024, msaa: 0, bloom: true, rays: true, terrainRes: 192, grass: 26000, grassR: 24, grassSegs: 4, density: 0.7, maxLights: 4 },
   low: { pr: 1, shadows: 1024, msaa: 0, bloom: false, rays: false, terrainRes: 128, grass: 12000, grassR: 17, grassSegs: 3, density: 0.45, maxLights: 1 },
 };
 let qName = store.get('q', isTouch ? 'medium' : 'high'); if (!PRESETS[qName]) qName = 'medium';
@@ -56,6 +56,9 @@ function onResize() {
 }
 addEventListener('resize', onResize);
 const pmrem = new THREE.PMREMGenerator(renderer);
+canvas0().addEventListener('webglcontextlost', e => { e.preventDefault(); ui.toast('משחזר את הגרפיקה...'); }, false);
+canvas0().addEventListener('webglcontextrestored', () => { ui.toast('הגרפיקה שוחזרה'); }, false);
+function canvas0() { return renderer.domElement; }
 
 // ---------------------------------------------------------------- globals
 const ui = new UI(isTouch);
@@ -146,7 +149,7 @@ const variantCache = new Map();
 function makeLevel(def, idx) {
   const lv = {
     def, idx, scene, touch: isTouch, flags: {}, time: 0, platforms: [], grid: new Map(), interacts: [], destructibles: [], emitters: [], anims: [], motesList: [], lightBudget: Q.maxLights,
-    hero, fx, get enemies() { return enemies; },
+    get hero() { return hero; }, get fx() { return fx; }, get enemies() { return enemies; },
     h: (x, z) => lv.terrain.heightAt(x, z),
     n: c => Math.max(1, Math.round(c * Q.density)),
     collider(x, z, r) { const c = { x, z, r }; addToGrid(c, r); return c; },
@@ -446,6 +449,7 @@ function loop(now) {
   if (hitstop > 0) { hitstop -= dt; dt *= 0.08; }
   time += dt;
   if (!L || state === 'loading' || state === 'boot') { return; }
+  try {
   if (state === 'menu') {
     const a = time * 0.03; const c = STAGES[0].start;
     camera.position.set(hero.pos.x + Math.sin(a + 2.4) * 9, hero.pos.y + 2.4, hero.pos.z + Math.cos(a + 2.4) * 9); camera.lookAt(hero.pos.x, hero.pos.y + 1.4, hero.pos.z);
@@ -472,8 +476,8 @@ function loop(now) {
     else if (live) updateCamera(dt);
     updateEnv(live ? dt : 0);
   }
-  ui.update(dt, camera);
-  composer.render();
+  } catch (err) { if (!loop.errs) loop.errs = 0; if (loop.errs++ < 3) console.error(err); }
+  try { ui.update(dt, camera); composer.render(); } catch (err) { if (!loop.rerr) { loop.rerr = 1; console.error(err); } }
 }
 
 // ---------------------------------------------------------------- menu wiring

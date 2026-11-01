@@ -106,7 +106,7 @@ export function portal(parent, x, y, z, color = '#9fd8ff', color2 = '#ffffff', r
     fragmentShader: `uniform float uTime, uOpen; uniform vec3 uC1, uC2; varying vec2 vUv;
       void main(){ vec2 p = vUv - 0.5; float r = length(p) * 2.; float a = atan(p.y, p.x);
         float sw = sin(a * 5. + r * 14. - uTime * 4.) * 0.5 + 0.5; float sw2 = sin(a * 3. - r * 9. + uTime * 2.7) * 0.5 + 0.5;
-        float core = smoothstep(1., 0., r); float rim = smoothstep(0.75, 1., r) * smoothstep(1.02, 0.95, r);
+        float core = (1. - smoothstep(0., 1., r)); float rim = smoothstep(0.75, 1., r) * (1. - smoothstep(0.95, 1.02, r));
         vec3 c = mix(uC1, uC2, sw * sw2) * (core * (0.4 + sw * 0.8) + rim * 2.5);
         gl_FragColor = vec4(c * uOpen * 1.6, 1.); }`,
   }));

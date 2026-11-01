@@ -127,7 +127,7 @@ export class GrassField {
           vec2 wp = aOff + 2. * uR * floor((uCenter - aOff + uR) / (2. * uR));
           vec2 hm = hs(wp);
           float dC = length(wp - uCenter);
-          float keep = step(aRnd.w, hm.y) * smoothstep(uR, uR * 0.65, dC) * smoothstep(1.2, 3.5, distance(vec3(wp.x, hm.x, wp.y), cameraPosition));
+          float keep = step(aRnd.w, hm.y) * (1. - smoothstep(uR * 0.65, uR, dC)) * smoothstep(1.2, 3.5, distance(vec3(wp.x, hm.x, wp.y), cameraPosition));
           float H = (0.45 + aRnd.y * 0.7) * uHeightScale * keep;
           float t = position.y;
           float ca = cos(aRnd.x), sa = sin(aRnd.x);
@@ -135,7 +135,7 @@ export class GrassField {
           float wph = wp.x * 0.15 + wp.y * 0.11;
           float wind = sin(uTime * 1.6 + wph) * 0.35 + sin(uTime * 3.1 + wph * 2.3) * 0.12 + 0.15;
           vec2 bend = vec2(wind, wind * 0.4) + vec2(cos(aRnd.x), sin(aRnd.x)) * (aRnd.z - 0.5) * 0.5;
-          vec2 away = wp - uHero.xz; float ad = length(away); bend += away / max(ad, 0.01) * smoothstep(1.6, 0.2, ad) * 1.4 * step(abs(uHero.y - hm.x), 2.5);
+          vec2 away = wp - uHero.xz; float ad = length(away); bend += away / max(ad, 0.01) * (1. - smoothstep(0.2, 1.6, ad)) * 1.4 * step(abs(uHero.y - hm.x), 2.5);
           p.xz += bend * t * t * H;
           p.y -= dot(bend, bend) * t * t * H * 0.25;
           vec3 world = vec3(wp.x, hm.x - 0.05, wp.y) + p;

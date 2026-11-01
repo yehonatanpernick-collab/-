@@ -62,7 +62,7 @@ export function characterMaterial(src, { rim = '#9fc8ff', rimStr = 0.22, tint = 
         if (uDissolve > 0.) { float n = vn(vObjPos * 6.); if (n < uDissolve) discard; }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         { vec3 vd = normalize(vViewPosition); float fr = pow(1. - clamp(dot(normalize(normal), -vd), 0., 1.), 3.); totalEmissiveRadiance += uRim * fr + vec3(uFlash);
-          if (uDissolve > 0.) { float n = vn(vObjPos * 6.); totalEmissiveRadiance += vec3(1.2, 0.5, 2.2) * smoothstep(uDissolve + 0.08, uDissolve, n) * 3.; } }`);
+          if (uDissolve > 0.) { float n = vn(vObjPos * 6.); totalEmissiveRadiance += vec3(1.2, 0.5, 2.2) * (1. - smoothstep(uDissolve, uDissolve + 0.08, n)) * 3.; } }`);
   };
   m.customProgramCacheKey = () => 'char' + stone + dark;
   return m;
