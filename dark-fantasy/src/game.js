@@ -239,7 +239,7 @@ if (IS_TOUCH) {
     for (const t of e.changedTouches) {
       if (t.clientX < innerWidth * 0.45 && stickId === null) {
         stickId = t.identifier; sc = { x: t.clientX, y: t.clientY };
-        stick.style.display = 'block'; stick.style.left = sc.x - 60 + 'px'; stick.style.top = sc.y - 60 + 'px'; knob.style.transform = 'translate(0,0)';
+        stick.classList.add('on'); stick.style.left = sc.x - 60 + 'px'; stick.style.top = sc.y - 60 + 'px'; stick.style.bottom = 'auto'; knob.style.transform = 'translate(0,0)';
       } else if (camId === null) { camId = t.identifier; last = { x: t.clientX, y: t.clientY }; }
     }
     e.preventDefault();
@@ -257,7 +257,7 @@ if (IS_TOUCH) {
     }
     e.preventDefault();
   }, { passive: false });
-  const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === stickId) { stickId = null; touch.mx = touch.my = 0; touch.active = false; stick.style.display = 'none'; } if (t.identifier === camId) camId = null; } };
+  const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === stickId) { stickId = null; touch.mx = touch.my = 0; touch.active = false; stick.classList.remove('on'); stick.style.left = stick.style.top = stick.style.bottom = ''; knob.style.transform = 'translate(0,0)'; } if (t.identifier === camId) camId = null; } };
   canvas.addEventListener('touchend', end); canvas.addEventListener('touchcancel', end);
   const bind = (id, down, up) => {
     const el = $(id);

@@ -59,6 +59,7 @@
   /* ---------- HUD ---------- */
   #hud { z-index: 10; opacity: 0; transition: opacity .9s; }
   #hud.show { opacity: 1; }
+  #hud, #hud.show { pointer-events: none; }
   .vitals { position: absolute; top: calc(26px + var(--safe-t)); right: 30px; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
   .realm { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
   .realm #knum { font-family: var(--fell); font-size: 15px; color: var(--verm); direction: ltr; }
@@ -167,7 +168,8 @@
   /* ---------- touch ---------- */
   #touchUI { display: none; }
   body.touch #touchUI { display: block; }
-  #stick { position: fixed; width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--bone-faint); display: none; z-index: 15; pointer-events: none; }
+  #stick { position: fixed; width: 120px; height: 120px; border-radius: 50%; border: 1px solid rgba(232,224,204,.3); background: rgba(5,4,5,.25); display: block; left: 36px; bottom: calc(60px + var(--safe-b)); z-index: 15; pointer-events: none; opacity: .55; transition: opacity .2s; }
+  #stick.on { opacity: 1; }
   #knob { position: absolute; left: 38px; top: 38px; width: 44px; height: 44px; border-radius: 50%; background: rgba(232,224,204,.18); border: 1px solid rgba(232,224,204,.4); }
   .tb { position: fixed; z-index: 15; border-radius: 50%; border: 1px solid rgba(232,224,204,.28); background: rgba(5,4,5,.35); color: var(--bone); display: grid; place-items: center; font-family: var(--fell); touch-action: none; pointer-events: auto; }
   .tb:active { background: rgba(212,70,43,.3); }
