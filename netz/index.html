@@ -150,15 +150,20 @@ button{font:inherit;color:inherit}
 #touch{position:fixed;inset:0;z-index:4;display:none}
 #touch.on{display:block}
 #stick-zone{position:absolute;left:0;top:0;bottom:0;width:55%}
-#stick{position:absolute;width:130px;height:130px;margin:-65px 0 0 -65px;border:1px solid var(--bone-3);border-radius:50%;display:none;pointer-events:none}
-#stick i{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(235,227,210,.18);border:1px solid var(--bone-2)}
-.tbtn{position:absolute;border:1px solid var(--bone-3);background:rgba(5,6,8,.25);color:var(--bone);font:400 22px/1 var(--display);display:flex;align-items:center;justify-content:center;border-radius:50%;letter-spacing:.04em}
-.tbtn.on{background:rgba(255,138,61,.25);border-color:var(--amber)}
-#t-fire{right:28px;bottom:40px;width:104px;height:104px;font-size:28px}
-#t-msl{right:146px;bottom:30px;width:68px;height:68px}
-#t-boost{right:44px;bottom:160px;width:68px;height:68px}
-#t-pause{right:22px;top:110px;width:44px;height:44px;font:500 12px/1 var(--mono);border-radius:0}
+#stick{position:absolute;width:96px;height:96px;margin:-48px 0 0 -48px;border:1px solid var(--bone-4);border-radius:50%;display:none;pointer-events:none}
+#stick i{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--bone-3)}
+.tbtn{position:absolute;border:1px solid var(--bone-3);background:none;color:var(--bone-2);font:500 9px/1 var(--mono);letter-spacing:.14em;display:flex;align-items:center;justify-content:center;border-radius:50%;-webkit-tap-highlight-color:transparent}
+.tbtn.on{border-color:var(--amber);color:var(--amber)}
+#t-fire{right:calc(22px + env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));width:70px;height:70px;border-color:var(--bone-2)}
+#t-msl{right:calc(104px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));width:44px;height:44px}
+#t-boost{right:calc(30px + env(safe-area-inset-right));bottom:calc(108px + env(safe-area-inset-bottom));width:44px;height:44px}
+#t-pause{left:calc(12px + env(safe-area-inset-left));top:calc(96px + env(safe-area-inset-top));width:30px;height:30px;border:0}
 
+body.touch .h-flight{display:none}
+body.touch .h-score{top:10px;left:14px}body.touch .score{font-size:20px}body.touch .mult b{font-size:20px}body.touch .mult .combo{width:70px}
+body.touch .h-wave{top:8px;right:16px}body.touch .wave-n{font-size:46px}
+body.touch .h-ship{bottom:auto;top:8px;right:auto;left:50%;transform:translateX(-50%) scale(.68);transform-origin:top center}
+body.touch .boss{top:90px;width:50vw}
 @media (max-width:760px){
   .h-score{top:14px;left:16px}.score{font-size:20px}.mult b{font-size:20px}.mult .combo{width:70px}
   .h-wave{top:10px;right:16px}.wave-n{font-size:48px}
@@ -270,9 +275,9 @@ button{font:inherit;color:inherit}
 <div id="touch">
   <div id="stick-zone"></div>
   <div id="stick"><i></i></div>
-  <div class="tbtn" id="t-fire">אש</div>
-  <div class="tbtn" id="t-msl">טיל</div>
-  <div class="tbtn" id="t-boost">מבער</div>
+  <div class="tbtn" id="t-fire">FIRE</div>
+  <div class="tbtn" id="t-msl">MSL</div>
+  <div class="tbtn" id="t-boost">BURN</div>
   <div class="tbtn" id="t-pause">II</div>
 </div>
 
@@ -310,7 +315,7 @@ const randUnit = (out = new V3()) => {
 };
 const pad = (n, l) => String(Math.max(0, Math.floor(n))).padStart(l, '0');
 const params = new URLSearchParams(location.search);
-const TOUCH = matchMedia('(pointer: coarse)').matches || params.has('touch');
+const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0 || params.has('touch');
 const setLoad = p => { $('#load-bar').style.width = (p * 100) + '%'; };
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
@@ -2403,6 +2408,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && G.s
 // touch
 let touchBoost = false, stickId = null, stickO = { x: 0, y: 0 };
 if (TOUCH) {
+  document.body.classList.add('touch');
   const zone = $('#stick-zone'), stick = $('#stick'), knob = stick.querySelector('i');
   zone.addEventListener('touchstart', e => { const t = e.changedTouches[0]; stickId = t.identifier; stickO = { x: t.clientX, y: t.clientY }; stick.style.display = 'block'; stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; e.preventDefault(); }, { passive: false });
   zone.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === stickId) { let dx = (t.clientX - stickO.x) / 60, dy = (t.clientY - stickO.y) / 60; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } input.mx = dx; input.my = dy; knob.style.transform = `translate(${dx * 42}px,${dy * 42}px)`; } e.preventDefault(); }, { passive: false });
