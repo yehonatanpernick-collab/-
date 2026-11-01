@@ -27,7 +27,9 @@ export class Input {
   isTouch() { return document.body.classList.contains('touch'); }
   setupTouch() {
     const enable = () => document.body.classList.add('touch');
+    if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) enable();
     window.addEventListener('touchstart', enable, { once: true, passive: true });
+    this.combo = 0; this.comboT = 0;
     const stick = document.getElementById('stick'), knob = document.getElementById('knob');
     let sid = null, cx = 0, cy = 0;
     const R = 60;
@@ -49,6 +51,16 @@ export class Input {
         else if (k === 'body') { this.touch.body = !this.touch.body; b.classList.toggle('lock', this.touch.body); }
         else if (k === 'slip') { this.slipPress = (this.touch.sx || 0) >= 0 ? 1 : -1; this.mash++; }
         else if (k === 'pause') this.events.push('Escape');
+        else if (k === 'punch') {
+          // tap again quickly to flow into a combo: jab -> cross -> hook -> uppercut
+          const now = performance.now();
+          this.combo = now - this.comboT < 650 ? (this.combo + 1) % 4 : 0; this.comboT = now;
+          this.pressed.push(['jab', 'cross', 'hook', 'uppercut'][this.combo]); this.mash++;
+        } else if (k === 'kick') {
+          // stick up = head kick, stick down = low kick, otherwise body kick
+          const sy = this.touch.sy || 0;
+          this.pressed.push(sy < -0.5 ? 'highkick' : sy > 0.5 ? 'lowkick' : 'bodykick'); this.mash++;
+        }
         else { this.pressed.push(k); this.mash++; }
       });
       const rel = () => { if (!(k === 'body' && this.touch.body)) b.classList.remove('on'); if (k === 'block') this.touch.block = false; };

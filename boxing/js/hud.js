@@ -6,7 +6,7 @@ export class HUD {
     this.trail = [1, 1]; this.trailDelay = [0, 0]; this.lastHp = [1, 1];
     this.coTimer = null;
   }
-  show(v) { this.el.classList.toggle('show', v); document.getElementById('touch').classList.toggle('show', v); }
+  show(v) { this.el.classList.toggle('show', v); document.getElementById('touch').classList.toggle('show', v); document.body.classList.toggle('playing', v); }
   setNames(a, b) {
     $('n1').textContent = a.name; $('r1').textContent = `${a.flag} · ${a.record}`;
     $('n2').textContent = b.name; $('r2').textContent = `${b.flag} · ${b.record}`;

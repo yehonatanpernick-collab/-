@@ -497,6 +497,8 @@ function pauseAction() {
   if (act === 'menu') toMenu();
 }
 window.addEventListener('pointerdown', () => audio.init(), { once: false });
+$('intro').addEventListener('click', () => { if (G.state === 'intro') G.introT = 99; });
+$('between').addEventListener('click', () => { if (G.state === 'between') G.betweenT = 0; });
 window.addEventListener('keydown', () => audio.init());
 
 function handleUI() {

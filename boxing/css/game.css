@@ -212,14 +212,18 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0.05em 0.4em; margin: 0 
 body.touch #touch.show { display: block; }
 .stick { position: absolute; left: 4vw; bottom: 6vh; width: 150px; height: 150px; border-radius: 50%; background: rgba(10,10,12,0.4); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.15); pointer-events: auto; touch-action: none; }
 .stick i { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%; background: rgba(243,241,234,0.75); }
-.tbtns { position: absolute; right: 3vw; bottom: 5vh; display: grid; grid-template-columns: repeat(3, 64px); gap: 8px; pointer-events: auto; direction: ltr; }
-#touch button { font: italic 900 14px/1 var(--f-latin); color: var(--white); background: rgba(10,10,12,0.62); border: 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22); height: 54px; transform: skewX(-10deg); touch-action: none; pointer-events: auto; }
-#touch button.kick { box-shadow: inset 0 0 0 2px rgba(200,16,46,0.7); }
-#touch button.def { box-shadow: inset 0 0 0 2px rgba(246,196,25,0.7); }
-#touch button.on { background: var(--white); color: var(--ink); }
-.tblock { position: absolute; right: calc(3vw + 220px); bottom: 5vh; width: 84px; height: 84px !important; }
-.tbody { position: absolute; right: calc(3vw + 220px); bottom: calc(5vh + 94px); width: 84px; }
-.tpause { position: absolute; top: 74px; left: 50%; margin-left: -22px; width: 44px; height: 34px !important; }
+.tpad { position: absolute; right: 4vw; bottom: 5vh; width: 230px; height: 200px; pointer-events: none; }
+#touch .tb { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 50%; transform: none; font: 800 17px var(--f-heb); background: rgba(10,10,12,0.55); color: var(--white); box-shadow: inset 0 0 0 3px rgba(255,255,255,0.25); height: auto; pointer-events: auto; touch-action: none; }
+#touch .tb small { font: italic 800 10px var(--f-latin); letter-spacing: 0.15em; opacity: 0.7; }
+#touch .tb.punch { width: 96px; height: 96px; right: 0; bottom: 0; box-shadow: inset 0 0 0 3px var(--white); }
+#touch .tb.kick { width: 84px; height: 84px; right: 112px; bottom: 0; box-shadow: inset 0 0 0 3px var(--red); }
+#touch .tb.block { width: 74px; height: 74px; right: 8px; bottom: 112px; box-shadow: inset 0 0 0 3px var(--hp); }
+#touch .tb.slip { width: 62px; height: 62px; right: 104px; bottom: 98px; }
+#touch .tb.on { background: var(--white); color: var(--ink); }
+.tpause { position: absolute; bottom: 10px; left: 50%; margin-left: -22px; width: 44px; height: 34px !important; }
+#rotate { display: none; position: fixed; inset: 0; z-index: 50; background: #050608; color: var(--white); font: 800 22px var(--f-heb); flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+#rotate b { font-size: 54px; color: var(--red); }
+@media (orientation: portrait) { body.touch.playing #rotate { display: flex; } }
 body.touch .hud-hint { display: none; }
 
 @media (max-width: 760px) {
@@ -233,11 +237,5 @@ body.touch .hud-hint { display: none; }
   .tot-head .fn { font-size: 24px; } .tot-row > div { font-size: 16px; }
   .tot-head, .tot-row { grid-template-columns: 1fr 110px 1fr; }
 }
-@media (max-height: 460px) {
-  .tbtns { grid-template-columns: repeat(3, 58px); gap: 6px; bottom: 3vh; }
-  #touch button { height: 44px; font-size: 12px; }
-  .tblock { width: 70px; height: 70px !important; right: calc(3vw + 196px); bottom: 3vh; }
-  .tbody { right: calc(3vw + 196px); bottom: calc(3vh + 78px); width: 70px; }
-  .stick { width: 124px; height: 124px; bottom: 4vh; }
-}
-.tpause { top: auto !important; bottom: 10px; left: 50% !important; }
+@media (max-height: 460px) { .tpad { transform: scale(0.85); transform-origin: bottom right; } .stick { width: 124px; height: 124px; bottom: 4vh; } }
+body.touch .hintbar, body.touch #intro .skip { display: none; }
