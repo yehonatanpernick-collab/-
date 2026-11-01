@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#050608">
+<title>IRON CANVAS — World Kickboxing Championship</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Heebo:wght@400;500;700;800;900&display=swap">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="css/game.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="grain"></div>
+<div id="flash"></div>
+
+<!-- ============ LOADING ============ -->
+<section id="loading" class="screen show">
+  <div class="load-wrap">
+    <div class="logo small"><span class="logo-a">IRON</span><span class="logo-b">CANVAS</span></div>
+    <div class="load-bar"><i id="loadFill"></i></div>
+    <div class="load-txt" id="loadTxt">LOADING ARENA</div>
+  </div>
+</section>
+
+<!-- ============ MAIN MENU ============ -->
+<section id="menu" class="screen">
+  <div class="menu-left">
+    <div class="logo"><span class="logo-a">IRON</span><span class="logo-b">CANVAS</span></div>
+    <div class="tagline">WORLD KICKBOXING CHAMPIONSHIP <b>·</b> <span dir="rtl">אליפות העולם בקיקבוקסינג</span></div>
+    <ul class="menu-list" id="menuList" dir="rtl">
+      <li data-act="fight" class="on"><em>01</em>לקרב</li>
+      <li data-act="fighter"><em>02</em>הלוחם שלך <span class="val" id="mFighter"></span></li>
+      <li data-act="diff"><em>03</em>רמת היריב <span class="val" id="mDiff"></span></li>
+      <li data-act="rounds"><em>04</em>סיבובים <span class="val" id="mRounds"></span></li>
+      <li data-act="controls"><em>05</em>מקשים ושליטה</li>
+      <li data-act="sound"><em>06</em>סאונד <span class="val" id="mSound"></span></li>
+    </ul>
+  </div>
+  <div class="tape" id="tape"></div>
+  <div class="hintbar" dir="rtl"><span><kbd>↑</kbd><kbd>↓</kbd> ניווט</span><span><kbd>←</kbd><kbd>→</kbd> שינוי</span><span><kbd>Enter</kbd> בחירה</span></div>
+</section>
+
+<!-- ============ CONTROLS ============ -->
+<section id="controls" class="screen">
+  <div class="panel wide" dir="rtl">
+    <h2 class="ph"><span>מקשים</span><small>CONTROLS</small></h2>
+    <div class="ctl-grid">
+      <div class="ctl-col">
+        <h3>תנועה</h3>
+        <p><kbd>D</kbd>/<kbd>→</kbd> קדימה אל היריב</p>
+        <p><kbd>A</kbd>/<kbd>←</kbd> אחורה</p>
+        <p><kbd>W</kbd><kbd>S</kbd>/<kbd>↑</kbd><kbd>↓</kbd> צעד הצידה / הקפה</p>
+        <h3>הגנה</h3>
+        <p><kbd>Space</kbd> החזק — הגנה (גארד)</p>
+        <p><kbd>Q</kbd> / <kbd>E</kbd> התחמקות (סליפ) שמאלה / ימינה</p>
+        <p><kbd>Shift</kbd> + <kbd>Space</kbd> הגנה על הגוף</p>
+        <h3>מצלמה</h3>
+        <p><kbd>C</kbd> החלפת זווית מצלמה · <kbd>Esc</kbd> השהיה</p>
+      </div>
+      <div class="ctl-col">
+        <h3>אגרופים</h3>
+        <p><kbd>J</kbd> ג'אב — מהיר</p>
+        <p><kbd>K</kbd> קרוס — ישר חזק</p>
+        <p><kbd>L</kbd> הוק — מהצד</p>
+        <p><kbd>I</kbd> אפרקאט — מלמטה</p>
+        <p class="note">החזק <kbd>Shift</kbd> כדי לכוון כל אגרוף לגוף</p>
+        <h3>בעיטות</h3>
+        <p><kbd>U</kbd> בעיטה נמוכה לרגל</p>
+        <p><kbd>O</kbd> בעיטה לגוף</p>
+        <p><kbd>P</kbd> בעיטה לראש — הכי חזקה</p>
+        <p><kbd>H</kbd> בעיטת דחיפה (טיפ)</p>
+      </div>
+      <div class="ctl-col tips">
+        <h3>טיפים</h3>
+        <p>שלב מכות ברצף מהיר ליצירת קומבו: <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></p>
+        <p>מכה שנוחתת בזמן שהיריב תוקף = <b>COUNTER</b> ונזק כפול כמעט.</p>
+        <p>כל מכה עולה סיבולת. בלי סיבולת המכות חלשות והידיים יורדות.</p>
+        <p>בעיטות נמוכות מאטות את היריב. בעיטות לגוף שורפות לו סיבולת.</p>
+        <p>שלוש הפלות בקרב = <b>T.K.O.</b></p>
+        <p>בגמפאד: מקל שמאלי תנועה, X/Y/B/A אגרופים, RB הגנה, LB גוף, טריגרים בעיטות.</p>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn" data-back>חזרה</button></div>
+  </div>
+</section>
+
+<!-- ============ HUD ============ -->
+<section id="hud" class="hud">
+  <div class="hud-top">
+    <div class="plate p1">
+      <div class="nameplate"><i class="corner red"></i><div class="nm"><b id="n1">—</b><small id="r1"></small></div></div>
+      <div class="bar hp"><i class="trail" id="t1"></i><i class="fill" id="h1"></i></div>
+      <div class="bar st"><i class="fill" id="s1"></i></div>
+      <div class="kd" id="k1"></div>
+    </div>
+    <div class="clock">
+      <div class="rd"><span>ROUND</span><b id="rd">1</b></div>
+      <div class="tm" id="tm">3:00</div>
+    </div>
+    <div class="plate p2">
+      <div class="nameplate"><div class="nm"><b id="n2">—</b><small id="r2"></small></div><i class="corner blue"></i></div>
+      <div class="bar hp"><i class="trail" id="t2"></i><i class="fill" id="h2"></i></div>
+      <div class="bar st"><i class="fill" id="s2"></i></div>
+      <div class="kd" id="k2"></div>
+    </div>
+  </div>
+  <div class="pops left" id="pop1"></div>
+  <div class="pops right" id="pop2"></div>
+  <div class="callout" id="callout"></div>
+  <div class="count" id="count"><small>KNOCKDOWN</small><b id="countN">1</b><div class="getup" id="getup" dir="rtl">לחץ מהר על מקשי מכות כדי לקום!<i><u id="getupFill"></u></i></div></div>
+  <div class="hud-hint" id="hudHint" dir="rtl"><span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>I</kbd> אגרופים</span><span><kbd>U</kbd><kbd>O</kbd><kbd>P</kbd><kbd>H</kbd> בעיטות</span><span><kbd>Space</kbd> הגנה</span><span><kbd>Q</kbd><kbd>E</kbd> התחמקות</span><span><kbd>Esc</kbd> השהיה</span></div>
+</section>
+
+<!-- ============ INTRO LOWER THIRD ============ -->
+<section id="intro" class="screen">
+  <div class="tot" id="tot"></div>
+  <div class="skip" dir="rtl"><kbd>Enter</kbd> דלג</div>
+</section>
+
+<!-- ============ BETWEEN ROUNDS ============ -->
+<section id="between" class="screen">
+  <div class="panel" id="betweenPanel"></div>
+</section>
+
+<!-- ============ RESULT ============ -->
+<section id="result" class="screen">
+  <div class="panel result" id="resultPanel"></div>
+</section>
+
+<!-- ============ PAUSE ============ -->
+<section id="pause" class="screen">
+  <div class="panel narrow" dir="rtl">
+    <h2 class="ph"><span>הפסקה</span><small>PAUSED</small></h2>
+    <ul class="menu-list compact" id="pauseList">
+      <li data-act="resume" class="on">המשך</li>
+      <li data-act="restart">התחל קרב מחדש</li>
+      <li data-act="controls">מקשים</li>
+      <li data-act="menu">תפריט ראשי</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ TOUCH ============ -->
+<div id="touch">
+  <div class="stick" id="stick"><i id="knob"></i></div>
+  <div class="tbtns">
+    <button data-k="jab">JAB</button><button data-k="cross">CROSS</button><button data-k="hook">HOOK</button>
+    <button data-k="uppercut">UPPER</button><button data-k="lowkick" class="kick">LOW</button><button data-k="bodykick" class="kick">BODY<br>KICK</button>
+    <button data-k="highkick" class="kick">HEAD<br>KICK</button><button data-k="teep" class="kick">TEEP</button><button data-k="slip" class="def">SLIP</button>
+  </div>
+  <button class="tblock" data-k="block">BLOCK</button>
+  <button class="tbody" data-k="body">BODY</button>
+  <button class="tpause" data-k="pause">II</button>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
