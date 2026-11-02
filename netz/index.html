@@ -430,6 +430,31 @@ function bakeSky(size) {
     vertexShader: `varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
       uniform vec3 uSun; varying vec3 vD;
+      vec3 nebPatch(vec3 d, vec3 c, float R, int kind){
+        float a=acos(clamp(dot(d,c),-1.0,1.0))/R;
+        if(a>1.5) return vec3(0.0);
+        vec3 q=d*3.4+c*7.0;
+        float n=fbm(q);
+        float fil=pow(1.0-abs(fbm3(q*1.9+vec3(5.0)+n)),5.0);
+        float mask=smoothstep(1.0,0.15,a+n*0.35);
+        vec3 col=vec3(0.0);
+        if(kind==0){
+          col=mix(vec3(0.95,0.08,0.42),vec3(0.15,0.3,1.0),smoothstep(-0.2,0.6,n))*(0.22+fil*1.5)*mask;
+        } else if(kind==1){
+          col=mix(vec3(0.95,0.4,0.06),vec3(0.05,0.6,0.52),smoothstep(0.95,0.25,a+n*0.3))*(0.3+fil*0.9)*mask;
+          col+=vec3(1.0,0.55,0.65)*pow(smoothstep(0.7,0.0,a),4.0)*0.9;
+        } else if(kind==2){
+          float ring=smoothstep(0.38,0.0,abs(a-0.62+n*0.25));
+          col=mix(vec3(0.95,0.12,0.3),vec3(1.0,0.42,0.62),fil)*ring*(0.45+fil*1.3);
+          col+=vec3(0.2,0.3,1.0)*smoothstep(0.45,0.0,a)*0.14*(0.5+n);
+        } else if(kind==3){
+          float k=smoothstep(-0.2,0.6,n);
+          col=mix(vec3(0.95,0.5,0.1)*(0.3+fil*1.7),mix(vec3(0.2,0.65,1.0),vec3(0.65,0.1,0.9),smoothstep(0.75,0.2,a))*(0.5+n*0.6),k)*mask;
+        } else {
+          col=mix(vec3(0.95,0.22,0.06),vec3(0.35,0.85,0.15),smoothstep(-0.3,0.4,fbm3(q*0.7)))*(0.3+fil*0.9)*mask;
+        }
+        return col;
+      }
       void main(){
         vec3 d=normalize(vD);
         vec3 bandN=normalize(vec3(0.32,1.0,0.18));
@@ -464,6 +489,13 @@ function bakeSky(size) {
         vec3 g1=normalize(vec3(0.35,-0.45,0.82)), g2=normalize(vec3(-0.6,0.5,0.62));
         float ga=1.0-abs(dot(d,g1)); col+=vec3(0.75,0.7,1.0)*pow(max(dot(d,g1),0.0),500.0)*0.9;
         col+=vec3(1.0,0.75,0.6)*pow(max(dot(d,g2),0.0),700.0)*0.9;
+        col*=0.5;
+        vec3 np=nebPatch(d,normalize(vec3(0.6,0.25,-0.75)),0.3,0)
+          +nebPatch(d,normalize(vec3(0.15,0.6,-0.78)),0.28,1)
+          +nebPatch(d,normalize(vec3(0.8,-0.2,0.55)),0.3,2)
+          +nebPatch(d,normalize(vec3(-0.7,0.4,0.6)),0.3,3)
+          +nebPatch(d,normalize(vec3(-0.1,-0.6,0.8)),0.34,4);
+        col+=np*0.75;
         col*=0.7;
         float sd=max(dot(d,uSun),0.0);
         col+=vec3(1.0,0.66,0.38)*pow(sd,6.0)*0.11;
