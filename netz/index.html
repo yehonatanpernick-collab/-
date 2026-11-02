@@ -297,6 +297,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* =====================================================================
@@ -465,7 +466,7 @@ function bakeSky(size) {
 
 /* stars: crisp points far away */
 function makeStars() {
-  const N = 7000, R = 26000;
+  const N = 14000, R = 26000;
   const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), ph = new Float32Array(N);
   const bandN = new V3(0.32, 1, 0.18).normalize();
   const v = new V3(), c = new THREE.Color();
@@ -476,7 +477,7 @@ function makeStars() {
     const t = Math.random();
     c.setRGB(lerp(0.72, 1.0, t), lerp(0.8, 0.86, t), lerp(1.0, 0.68, t));
     let b = rand(0.25, 1.0); const big = Math.pow(Math.random(), 14);
-    b += big * 7;
+    b += big * 10;
     col.set([c.r * b, c.g * b, c.b * b], i * 3);
     size[i] = 1.3 + Math.pow(Math.random(), 5) * 2.2 + big * 3;
     ph[i] = Math.random();
@@ -1052,7 +1053,7 @@ const _rt = new V3(), _rs = new V3(), _rc = new V3();
    world construction
    ===================================================================== */
 let fxAdd, fxSmoke, fxStreak, debris, rings = [], lights = [], stars, planet, rockMeshes = [], asteroids = [], dustMotes, playerShip, shieldBubble;
-let composer, bloomPass, finalPass, skyRT, envRT;
+let composer, bloomPass, finalPass, smaaPass, skyRT, envRT;
 
 const FinalShader = {
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uAb: { value: 0.0015 }, uDmg: { value: 0 }, uGrain: { value: 0.022 }, uRes: { value: new THREE.Vector2(1, 1) }, uBoost: { value: 0 }, uSun: { value: new THREE.Vector3(0.5, 0.5, 0) } },
@@ -1066,8 +1067,8 @@ const FinalShader = {
       col*=mix(0.42,1.0,vig);
       vec2 asp=vec2(uRes.x/uRes.y,1.0);
       float sr=length((vUv-uSun.xy)*asp);
-      float glare=exp(-sr*5.0)*0.16+exp(-sr*20.0)*0.28;
-      float streak=exp(-abs(vUv.y-uSun.y)*80.0)*exp(-abs(vUv.x-uSun.x)*2.0)*0.2;
+      float glare=exp(-sr*4.0)*0.24+exp(-sr*16.0)*0.4;
+      float streak=exp(-abs(vUv.y-uSun.y)*70.0)*exp(-abs(vUv.x-uSun.x)*1.6)*0.34;
       vec2 gv=0.5-uSun.xy;
       float g1=length((vUv-(uSun.xy+gv*1.5))*asp), g2=length((vUv-(uSun.xy+gv*2.3))*asp);
       float ghost=smoothstep(0.05,0.0,abs(g1-0.07))*0.12+smoothstep(0.03,0.0,abs(g2-0.04))*0.1;
@@ -1195,6 +1196,7 @@ async function buildWorld() {
         float lines=0.8+0.2*sin(vP.y*70.0+uTime*9.0); float local=smoothstep(1.3,0.2,d); gl_FragColor=vec4(vec3(0.5,1.0,0.95)*(f*0.22+ring*0.8)*local*uA*lines,1.0); }`
   }));
   shieldBubble.scale.set(7.4, 3.6, 7.6); playerShip.add(shieldBubble);
+  const engL = new THREE.PointLight(0xff9a50, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
 
   // composer
   const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz);
@@ -1205,6 +1207,7 @@ async function buildWorld() {
   composer.addPass(bloomPass);
   finalPass = new ShaderPass(FinalShader); composer.addPass(finalPass);
   composer.addPass(new OutputPass());
+  smaaPass = new SMAAPass(sz.x, sz.y); smaaPass.enabled = Qs.samples === 0; composer.addPass(smaaPass);
   setLoad(0.9); await nextFrame();
 }
 
@@ -1933,6 +1936,7 @@ const missileGeo = (() => { const b = new THREE.CylinderGeometry(0.18, 0.2, 2.2,
 function updatePlayerVisuals(dt) {
   const ud = playerShip.userData;
   const thr = P.alive ? (P.boosting ? 1.6 : 0.4 + P.throttle * 0.7) : 0;
+  ud.engLight.intensity = damp(ud.engLight.intensity, P.alive ? (P.boosting ? 650 : 120 + P.throttle * 120) : 0, 8, dt);
   ud.flameMat.uniforms.uTime.value = G.time;
   ud.flameMat.uniforms.uPow.value = damp(ud.flameMat.uniforms.uPow.value, P.boosting ? 1.8 : 1.0, 6, dt);
   for (let i = 0; i < ud.flames.length; i++) { const f = ud.flames[i]; const L = (i % 2 ? 1.25 : 1) * (0.8 + thr * 1.9) * (0.92 + Math.random() * 0.16); f.scale.z = damp(f.scale.z, L, 12, dt); }
@@ -2503,7 +2507,7 @@ function applyQuality() {
   if (composer) {
     composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
     for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples !== Qs.samples) { rt.samples = Qs.samples; rt.dispose(); }
-    bloomPass.strength = 0.78 * Qs.bloom;
+    bloomPass.strength = 0.78 * Qs.bloom; smaaPass.enabled = Qs.samples === 0;
     const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz); finalPass.uniforms.uRes.value.copy(sz);
   }
 }
