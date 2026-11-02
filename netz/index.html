@@ -430,30 +430,50 @@ function bakeSky(size) {
     vertexShader: `varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
       uniform vec3 uSun; varying vec3 vD;
+      float ridgeN(vec3 p){ float a=0.5,r=0.0; for(int i=0;i<4;i++){ float n=1.0-abs(snoise(p)); r+=n*n*a; p=p*2.1+vec3(1.3,7.1,3.7); a*=0.5; } return r; }
       vec3 nebPatch(vec3 d, vec3 c, float R, int kind){
         float a=acos(clamp(dot(d,c),-1.0,1.0))/R;
-        if(a>1.5) return vec3(0.0);
-        vec3 q=d*2.6+c*7.0;
-        float n=fbm(q);
-        float fil=pow(1.0-abs(fbm3(q*1.9+vec3(5.0)+n)),5.0);
-        float mask=smoothstep(1.0,0.15,a+n*0.35);
+        if(a>1.4) return vec3(0.0);
+        vec3 q=d*2.2+c*7.0;
+        vec3 wv=vec3(fbm3(q+vec3(3.0)),fbm3(q+vec3(9.0)),fbm3(q+vec3(15.0)));
+        float n=fbm(q*1.3+wv*1.6);
+        float fil=smoothstep(0.5,1.15,ridgeN(q*2.0+wv*2.4));
+        float fil2=smoothstep(0.55,1.15,ridgeN(q*4.2+wv*3.0+vec3(2.0)));
+        float body=0.25+0.75*smoothstep(-0.35,0.55,n);
+        float dust=smoothstep(0.55,0.95,ridgeN(q*1.7+wv*2.0+vec3(8.0)));
+        float mask=smoothstep(1.0,0.1,a+n*0.3);
         vec3 col=vec3(0.0);
         if(kind==0){
-          col=mix(vec3(0.95,0.08,0.42),vec3(0.15,0.3,1.0),smoothstep(-0.2,0.6,n))*(0.22+fil*1.5)*mask;
+          float shell=smoothstep(0.45,0.0,abs(a-0.6+n*0.3));
+          col=mix(vec3(0.9,0.05,0.35),vec3(0.2,0.25,1.0),smoothstep(0.3,0.8,fil2*0.7+n*0.5))*(0.08+pow(fil,2.2)*2.2+fil2*0.5)*(0.2+shell);
+          col+=vec3(1.0,0.5,0.9)*pow(fil,5.0)*0.9*shell;
         } else if(kind==1){
-          col=mix(vec3(0.95,0.4,0.06),vec3(0.05,0.6,0.52),smoothstep(0.95,0.25,a+n*0.3))*(0.3+fil*0.9)*mask;
-          col+=vec3(1.0,0.55,0.65)*pow(smoothstep(0.7,0.0,a),4.0)*0.9;
+          float rim=smoothstep(0.95,0.35,a+n*0.35);
+          vec3 gas=mix(vec3(0.95,0.42,0.06),vec3(0.05,0.62,0.55),smoothstep(0.95,0.25,a+n*0.25));
+          col=gas*(0.16+pow(fil,2.0)*1.5+n*0.3)*rim;
+          col+=vec3(1.0,0.6,0.72)*pow(smoothstep(0.55,0.0,a),3.0)*(0.5+fil)*0.9;
+          col*=1.0-dust*0.7*rim;
         } else if(kind==2){
-          float ring=smoothstep(0.38,0.0,abs(a-0.62+n*0.25));
-          col=mix(vec3(0.95,0.12,0.3),vec3(1.0,0.42,0.62),fil)*ring*(0.45+fil*1.3);
-          col+=vec3(0.2,0.3,1.0)*smoothstep(0.45,0.0,a)*0.14*(0.5+n);
+          float ring=smoothstep(0.45,0.0,abs(a-0.58+n*0.22));
+          col=mix(vec3(0.9,0.1,0.28),vec3(1.0,0.45,0.65),pow(fil,3.0))*ring*(0.25+pow(fil,1.8)*1.6+fil2*0.4);
+          col+=vec3(0.15,0.25,0.9)*smoothstep(0.5,0.0,a)*0.08*(0.5+n);
+          col*=1.0-dust*0.5;
         } else if(kind==3){
-          float k=smoothstep(-0.2,0.6,n);
-          col=mix(vec3(0.95,0.5,0.1)*(0.3+fil*1.7),mix(vec3(0.2,0.65,1.0),vec3(0.65,0.1,0.9),smoothstep(0.75,0.2,a))*(0.5+n*0.6),k)*mask;
+          float k=smoothstep(-0.1,0.5,n);
+          vec3 orange=vec3(0.95,0.48,0.08)*(0.12+pow(fil,2.2)*2.2+fil2*0.5);
+          vec3 cloud=mix(vec3(0.15,0.6,1.0),vec3(0.6,0.1,0.95),smoothstep(0.8,0.1,a+n*0.3))*(0.2+n*0.9);
+          col=mix(orange,cloud,k*0.7)*mask;
+          col*=1.0-dust*0.4;
+        } else if(kind==4){
+          float g=smoothstep(-0.25,0.35,fbm3(q*0.8+wv));
+          col=mix(vec3(0.95,0.2,0.05),vec3(0.35,0.85,0.12),g)*(0.16+n*0.7+pow(fil,2.0)*1.1)*mask;
+          col*=1.0-dust*0.5;
         } else {
-          col=mix(vec3(0.95,0.22,0.06),vec3(0.35,0.85,0.15),smoothstep(-0.3,0.4,fbm3(q*0.7)))*(0.3+fil*0.9)*mask;
+          vec3 pc=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.67)+c.x*1.7+c.y*0.9));
+          col=pc*(0.1+pow(fil,2.0)*1.1+n*0.4)*mask*0.7;
         }
-        return col;
+        col*=0.45+1.1*body;
+        return max(col,vec3(0.0));
       }
       void main(){
         vec3 d=normalize(vD);
@@ -494,8 +514,14 @@ function bakeSky(size) {
           +nebPatch(d,normalize(vec3(-0.1,0.65,-0.75)),0.6,1)
           +nebPatch(d,normalize(vec3(0.9,-0.1,0.4)),0.62,2)
           +nebPatch(d,normalize(vec3(-0.75,0.3,0.6)),0.62,3)
-          +nebPatch(d,normalize(vec3(0.0,-0.8,0.6)),0.66,4);
-        col+=np*1.0;
+          +nebPatch(d,normalize(vec3(0.0,-0.8,0.6)),0.66,4)
+          +nebPatch(d,normalize(vec3(0.4,-0.5,-0.77)),0.38,5)
+          +nebPatch(d,normalize(vec3(-0.95,0.1,-0.3)),0.38,5)
+          +nebPatch(d,normalize(vec3(0.2,0.1,0.97)),0.36,5)
+          +nebPatch(d,normalize(vec3(0.5,0.8,0.3)),0.38,5)
+          +nebPatch(d,normalize(vec3(-0.3,-0.9,-0.3)),0.36,5)
+          +nebPatch(d,normalize(vec3(0.95,0.3,-0.1)),0.36,5);
+        col+=np;
         col*=0.7;
         float sd=max(dot(d,uSun),0.0);
         col+=vec3(1.0,0.66,0.38)*pow(sd,6.0)*0.11;
@@ -548,6 +574,25 @@ function makeStars() {
   });
   const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = -5;
   return p;
+}
+
+function makeHeroStars() {
+  const N = 260, R = 25000, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), v = new V3();
+  const pal = [[1, 1, 1], [0.7, 0.85, 1], [1, 0.85, 0.55], [1, 0.55, 0.75], [0.55, 1, 0.95], [0.8, 0.65, 1]];
+  for (let i = 0; i < N; i++) {
+    randUnit(v); pos.set([v.x * R, v.y * R, v.z * R], i * 3);
+    const c = pal[Math.floor(Math.random() * pal.length)], b = rand(1.2, 3.0);
+    col.set([c[0] * b, c[1] * b, c[2] * b], i * 3); size[i] = rand(10, 20);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aColor', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uPR: { value: 1 } },
+    vertexShader: `attribute vec3 aColor; attribute float aSize; uniform float uPR; varying vec3 vC; void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_PointSize=aSize*uPR; vC=aColor; }`,
+    fragmentShader: `varying vec3 vC; void main(){ vec2 c=gl_PointCoord-0.5; float r=length(c)*2.0; float core=exp(-r*r*16.0); float halo=exp(-r*5.5)*0.3;
+      float cr=(exp(-abs(c.x)*80.0)*exp(-abs(c.y)*8.0)+exp(-abs(c.y)*80.0)*exp(-abs(c.x)*8.0))*0.6; float m=smoothstep(1.0,0.55,r); gl_FragColor=vec4(vC*(core+halo+cr)*m,1.0); }`
+  });
+  const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = -5; return p;
 }
 
 /* gas giant + rings, kept at a fixed offset from the camera so it reads as infinitely far */
@@ -662,7 +707,7 @@ const M = {
   dark: panelize(new THREE.MeshStandardMaterial({ color: 0x45484d, roughness: 0.4, metalness: 0.55 }), 'dark', { scale: 2.2, strength: 0.3 }),
   accent: new THREE.MeshStandardMaterial({ color: 0xe0612a, roughness: 0.5, metalness: 0.1 }),
   glass: new THREE.MeshPhysicalMaterial({ color: 0x0d1012, roughness: 0.06, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 2.2 }),
-  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 0.8, 0.25) }),
+  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.5, 0.12) }),
   eHull: panelize(new THREE.MeshStandardMaterial({ color: 0x34302f, roughness: 0.5, metalness: 0.72 }), 'ehull', { scale: 1.3, strength: 0.45 }),
   eRed: panelize(new THREE.MeshStandardMaterial({ color: 0x5a1d19, roughness: 0.55, metalness: 0.35 }), 'ered', { scale: 1.8, strength: 0.4 }),
   glowE: new THREE.MeshBasicMaterial({ color: new THREE.Color(7, 0.55, 0.7) }),
@@ -752,7 +797,7 @@ function buildKestrel() {
   body.add(new THREE.Mesh(merge(glows), M.glowA));
 
   // flames
-  const fm = flame(new THREE.Color(3.6, 2.2, 1.0), new THREE.Color(2.6, 0.3, 0.06));
+  const fm = flame(new THREE.Color(3.4, 1.5, 0.5), new THREE.Color(3.0, 0.12, 0.03));
   const flames = [];
   for (const sx of [-1, 1]) {
     const f = new THREE.Mesh(flameGeo(0.48), fm); f.position.set(sx * 1.75, -0.08, 4.65); body.add(f); flames.push(f);
@@ -1134,6 +1179,26 @@ const FinalShader = {
     }`
 };
 
+let meteors = [], meteorT = 2.5;
+function updateMeteors(dt) {
+  meteorT -= dt;
+  if (meteorT <= 0) {
+    meteorT = rand(2.5, 6);
+    const m = meteors.find(m => m.life <= 0);
+    if (m) {
+      randUnit(_e1); _e1.y = Math.abs(_e1.y) * 0.6 + 0.1; _e1.normalize();
+      m.p.copy(camera.position).addScaledVector(_e1, 5000);
+      randUnit(_e2); _e2.addScaledVector(_e1, -_e2.dot(_e1)).normalize(); m.v.copy(_e2).multiplyScalar(rand(3500, 5500));
+      m.life = m.ttl = rand(0.7, 1.3); m.rib.reset(m.p); m.rib.mesh.visible = true;
+    }
+  }
+  for (const m of meteors) {
+    if (m.life <= 0) continue;
+    m.life -= dt; m.p.addScaledVector(m.v, dt);
+    m.rib.update(m.p, Math.min(1, Math.max(0, m.life / m.ttl) * 3) * Math.min(1, (m.ttl - m.life) * 5));
+    if (m.life <= 0) m.rib.mesh.visible = false;
+  }
+}
 async function buildWorld() {
   setLoad(0.08); await nextFrame();
   skyRT = bakeSky(params.has('test') ? 256 : Qs.sky);
@@ -1146,6 +1211,8 @@ async function buildWorld() {
   setLoad(0.3); await nextFrame();
 
   stars = makeStars(); scene.add(stars);
+  stars.userData.hero = makeHeroStars(); stars.add(stars.userData.hero);
+  for (let i = 0; i < 3; i++) { const rib = new Ribbon(18, 22, new THREE.Color(1.3, 2.3, 6.0), 1); rib.mesh.visible = false; scene.add(rib.mesh); meteors.push({ rib, life: 0, ttl: 1, p: new V3(), v: new V3() }); }
   planet = makePlanet(); scene.add(planet.grp);
 
   const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.9, 0.78), 2.9);
@@ -1247,7 +1314,7 @@ async function buildWorld() {
         float lines=0.8+0.2*sin(vP.y*70.0+uTime*9.0); float local=smoothstep(1.3,0.2,d); gl_FragColor=vec4(vec3(0.5,1.0,0.95)*(f*0.22+ring*0.8)*local*uA*lines,1.0); }`
   }));
   shieldBubble.scale.set(7.4, 3.6, 7.6); playerShip.add(shieldBubble);
-  const engL = new THREE.PointLight(0xff7038, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
+  const engL = new THREE.PointLight(0xff5530, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
 
   // composer
   const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz);
@@ -2605,7 +2672,7 @@ function frame(now) {
   }
   if (G.state !== 'paused') {
     updatePlayerVisuals(dt);
-    updateAsteroids(dt); updateFX(dt);
+    updateAsteroids(dt); updateFX(dt); updateMeteors(dt);
     for (const a of asteroids) if (a.flash > 0) a.flash -= dt;
   }
   updateCamera(dt, G.state === 'paused' ? 0 : rdt);
@@ -2613,7 +2680,7 @@ function frame(now) {
   planet.grp.position.copy(camera.position).add(planet.offset);
   planet.ringMat.uniforms.uPC.value.copy(planet.grp.position);
   planet.body.material.uniforms.uTime.value = G.time;
-  stars.position.copy(camera.position); stars.material.uniforms.uTime.value = G.time; stars.material.uniforms.uPR.value = renderer.getPixelRatio();
+  stars.position.copy(camera.position); stars.material.uniforms.uTime.value = G.time; stars.material.uniforms.uPR.value = renderer.getPixelRatio(); stars.userData.hero.material.uniforms.uPR.value = renderer.getPixelRatio();
   const sc = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   fxAdd.mat.uniforms.uScale.value = sc; fxSmoke.mat.uniforms.uScale.value = sc;
   G.dmgFx = Math.max(0, G.dmgFx - rdt * 1.6);
