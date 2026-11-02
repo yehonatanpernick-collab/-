@@ -581,8 +581,8 @@ function makeHeroStars() {
   const pal = [[1, 1, 1], [0.7, 0.85, 1], [1, 0.85, 0.55], [1, 0.55, 0.75], [0.55, 1, 0.95], [0.8, 0.65, 1]];
   for (let i = 0; i < N; i++) {
     randUnit(v); pos.set([v.x * R, v.y * R, v.z * R], i * 3);
-    const c = pal[Math.floor(Math.random() * pal.length)], b = rand(1.2, 3.0);
-    col.set([c[0] * b, c[1] * b, c[2] * b], i * 3); size[i] = rand(10, 20);
+    const c = pal[Math.floor(Math.random() * pal.length)], b = rand(1.0, 2.2);
+    col.set([c[0] * b, c[1] * b, c[2] * b], i * 3); size[i] = rand(3.5, 6);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aColor', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
