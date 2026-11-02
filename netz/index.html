@@ -484,17 +484,18 @@ function bakeSky(size) {
 
 /* stars: crisp points far away */
 function makeStars() {
-  const N = 14000, R = 26000;
+  const N = 22000, R = 26000;
   const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), ph = new Float32Array(N);
   const bandN = new V3(0.32, 1, 0.18).normalize();
   const v = new V3(), c = new THREE.Color();
   for (let i = 0; i < N; i++) {
     randUnit(v);
-    if (Math.random() < 0.45) { v.addScaledVector(bandN, -v.dot(bandN) * rand(0.75, 1)).normalize(); }
+    if (Math.random() < 0.6) { v.addScaledVector(bandN, -v.dot(bandN) * rand(0.75, 1)).normalize(); }
     pos.set([v.x * R, v.y * R, v.z * R], i * 3);
     const t = Math.random();
     c.setRGB(lerp(0.72, 1.0, t), lerp(0.8, 0.86, t), lerp(1.0, 0.68, t));
-    let b = rand(0.25, 1.0); const big = Math.pow(Math.random(), 14);
+    if (Math.random() < 0.4) { const pal = [[1, 0.45, 0.7], [0.4, 0.85, 1], [1, 0.8, 0.35], [0.5, 1, 0.6], [0.75, 0.55, 1]], q = pal[Math.floor(Math.random() * 5)]; c.setRGB(q[0], q[1], q[2]); }
+    let b = rand(0.3, 1.1); const big = Math.pow(Math.random(), 14);
     b += big * 2.5;
     col.set([c.r * b, c.g * b, c.b * b], i * 3);
     size[i] = 1.2 + Math.pow(Math.random(), 5) * 1.0 + big * 0.7;
