@@ -128,6 +128,11 @@ button{font:inherit;color:inherit}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:12px 22px;align-items:center;font:400 15px/1.3 var(--body);color:var(--bone-2);margin-bottom:24px}
 .keys kbd{font:500 11px/1 var(--mono);letter-spacing:.08em;color:var(--bone);border:1px solid var(--bone-3);padding:5px 8px 4px;display:inline-block;direction:ltr;white-space:nowrap}
 .sheet .act{font-size:30px}
+.sheet.scroll{max-height:90vh;overflow:auto;touch-action:pan-y;top:5vh;transform:none}
+.keys input[type=range]{width:100%;accent-color:#ff8a3d;margin:0}
+.keys select{background:#050608;color:var(--bone);border:1px solid var(--bone-3);padding:5px 6px;font:inherit}
+.keys .v{font:500 11px/1 var(--mono);color:var(--amber);margin-inline-start:8px}
+.keys .rw{display:flex;align-items:center;min-width:190px}
 
 #pause{background:rgba(5,6,8,.55)}
 #over{background:radial-gradient(ellipse at 70% 50%,rgba(5,6,8,.5),rgba(5,6,8,.9))}
@@ -220,6 +225,7 @@ body.touch .boss{top:90px;width:50vw}
     <div class="acts">
       <button class="act primary" id="b-start"><span class="n">01</span>להמריא</button>
       <button class="act" id="b-keys"><span class="n">02</span>שליטה</button>
+      <button class="act" id="b-ctl"><span class="n">04</span>מכוונים</button>
       <button class="act" id="b-quality"><span class="n">03</span><span>גרפיקה&nbsp;·&nbsp;<b id="q-lbl">גבוהה</b></span></button>
     </div>
   </div>
@@ -243,13 +249,23 @@ body.touch .boss{top:90px;width:50vw}
   </div>
 </section>
 
+<section id="ctl" class="screen">
+  <div class="sheet scroll">
+    <h2>מכוונים</h2>
+    <div class="keys" id="ctl-rows"></div>
+    <button class="act" id="b-ctl-reset"><span class="n">↺</span>איפוס</button>
+    <button class="act" id="b-ctl-back"><span class="n">←</span>חזרה</button>
+  </div>
+</section>
+
 <section id="pause" class="screen">
   <div class="m-wrap">
     <div class="kicker"><em>HOLD</em><span>המשחק עצור</span></div>
     <div class="big">עצירה</div>
     <div class="acts">
       <button class="act primary" id="b-resume"><span class="n">01</span>להמשיך</button>
-      <button class="act" id="b-quit"><span class="n">02</span>לתפריט</button>
+      <button class="act" id="b-ctl2"><span class="n">02</span>מכוונים</button>
+      <button class="act" id="b-quit"><span class="n">03</span>לתפריט</button>
     </div>
   </div>
 </section>
@@ -317,6 +333,9 @@ const randUnit = (out = new V3()) => {
 const pad = (n, l) => String(Math.max(0, Math.floor(n))).padStart(l, '0');
 const params = new URLSearchParams(location.search);
 const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0 || params.has('touch');
+const CTL_DEF = { sens: 1, resp: TOUCH ? 10 : 7, smooth: 16, dead: 0.045, stickR: 60, invY: 0, tilt: 0.55, tiltSpeed: 6, tiltDir: 1, tiltType: TOUCH ? 2 : 0 };
+const CTL = Object.assign({}, CTL_DEF);
+try { Object.assign(CTL, JSON.parse(localStorage.getItem('netz.ctl') || '{}')); } catch (e) {}
 const setLoad = p => { $('#load-bar').style.width = (p * 100) + '%'; };
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
@@ -1943,13 +1962,14 @@ const _pf = new V3(), _pe = new THREE.Euler(), _pq = new Q(), _lead = new V3(), 
 function updatePlayer(dt) {
   if (!P.alive) return;
   // steering
-  if (TOUCH) { P.sx = damp(P.sx || 0, input.mx, 16, dt); P.sy = damp(P.sy || 0, input.my, 16, dt); }
+  if (TOUCH) { P.sx = damp(P.sx || 0, input.mx, CTL.smooth, dt); P.sy = damp(P.sy || 0, input.my, CTL.smooth, dt); }
   let ix = TOUCH ? P.sx : input.mx, iy = TOUCH ? P.sy : input.my; const len = Math.hypot(ix, iy);
-  if (len < 0.045) { ix = iy = 0; } else { const k = Math.min(1, (len - 0.045) / 0.955) / len; ix *= k; iy *= k; }
+  if (len < CTL.dead) { ix = iy = 0; } else { const k = Math.min(1, (len - CTL.dead) / (1 - CTL.dead)) / len; ix *= k; iy *= k; }
   const roll = (input.rl ? 1 : 0) - (input.rr ? 1 : 0);
-  const agility = (P.boosting ? 0.8 : 1) * (TOUCH ? 1.35 : 1);
-  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, TOUCH ? 10 : 7, dt);
-  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, TOUCH ? 10 : 7, dt);
+  const agility = (P.boosting ? 0.8 : 1) * (TOUCH ? 1.35 : 1) * CTL.sens;
+  if (CTL.invY) iy = -iy;
+  P.ang.x = damp(P.ang.x, -iy * 1.75 * agility, CTL.resp, dt);
+  P.ang.y = damp(P.ang.y, -ix * 1.55 * agility, CTL.resp, dt);
   P.ang.z = damp(P.ang.z, roll * 2.6 - ix * (TOUCH ? 0 : 0.35), 5, dt);
   _pe.set(P.ang.x * dt, P.ang.y * dt, P.ang.z * dt, 'XYZ'); _pq.setFromEuler(_pe);
   P.quat.multiply(_pq).normalize();
@@ -1986,12 +2006,13 @@ function updatePlayer(dt) {
     }
   }
   // visual bank
-  P.bank = damp(P.bank, P.ang.y * (TOUCH ? 0.62 : 0.42), TOUCH ? 6 : 5, dt);
+  P.bank = damp(P.bank, P.ang.y * CTL.tilt * CTL.tiltDir * (CTL.tiltType === 1 || CTL.tiltType === 3 ? 0 : 1), CTL.tiltSpeed, dt);
   P.pitchNudge = damp(P.pitchNudge, P.ang.x * 0.06, 5, dt);
   const ud = playerShip.userData;
   playerShip.position.copy(P.pos); playerShip.quaternion.copy(P.quat);
-  ud.body.rotation.set(P.pitchNudge * (TOUCH ? 1.8 : 1), TOUCH ? P.ang.y * 0.12 : 0, P.bank);
-  if (TOUCH) { ud.body.position.x = damp(ud.body.position.x, -P.ang.y * 0.9, 5, dt); ud.body.position.y = damp(ud.body.position.y, P.ang.x * 0.45, 5, dt); }
+  const slide = (CTL.tiltType === 1 || CTL.tiltType === 2) ? CTL.tilt / 0.55 * CTL.tiltDir : 0;
+  ud.body.rotation.set(CTL.tiltType === 3 ? 0 : P.pitchNudge * (TOUCH ? 1.8 : 1), P.ang.y * 0.12 * slide, P.bank);
+  ud.body.position.x = damp(ud.body.position.x, -P.ang.y * 0.9 * slide, CTL.tiltSpeed, dt); ud.body.position.y = damp(ud.body.position.y, P.ang.x * 0.45 * Math.abs(slide), CTL.tiltSpeed, dt);
   playerShip.updateMatrixWorld(true);
 
   // targeting & lock
@@ -2549,7 +2570,7 @@ if (TOUCH) {
   document.body.classList.add('touch');
   const zone = $('#stick-zone'), stick = $('#stick'), knob = stick.querySelector('i');
   zone.addEventListener('touchstart', e => { const t = e.changedTouches[0]; stickId = t.identifier; stickO = { x: t.clientX, y: t.clientY }; stick.style.display = 'block'; stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; e.preventDefault(); }, { passive: false });
-  zone.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === stickId) { let dx = (t.clientX - stickO.x) / 60, dy = (t.clientY - stickO.y) / 60; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } input.mx = dx; input.my = dy; knob.style.transform = `translate(${dx * 42}px,${dy * 42}px)`; } e.preventDefault(); }, { passive: false });
+  zone.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === stickId) { let dx = (t.clientX - stickO.x) / CTL.stickR, dy = (t.clientY - stickO.y) / CTL.stickR; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } input.mx = dx; input.my = dy; knob.style.transform = `translate(${dx * 42}px,${dy * 42}px)`; } e.preventDefault(); }, { passive: false });
   const end = e => { for (const t of e.changedTouches) if (t.identifier === stickId) { stickId = null; input.mx = input.my = 0; stick.style.display = 'none'; knob.style.transform = ''; } };
   zone.addEventListener('touchend', end); zone.addEventListener('touchcancel', end);
   const btn = (id, down, up) => { const el = $(id); el.addEventListener('touchstart', e => { el.classList.add('on'); down(); e.preventDefault(); }, { passive: false }); el.addEventListener('touchend', e => { el.classList.remove('on'); up && up(); e.preventDefault(); }); };
@@ -2563,7 +2584,7 @@ if (TOUCH) {
 /* =====================================================================
    screens / flow
    ===================================================================== */
-const screens = ['menu', 'keys', 'pause', 'over'];
+const screens = ['menu', 'keys', 'pause', 'over', 'ctl'];
 function show(id) { for (const s of screens) $('#' + s).classList.toggle('on', s === id); $('#touch').classList.toggle('on', TOUCH && id === null); }
 function clearWorld() {
   for (const e of enemies) e.dispose(); enemies = [];
@@ -2613,6 +2634,36 @@ $('#b-quality').onclick = () => {
   localStorage.setItem('netz.q', qKey); $('#q-lbl').textContent = Qs.label;
   dynScale = 1; applyQuality();
 };
+const CTL_UI = [
+  ['sens', 'רגישות סיבוב', 0.4, 2.5, 0.05], ['resp', 'תגובה (חדות)', 3, 20, 1], ['smooth', 'החלקת האצבע', 4, 40, 1], ['dead', 'אזור מת במרכז', 0, 0.25, 0.005], ['stickR', 'טווח הג׳ויסטיק', 30, 140, 5],
+  ['invY', 'כיוון למעלה/למטה', ['רגיל', 'הפוך']], ['tiltType', 'סוג הטיה', ['גלגול', 'החלקה לצד', 'שניהם', 'ללא']], ['tiltDir', 'כיוון הטיה', [[1, 'לתוך הפנייה'], [-1, 'נגד הפנייה']]],
+  ['tilt', 'עוצמת הטיה', 0, 1.4, 0.05], ['tiltSpeed', 'מהירות הטיה', 2, 14, 1]];
+function buildCtl() {
+  const box = $('#ctl-rows'); box.innerHTML = '';
+  for (const [k, label, a, b, st] of CTL_UI) {
+    const l = document.createElement('span'); l.textContent = label; box.appendChild(l);
+    const w = document.createElement('div'); w.className = 'rw';
+    if (Array.isArray(a)) {
+      const sel = document.createElement('select');
+      a.forEach((o, i) => { const op = document.createElement('option'); op.value = Array.isArray(o) ? o[0] : i; op.textContent = Array.isArray(o) ? o[1] : o; sel.appendChild(op); });
+      sel.value = CTL[k]; sel.onchange = () => { CTL[k] = +sel.value; saveCtl(); };
+      w.appendChild(sel);
+    } else {
+      const r = document.createElement('input'); r.type = 'range'; r.min = a; r.max = b; r.step = st; r.value = CTL[k];
+      const v = document.createElement('span'); v.className = 'v'; v.textContent = (+r.value).toFixed(st < 0.1 ? 2 : 0);
+      r.oninput = () => { CTL[k] = +r.value; v.textContent = (+r.value).toFixed(st < 0.1 ? 2 : 0); saveCtl(); };
+      w.appendChild(r); w.appendChild(v);
+    }
+    box.appendChild(w);
+  }
+}
+function saveCtl() { try { localStorage.setItem('netz.ctl', JSON.stringify(CTL)); } catch (e) {} }
+let ctlFrom = 'menu';
+const openCtl = from => { SFX.init(); SFX.ui(); ctlFrom = from; buildCtl(); show('ctl'); };
+$('#b-ctl').onclick = () => openCtl('menu');
+$('#b-ctl2').onclick = () => openCtl('pause');
+$('#b-ctl-back').onclick = () => { SFX.ui(); show(ctlFrom); };
+$('#b-ctl-reset').onclick = () => { SFX.ui(); Object.assign(CTL, CTL_DEF); saveCtl(); buildCtl(); };
 $('#q-lbl').textContent = Qs.label;
 $('#best').textContent = pad(+localStorage.getItem('netz.best') || 0, 7);
 for (const b of document.querySelectorAll('.act')) b.addEventListener('mouseenter', () => SFX.ctx && SFX.tick(2200, 0.03, 0.015));
