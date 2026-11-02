@@ -1055,15 +1055,26 @@ let fxAdd, fxSmoke, fxStreak, debris, rings = [], lights = [], stars, planet, ro
 let composer, bloomPass, finalPass, skyRT, envRT;
 
 const FinalShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uAb: { value: 0.0015 }, uDmg: { value: 0 }, uGrain: { value: 0.022 }, uRes: { value: new THREE.Vector2(1, 1) }, uBoost: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uAb: { value: 0.0015 }, uDmg: { value: 0 }, uGrain: { value: 0.022 }, uRes: { value: new THREE.Vector2(1, 1) }, uBoost: { value: 0 }, uSun: { value: new THREE.Vector3(0.5, 0.5, 0) } },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime; uniform float uAb; uniform float uDmg; uniform float uGrain; uniform vec2 uRes; uniform float uBoost; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime; uniform float uAb; uniform float uDmg; uniform float uGrain; uniform vec2 uRes; uniform float uBoost; uniform vec3 uSun; varying vec2 vUv;
     void main(){
       vec2 c=vUv-0.5; float r=length(c);
       vec2 off=c*r*(uAb+uBoost*0.006+uDmg*0.02);
       vec3 col=vec3(texture2D(tDiffuse,vUv-off).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv+off).b);
       float vig=smoothstep(0.92,0.18,r*(1.0+uBoost*0.25));
       col*=mix(0.42,1.0,vig);
+      vec2 asp=vec2(uRes.x/uRes.y,1.0);
+      float sr=length((vUv-uSun.xy)*asp);
+      float glare=exp(-sr*5.0)*0.16+exp(-sr*20.0)*0.28;
+      float streak=exp(-abs(vUv.y-uSun.y)*80.0)*exp(-abs(vUv.x-uSun.x)*2.0)*0.2;
+      vec2 gv=0.5-uSun.xy;
+      float g1=length((vUv-(uSun.xy+gv*1.5))*asp), g2=length((vUv-(uSun.xy+gv*2.3))*asp);
+      float ghost=smoothstep(0.05,0.0,abs(g1-0.07))*0.12+smoothstep(0.03,0.0,abs(g2-0.04))*0.1;
+      col+=(vec3(1.0,0.72,0.45)*(glare+streak)+vec3(0.45,0.75,1.0)*ghost)*uSun.z;
+      float lum=dot(col,vec3(0.2126,0.7152,0.0722));
+      col=mix(vec3(lum),col,1.14);
+      col*=mix(vec3(0.95,1.0,1.07),vec3(1.07,1.0,0.93),smoothstep(0.0,1.2,lum*1.4));
       col=mix(col,col*vec3(1.35,0.45,0.38)+vec3(0.06,0.0,0.0),uDmg*smoothstep(0.2,0.75,r));
       float n=fract(sin(dot(vUv*uRes+fract(uTime*7.13)*100.0,vec2(12.9898,78.233)))*43758.5453);
       col+=(n-0.5)*uGrain*(0.3+col);
@@ -1078,7 +1089,7 @@ async function buildWorld() {
   const pm = new THREE.PMREMGenerator(renderer);
   envRT = pm.fromCubemap(skyRT.texture);
   scene.environment = envRT.texture;
-  scene.environmentIntensity = 0.9;
+  scene.environmentIntensity = 1.15;
   pm.dispose();
   setLoad(0.3); await nextFrame();
 
@@ -1190,7 +1201,7 @@ async function buildWorld() {
   const rt = new THREE.WebGLRenderTarget(sz.x, sz.y, { type: THREE.HalfFloatType, samples: Qs.samples });
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
-  bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.62 * Qs.bloom, 0.55, 0.82);
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.78 * Qs.bloom, 0.62, 0.78);
   composer.addPass(bloomPass);
   finalPass = new ShaderPass(FinalShader); composer.addPass(finalPass);
   composer.addPass(new OutputPass());
@@ -2492,7 +2503,7 @@ function applyQuality() {
   if (composer) {
     composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight);
     for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples !== Qs.samples) { rt.samples = Qs.samples; rt.dispose(); }
-    bloomPass.strength = 0.62 * Qs.bloom;
+    bloomPass.strength = 0.78 * Qs.bloom;
     const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz); finalPass.uniforms.uRes.value.copy(sz);
   }
 }
@@ -2501,6 +2512,7 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 /* =====================================================================
    main loop
    ===================================================================== */
+const _sv = new V3();
 let last = performance.now(), ftAvg = 16, ftT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
@@ -2553,6 +2565,8 @@ function frame(now) {
   G.dmgFx = Math.max(0, G.dmgFx - rdt * 1.6);
   const fu = finalPass.uniforms; fu.uTime.value = G.time; fu.uDmg.value = G.dmgFx + (P.hull < 25 && P.alive && G.state === 'playing' ? 0.18 + 0.12 * Math.sin(G.time * 6) : 0); fu.uBoost.value = damp(fu.uBoost.value, P.boosting && G.state === 'playing' ? 1 : 0, 5, rdt);
   if (warnTimer > 0) { warnTimer -= rdt; if (warnTimer <= 0) $('#warn').classList.remove('on'); }
+  _sv.copy(SUN).multiplyScalar(1000).add(camera.position).project(camera);
+  finalPass.uniforms.uSun.value.set(_sv.x * 0.5 + 0.5, _sv.y * 0.5 + 0.5, _sv.z < 1 ? clamp(1.25 - Math.hypot(_sv.x, _sv.y) * 0.6, 0, 1) : 0);
   composer.render();
   drawHUD(rdt);
   if (G.state === 'playing' || G.state === 'paused') updateDomHUD(rdt);
