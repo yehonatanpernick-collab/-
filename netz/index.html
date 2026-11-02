@@ -446,12 +446,12 @@ function bakeSky(size) {
         col+=dust*dens*0.42;
         col+=vec3(0.06,0.11,0.12)*smoothstep(0.35,0.9,fbm(q*2.2+w*2.5))*band*0.55;
         float neb=smoothstep(0.05,0.8,fbm(q*1.2+w*1.4+vec3(11.0)));
-        col+=mix(vec3(0.04,0.10,0.36),vec3(0.42,0.07,0.30),smoothstep(-0.4,0.6,w.z))*neb*(0.06+band*0.6);
+        col+=mix(vec3(0.04,0.10,0.36),vec3(0.42,0.07,0.30),smoothstep(-0.4,0.6,w.z))*neb*(0.08+band*0.7);
         float gc=pow(max(dot(d,normalize(vec3(-0.5,0.1,-0.85))),0.0),5.0);
         col+=vec3(1.0,0.62,0.34)*gc*(0.1+band)*0.32;
         float neb2=smoothstep(0.1,0.85,fbm(q*1.7-w*1.2+vec3(23.0)));
-        col+=mix(vec3(0.02,0.32,0.28),vec3(0.6,0.24,0.04),smoothstep(-0.5,0.5,w.x))*neb2*(0.06+band*0.6);
-        col=mix(vec3(dot(col,vec3(0.33))),col,1.35);
+        col+=mix(vec3(0.02,0.32,0.28),vec3(0.6,0.24,0.04),smoothstep(-0.5,0.5,w.x))*neb2*(0.08+band*0.7);
+        col=mix(vec3(dot(col,vec3(0.33))),col,1.6);
         float lanes=smoothstep(0.05,0.55,fbm(q*2.6+w*2.2+vec3(4.0)));
         col*=1.0-lanes*0.72*band;
         col*=0.7;
@@ -619,7 +619,7 @@ const M = {
   dark: panelize(new THREE.MeshStandardMaterial({ color: 0x45484d, roughness: 0.4, metalness: 0.55 }), 'dark', { scale: 2.2, strength: 0.3 }),
   accent: new THREE.MeshStandardMaterial({ color: 0xe0612a, roughness: 0.5, metalness: 0.1 }),
   glass: new THREE.MeshPhysicalMaterial({ color: 0x0d1012, roughness: 0.06, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 2.2 }),
-  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.15, 0.5, 0.16) }),
+  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 1.1, 2.0) }),
   eHull: panelize(new THREE.MeshStandardMaterial({ color: 0x34302f, roughness: 0.5, metalness: 0.72 }), 'ehull', { scale: 1.3, strength: 0.45 }),
   eRed: panelize(new THREE.MeshStandardMaterial({ color: 0x5a1d19, roughness: 0.55, metalness: 0.35 }), 'ered', { scale: 1.8, strength: 0.4 }),
   glowE: new THREE.MeshBasicMaterial({ color: new THREE.Color(7, 0.55, 0.7) }),
@@ -709,7 +709,7 @@ function buildKestrel() {
   body.add(new THREE.Mesh(merge(glows), M.glowA));
 
   // flames
-  const fm = flame(new THREE.Color(2.6, 1.7, 0.95), new THREE.Color(1.6, 0.42, 0.08));
+  const fm = flame(new THREE.Color(2.8, 3.1, 3.8), new THREE.Color(0.45, 0.9, 2.8));
   const flames = [];
   for (const sx of [-1, 1]) {
     const f = new THREE.Mesh(flameGeo(0.48), fm); f.position.set(sx * 1.75, -0.08, 4.65); body.add(f); flames.push(f);
@@ -1075,8 +1075,8 @@ const FinalShader = {
       col*=mix(0.42,1.0,vig);
       vec2 asp=vec2(uRes.x/uRes.y,1.0);
       float sr=length((vUv-uSun.xy)*asp);
-      float glare=exp(-sr*4.0)*0.24+exp(-sr*16.0)*0.4;
-      float streak=exp(-abs(vUv.y-uSun.y)*70.0)*exp(-abs(vUv.x-uSun.x)*1.6)*0.34;
+      float glare=exp(-sr*4.5)*0.17+exp(-sr*18.0)*0.28;
+      float streak=exp(-abs(vUv.y-uSun.y)*70.0)*exp(-abs(vUv.x-uSun.x)*1.8)*0.22;
       vec2 gv=0.5-uSun.xy;
       float g1=length((vUv-(uSun.xy+gv*1.5))*asp), g2=length((vUv-(uSun.xy+gv*2.3))*asp);
       float ghost=smoothstep(0.05,0.0,abs(g1-0.07))*0.12+smoothstep(0.03,0.0,abs(g2-0.04))*0.1;
@@ -1204,7 +1204,7 @@ async function buildWorld() {
         float lines=0.8+0.2*sin(vP.y*70.0+uTime*9.0); float local=smoothstep(1.3,0.2,d); gl_FragColor=vec4(vec3(0.5,1.0,0.95)*(f*0.22+ring*0.8)*local*uA*lines,1.0); }`
   }));
   shieldBubble.scale.set(7.4, 3.6, 7.6); playerShip.add(shieldBubble);
-  const engL = new THREE.PointLight(0xff9a50, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
+  const engL = new THREE.PointLight(0x78a8ff, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
 
   // composer
   const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz);
@@ -1943,10 +1943,10 @@ const missileGeo = (() => { const b = new THREE.CylinderGeometry(0.18, 0.2, 2.2,
 
 function updatePlayerVisuals(dt) {
   const ud = playerShip.userData;
-  const thr = P.alive ? (P.boosting ? 1.6 : 0.4 + P.throttle * 0.7) : 0;
+  const thr = P.alive ? (P.boosting ? 2.3 : 0.4 + P.throttle * 0.7) : 0;
   ud.engLight.intensity = damp(ud.engLight.intensity, P.alive ? (P.boosting ? 650 : 120 + P.throttle * 120) : 0, 8, dt);
   ud.flameMat.uniforms.uTime.value = G.time;
-  ud.flameMat.uniforms.uPow.value = damp(ud.flameMat.uniforms.uPow.value, P.boosting ? 1.8 : 1.0, 6, dt);
+  ud.flameMat.uniforms.uPow.value = damp(ud.flameMat.uniforms.uPow.value, P.boosting ? 2.2 : 1.0, 6, dt);
   for (let i = 0; i < ud.flames.length; i++) { const f = ud.flames[i]; const L = (i % 2 ? 1.25 : 1) * (0.8 + thr * 1.9) * (0.92 + Math.random() * 0.16); f.scale.z = damp(f.scale.z, L, 12, dt); }
   const blink = (G.time % 1.4) < 0.08;
   ud.nav[2].visible = blink; ud.nav[0].visible = ud.nav[1].visible = (G.time % 2) < 1.6;
@@ -1957,7 +1957,6 @@ function updatePlayerVisuals(dt) {
   const turn = Math.min(1, Math.hypot(P.ang.x, P.ang.y) * 0.7);
   const tipI = P.alive && playerShip.visible ? clamp(turn * 1.2 + (P.boosting ? 0.6 : 0) + P.speed / 600, 0, 1.2) : 0;
   for (let i = 0; i < 2; i++) { _a.copy(ud.tips[i]).applyMatrix4(ud.body.matrixWorld); P.trails[i].update(_a, tipI); }
-  if (P.boosting && P.alive) for (let i = 0; i < 2; i++) { _a.copy(ud.exhaust[i]).applyMatrix4(ud.body.matrixWorld); fxAdd.emit(_a, P.vel.x * 0.5 + rand(-4, 4), P.vel.y * 0.5 + rand(-4, 4), P.vel.z * 0.5 + rand(-4, 4), 0.25, 1.4, 0.3, [5, 2.2, 0.7], [1, 0.2, 0.05]); }
 }
 
 /* =====================================================================
