@@ -459,6 +459,11 @@ function bakeSky(size) {
         col=mix(vec3(dot(col,vec3(0.33))),col,1.7);
         float lanes=smoothstep(0.05,0.55,fbm(q*2.6+w*2.2+vec3(4.0)));
         col*=1.0-lanes*0.72*band;
+        float rid=1.0-abs(fbm(q*2.6+w*2.0+vec3(51.0))); rid=pow(rid,6.0);
+        col+=mix(vec3(0.9,0.25,0.5),vec3(0.2,0.65,0.95),smoothstep(-0.4,0.5,w.x))*rid*(0.1+band*0.55)*0.55;
+        vec3 g1=normalize(vec3(0.35,-0.45,0.82)), g2=normalize(vec3(-0.6,0.5,0.62));
+        float ga=1.0-abs(dot(d,g1)); col+=vec3(0.75,0.7,1.0)*pow(max(dot(d,g1),0.0),500.0)*0.9;
+        col+=vec3(1.0,0.75,0.6)*pow(max(dot(d,g2),0.0),700.0)*0.9;
         col*=0.7;
         float sd=max(dot(d,uSun),0.0);
         col+=vec3(1.0,0.66,0.38)*pow(sd,6.0)*0.11;
@@ -624,7 +629,7 @@ const M = {
   dark: panelize(new THREE.MeshStandardMaterial({ color: 0x45484d, roughness: 0.4, metalness: 0.55 }), 'dark', { scale: 2.2, strength: 0.3 }),
   accent: new THREE.MeshStandardMaterial({ color: 0xe0612a, roughness: 0.5, metalness: 0.1 }),
   glass: new THREE.MeshPhysicalMaterial({ color: 0x0d1012, roughness: 0.06, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 2.2 }),
-  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 1.1, 2.0) }),
+  glowA: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 0.8, 0.25) }),
   eHull: panelize(new THREE.MeshStandardMaterial({ color: 0x34302f, roughness: 0.5, metalness: 0.72 }), 'ehull', { scale: 1.3, strength: 0.45 }),
   eRed: panelize(new THREE.MeshStandardMaterial({ color: 0x5a1d19, roughness: 0.55, metalness: 0.35 }), 'ered', { scale: 1.8, strength: 0.4 }),
   glowE: new THREE.MeshBasicMaterial({ color: new THREE.Color(7, 0.55, 0.7) }),
@@ -714,7 +719,7 @@ function buildKestrel() {
   body.add(new THREE.Mesh(merge(glows), M.glowA));
 
   // flames
-  const fm = flame(new THREE.Color(2.8, 3.1, 3.8), new THREE.Color(0.45, 0.9, 2.8));
+  const fm = flame(new THREE.Color(3.6, 2.2, 1.0), new THREE.Color(2.6, 0.3, 0.06));
   const flames = [];
   for (const sx of [-1, 1]) {
     const f = new THREE.Mesh(flameGeo(0.48), fm); f.position.set(sx * 1.75, -0.08, 4.65); body.add(f); flames.push(f);
@@ -1209,7 +1214,7 @@ async function buildWorld() {
         float lines=0.8+0.2*sin(vP.y*70.0+uTime*9.0); float local=smoothstep(1.3,0.2,d); gl_FragColor=vec4(vec3(0.5,1.0,0.95)*(f*0.22+ring*0.8)*local*uA*lines,1.0); }`
   }));
   shieldBubble.scale.set(7.4, 3.6, 7.6); playerShip.add(shieldBubble);
-  const engL = new THREE.PointLight(0x78a8ff, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
+  const engL = new THREE.PointLight(0xff7038, 150, 160, 2); engL.position.set(0, 0, 8); playerShip.add(engL); playerShip.userData.engLight = engL;
 
   // composer
   const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz);
