@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="he" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Blizzard Run</title>
+<style>
+  :root { color-scheme: dark; --fg: #eaf4ff; --muted: rgba(234,244,255,.62); --panel: rgba(12,20,32,.45); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1420; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color: var(--fg); }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .vignette { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(8,16,28,.55) 100%); }
+  .hud { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; padding: 14px max(16px, env(safe-area-inset-left, 0px)); pointer-events: none;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .stat { background: var(--panel); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-radius: 12px; padding: 8px 12px; min-width: 96px; }
+  .stat small { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stat b { font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .title { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); text-align: right; padding-top: 4px; }
+  .hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); font-size: 13px; color: var(--muted);
+    background: var(--panel); padding: 6px 12px; border-radius: 999px; white-space: nowrap; transition: opacity 1.2s; pointer-events: none; }
+  .joy { position: fixed; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.22); touch-action: none; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 50%; transform: translate(-50%,-50%);
+    background: rgba(230,242,255,.35); border: 1.5px solid rgba(255,255,255,.5); pointer-events: none; }
+  .btns { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 36px); display: flex; flex-direction: column; gap: 14px; align-items: flex-end; }
+  .btn { width: 76px; height: 76px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: var(--fg);
+    font: 600 13px system-ui, sans-serif; touch-action: none; }
+  .btn:active { background: rgba(255,255,255,.28); }
+  .btn.run { width: 92px; height: 92px; }
+  @media (pointer: fine) { .joy, .btns { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="vignette"></div>
+
+<div class="hud">
+  <div class="stat"><small>מרחק</small><b id="dist">0 מ׳</b></div>
+  <div class="title">Blizzard Run</div>
+  <div class="stat"><small>קמ״ש</small><b id="spd">0</b></div>
+</div>
+<div class="hint" id="hint">WASD / חצים: תנועה · Shift: ריצה · רווח: קפיצה · גרירה: מצלמה</div>
+
+<div class="joy" id="joy"><div class="knob" id="knob"></div></div>
+<div class="btns">
+  <button class="btn" id="btnJump">קפיצה</button>
+  <button class="btn run" id="btnRun">ריצה</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// Raw colour values in shaders and materials (no sRGB round-trip).
+THREE.ColorManagement.enabled = false;
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+
+/* ------------------------------------------------------------------
+   Terrain height. JS copy of the GLSL function H() below. Keep in sync.
+------------------------------------------------------------------- */
+function H(x, z) {
+  const a = Math.sin(x * 0.012 + 0.9 * Math.sin(z * 0.018)) * 6.0;
+  const b = Math.sin(z * 0.010 - 0.7 * Math.cos(x * 0.015)) * 4.0;
+  const c = Math.sin((x * 0.6 + z * 0.8) * 0.035) * 1.6;
+  const d = Math.sin((x * 0.3 - z * 0.5) * 0.09) * 0.25;
+  const r = (1.0 - Math.abs(Math.sin(x * 0.02 + Math.sin(z * 0.01) * 2.0))) * 3.0;
+  return a + b + c + d + r;
+}
+const GLSL_H = `
+float H(vec2 p){
+  float x = p.x, z = p.y;
+  float a = sin(x*0.012 + 0.9*sin(z*0.018)) * 6.0;
+  float b = sin(z*0.010 - 0.7*cos(x*0.015)) * 4.0;
+  float c = sin((x*0.6 + z*0.8)*0.035) * 1.6;
+  float d = sin((x*0.3 - z*0.5)*0.09) * 0.25;
+  float r = (1.0 - abs(sin(x*0.02 + sin(z*0.01)*2.0))) * 3.0;
+  return a + b + c + d + r;
+}`;
+
+/* ------------------------------------------------------------------
+   Renderer, scene, camera
+------------------------------------------------------------------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+$('stage').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.3, 1400);
+
+const SUN = new THREE.Vector3(-0.5, 0.42, 0.62).normalize();
+const HORIZON = new THREE.Vector3(0.87, 0.91, 0.95);
+const ZENITH = new THREE.Vector3(0.28, 0.44, 0.62);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* Sky dome */
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(1000, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: { uTop: { value: ZENITH }, uHor: { value: HORIZON }, uSun: { value: SUN } },
+    vertexShader: `
+      varying vec3 vD;
+      void main(){
+        vD = normalize(position);
+        vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position = p.xyww;
+      }`,
+    fragmentShader: `
+      uniform vec3 uTop; uniform vec3 uHor; uniform vec3 uSun; varying vec3 vD;
+      void main(){
+        float h = clamp(vD.y, 0.0, 1.0);
+        vec3 c = mix(uHor, uTop, pow(h, 0.55));
+        float s = max(dot(normalize(vD), normalize(uSun)), 0.0);
+        c += vec3(1.0, 0.96, 0.88) * (pow(s, 10.0) * 0.30 + pow(s, 400.0) * 0.9);
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  })
+);
+sky.frustumCulled = false;
+scene.add(sky);
+
+/* Lights for the character (terrain uses its own shader) */
+scene.add(new THREE.HemisphereLight(0xdcecff, 0x9aaabd, 1.5));
+const sunLight = new THREE.DirectionalLight(0xfff1dd, 2.0);
+sunLight.position.copy(SUN).multiplyScalar(20);
+scene.add(sunLight);
+
+/* ------------------------------------------------------------------
+   Infinite terrain: one large grid that is snapped to world space.
+   Height and normals are computed in the vertex shader, so there are
+   no CPU updates while the player moves.
+------------------------------------------------------------------- */
+const SNAP = 4;
+const terrainUniforms = {
+  uCenter: { value: new THREE.Vector2(0, 0) },
+  uSun: { value: SUN },
+  uCam: { value: new THREE.Vector3() },
+  uFog: { value: HORIZON },
+};
+const terrainMat = new THREE.ShaderMaterial({
+  uniforms: terrainUniforms,
+  vertexShader: GLSL_H + `
+    uniform vec2 uCenter;
+    varying vec3 vW; varying vec3 vN;
+    void main(){
+      vec3 p = position + vec3(uCenter.x, 0.0, uCenter.y);
+      p.y = H(p.xz);
+      float e = 0.4;
+      float hx = H(p.xz + vec2(e, 0.0)) - H(p.xz - vec2(e, 0.0));
+      float hz = H(p.xz + vec2(0.0, e)) - H(p.xz - vec2(0.0, e));
+      vN = normalize(vec3(-hx / (2.0*e), 1.0, -hz / (2.0*e)));
+      vW = p;
+      gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+    }`,
+  fragmentShader: `
+    uniform vec3 uSun; uniform vec3 uCam; uniform vec3 uFog;
+    varying vec3 vW; varying vec3 vN;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec3 n = normalize(vN);
+      vec3 L = normalize(uSun);
+      vec3 V = normalize(uCam - vW);
+      float ndl = max(dot(n, L), 0.0);
+      float sparkle = hash(floor(vW.xz * 7.0));
+      vec3 sky = vec3(0.70, 0.76, 0.84);
+      vec3 hemi = mix(vec3(0.56, 0.62, 0.72), sky, n.y * 0.5 + 0.5);
+      vec3 base = vec3(0.98, 0.98, 1.0);
+      vec3 shade = vec3(0.78, 0.86, 0.96);
+      vec3 col = base * (hemi * 0.62 + mix(shade, vec3(1.0, 0.97, 0.90), ndl) * ndl * 0.95 + shade * 0.10);
+      col *= 0.975 + 0.05 * sparkle;
+      vec3 Hv = normalize(L + V);
+      col += vec3(1.0) * pow(max(dot(n, Hv), 0.0), 90.0) * 0.18 * sparkle;
+      float dist = length(uCam - vW);
+      float f = smoothstep(90.0, 420.0, dist);
+      col = mix(col, uFog, f);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+const terrain = new THREE.Mesh(new THREE.PlaneGeometry(900, 900, 225, 225).rotateX(-Math.PI / 2), terrainMat);
+terrain.frustumCulled = false;
+scene.add(terrain);
+
+/* ------------------------------------------------------------------
+   Textures: footprints, blob shadow
+------------------------------------------------------------------- */
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+const dotTex = canvasTex(32, 32, (g, w, h) => {
+  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+const footTex = canvasTex(64, 128, (g) => {
+  g.fillStyle = 'rgba(40,66,96,0.9)';
+  g.beginPath(); g.ellipse(32, 88, 17, 24, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(32, 32, 13, 17, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(32, 60, 10, 6, 0, 0, Math.PI * 2); g.fill();
+});
+const blobTex = canvasTex(64, 64, (g, w, h) => {
+  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.6, 'rgba(255,255,255,0.45)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+
+/* Footprint pool */
+const FP_COUNT = 90, FP_LIFE = 9;
+const fpGeo = new THREE.PlaneGeometry(0.44, 0.88).rotateX(-Math.PI / 2);
+const footprints = [];
+for (let i = 0; i < FP_COUNT; i++) {
+  const mat = new THREE.MeshBasicMaterial({ map: footTex, transparent: true, depthWrite: false, color: 0x7d9bbd, opacity: 0 });
+  const m = new THREE.Mesh(fpGeo, mat);
+  m.visible = false;
+  scene.add(m);
+  footprints.push({ m, mat, life: 0 });
+}
+let fpCursor = 0;
+function spawnFootprint(x, y, z, heading) {
+  const e = footprints[fpCursor];
+  fpCursor = (fpCursor + 1) % FP_COUNT;
+  e.m.position.set(x, y, z);
+  e.m.rotation.set(0, heading + Math.PI, 0);
+  e.life = FP_LIFE;
+  e.m.visible = true;
+}
+
+/* Blob shadow under the character */
+const blob = new THREE.Mesh(
+  new THREE.CircleGeometry(0.9, 24).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ map: blobTex, color: 0x2a4766, transparent: true, depthWrite: false, opacity: 0.45 })
+);
+scene.add(blob);
+
+/* ------------------------------------------------------------------
+   Character: hooded cloak runner, built from primitives
+------------------------------------------------------------------- */
+const hero = new THREE.Group();
+scene.add(hero);
+const cloakMat = new THREE.MeshStandardMaterial({ color: 0x161a22, roughness: 0.92, side: THREE.DoubleSide });
+const hoodMat = new THREE.MeshStandardMaterial({ color: 0x1b202b, roughness: 0.9 });
+const voidMat = new THREE.MeshStandardMaterial({ color: 0x030405, roughness: 1 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.4, metalness: 0.7 });
+
+const body = new THREE.Group();
+body.position.y = 0.98;
+hero.add(body);
+
+const cloak = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.62, 1.5, 18, 1, true), cloakMat);
+cloak.position.y = -0.12;
+body.add(cloak);
+
+const hood = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 16), hoodMat);
+hood.position.set(0, 0.82, 0);
+body.add(hood);
+const hoodBack = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), hoodMat);
+hoodBack.scale.set(1, 1.15, 1.3);
+hoodBack.position.set(0, 0.88, -0.1);
+body.add(hoodBack);
+const face = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), voidMat);
+face.scale.set(1, 1.1, 0.6);
+face.position.set(0, 0.8, 0.15);
+body.add(face);
+
+function makeArm(side) {
+  const pivot = new THREE.Group();
+  pivot.position.set(side * 0.3, 0.45, 0);
+  body.add(pivot);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.75, 10), cloakMat);
+  arm.position.y = -0.37;
+  pivot.add(arm);
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), voidMat);
+  hand.position.y = -0.78;
+  pivot.add(hand);
+  return pivot;
+}
+const armL = makeArm(-1);
+const armR = makeArm(1);
+
+const rifle = new THREE.Group();
+const rifleBody = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 1.25), metalMat);
+rifle.add(rifleBody);
+const rifleStock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.28), voidMat);
+rifleStock.position.set(0, -0.04, 0.6);
+rifle.add(rifleStock);
+rifle.position.set(0.12, 0.2, -0.22);
+rifle.rotation.set(0.35, 0, 0.55);
+body.add(rifle);
+
+const bootGeo = new THREE.BoxGeometry(0.16, 0.14, 0.36);
+const bootL = new THREE.Mesh(bootGeo, voidMat);
+const bootR = new THREE.Mesh(bootGeo, voidMat);
+bootL.position.set(-0.13, 0.07, 0);
+bootR.position.set(0.13, 0.07, 0);
+hero.add(bootL, bootR);
+
+/* ------------------------------------------------------------------
+   Particles: ambient drifting snow + spray from the feet
+------------------------------------------------------------------- */
+const AMB_N = 1500;
+const ambPos = new Float32Array(AMB_N * 3);
+for (let i = 0; i < AMB_N; i++) {
+  ambPos[i * 3] = rand(-30, 30);
+  ambPos[i * 3 + 1] = rand(0, 18);
+  ambPos[i * 3 + 2] = rand(-30, 30);
+}
+const ambGeo = new THREE.BufferGeometry();
+ambGeo.setAttribute('position', new THREE.BufferAttribute(ambPos, 3).setUsage(THREE.DynamicDrawUsage));
+const ambPoints = new THREE.Points(ambGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, map: dotTex, transparent: true, opacity: 0.8, depthWrite: false }));
+ambPoints.frustumCulled = false;
+scene.add(ambPoints);
+
+const SPRAY_N = 700;
+const sprayPos = new Float32Array(SPRAY_N * 3).fill(-500);
+const sprayVel = new Float32Array(SPRAY_N * 3);
+const sprayLife = new Float32Array(SPRAY_N);
+let sprayCursor = 0;
+const sprayGeo = new THREE.BufferGeometry();
+sprayGeo.setAttribute('position', new THREE.BufferAttribute(sprayPos, 3).setUsage(THREE.DynamicDrawUsage));
+const sprayPoints = new THREE.Points(sprayGeo, new THREE.PointsMaterial({ color: 0xf0f7ff, size: 0.2, map: dotTex, transparent: true, opacity: 0.85, depthWrite: false }));
+sprayPoints.frustumCulled = false;
+scene.add(sprayPoints);
+function spawnSpray(x, y, z, vx, vy, vz, life) {
+  const i = sprayCursor; sprayCursor = (sprayCursor + 1) % SPRAY_N;
+  sprayPos[i * 3] = x; sprayPos[i * 3 + 1] = y; sprayPos[i * 3 + 2] = z;
+  sprayVel[i * 3] = vx; sprayVel[i * 3 + 1] = vy; sprayVel[i * 3 + 2] = vz;
+  sprayLife[i] = life;
+}
+
+/* ------------------------------------------------------------------
+   Crest: a blue-white snow wave that trails the runner
+------------------------------------------------------------------- */
+const TR = 110;
+const trail = [];
+const trGeo = new THREE.BufferGeometry();
+const trPos = new Float32Array(TR * 2 * 3);
+const trCol = new Float32Array(TR * 2 * 3);
+const trIdx = [];
+for (let i = 0; i < TR - 1; i++) { const a = 2 * i, b = a + 1, c = a + 2, d = a + 3; trIdx.push(a, c, b, b, c, d); }
+trGeo.setIndex(trIdx);
+trGeo.setAttribute('position', new THREE.BufferAttribute(trPos, 3).setUsage(THREE.DynamicDrawUsage));
+trGeo.setAttribute('color', new THREE.BufferAttribute(trCol, 3).setUsage(THREE.DynamicDrawUsage));
+const trailMesh = new THREE.Mesh(trGeo, new THREE.MeshBasicMaterial({
+  vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+}));
+trailMesh.frustumCulled = false;
+scene.add(trailMesh);
+
+/* ------------------------------------------------------------------
+   Player state and input
+------------------------------------------------------------------- */
+const P = { x: 0, z: 0, y: H(0, 0), vx: 0, vz: 0, vy: 0, grounded: true, hdg: 0, phase: 0, stepDist: 0, side: 1, speed: 0 };
+let distance = 0;
+let camYaw = Math.PI;      // camera sits behind the runner when yaw = heading + PI
+let camPitch = 0.24;
+let idleT = 0, orbiting = false;
+let jumpQueued = false, sprintTouch = false;
+let time = 0;
+
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.code === 'Space' && !e.repeat) jumpQueued = true;
+});
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+// Joystick
+const joy = $('joy'), knob = $('knob');
+let joyId = null, joyCenter = { x: 0, y: 0 }, joyVec = { x: 0, y: 0 };
+function moveJoy(e) {
+  const R = 50;
+  let dx = e.clientX - joyCenter.x, dy = e.clientY - joyCenter.y;
+  const L = Math.hypot(dx, dy);
+  const k = L > R ? R / L : 1;
+  dx *= k; dy *= k;
+  joyVec = { x: dx / R, y: dy / R };
+  knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+joy.addEventListener('pointerdown', (e) => {
+  joyId = e.pointerId;
+  joy.setPointerCapture(e.pointerId);
+  const r = joy.getBoundingClientRect();
+  joyCenter = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  moveJoy(e);
+});
+joy.addEventListener('pointermove', (e) => { if (e.pointerId === joyId) moveJoy(e); });
+const endJoy = (e) => {
+  if (e.pointerId !== joyId) return;
+  joyId = null; joyVec = { x: 0, y: 0 };
+  knob.style.transform = 'translate(-50%, -50%)';
+};
+joy.addEventListener('pointerup', endJoy);
+joy.addEventListener('pointercancel', endJoy);
+
+// Run and jump buttons
+const btnRun = $('btnRun'), btnJump = $('btnJump');
+btnRun.addEventListener('pointerdown', (e) => { sprintTouch = true; btnRun.setPointerCapture(e.pointerId); });
+btnRun.addEventListener('pointerup', () => { sprintTouch = false; });
+btnRun.addEventListener('pointercancel', () => { sprintTouch = false; });
+btnJump.addEventListener('pointerdown', () => { jumpQueued = true; });
+
+// Camera orbit: drag anywhere on the canvas
+let orbitId = null, lastX = 0, lastY = 0;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (orbitId !== null) return;
+  orbitId = e.pointerId; lastX = e.clientX; lastY = e.clientY; orbiting = true;
+});
+window.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== orbitId) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  camYaw -= dx * 0.006;
+  camPitch = clamp(camPitch + dy * 0.003, 0.05, 0.85);
+  idleT = 0;
+});
+const endOrbit = (e) => { if (e.pointerId === orbitId) { orbitId = null; orbiting = false; } };
+window.addEventListener('pointerup', endOrbit);
+window.addEventListener('pointercancel', endOrbit);
+
+setTimeout(() => { $('hint').style.opacity = '0'; }, 9000);
+
+/* ------------------------------------------------------------------
+   Update
+------------------------------------------------------------------- */
+const camTarget = new THREE.Vector3();
+const lookAt = new THREE.Vector3();
+
+function update(dt) {
+  // Input in camera-relative space
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joyVec.x;
+  let fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joyVec.y;
+  const m = Math.hypot(ix, fw);
+  if (m > 1) { ix /= m; fw /= m; }
+  const mag = Math.min(1, m);
+
+  const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);   // camera forward (flat)
+  const rx = -fz, rz = fx;                                 // camera right (flat)
+  const sprint = keys.ShiftLeft || keys.ShiftRight || sprintTouch;
+  const maxSp = sprint ? 11.5 : 6.8;
+
+  const tx = (fx * fw + rx * ix) * maxSp * (mag > 0 ? 1 : 0);
+  const tz = (fz * fw + rz * ix) * maxSp * (mag > 0 ? 1 : 0);
+  const rate = mag > 0 ? 5.0 : 0.9;                       // snow drag when no input
+  const k = 1 - Math.exp(-rate * dt);
+  P.vx += (tx - P.vx) * k;
+  P.vz += (tz - P.vz) * k;
+
+  // Gravity along the slope: downhill runs get faster
+  if (P.grounded) {
+    const gx = (H(P.x + 0.3, P.z) - H(P.x - 0.3, P.z)) / 0.6;
+    const gz = (H(P.x, P.z + 0.3) - H(P.x, P.z - 0.3)) / 0.6;
+    P.vx -= gx * 9.8 * 0.55 * dt;
+    P.vz -= gz * 9.8 * 0.55 * dt;
+  }
+  const sp = Math.hypot(P.vx, P.vz);
+  if (sp > 22) { P.vx *= 22 / sp; P.vz *= 22 / sp; }
+
+  P.x += P.vx * dt;
+  P.z += P.vz * dt;
+
+  // Vertical: snap to terrain, jump when grounded
+  const gh = H(P.x, P.z);
+  if (P.grounded && jumpQueued) { P.vy = 7.6; P.grounded = false; }
+  jumpQueued = false;
+  if (!P.grounded || P.vy > 0) {
+    P.vy -= 18 * dt;
+    P.y += P.vy * dt;
+  }
+  if (P.y <= gh) { P.y = gh; P.vy = 0; P.grounded = true; }
+  else P.grounded = false;
+
+  P.speed = Math.hypot(P.vx, P.vz);
+  const sNorm = clamp(P.speed / 12, 0, 1);
+
+  // Heading follows movement
+  if (P.speed > 0.4) {
+    const target = Math.atan2(P.vx, P.vz);
+    const d = Math.atan2(Math.sin(target - P.hdg), Math.cos(target - P.hdg));
+    P.hdg += d * (1 - Math.exp(-dt * 10));
+  }
+
+  hero.position.set(P.x, P.y, P.z);
+  hero.rotation.y = P.hdg;
+
+  // Animation
+  P.phase += dt * (3.5 + P.speed * 0.9);
+  const legK = clamp(P.speed / 6, 0, 1);
+  const airborne = !P.grounded;
+  bootL.position.z = Math.sin(P.phase) * 0.32 * legK;
+  bootR.position.z = Math.sin(P.phase + Math.PI) * 0.32 * legK;
+  bootL.position.y = 0.07 + Math.max(0, Math.cos(P.phase)) * 0.1 * legK + (airborne ? 0.12 : 0);
+  bootR.position.y = 0.07 + Math.max(0, Math.cos(P.phase + Math.PI)) * 0.1 * legK + (airborne ? 0.12 : 0);
+  armL.rotation.x = airborne ? -1.5 : Math.sin(P.phase + Math.PI) * 0.75 * legK;
+  armR.rotation.x = airborne ? -0.4 : Math.sin(P.phase) * 0.75 * legK - 0.1;
+  body.rotation.x = -0.04 - (sprint ? 0.14 : 0.06) * legK;
+  body.rotation.z = Math.sin(P.phase) * 0.03 * legK;
+  cloak.scale.x = 1 + Math.sin(time * 6.0) * 0.02 * sNorm;
+
+  // Footprints
+  if (P.grounded && P.speed > 0.6) {
+    P.stepDist += P.speed * dt;
+    if (P.stepDist > 0.95) {
+      P.stepDist = 0;
+      const rX = -Math.cos(P.hdg), rZ = Math.sin(P.hdg);
+      const off = 0.2 * P.side;
+      spawnFootprint(P.x + rX * off, H(P.x, P.z) + 0.035, P.z + rZ * off, P.hdg);
+      P.side = -P.side;
+    }
+  }
+
+  // Spray from feet
+  if (P.grounded && P.speed > 3) {
+    const n = Math.round(2 + sNorm * 4);
+    for (let i = 0; i < n; i++) {
+      spawnSpray(
+        P.x + rand(-0.3, 0.3), H(P.x, P.z) + 0.15, P.z + rand(-0.3, 0.3),
+        -P.vx * 0.22 + rand(-1.4, 1.4), rand(1.2, 3.2) * (0.6 + sNorm), -P.vz * 0.22 + rand(-1.4, 1.4),
+        rand(0.7, 1.5)
+      );
+    }
+  }
+
+  // Blob shadow
+  blob.position.set(P.x, H(P.x, P.z) + 0.04, P.z);
+  blob.rotation.y = P.hdg;
+  blob.scale.set(1, 1, 1 + sNorm * 0.4);
+
+  // Camera: orbit around the runner, auto-recenter behind when idle
+  if (!orbiting) {
+    idleT += dt;
+    if (idleT > 1.4) {
+      const target = P.hdg + Math.PI;
+      const d = Math.atan2(Math.sin(target - camYaw), Math.cos(target - camYaw));
+      camYaw += d * (1 - Math.exp(-dt * 1.6));
+    }
+  }
+  const dist = 6.6 + sNorm * 1.4;
+  const cy = Math.sin(camPitch) * dist;
+  const ch = Math.cos(camPitch) * dist;
+  camTarget.set(P.x + Math.sin(camYaw) * ch, P.y + 1.4 + cy, P.z + Math.cos(camYaw) * ch);
+  camTarget.y = Math.max(camTarget.y, H(camTarget.x, camTarget.z) + 1.0);
+  camera.position.lerp(camTarget, 1 - Math.exp(-dt * 7));
+  camera.position.y += Math.sin(time * 28) * 0.012 * sNorm;
+  lookAt.set(P.x, P.y + 1.35, P.z);
+  camera.lookAt(lookAt);
+
+  // Sky and terrain uniforms
+  sky.position.copy(camera.position);
+  terrainUniforms.uCam.value.copy(camera.position);
+  terrainUniforms.uCenter.value.set(Math.round(P.x / SNAP) * SNAP, Math.round(P.z / SNAP) * SNAP);
+
+  // Footprints fade out
+  for (const f of footprints) {
+    if (!f.m.visible) continue;
+    f.life -= dt;
+    if (f.life <= 0) { f.m.visible = false; continue; }
+    f.mat.opacity = 0.8 * Math.min(1, f.life / 3);
+  }
+
+  // Crest trail
+  if (P.speed > 0.5) {
+    const last = trail[trail.length - 1];
+    if (!last || Math.hypot(P.x - last.x, P.z - last.z) > 0.35) {
+      trail.push({ x: P.x, z: P.z });
+      if (trail.length > TR) trail.shift();
+    }
+  } else if (trail.length) {
+    trail.shift();
+  }
+  updateTrail(sNorm);
+
+  // Ambient snow drifts with the wind
+  for (let i = 0; i < AMB_N; i++) {
+    const j = i * 3;
+    ambPos[j] += (2.4 + Math.sin(time * 0.7 + i) * 0.9) * dt;
+    ambPos[j + 1] += (-0.5 + Math.sin(time * 1.3 + i * 0.37) * 0.25) * dt;
+    ambPos[j + 2] += (0.9 + Math.cos(time * 0.9 + i * 0.21) * 0.5) * dt;
+    if (Math.abs(ambPos[j] - P.x) > 30 || Math.abs(ambPos[j + 2] - P.z) > 30 || ambPos[j + 1] < 0 || ambPos[j + 1] > 18) {
+      ambPos[j] = P.x + rand(-30, 30);
+      ambPos[j + 1] = rand(0, 18);
+      ambPos[j + 2] = P.z + rand(-30, 30);
+    }
+  }
+  ambGeo.attributes.position.needsUpdate = true;
+
+  // Spray physics
+  for (let i = 0; i < SPRAY_N; i++) {
+    if (sprayLife[i] <= 0) continue;
+    const j = i * 3;
+    sprayLife[i] -= dt;
+    sprayVel[j + 1] -= 9.5 * dt;
+    sprayPos[j] += sprayVel[j] * dt;
+    sprayPos[j + 1] += sprayVel[j + 1] * dt;
+    sprayPos[j + 2] += sprayVel[j + 2] * dt;
+    if (sprayLife[i] <= 0 || sprayPos[j + 1] < H(sprayPos[j], sprayPos[j + 2]) - 0.05) {
+      sprayLife[i] = 0;
+      sprayPos[j + 1] = -500;
+    }
+  }
+  sprayGeo.attributes.position.needsUpdate = true;
+
+  // Distance and HUD
+  distance += P.speed * dt;
+  hudTimer += dt;
+  if (hudTimer > 0.1) {
+    hudTimer = 0;
+    $('dist').textContent = Math.floor(distance) + ' מ׳';
+    $('spd').textContent = Math.round(P.speed * 3.6);
+  }
+}
+let hudTimer = 0;
+
+function updateTrail(sNorm) {
+  const n = trail.length;
+  trGeo.setDrawRange(0, Math.max(0, (n - 1) * 6));
+  const cr = 0.72, cg = 0.9, cb = 1.0;
+  for (let i = 0; i < n; i++) {
+    const p = trail[i];
+    const a = n > 1 ? i / (n - 1) : 1;
+    const q0 = trail[Math.max(0, i - 1)], q1 = trail[Math.min(n - 1, i + 1)];
+    let dx = q1.x - q0.x, dz = q1.z - q0.z;
+    const L = Math.hypot(dx, dz) || 1;
+    dx /= L; dz /= L;
+    const px = -dz, pz = dx;
+    const w = 0.35 + 0.9 * a;
+    const gy = H(p.x, p.z);
+    const hgt = (0.3 + 2.4 * a * a) * (0.35 + 0.65 * sNorm);
+    const bi = (2 * i) * 3, ti = (2 * i + 1) * 3;
+    trPos[bi] = p.x + px * w; trPos[bi + 1] = gy + 0.08; trPos[bi + 2] = p.z + pz * w;
+    trPos[ti] = p.x + px * w * 0.45; trPos[ti + 1] = gy + hgt; trPos[ti + 2] = p.z + pz * w * 0.45;
+    const fade = Math.pow(a, 1.6);
+    trCol[bi] = cr * fade * 0.12; trCol[bi + 1] = cg * fade * 0.12; trCol[bi + 2] = cb * fade * 0.12;
+    trCol[ti] = cr * fade * 0.5; trCol[ti + 1] = cg * fade * 0.5; trCol[ti + 2] = cb * fade * 0.5;
+  }
+  trGeo.attributes.position.needsUpdate = true;
+  trGeo.attributes.color.needsUpdate = true;
+}
+
+/* ------------------------------------------------------------------
+   Loop
+------------------------------------------------------------------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  time += dt;
+  update(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+// Start from a clean view
+camera.position.set(P.x, P.y + 3, P.z - 7);
+camera.lookAt(P.x, P.y + 1.4, P.z);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
