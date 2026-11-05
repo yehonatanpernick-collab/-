@@ -121,7 +121,7 @@ button:focus-visible{outline:1px solid var(--text);outline-offset:3px}
 body.touch #panel{justify-content:center;padding-bottom:calc(178px + env(safe-area-inset-bottom,0px));pointer-events:none}
 body.touch #panel .cluster{background:none;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0;gap:14px}
 body.touch #panel{flex-wrap:wrap}
-body.touch #topright{display:none}
+body.touch #topright button:not(#tbMenu){display:none}
 body.touch #minimap{width:104px;height:104px}
 @media (orientation:landscape) and (max-height:500px){ body.touch #panel{padding-bottom:max(10px,env(safe-area-inset-bottom,0px))} }
 @media (max-width:720px){ #menu .side{width:100%;background:linear-gradient(0deg,rgba(11,12,13,.94) 0%,rgba(11,12,13,.82) 62%,rgba(11,12,13,0) 100%);padding-top:42vh} }
@@ -196,7 +196,7 @@ body.touch #minimap{width:104px;height:104px}
   <button id="tbCam">מצלמה</button>
   <button id="tbHud">HUD</button>
   <button id="tbSnd">קול</button>
-  <button id="tbMenu">תפריט</button>
+  <button id="tbMenu" aria-label="יציאה לתפריט">‹ תפריט</button>
 </div>
 <div id="toast" dir="rtl"></div>
 
@@ -2669,7 +2669,7 @@ $('cRestart').onclick = () => { showDialog('dlgCrash', false); startScenario(); 
 $('cMenu').onclick = () => goMenu();
 $('lContinue').onclick = () => { showDialog('dlgLand', false); S.state = 'fly'; };
 $('lRestart').onclick = () => { showDialog('dlgLand', false); startScenario(); };
-$('tbCam').onclick = () => Input.fire('camera'); $('tbHud').onclick = () => Input.fire('hud'); $('tbSnd').onclick = () => Input.fire('sound'); $('tbMenu').onclick = () => togglePause(true);
+$('tbCam').onclick = () => Input.fire('camera'); $('tbHud').onclick = () => Input.fire('hud'); $('tbSnd').onclick = () => Input.fire('sound'); $('tbMenu').onclick = () => goMenu();
 $('minimapWrap').onclick = () => Input.fire('map');
 $('tbFull').onclick = () => { try { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen()).catch(() => toast('מסך מלא לא זמין כאן')); } catch (e) { toast('מסך מלא לא זמין כאן'); } };
 function togglePause(on) { if (S.state !== 'fly' && S.state !== 'paused') return; S.state = on ? 'paused' : 'fly'; showDialog('dlgPause', on); }

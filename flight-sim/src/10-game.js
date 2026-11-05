@@ -207,7 +207,7 @@ $('cRestart').onclick = () => { showDialog('dlgCrash', false); startScenario(); 
 $('cMenu').onclick = () => goMenu();
 $('lContinue').onclick = () => { showDialog('dlgLand', false); S.state = 'fly'; };
 $('lRestart').onclick = () => { showDialog('dlgLand', false); startScenario(); };
-$('tbCam').onclick = () => Input.fire('camera'); $('tbHud').onclick = () => Input.fire('hud'); $('tbSnd').onclick = () => Input.fire('sound'); $('tbMenu').onclick = () => togglePause(true);
+$('tbCam').onclick = () => Input.fire('camera'); $('tbHud').onclick = () => Input.fire('hud'); $('tbSnd').onclick = () => Input.fire('sound'); $('tbMenu').onclick = () => goMenu();
 $('minimapWrap').onclick = () => Input.fire('map');
 $('tbFull').onclick = () => { try { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen()).catch(() => toast('מסך מלא לא זמין כאן')); } catch (e) { toast('מסך מלא לא זמין כאן'); } };
 function togglePause(on) { if (S.state !== 'fly' && S.state !== 'paused') return; S.state = on ? 'paused' : 'fly'; showDialog('dlgPause', on); }
