@@ -458,11 +458,11 @@ function bakeSky(size) {
         if(a>1.4) return vec3(0.0);
         vec3 q=d*2.2+c*7.0;
         vec3 wv=vec3(fbm3(q+vec3(3.0)),fbm3(q+vec3(9.0)),fbm3(q+vec3(15.0)));
-        float n=fbm(q*1.3+wv*1.6);
-        float fil=smoothstep(0.5,1.15,ridgeN(q*2.0+wv*2.4));
-        float fil2=smoothstep(0.55,1.15,ridgeN(q*4.2+wv*3.0+vec3(2.0)));
+        float n=fbm(q*1.1+wv*0.9);
+        float fil=smoothstep(0.62,1.2,ridgeN(q*1.35+wv*1.3));
+        float fil2=smoothstep(0.7,1.2,ridgeN(q*2.6+wv*1.6+vec3(2.0)));
         float body=0.25+0.75*smoothstep(-0.35,0.55,n);
-        float dust=smoothstep(0.55,0.95,ridgeN(q*1.7+wv*2.0+vec3(8.0)));
+        float dust=smoothstep(0.6,1.0,ridgeN(q*1.3+wv*1.2+vec3(8.0)));
         float mask=smoothstep(1.0,0.1,a+n*0.3);
         vec3 col=vec3(0.0);
         if(kind==0){
@@ -728,7 +728,7 @@ function makePlanet() {
         float diff=smoothstep(-0.06,0.55,ndl);
         vec3 V=normalize(cameraPosition-vWP);
         float fres=pow(1.0-max(dot(N,V),0.0),2.6);
-        vec3 lit=col*diff*0.78;
+        vec3 lit=col*diff*0.85*mix(0.38,1.0,pow(max(dot(N,V),0.0),0.4));
         lit+=vec3(0.9,0.42,0.18)*smoothstep(-0.18,0.04,ndl)*smoothstep(0.24,0.0,ndl)*0.10;
         lit+=vec3(1.0,0.72,0.48)*fres*smoothstep(-0.25,0.45,ndl)*0.55;
         gl_FragColor=vec4(lit,1.0);
@@ -759,7 +759,7 @@ function makePlanet() {
         float fw=fwidth(t);
         float n2=mix(snoise(vec3(t*120.0,1.7,0.0))*0.5+0.5,0.5,smoothstep(0.002,0.008,fw));
         n=mix(n,0.5,smoothstep(0.006,0.02,fw));
-        float dens=smoothstep(0.0,0.05,t)*smoothstep(1.0,0.86,t)*(0.25+0.75*n)*(0.55+0.45*n2);
+        float dens=smoothstep(0.0,0.05,t)*smoothstep(1.0,0.86,t)*(0.08+0.92*n)*(0.3+0.7*n2);
         dens*=1.0-smoothstep(0.40,0.415,t)*smoothstep(0.47,0.455,t)*0.92;
         dens*=1.0-smoothstep(0.80,0.81,t)*smoothstep(0.83,0.82,t)*0.7;
         vec3 oc=vWP-uPC; float b=dot(oc,uSun); float c=dot(oc,oc)-uPR*uPR; float h=b*b-c;
@@ -767,7 +767,7 @@ function makePlanet() {
         vec3 V=normalize(cameraPosition-vWP);
         float fwd=pow(max(dot(-V,uSun),0.0),6.0);
         vec3 col=mix(vec3(0.70,0.62,0.52),vec3(0.95,0.92,0.86),n2)*(0.9+fwd*1.6)*sh;
-        gl_FragColor=vec4(col*0.72,dens*0.8);
+        gl_FragColor=vec4(col*0.72,dens*0.62);
       }`
   });
   const ring = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 256, 1), ringMat);
@@ -1311,6 +1311,7 @@ async function buildWorld() {
   envRT = pm.fromCubemap(skyRT.texture);
   scene.environment = envRT.texture;
   scene.environmentIntensity = 1.15;
+  scene.fog = new THREE.FogExp2(0x0a0810, 0.00042);
   pm.dispose();
   setLoad(0.3); await nextFrame();
 
