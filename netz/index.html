@@ -577,7 +577,7 @@ function bakeSky(size) {
           +nebPatch(d,normalize(vec3(-0.55,-0.55,0.62)),0.4,6)
           +nebPatch(d,normalize(vec3(0.6,-0.35,0.72)),0.42,7)
           +nebPatch(d,normalize(vec3(-0.2,0.25,-0.95)),0.3,8);
-        col+=np*0.58;
+        col+=np*0.7;
         vec3 bN2=normalize(vec3(0.7,0.45,-0.2)); float bd2=dot(d,bN2); float band2=exp(-bd2*bd2*28.0);
         float bn=fbm(d*3.0+vec3(31.0)); float rift=smoothstep(0.45,0.85,ridgeN(d*3.6+vec3(4.0)+bn));
         vec3 mw=mix(vec3(0.32,0.16,0.55),vec3(0.95,0.62,0.6),smoothstep(0.2,0.9,band2*(0.6+bn)));
@@ -800,7 +800,10 @@ function panelize(mat, key, { scale = 1, strength = 0.38, rough = 0.18 } = {}) {
         float seams=max(lz,max(lx*step(0.35,cell),ly*step(0.7,cell)));
         diffuseColor.rgb*=(1.0-seams*${strength.toFixed(3)})*(0.93+0.13*cell);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor=clamp(roughnessFactor+(cell-0.5)*${rough.toFixed(3)}+seams*0.25,0.05,1.0);`);
+        roughnessFactor=clamp(roughnessFactor+(cell-0.5)*${rough.toFixed(3)}+seams*0.25,0.05,1.0);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { float rim=pow(1.0-max(dot(normal,normalize(vViewPosition)),0.0),3.0);
+          totalEmissiveRadiance+=vec3(0.35,0.4,0.65)*rim*0.35; }`);
   };
   mat.customProgramCacheKey = () => 'panel-' + key;
   return mat;
@@ -1095,6 +1098,9 @@ function rockMaterial(bump) {
         diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*1.4+vec3(0.03),speck*0.3);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor=clamp(roughnessFactor-speck*0.45,0.25,1.0);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { float rim=pow(1.0-max(dot(normal,normalize(vViewPosition)),0.0),3.0);
+          totalEmissiveRadiance+=mix(vec3(0.32,0.22,0.55),vec3(0.2,0.35,0.6),normal.y*0.5+0.5)*rim*0.22*diffuseColor.rgb*3.0; }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
           float e=0.35;
