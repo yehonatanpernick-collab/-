@@ -25,15 +25,19 @@ function setupComposer() {
         c.rgb *= mix(1.0, v, uAmt + uGrey*0.6);
         float g = dot(c.rgb, vec3(0.299,0.587,0.114)); c.rgb = mix(c.rgb, vec3(g), uGrey*0.7);
         c.rgb = mix(c.rgb, c.rgb*vec3(1.2,0.25,0.2), uRed*smoothstep(0.15,0.7,length(d)));
-        c.rgb += (h(vUv*1000.0+uTime)-0.5)*0.025;
+        float lum = dot(c.rgb, vec3(0.2126,0.7152,0.0722));
+        c.rgb = mix(vec3(lum), c.rgb, 1.1);
+        c.rgb = c.rgb * c.rgb * (3.0 - 2.0 * c.rgb) * 0.22 + c.rgb * 0.78;
+        c.rgb *= mix(vec3(0.97,0.99,1.04), vec3(1.04,1.0,0.95), smoothstep(0.2, 0.9, lum));
+        c.rgb += (h(vUv*1000.0+uTime)-0.5)*0.012;
         gl_FragColor = c; }` });
   composer.addPass(vignette);
 }
 const QUALITY = {
   low: { pr: 0.85, shadow: 0, bloom: false, view: 6, trees: 0.35 },
-  medium: { pr: 1.25, shadow: 1024, bloom: true, view: 8, trees: 0.7 },
-  high: { pr: 1.6, shadow: 2048, bloom: true, view: 9, trees: 1 },
-  ultra: { pr: 2, shadow: 4096, bloom: true, view: 11, trees: 1.35 },
+  medium: { pr: 1.4, shadow: 2048, bloom: true, view: 8, trees: 0.9 },
+  high: { pr: 1.75, shadow: 4096, bloom: true, view: 10, trees: 1.35 },
+  ultra: { pr: 2, shadow: 4096, bloom: true, view: 12, trees: 1.8 },
 };
 function applyQuality(rebuild = true) {
   const Q = QUALITY[S.quality];
@@ -158,11 +162,11 @@ function buildMenu() {
   const planes = $('planes'); planes.innerHTML = '';
   for (const id of ['fighter', 'light', 'airliner']) {
     const d = AC[id]; const b = document.createElement('button'); b.className = 'plane' + (S.acId === id ? ' on' : ''); b.id = 'pl-' + id;
-    b.innerHTML = `<span class="role">${d.role}</span><span class="nm">${d.name}</span><span class="st">מרבית <span class="num">${d.spec.vmax}</span><br>מוטה <span class="num">${d.spec.span}</span><br>משקל <span class="num">${d.spec.mass}</span></span>`;
+    b.innerHTML = `<span><span class="nm">${d.name}</span><span class="role">${d.role} · <span class="num">${d.spec.vmax}</span></span></span>`;
     b.onclick = () => { S.acId = id; savePrefs(); buildMenu(); menuPreview(); }; planes.appendChild(b);
   }
   const sc = $('scen'); sc.innerHTML = '';
-  for (const [k, v] of Object.entries(SCEN)) { const b = document.createElement('button'); b.className = 'opt' + (S.scen === k ? ' on' : ''); b.id = 'sc-' + k; b.innerHTML = `<span><div>${v.name}</div><small>${v.sub}</small></span><span class="code">${v.code}</span>`; b.onclick = () => { S.scen = k; savePrefs(); buildMenu(); }; sc.appendChild(b); }
+  for (const [k, v] of Object.entries(SCEN)) { const b = document.createElement('button'); b.className = 'opt' + (S.scen === k ? ' on' : ''); b.id = 'sc-' + k; b.innerHTML = `<span><div>${v.name}</div><small>${v.sub}</small></span>`; b.onclick = () => { S.scen = k; savePrefs(); buildMenu(); }; sc.appendChild(b); }
   const seg = (id, opts, key, after) => { const el = $(id); el.innerHTML = ''; for (const [k, label] of opts) { const b = document.createElement('button'); b.textContent = label; b.className = S[key] === k ? 'on' : ''; b.onclick = () => { S[key] = k; savePrefs(); buildMenu(); after && after(); }; el.appendChild(b); } };
   seg('segTime', [['dawn', 'זריחה'], ['noon', 'צהריים'], ['sunset', 'שקיעה'], ['night', 'לילה']], 'time', () => applyConditions(S.time, S.wx));
   seg('segWx', [['clear', 'בהיר'], ['scattered', 'עננים'], ['overcast', 'מעונן']], 'wx', () => applyConditions(S.time, S.wx));
@@ -171,6 +175,7 @@ function buildMenu() {
   const inv = $('segInv'); inv.innerHTML = ''; [[false, 'רגיל (S מושך)'], [true, 'הפוך']].forEach(([v, l]) => { const b = document.createElement('button'); b.textContent = l; b.className = Input.invert === v ? 'on' : ''; b.onclick = () => { Input.invert = v; savePrefs(); buildMenu(); }; inv.appendChild(b); });
 }
 const KEYS_HELP = [
+  ['בטלפון', 'ג׳ויסטיק · מצערת · עוד'],
   ['גובה (אף למעלה / למטה)', 'S / W · ↓ / ↑'], ['גלגול', 'A / D · ← / →'], ['הגה כיוון וגלגל אף', 'Q / E'], ['מצערת', 'Shift / Ctrl · + / −'], ['מצערת סרק / מלאה', 'End / Home'],
   ['גלגלי נחיתה', 'G'], ['מדפים הורדה / הרמה', 'F / R'], ['בלמים (החזק)', 'Space / B'], ['בלם חניה', 'P'], ['בלם אוויר / ספוילרים', 'X'], ['דחף הפוך (על הקרקע)', 'N'],
   ['טרים', '[ / ]'], ['טייס אוטומטי', 'Z'], ['וו נחיתה', 'K'], ['שיגור קטפולטה', 'Enter'], ['אורות', 'L'],
@@ -344,7 +349,7 @@ function drawPanel(fm, cp) {
     const a0 = -Math.PI * 1.25, a1 = Math.PI * 0.25; const A = (v) => lerp(a0, a1, clamp((v - min) / (max - min), 0, 1));
     if (arcs) for (const [f, t, col] of arcs) { c.strokeStyle = col; c.lineWidth = 7; c.beginPath(); c.arc(0, 0, r - 8, A(f), A(t)); c.stroke(); }
     c.strokeStyle = '#ddd'; c.lineWidth = 2; for (let i = 0; i <= 10; i++) { const a = lerp(a0, a1, i / 10); c.beginPath(); c.moveTo(Math.cos(a) * (r - 4), Math.sin(a) * (r - 4)); c.lineTo(Math.cos(a) * (r - 16), Math.sin(a) * (r - 16)); c.stroke(); }
-    c.fillStyle = '#ccc'; c.font = '600 15px "Chakra Petch", sans-serif'; c.textAlign = 'center'; c.fillText(label, 0, r * 0.45); c.font = '700 20px "Chakra Petch", sans-serif'; c.fillText(fmt(val), 0, r * 0.75);
+    c.fillStyle = '#ccc'; c.font = '600 15px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillText(label, 0, r * 0.45); c.font = '700 20px "IBM Plex Mono", monospace'; c.fillText(fmt(val), 0, r * 0.75);
     const a = A(val); c.strokeStyle = '#fff'; c.lineWidth = 4; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * (r - 14), Math.sin(a) * (r - 14)); c.stroke(); c.fillStyle = '#333'; c.beginPath(); c.arc(0, 0, 7, 0, 7); c.fill();
     c.restore();
   };
@@ -590,7 +595,15 @@ function updatePanel(fm) {
   const lamp = (id, on, cls = 'g') => { $(id).className = 'lamp' + (on ? ' ' + cls : ''); };
   lamp('lBrk', fm.in.brake > 0, 'a'); lamp('lPark', fm.parking, 'r'); lamp('lSpd', fm.spoilerPos > 0.1, 'a'); lamp('lAp', !!fm.ap, 'g'); lamp('lRev', fm.reverse, 'a'); lamp('lAb', fm.ab > 0.1, 'a');
   lamp('lHook', fm.hookPos > 0.5, 'a'); lamp('lLt', AC_I.lights, 'g'); lamp('lStall', fm.stallWarn, 'r');
-  $('trimFill').style.height = (50 + fm.trim / 0.08 * 50) + '%'; $('trimV').textContent = (fm.trim * 100).toFixed(1);
+  $('trimFill').style.width = (50 + fm.trim / 0.08 * 50) + '%'; $('trimV').textContent = (fm.trim * 100).toFixed(1);
+  ['thrFill', 'engFill', 'flapFill'].forEach(id => { const el = $(id); el.style.width = el.style.height; });
+  if (isTouch) {
+    $('thrT').textContent = d.engine.ab && fm.in.throttle > 0.9 ? 'A/B' : thrPct + '%';
+    const st = { parking: fm.parking, speedbrake: fm.spoilers > 0, reverse: fm.reverse, autopilot: !!fm.ap, hook: fm.hook, lights: AC_I.lights, hud: S.hudOn, sound: Audio.on };
+    document.querySelectorAll('#tmore button').forEach(b => b.classList.toggle('on', !!st[b.dataset.a]));
+    document.querySelector('#tbtns [data-k=gear]').classList.toggle('on', fm.gearDown && d.retract);
+    document.querySelector('#tbtns [data-k=brake]').classList.toggle('on', fm.in.brake > 0);
+  }
 }
 
 // ---------------------------------------------------------------- Parked traffic (static scenery)
@@ -616,6 +629,7 @@ async function boot() {
     await step(38, 'העיר…'); buildCity();
     await step(48, 'נושאת המטוסים…'); buildCarrier();
     await step(55, 'מטוסים בחניה…'); buildParked();
+    await step(58, 'ים ושוניות…'); buildDepthTexture();
     await step(60, 'מפה…'); buildMapImage();
     const ap = AIRPORTS[0]; let left = 999; let it = 0;
     while (left > 0 && it < 400) { left = updateTerrain(ap.x, ap.z, 40); it++; await step(60 + Math.min(38, it * 0.9), `שטח ויערות… ${left}`); }

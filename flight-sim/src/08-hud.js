@@ -8,15 +8,15 @@ const _pv = new THREE.Vector3();
 function proj(p) { _pv.copy(p).project(camera); if (_pv.z > 1 || _pv.z < -1) return null; return { x: (_pv.x * 0.5 + 0.5) * HW, y: (-_pv.y * 0.5 + 0.5) * HH }; }
 function projDir(d) { return proj(_pv.copy(camera.position).addScaledVector(d, 1000).clone()); }
 
-const HUDC = { main: '#8dffb8', dim: 'rgba(141,255,184,0.55)', warn: '#ff5a4a', amber: '#ffb23f' };
-function hudText(t, x, y, size = 14, align = 'center', col = HUDC.main, weight = 600) { hud.font = `${weight} ${size}px "Chakra Petch", ui-monospace, monospace`; hud.textAlign = align; hud.fillStyle = col; hud.fillText(t, x, y); }
+const HUDC = { main: '#a6ffc9', dim: 'rgba(166,255,201,0.5)', warn: '#ff6b5c', amber: '#f4c56a' };
+function hudText(t, x, y, size = 14, align = 'center', col = HUDC.main, weight = 500) { hud.font = `${weight} ${size}px "IBM Plex Mono", ui-monospace, monospace`; hud.textAlign = align; hud.fillStyle = col; hud.fillText(t, x, y); }
 
 function drawHUD(fm, S) {
   hud.setTransform(DPR, 0, 0, DPR, 0, 0); hud.clearRect(0, 0, HW, HH); hud.direction = 'ltr';
   if (!S.hudOn || !fm || S.state === 'menu') return;
   const T = fm.tele; if (!T.att) return;
   const att = T.att; const col = HUDC.main;
-  hud.lineWidth = 1.6; hud.strokeStyle = col; hud.fillStyle = col; hud.shadowColor = 'rgba(0,30,10,0.85)'; hud.shadowBlur = 4;
+  hud.lineWidth = 1.6; hud.strokeStyle = col; hud.fillStyle = col; hud.shadowColor = 'rgba(0,20,8,0.7)'; hud.shadowBlur = 2;
   const cx = HW / 2, cy = HH / 2; const R = Math.min(HW, HH) * 0.36;
   const small = HW < 720;
   const conformal = S.cam === 'chase' || S.cam === 'cockpit';
@@ -110,7 +110,7 @@ function drawHUD(fm, S) {
   hudText(String(Math.round(att.hdg)).padStart(3, '0'), cx, hy + 36, 14, 'center', col, 700);
   // ---- bottom-left data block
   const bx = tx - 40, by = cy + tapeH / 2 + 62;
-  if (!small) {
+  if (!small && !isTouch) {
     hudText(`G ${fm.nz.toFixed(1)}`, bx, by, 13, 'left', Math.abs(fm.nz) > (fm.d.gMax || 4) * 0.9 ? HUDC.warn : col);
     hudText(`α ${(T.alpha * RAD).toFixed(1)}°`, bx, by + 16, 13, 'left', fm.stallWarn ? HUDC.warn : HUDC.dim);
     hudText(`MAX ${fm.gmax.toFixed(1)}`, bx, by + 32, 11, 'left', HUDC.dim);
@@ -160,13 +160,14 @@ function drawMinimap(fm, S) {
   mmc.drawImage(mapImg, (-MAP_R - cxm) * scale, (-MAP_R - czm) * scale, MAP_R * 2 * scale, MAP_R * 2 * scale);
   const toM = (x, z) => [(x - cxm) * scale, (z - czm) * scale];
   mmc.lineCap = 'round';
-  for (const r of runwayInfo) { const [x1, y1] = toM(r.thr.x, r.thr.z), [x2, y2] = toM(r.far.x, r.far.z); mmc.strokeStyle = '#f2f2ee'; mmc.lineWidth = Math.max(3, r.ap.wid * scale); mmc.beginPath(); mmc.moveTo(x1, y1); mmc.lineTo(x2, y2); mmc.stroke(); mmc.fillStyle = '#ffffff'; mmc.font = `600 ${big ? 18 : 20}px "Chakra Petch", sans-serif`; mmc.textAlign = 'center'; mmc.fillText(r.ap.id, x1 + 24, y1); }
+  for (const r of runwayInfo) { const [x1, y1] = toM(r.thr.x, r.thr.z), [x2, y2] = toM(r.far.x, r.far.z); mmc.strokeStyle = '#f2f2ee'; mmc.lineWidth = Math.max(3, r.ap.wid * scale); mmc.beginPath(); mmc.moveTo(x1, y1); mmc.lineTo(x2, y2); mmc.stroke(); mmc.fillStyle = '#ffffff'; mmc.font = `600 ${big ? 18 : 20}px "IBM Plex Mono", monospace`; mmc.textAlign = 'center'; mmc.fillText(r.ap.id, x1 + 24, y1); }
   { const C = WORLD.carrier; const [x, y] = toM(C.x, C.z); mmc.fillStyle = '#c9d2dc'; mmc.fillRect(x - 4, y - 14, 8, 28); }
   if (S.rings) S.rings.forEach((r, i) => { if (r.done) return; const [x, y] = toM(r.pos.x, r.pos.z); mmc.strokeStyle = i === S.ringIdx ? '#ffb23f' : 'rgba(255,178,63,0.5)'; mmc.lineWidth = 3; mmc.beginPath(); mmc.arc(x, y, 7, 0, 7); mmc.stroke(); });
   const [ax, ay] = toM(px, pz); const hdg = fm.tele.att ? fm.tele.att.hdg * DEG : 0;
   mmc.translate(ax, ay); mmc.rotate(hdg); mmc.fillStyle = '#ffb23f'; mmc.strokeStyle = '#1a1004'; mmc.lineWidth = 2;
   mmc.beginPath(); mmc.moveTo(0, -16); mmc.lineTo(10, 12); mmc.lineTo(0, 6); mmc.lineTo(-10, 12); mmc.closePath(); mmc.fill(); mmc.stroke();
   mmc.restore();
-  mmc.fillStyle = 'rgba(6,9,13,0.6)'; mmc.fillRect(0, H - 34, W, 34); mmc.fillStyle = '#e7eef6'; mmc.font = '600 20px "Chakra Petch", sans-serif'; mmc.textAlign = 'left';
+  if (!big) return;
+  mmc.fillStyle = 'rgba(6,9,13,0.6)'; mmc.fillRect(0, H - 34, W, 34); mmc.fillStyle = '#e7eef6'; mmc.font = '500 20px "IBM Plex Mono", monospace'; mmc.textAlign = 'left';
   mmc.fillText(`${(fm.pos.x / 1000).toFixed(1)}  ${(-fm.pos.z / 1000).toFixed(1)} km`, 12, H - 10); mmc.textAlign = 'right'; mmc.fillText('N↑', W - 12, H - 10);
 }

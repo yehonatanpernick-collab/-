@@ -99,7 +99,21 @@ terrainMat.onBeforeCompile = (sh) => {
       float n3 = vnoise(vWPos.xz * 0.9);
       float fineFade = smoothstep(900.0, 60.0, dist) * uDetail;
       float det = 0.86 + 0.26 * n1 + (0.18 * n2 - 0.09) * smoothstep(6000.0, 300.0, dist) + (0.16 * n3 - 0.08) * fineFade;
-      diffuseColor.rgb *= det;`);
+      diffuseColor.rgb *= det;
+      float macro = vnoise(vWPos.xz * 0.0011);
+      diffuseColor.rgb *= mix(vec3(1.06, 1.02, 0.9), vec3(0.92, 1.0, 1.04), macro);`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      {
+        float fadeN = smoothstep(1800.0, 40.0, dist) * uDetail;
+        if (fadeN > 0.001) {
+          vec2 pp = vWPos.xz; float e = 0.7;
+          float h0 = vnoise(pp * 0.08) * 1.6 + vnoise(pp * 0.45) * 0.45 + vnoise(pp * 2.1) * 0.08;
+          float hx = vnoise((pp + vec2(e, 0.0)) * 0.08) * 1.6 + vnoise((pp + vec2(e, 0.0)) * 0.45) * 0.45 + vnoise((pp + vec2(e, 0.0)) * 2.1) * 0.08;
+          float hz = vnoise((pp + vec2(0.0, e)) * 0.08) * 1.6 + vnoise((pp + vec2(0.0, e)) * 0.45) * 0.45 + vnoise((pp + vec2(0.0, e)) * 2.1) * 0.08;
+          vec3 dn = (viewMatrix * vec4(-(hx - h0) / e, 0.0, -(hz - h0) / e, 0.0)).xyz;
+          normal = normalize(normal + dn * fadeN * 0.9);
+        }
+      }`);
 };
 
 // ---------------------------------------------------------------- Terrain streaming
@@ -107,7 +121,7 @@ const CHUNK = 2000;
 const terrainGroup = new THREE.Group(); scene.add(terrainGroup);
 const chunks = new Map();
 let VIEW_R = 9;
-function lodFor(d) { return d <= 1 ? 100 : d <= 2 ? 64 : d <= 4 ? 32 : d <= 6 ? 14 : 6; }
+function lodFor(d) { return d <= 1 ? 128 : d <= 2 ? 72 : d <= 4 ? 36 : d <= 7 ? 16 : 7; }
 
 function buildChunkGeometry(cx, cz, n) {
   const step = CHUNK / n, ox = cx * CHUNK, oz = cz * CHUNK;
@@ -127,7 +141,9 @@ function buildChunkGeometry(cx, cz, n) {
     pos[idx * 3] = ci * step; pos[idx * 3 + 1] = edge ? h - skirt : h; pos[idx * 3 + 2] = cj * step;
     nor[idx * 3] = nx; nor[idx * 3 + 1] = ny; nor[idx * 3 + 2] = nz;
     const c = terrainColor(ox + ci * step, oz + cj * step, h, ny);
-    col[idx * 3] = c.r; col[idx * 3 + 1] = c.g; col[idx * 3 + 2] = c.b;
+    const curv = (hl + hr + hd + hu) * 0.25 - h; // >0 in hollows
+    const ao = clamp(1 - curv / (step * 0.9 + 4) * 0.55, 0.62, 1.08);
+    col[idx * 3] = c.r * ao; col[idx * 3 + 1] = c.g * ao; col[idx * 3 + 2] = c.b * ao;
   }
   const ind = new (W * W > 65535 ? Uint32Array : Uint16Array)((W - 1) * (W - 1) * 6); let k = 0;
   for (let j = 0; j < W - 1; j++) for (let i = 0; i < W - 1; i++) {
@@ -231,7 +247,13 @@ const oceanUniforms = {
   uSkyCol: { value: new THREE.Color(0.5, 0.65, 0.85) }, uHorizon: { value: new THREE.Color(0.7, 0.8, 0.9) },
   uDeep: { value: linear(0.02, 0.10, 0.16) }, uShallow: { value: linear(0.05, 0.28, 0.32) },
   uFogCol: { value: new THREE.Color() }, uFogDen: { value: 0.00004 }, uWave: { value: 1 },
+  uDepth: { value: null }, uMapR: { value: 34000 }, uReef: { value: linear(0.06, 0.42, 0.4) },
 };
+function buildDepthTexture(R = 34000, N = 512) {
+  const d = new Uint8Array(N * N * 4);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const h = terrainHeight((i / N * 2 - 1) * R, (j / N * 2 - 1) * R); const k = (j * N + i) * 4; d[k] = clamp(-h / 80, 0, 1) * 255; d[k + 1] = h > 0 ? 255 : 0; d[k + 3] = 255; }
+  const t = new THREE.DataTexture(d, N, N); t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter; t.needsUpdate = true; oceanUniforms.uDepth.value = t; oceanUniforms.uMapR.value = R;
+}
 const oceanMat = new THREE.ShaderMaterial({
   uniforms: oceanUniforms,
   vertexShader: `varying vec3 vW;
@@ -240,7 +262,7 @@ const oceanMat = new THREE.ShaderMaterial({
     void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
     #include <logdepthbuf_vertex>
     }`,
-  fragmentShader: `uniform float uTime, uFogDen, uWave; uniform vec3 uSunDir, uSunCol, uSkyCol, uHorizon, uDeep, uShallow, uFogCol; varying vec3 vW;
+  fragmentShader: `uniform float uTime, uFogDen, uWave, uMapR; uniform sampler2D uDepth; uniform vec3 uSunDir, uSunCol, uSkyCol, uHorizon, uDeep, uShallow, uFogCol, uReef; varying vec3 vW;
     #include <common>
     #include <logdepthbuf_pars_fragment>
     ${GLSL_NOISE}
@@ -259,8 +281,18 @@ const oceanMat = new THREE.ShaderMaterial({
       vec3 R = reflect(-V, N);
       vec3 sky = mix(uHorizon, uSkyCol, smoothstep(0.0, 0.45, R.y));
       float sunAmt = max(uSunDir.y, 0.0);
-      vec3 water = mix(uDeep, uShallow, 0.25 + 0.25*g.x) * (0.25 + 0.75*sunAmt) ;
-      vec3 col = mix(water, sky, fres);
+      vec2 duv = vW.xz / (2.0 * uMapR) + 0.5;
+      float depth = 80.0;
+      if (duv.x > 0.0 && duv.x < 1.0 && duv.y > 0.0 && duv.y < 1.0) { vec4 dt = texture2D(uDepth, duv); depth = dt.r * 80.0 + (1.0 - dt.g) * 0.0; if (dt.g > 0.5) depth = 0.0; }
+      depth += (vnoise(p * 0.02) - 0.5) * 3.0;
+      vec3 water = mix(uDeep, uShallow, 0.25 + 0.25*g.x);
+      water = mix(water, uReef, exp(-max(depth, 0.0) / 9.0) * 0.85);
+      water *= (0.25 + 0.75*sunAmt);
+      vec3 col = mix(water, sky, fres * mix(0.55, 1.0, smoothstep(0.0, 12.0, depth)));
+      float shore = smoothstep(4.0, 0.3, depth);
+      float bands = smoothstep(0.55, 0.95, sin(depth * 2.4 - uTime * 1.3 + vnoise(p * 0.05) * 4.0) * 0.5 + 0.5);
+      float foam = clamp(shore * (0.45 + 0.55 * bands) * (0.55 + 0.45 * vnoise(p * 0.35 + uTime * 0.2)), 0.0, 1.0) * fade;
+      col = mix(col, vec3(0.92, 0.95, 0.96) * (0.3 + 0.7 * sunAmt), foam * 0.85);
       float spec = pow(max(dot(R, uSunDir), 0.0), 380.0) * 6.0 + pow(max(dot(R, uSunDir), 0.0), 40.0) * 0.25;
       col += uSunCol * spec * step(0.0, uSunDir.y);
       float fog = 1.0 - exp(-uFogDen*uFogDen*dist*dist);
@@ -335,7 +367,7 @@ function runwayTexture(len, wid, numA, numB) {
     pianoKeys(true); pianoKeys(false);
     const tdz = (fromTop) => { for (const d of [150, 300, 450, 600]) { for (const s of [-1, 1]) { const y = fromTop ? d : len - d - 22; const bw = d === 300 ? 9 : 3; c.fillRect(W / 2 + s * 6 * sx - (s < 0 ? bw * 2 * sx : 0), y * sy, bw * 2 * sx, 22 * sy); } } };
     tdz(true); tdz(false);
-    c.font = `bold ${Math.round(24 * sy * 1.0)}px "Chakra Petch", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `bold ${Math.round(24 * sy * 1.0)}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.save(); c.translate(W / 2, 62 * sy); c.rotate(Math.PI); c.scale(sx / sy, 1.4); c.fillText(numA, 0, 0); c.restore();
     c.save(); c.translate(W / 2, H - 62 * sy); c.scale(sx / sy, 1.4); c.fillText(numB, 0, 0); c.restore();
   });
@@ -542,7 +574,7 @@ function buildCarrier() {
     c.strokeStyle = '#c9c9c4'; c.lineWidth = 2.5; for (const z of [110, 98, 86, 74]) { c.beginPath(); c.moveTo(X(-16), Y(z)); c.lineTo(X(12), Y(z)); c.stroke(); }
     // catapult tracks
     c.strokeStyle = '#1d1f21'; c.lineWidth = 3; c.beginPath(); c.moveTo(X(-2), Y(-60)); c.lineTo(X(-2), Y(-L2 + 4)); c.stroke();
-    c.fillStyle = '#f2f2ee'; c.font = `bold ${Math.round(24 * sy)}px "Chakra Petch", sans-serif`; c.textAlign = 'center'; c.save(); c.translate(X(-2), Y(10)); c.scale(sx / sy * 1.2, 1); c.fillText('77', 0, 0); c.restore();
+    c.fillStyle = '#f2f2ee'; c.font = `bold ${Math.round(24 * sy)}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`; c.textAlign = 'center'; c.save(); c.translate(X(-2), Y(10)); c.scale(sx / sy * 1.2, 1); c.fillText('77', 0, 0); c.restore();
   });
   const deck = new THREE.Mesh(new THREE.PlaneGeometry(W2 * 2 + 4, C.len + 12).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: deckTex, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   deck.position.set(0, C.deck + 0.05, -6); deck.receiveShadow = true; g.add(deck);

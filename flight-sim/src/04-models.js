@@ -110,7 +110,7 @@ function navLight(parent, pos, color, size = 0.9) {
 function liveryTex(draw) { const t = canvasTex(1024, 2048, draw); t.flipY = false; t.needsUpdate = true; return t; }
 // helper: draw text along fuselage on one side; u = around (0..1), v = along (0 nose .. 1 tail)
 function sideText(c, text, u, v, size, side, color, font = 'bold') {
-  c.save(); c.translate(u * 1024, v * 2048); c.rotate(side > 0 ? -Math.PI / 2 : Math.PI / 2); c.fillStyle = color; c.font = `${font} ${size}px "Chakra Petch", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.save(); c.translate(u * 1024, v * 2048); c.rotate(side > 0 ? -Math.PI / 2 : Math.PI / 2); c.fillStyle = color; c.font = `${font} ${size}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.scale(1, 0.5); c.fillText(text, 0, 0); c.restore();
 }
 function windowsRow(c, u, v0, v1, n, w, h, color = '#11161c') { c.fillStyle = color; for (let i = 0; i < n; i++) { const v = lerp(v0, v1, i / (n - 1)); c.beginPath(); c.roundRect(u * 1024 - w / 2, v * 2048 - h / 2, w, h, Math.min(w, h) * 0.45); c.fill(); } }

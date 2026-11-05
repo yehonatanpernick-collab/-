@@ -27,10 +27,11 @@ addEventListener('keyup', (e) => Input.keys.delete(e.code));
 addEventListener('blur', () => Input.keys.clear());
 
 // Mouse look (drag) + wheel zoom
-canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') return; Input.look.dragging = true; Input.look.lx = e.clientX; Input.look.ly = e.clientY; });
-addEventListener('pointerup', () => { Input.look.dragging = false; });
+canvas.addEventListener('pointerdown', (e) => { if (Input.look.dragging) return; Input.look.dragging = true; Input.look.pid = e.pointerId; Input.look.lx = e.clientX; Input.look.ly = e.clientY; $('tmore').classList.remove('open'); });
+addEventListener('pointerup', (e) => { if (e.pointerId === Input.look.pid) Input.look.dragging = false; });
+addEventListener('pointercancel', (e) => { if (e.pointerId === Input.look.pid) Input.look.dragging = false; });
 addEventListener('pointermove', (e) => {
-  if (!Input.look.dragging) return; const dx = e.clientX - Input.look.lx, dy = e.clientY - Input.look.ly; Input.look.lx = e.clientX; Input.look.ly = e.clientY;
+  if (!Input.look.dragging || e.pointerId !== Input.look.pid) return; const dx = e.clientX - Input.look.lx, dy = e.clientY - Input.look.ly; Input.look.lx = e.clientX; Input.look.ly = e.clientY;
   Input.look.yaw -= dx * 0.005; Input.look.pitch = clamp(Input.look.pitch - dy * 0.004, -1.3, 1.3);
 });
 canvas.addEventListener('wheel', (e) => { Input.look.zoom = clamp(Input.look.zoom * (e.deltaY > 0 ? 1.1 : 0.9), 0.35, 4); e.preventDefault(); }, { passive: false });
@@ -40,7 +41,7 @@ canvas.addEventListener('dblclick', () => { Input.look.yaw = 0; Input.look.pitch
 (function setupTouch() {
   const stick = $('stick'), knob = stick.querySelector('i'), thr = $('thr'), tk = thr.querySelector('i');
   let sid = null, tid = null;
-  const setStick = (t) => { const r = stick.getBoundingClientRect(); let x = (t.clientX - r.left - r.width / 2) / (r.width / 2), y = (t.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } Input.touch.x = x; Input.touch.y = y; knob.style.transform = `translate(${x * 46}px,${y * 46}px)`; };
+  const setStick = (t) => { const r = stick.getBoundingClientRect(); let x = (t.clientX - r.left - r.width / 2) / (r.width / 2), y = (t.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } Input.touch.x = x; Input.touch.y = y; knob.style.transform = `translate(${x * 44}px,${y * 44}px)`; };
   stick.addEventListener('pointerdown', (e) => { sid = e.pointerId; stick.setPointerCapture(sid); Input.touch.active = true; setStick(e); });
   stick.addEventListener('pointermove', (e) => { if (e.pointerId === sid) setStick(e); });
   const endS = (e) => { if (e.pointerId !== sid) return; sid = null; Input.touch.x = 0; Input.touch.y = 0; knob.style.transform = ''; };
@@ -49,10 +50,11 @@ canvas.addEventListener('dblclick', () => { Input.look.yaw = 0; Input.look.pitch
   thr.addEventListener('pointerdown', (e) => { tid = e.pointerId; thr.setPointerCapture(tid); setThr(e); });
   thr.addEventListener('pointermove', (e) => { if (e.pointerId === tid) setThr(e); });
   thr.addEventListener('pointerup', () => { tid = null; });
+  document.querySelectorAll('#tmore button').forEach(b => b.addEventListener('click', () => { const a = b.dataset.a; if (a !== 'close') Input.fire(a); if (['close', 'pause', 'map', 'camera'].includes(a)) $('tmore').classList.remove('open'); }));
   Input.setTouchThrottle = (v) => { const r = thr.getBoundingClientRect(); tk.style.bottom = (4 + v * ((r.height || 190) - 38)) + 'px'; };
   document.querySelectorAll('#tbtns button, #rud button').forEach(b => {
     const k = b.dataset.k;
-    b.addEventListener('pointerdown', (e) => { e.preventDefault(); if (k === 'yawL') Input.touch.yawL = true; else if (k === 'yawR') Input.touch.yawR = true; else if (k === 'brake') Input.touch.brake = true; else Input.fire({ gear: 'gear', flapdn: 'flapDown', flapup: 'flapUp', spd: 'speedbrake' }[k]); });
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); if (k === 'yawL') Input.touch.yawL = true; else if (k === 'yawR') Input.touch.yawR = true; else if (k === 'brake') Input.touch.brake = true; else if (k === 'more') $('tmore').classList.toggle('open'); else Input.fire({ gear: 'gear', flapdn: 'flapDown', flapup: 'flapUp', spd: 'speedbrake' }[k]); });
     const up = () => { if (k === 'yawL') Input.touch.yawL = false; if (k === 'yawR') Input.touch.yawR = false; if (k === 'brake') Input.touch.brake = false; };
     b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
   });

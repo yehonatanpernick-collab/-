@@ -88,7 +88,7 @@ const cloudMat = new THREE.ShaderMaterial({
       float d = length(vWorld - cameraPosition);
       float fog = 1.0 - exp(-uFogDen*uFogDen*d*d*0.55);
       col = mix(col, uFogCol, fog);
-      float a = t.a * vAlpha * uOpacity * 1.6;
+      float a = t.a * vAlpha * uOpacity * 1.75;
       if (a < 0.004) discard;
       gl_FragColor = vec4(col, min(a, 1.0));
     }`,
@@ -103,11 +103,11 @@ function buildClouds(kind) {
   const F = cloudU.uField.value;
   for (let i = 0; i < cfg.n; i++) {
     const cx = (r() - 0.5) * F, cz = (r() - 0.5) * F, cy = cfg.base + r() * cfg.thick * 0.4;
-    const R = (300 + r() * 700) * cfg.size; const puffs = 7 + ((r() * 12) | 0);
+    const R = (300 + r() * 700) * cfg.size; const puffs = 11 + ((r() * 16) | 0);
     for (let k = 0; k < puffs; k++) {
       const a = r() * Math.PI * 2, d = Math.sqrt(r()) * R;
       const ox = Math.cos(a) * d, oz = Math.sin(a) * d * 0.8; const oy = (r() * 0.9 + 0.05) * R * 0.55 * (1 - d / R * 0.6);
-      clusters.push(cx, cy, cz); offs.push(ox, oy, oz); infos.push((R * (0.55 + r() * 0.5)), r());
+      clusters.push(cx, cy, cz); offs.push(ox, oy, oz); infos.push((R * (0.4 + r() * 0.42)), r());
     }
   }
   const base = new THREE.PlaneGeometry(2, 2);
