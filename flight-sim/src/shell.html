@@ -1,0 +1,300 @@
+<title>רקיע סימולטור טיסה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans+Hebrew:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed WebGL world; avionics-glass panels float above it. Single dark cockpit look by design. */
+:root{
+  --ink:#06090d;           /* night cockpit black-blue */
+  --glass:rgba(10,16,24,.72);
+  --glass-hi:rgba(22,32,46,.82);
+  --line:rgba(160,190,220,.16);
+  --text:#e7eef6;
+  --muted:#8fa2b6;
+  --amber:#ffb23f;         /* caution amber, primary accent */
+  --amber-deep:#d98a12;
+  --hud:#8dffb8;           /* HUD phosphor */
+  --warn:#ff5a4a;
+  --ok:#5ee08a;
+  --f-display:"Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans Hebrew", "Segoe UI", system-ui, sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--text);overflow:hidden;font-family:var(--f-body);-webkit-user-select:none;user-select:none;touch-action:none}
+canvas{display:block}
+#gl{position:fixed;inset:0;width:100%;height:100%}
+#hud{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,.opt:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* ---------- Loading ---------- */
+#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(120% 90% at 50% 110%,#16263a 0%,var(--ink) 60%);z-index:50;transition:opacity .8s}
+#loading .brand{font-family:var(--f-body);font-weight:700;font-size:clamp(44px,9vw,88px);letter-spacing:.02em;line-height:1}
+#loading .bar{width:min(340px,70vw);height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+#loading .bar i{display:block;height:100%;width:0;background:var(--amber);transition:width .2s}
+#loading .txt{color:var(--muted);font-size:13px;letter-spacing:.08em}
+
+/* ---------- Menu ---------- */
+#menu{position:fixed;inset:0;z-index:30;display:flex;justify-content:flex-start;pointer-events:none;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#menu.hidden{display:none}
+#menu .side{pointer-events:auto;width:min(470px,100%);height:100%;overflow-y:auto;box-sizing:border-box;
+  padding-block:28px 24px;padding-left:max(22px,env(safe-area-inset-left,0px));padding-right:max(22px,env(safe-area-inset-right,0px));
+  background:linear-gradient(270deg,rgba(6,9,13,.92) 0%,rgba(6,9,13,.78) 70%,rgba(6,9,13,0) 100%);display:flex;flex-direction:column;gap:22px}
+.brandrow{display:flex;align-items:flex-end;gap:14px}
+.brandrow h1{margin:0;font-weight:700;font-size:64px;line-height:.9;letter-spacing:.01em}
+.brandrow .sub{display:flex;flex-direction:column;gap:2px;padding-bottom:6px}
+.brandrow .sub b{font-family:var(--f-display);font-weight:600;letter-spacing:.32em;font-size:12px;color:var(--amber);direction:ltr}
+.brandrow .sub span{color:var(--muted);font-size:13px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{margin:0;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.14em;display:flex;align-items:center;gap:10px}
+.sec h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.planes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.plane{border:1px solid var(--line);background:var(--glass);border-radius:10px;padding:10px 10px 9px;text-align:right;display:flex;flex-direction:column;gap:4px;transition:border-color .2s,background .2s;min-width:0}
+.plane:hover{border-color:rgba(255,178,63,.45)}
+.plane.on{border-color:var(--amber);background:linear-gradient(180deg,rgba(255,178,63,.14),rgba(255,178,63,.03))}
+.plane .role{font-size:11px;color:var(--muted)}
+.plane .nm{font-family:var(--f-display);font-weight:700;font-size:17px;letter-spacing:.04em;direction:ltr;text-align:right}
+.plane .st{font-size:11px;color:var(--muted);line-height:1.5}
+.plane .st .num{color:var(--text)}
+.scen{display:flex;flex-direction:column;gap:6px}
+.opt{border:1px solid var(--line);background:var(--glass);border-radius:8px;padding:9px 12px;text-align:right;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:border-color .2s,background .2s}
+.opt:hover{border-color:rgba(255,178,63,.45)}
+.opt.on{border-color:var(--amber);background:rgba(255,178,63,.1)}
+.opt small{color:var(--muted);font-size:11.5px}
+.opt .code{font-family:var(--f-display);font-size:11px;color:var(--amber);letter-spacing:.12em;direction:ltr}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--glass)}
+.seg button{flex:1;border:0;background:transparent;padding:8px 4px;font-size:13px;border-inline-start:1px solid var(--line)}
+.seg button:first-child{border-inline-start:0}
+.seg button.on{background:rgba(255,178,63,.18);color:var(--amber)}
+.row2{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;font-size:13px;color:var(--muted)}
+.go{margin-top:4px;display:flex;gap:8px}
+.go .fly{flex:1;border:0;border-radius:10px;padding:15px;background:var(--amber);color:#1a1004;font-weight:700;font-size:18px;letter-spacing:.04em;box-shadow:0 8px 30px rgba(255,178,63,.25)}
+.go .fly:hover{background:#ffc366}
+.go .ghost{border:1px solid var(--line);background:var(--glass);border-radius:10px;padding:0 16px}
+.foot{color:var(--muted);font-size:11.5px;line-height:1.6}
+
+/* ---------- Instrument strip ---------- */
+#panel{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none;
+  padding-bottom:max(12px,env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));direction:ltr}
+#panel.hidden,#minimapWrap.hidden{display:none}
+.cluster{pointer-events:auto;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;gap:12px;align-items:stretch;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.gauge{display:flex;flex-direction:column;gap:4px;align-items:center;min-width:42px}
+.gauge label{font-family:var(--f-display);font-size:9.5px;letter-spacing:.14em;color:var(--muted)}
+.vbar{width:12px;height:64px;border-radius:3px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
+.vbar i{position:absolute;left:0;right:0;bottom:0;background:var(--hud);border-radius:3px}
+.vbar.ab i{background:linear-gradient(0deg,var(--hud) 0%,var(--hud) 86%,#ffb23f 92%,#ff6a2a 100%)}
+.gauge .v{font-family:var(--f-display);font-size:12px;font-variant-numeric:tabular-nums}
+.lights{display:grid;grid-template-columns:repeat(3,auto);gap:4px 8px;align-content:center}
+.lamp{font-family:var(--f-display);font-size:10px;letter-spacing:.08em;padding:3px 6px;border-radius:4px;border:1px solid var(--line);color:#5d6b7a;text-align:center;min-width:34px}
+.lamp.g{color:#0e2416;background:var(--ok);border-color:var(--ok)}
+.lamp.a{color:#241704;background:var(--amber);border-color:var(--amber)}
+.lamp.r{color:#fff;background:var(--warn);border-color:var(--warn)}
+.gearind{display:flex;gap:4px;align-items:center;justify-content:center}
+.gearind b{width:12px;height:12px;border-radius:3px;background:#24303c;display:block}
+.gearind b.g{background:var(--ok)} .gearind b.t{background:var(--warn)}
+#minimapWrap{position:fixed;z-index:10;top:max(12px,env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));pointer-events:auto;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--glass)}
+#minimap{width:180px;height:180px}
+#minimapWrap.big #minimap{width:min(78vmin,620px);height:min(78vmin,620px)}
+#topright{position:fixed;z-index:10;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:6px;pointer-events:auto}
+#topright button{border:1px solid var(--line);background:var(--glass);border-radius:8px;padding:7px 10px;font-size:12.5px;backdrop-filter:blur(6px)}
+#topright.hidden{display:none}
+
+/* ---------- Toasts and dialogs ---------- */
+#toast{position:fixed;z-index:20;left:50%;top:18%;transform:translateX(-50%);font-family:var(--f-display);letter-spacing:.06em;font-size:15px;padding:8px 16px;border-radius:8px;background:rgba(6,9,13,.6);border:1px solid var(--line);opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+.dialog{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(4,6,9,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:16px}
+.dialog.hidden{display:none}
+.card{width:min(520px,100%);max-height:88vh;overflow:auto;background:var(--glass-hi);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.card h3{margin:0;font-size:26px;font-weight:700}
+.card .k{display:grid;grid-template-columns:1fr auto;gap:6px 16px;font-size:13.5px}
+.card .k span:nth-child(odd){color:var(--muted)}
+.card .k .num{color:var(--text);text-align:left}
+.kbd{display:inline-block;font-family:var(--f-display);font-size:11.5px;border:1px solid rgba(255,255,255,.25);border-bottom-width:2px;border-radius:5px;padding:1px 6px;margin-inline-start:3px;direction:ltr;color:var(--text)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns button{flex:1;border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:9px;padding:11px;min-width:120px}
+.btns button.pri{background:var(--amber);color:#1a1004;border-color:var(--amber);font-weight:700}
+.grade{font-family:var(--f-display);font-size:44px;font-weight:700;color:var(--amber);line-height:1;direction:ltr;text-align:right}
+.crashc h3{color:var(--warn)}
+
+/* ---------- Touch controls ---------- */
+#touch{position:fixed;inset:0;z-index:9;pointer-events:none;display:none}
+#touch.on{display:block}
+#stick{position:absolute;width:150px;height:150px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(10,16,24,.28);pointer-events:auto;
+  left:max(24px,env(safe-area-inset-left,0px));bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+#stick i{position:absolute;width:58px;height:58px;border-radius:50%;left:46px;top:46px;background:rgba(255,178,63,.55);border:1px solid var(--amber)}
+#thr{position:absolute;width:56px;height:190px;border-radius:14px;border:1px solid rgba(255,255,255,.22);background:rgba(10,16,24,.28);pointer-events:auto;
+  right:max(24px,env(safe-area-inset-right,0px));bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+#thr i{position:absolute;left:4px;right:4px;height:30px;border-radius:9px;background:rgba(141,255,184,.55);border:1px solid var(--hud);bottom:4px}
+#tbtns{position:absolute;display:flex;flex-direction:column;gap:6px;pointer-events:auto;
+  right:calc(max(24px,env(safe-area-inset-right,0px)) + 70px);bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+#tbtns button{width:52px;height:38px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:rgba(10,16,24,.45);font-size:12px}
+#tbtns button.on{border-color:var(--amber);color:var(--amber)}
+#rud{position:absolute;display:flex;gap:6px;pointer-events:auto;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(60px + env(safe-area-inset-bottom,0px))}
+#rud button{width:70px;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:rgba(10,16,24,.45);font-size:12px}
+
+@media (max-width:720px){
+  #menu .side{width:100%;background:linear-gradient(0deg,rgba(6,9,13,.95) 0%,rgba(6,9,13,.86) 60%,rgba(6,9,13,.55) 100%);padding-top:38vh}
+  .brandrow h1{font-size:50px}
+  #minimap{width:120px;height:120px}
+  #panel .cluster{padding:7px 8px;gap:8px}
+  .vbar{height:48px}
+  .hidemob{display:none!important}
+}
+
+/* touch layout: stick bottom-left, throttle & buttons bottom-right, gauges bottom-center */
+body.touch #panel{justify-content:center;padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+body.touch #panel .cluster:nth-child(2){display:none}
+body.touch #panel .cluster{padding:6px 8px;gap:8px}
+body.touch .vbar{height:44px}
+body.touch #minimap{width:118px;height:118px}
+body.touch #stick{bottom:calc(16px + env(safe-area-inset-bottom,0px));width:132px;height:132px}
+body.touch #stick i{left:37px;top:37px}
+body.touch #thr{bottom:calc(16px + env(safe-area-inset-bottom,0px));height:170px}
+body.touch #tbtns{bottom:calc(16px + env(safe-area-inset-bottom,0px));flex-direction:column-reverse}
+body.touch #tbtns button{height:32px;width:58px}
+body.touch #rud{left:calc(max(24px,env(safe-area-inset-left,0px)) + 142px);bottom:calc(16px + env(safe-area-inset-bottom,0px));flex-direction:column}
+body.touch #rud button{width:62px;height:32px}
+@media (max-width:720px){ body.touch #panel{display:none} }
+@media (orientation:portrait){ body.touch #panel .cluster{transform:scale(.85)} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<canvas id="gl"></canvas>
+<canvas id="hud"></canvas>
+
+<div id="loading" dir="rtl">
+  <div class="brand">רקיע</div>
+  <div class="bar"><i id="loadbar"></i></div>
+  <div class="txt" id="loadtxt">בונה את העולם…</div>
+</div>
+
+<div id="menu" class="hidden" dir="rtl">
+  <div class="side">
+    <div class="brandrow">
+      <h1>רקיע</h1>
+      <div class="sub"><b>FLIGHT SIMULATOR</b><span>מפרץ אלמוג · 60×60 ק״מ של עולם פתוח</span></div>
+    </div>
+
+    <div class="sec">
+      <h2>מטוס</h2>
+      <div class="planes" id="planes"></div>
+    </div>
+
+    <div class="sec">
+      <h2>תרחיש</h2>
+      <div class="scen" id="scen"></div>
+    </div>
+
+    <div class="sec">
+      <h2>תנאים</h2>
+      <div class="row2">
+        <span>שעה</span><div class="seg" id="segTime"></div>
+        <span>מזג אוויר</span><div class="seg" id="segWx"></div>
+        <span>רוח</span><div class="seg" id="segWind"></div>
+        <span>גרפיקה</span><div class="seg" id="segQ"></div>
+        <span>גובה (הגה)</span><div class="seg" id="segInv"></div>
+      </div>
+    </div>
+
+    <div class="go">
+      <button class="fly" id="btnFly">המראה</button>
+      <button class="ghost" id="btnKeys">מקשים</button>
+    </div>
+    <div class="foot">טיפ: שלב גלגלים <span class="kbd">G</span>, מדפים <span class="kbd">F</span>/<span class="kbd">R</span>, מצערת <span class="kbd">Shift</span>/<span class="kbd">Ctrl</span>, בלם חניה <span class="kbd">P</span>. בטלפון יופיעו בקרי מגע. בקר משחק נתמך.</div>
+  </div>
+</div>
+
+<div id="panel" class="hidden">
+  <div class="cluster">
+    <div class="gauge"><label>THR</label><div class="vbar" id="thrBar"><i id="thrFill"></i></div><div class="v" id="thrV">0</div></div>
+    <div class="gauge"><label id="engLbl">N1</label><div class="vbar"><i id="engFill"></i></div><div class="v" id="engV">0</div></div>
+    <div class="gauge"><label>FLAP</label><div class="vbar"><i id="flapFill" style="background:#9cc7ff"></i></div><div class="v" id="flapV">0</div></div>
+    <div class="gauge"><label>GEAR</label><div class="gearind" style="flex-direction:column;gap:3px;height:64px;justify-content:center"><b id="gN"></b><div class="gearind"><b id="gL"></b><b id="gR"></b></div></div><div class="v" id="gearV">DN</div></div>
+  </div>
+  <div class="cluster hidemob">
+    <div class="lights">
+      <span class="lamp" id="lBrk">BRK</span><span class="lamp" id="lPark">PARK</span><span class="lamp" id="lSpd">SPD BRK</span>
+      <span class="lamp" id="lAp">A/P</span><span class="lamp" id="lRev">REV</span><span class="lamp" id="lAb">A/B</span>
+      <span class="lamp" id="lHook">HOOK</span><span class="lamp" id="lLt">LIGHTS</span><span class="lamp" id="lStall">STALL</span>
+    </div>
+    <div class="gauge"><label>TRIM</label><div class="vbar"><i id="trimFill" style="background:#d8c7ff;height:50%"></i></div><div class="v" id="trimV">0</div></div>
+  </div>
+</div>
+
+<div id="minimapWrap" class="hidden"><canvas id="minimap" width="360" height="360"></canvas></div>
+<div id="topright" class="hidden" dir="rtl">
+  <button id="tbFull" class="hidemob">מסך מלא</button>
+  <button id="tbCam">מצלמה</button>
+  <button id="tbHud">HUD</button>
+  <button id="tbSnd">קול</button>
+  <button id="tbMenu">תפריט</button>
+</div>
+<div id="toast" dir="rtl"></div>
+
+<div id="touch">
+  <div id="stick"><i></i></div>
+  <div id="thr"><i></i></div>
+  <div id="tbtns">
+    <button data-k="gear">גלגלים</button>
+    <button data-k="flapdn">מדף +</button>
+    <button data-k="flapup">מדף −</button>
+    <button data-k="brake">בלם</button>
+    <button data-k="spd">בלם אוויר</button>
+  </div>
+  <div id="rud"><button data-k="yawL">◀ הגה</button><button data-k="yawR">הגה ▶</button></div>
+</div>
+
+<div dir="rtl" class="dialog hidden" id="dlgKeys">
+  <div class="card">
+    <h3>מקשים</h3>
+    <div class="k" id="keysList"></div>
+    <div class="btns"><button class="pri" data-close>סגור</button></div>
+  </div>
+</div>
+
+<div dir="rtl" class="dialog hidden" id="dlgPause">
+  <div class="card">
+    <h3>השהיה</h3>
+    <div class="btns">
+      <button class="pri" id="pResume">המשך טיסה</button>
+      <button id="pRestart">התחל מחדש</button>
+      <button id="pMenu">תפריט ראשי</button>
+    </div>
+  </div>
+</div>
+
+<div dir="rtl" class="dialog hidden" id="dlgCrash">
+  <div class="card crashc">
+    <h3 id="crashTitle">התרסקות</h3>
+    <div id="crashWhy" style="color:var(--muted)"></div>
+    <div class="btns">
+      <button class="pri" id="cRestart">נסה שוב <span class="kbd">Enter</span></button>
+      <button id="cMenu">תפריט ראשי</button>
+    </div>
+  </div>
+</div>
+
+<div dir="rtl" class="dialog hidden" id="dlgLand">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <h3 id="landTitle">נחיתה</h3><div class="grade" id="landGrade">A</div>
+    </div>
+    <div class="k" id="landStats"></div>
+    <div class="btns">
+      <button class="pri" id="lContinue">המשך</button>
+      <button id="lRestart">שוב</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+/*__JS__*/
+</script>
