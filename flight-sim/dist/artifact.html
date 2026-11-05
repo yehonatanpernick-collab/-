@@ -1359,27 +1359,33 @@ function makeGear(parent, at, r, strutTop, opts = {}) {
 
 // ---------------------------------------------------------------- Afterburner flame
 const flameMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uAB: { value: 0 }, uPow: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { uTime: { value: 0 }, uAB: { value: 0 }, uPow: { value: 0 }, uKick: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
     #include <common>
     #include <logdepthbuf_pars_vertex>
     void main(){ vUv = uv; vec4 mv = modelViewMatrix*vec4(position,1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv;
     #include <logdepthbuf_vertex>
     }`,
-  fragmentShader: `uniform float uTime, uAB, uPow; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  fragmentShader: `uniform float uTime, uAB, uPow, uKick; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
     #include <common>
     #include <logdepthbuf_pars_fragment>
     ${GLSL_NOISE}
     void main(){
       #include <logdepthbuf_fragment>
-      float along = vUv.y; // 1 at nozzle, 0 at tip
-      float rim = pow(abs(dot(vN, vV)), 1.5);
-      float n = vnoise(vec2(vUv.x*8.0, along*6.0 - uTime*18.0));
-      float diamonds = 0.6 + 0.4*sin(along*36.0 - uTime*2.0);
-      float a = pow(along, 1.6) * rim * (0.55 + 0.45*n) * diamonds;
-      vec3 core = mix(vec3(1.0,0.45,0.15), vec3(0.6,0.75,1.0), pow(along, 3.0));
-      vec3 col = core * a * (uAB * 3.2) + vec3(1.0,0.5,0.2)*a*uPow*0.18;
-      gl_FragColor = vec4(col, a * (uAB + uPow*0.08));
+      float along = vUv.y;                       // 1 at nozzle, 0 at tip
+      float len = 1.0 - along;
+      float rim = pow(abs(dot(vN, vV)), 1.2);   // bright core, soft edge
+      float turb = vnoise(vec2(vUv.x*14.0 + uTime*3.0, len*7.0 - uTime*26.0)) * 0.6 + vnoise(vec2(vUv.x*29.0, len*17.0 - uTime*44.0)) * 0.4;
+      float cells = 0.55 + 0.45 * pow(abs(sin(len * 30.0 - uTime * 3.0 + uKick * 4.0)), 3.0);
+      float body = pow(along, 1.25) * rim * (0.5 + 0.7*turb);
+      vec3 hot  = vec3(1.0, 0.97, 0.9), mid = vec3(1.0, 0.56, 0.2), cool = vec3(0.35, 0.5, 1.0);
+      vec3 col = mix(mid, hot, smoothstep(0.55, 1.0, along) * rim);
+      col = mix(cool, col, smoothstep(0.02, 0.35, along) );
+      col += cool * pow(rim, 3.0) * 0.4 * smoothstep(0.7, 1.0, along);
+      float ab = uAB * (1.0 + uKick * 0.8);
+      float dry = uPow * 0.14 * pow(along, 2.4) * rim;     // dry thrust: short blue-orange shimmer
+      float a = body * cells * ab + dry;
+      gl_FragColor = vec4(col * a * 3.4, clamp(a, 0.0, 1.0));
     }`,
 });
 
@@ -1483,7 +1489,9 @@ function buildFighter() {
   const glow = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), new THREE.MeshBasicMaterial({ color: 0x331100 })); glow.position.set(0, 0.05, 7.2); root.add(glow); P.nozzleGlow = glow;
   const flame = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.05, 6, 24, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 10.9), flameMat); flame.renderOrder = 10; root.add(flame);
   const flame2 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.02, 3.2, 16, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 9.5), flameMat); flame2.renderOrder = 10; root.add(flame2);
-  P.flame = [flame, flame2];
+  const flame3 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.08, 8.5, 24, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 11.6), flameMat); flame3.renderOrder = 9; root.add(flame3);
+  P.flame = [flame, flame2, flame3];
+  P.glow = navLight(root, new THREE.Vector3(0, 0.05, 7.6), 0xff8a3a, 0); P.glow.renderOrder = 11;
   // wingtip missiles
   for (const s of [-1, 1]) { const m = addMesh(root, new THREE.CylinderGeometry(0.065, 0.065, 2.9, 10).rotateX(Math.PI / 2), solidMat(0xe6e6e6, 0.4)); m.position.set(s * 4.98, -0.12, 1.3); const nose = addMesh(root, new THREE.ConeGeometry(0.065, 0.3, 10).rotateX(-Math.PI / 2), MAT.darkMetal); nose.position.set(s * 4.98, -0.12, -0.25); }
   // speed brakes
@@ -1558,7 +1566,8 @@ function buildAirliner() {
     const fan = new THREE.Group(); fan.position.z = 0.5; eng.add(fan);
     addMesh(fan, new THREE.ConeGeometry(0.3, 0.6, 20).rotateX(-Math.PI / 2), MAT.strut);
     for (let i = 0; i < 18; i++) { const b = addMesh(fan, new THREE.BoxGeometry(0.06, 0.62, 0.12).translate(0, 0.6, 0), MAT.darkMetal, false); b.rotation.z = i / 18 * Math.PI * 2; b.rotation.y = 0.35; }
-    P.fans.push(fan);
+    const fd = new THREE.Mesh(new THREE.CircleGeometry(0.93, 28), new THREE.MeshBasicMaterial({ color: 0x24262a, transparent: true, opacity: 0, depthWrite: false })); fd.position.z = 0.52; fd.rotation.y = Math.PI; eng.add(fd);
+    (P.fanDisc = P.fanDisc || []).push(fd); P.fans.push(fan);
     const core = addMesh(eng, new THREE.ConeGeometry(0.42, 1.2, 20).rotateX(Math.PI / 2).translate(0, 0, 5.3), MAT.darkMetal);
     const pylon = addMesh(eng, new THREE.BoxGeometry(0.28, 0.9, 4.2).translate(0, 1.15, 2.3), wingM);
   }
@@ -1595,7 +1604,7 @@ const AC = {
     CL0: 0.32, CLa: 5.0, aStall: 15.5 * DEG, CD0: 0.032, k: 0.054, CYb: -0.31, mcrit: 0.7, wave: 0,
     flaps: { label: ['0°', '10°', '20°', '30°'], dCL: [0, 0.25, 0.5, 0.72], dCD: [0, 0.012, 0.03, 0.062], dCm: [0, -0.02, -0.04, -0.055], vmax: [999, 57, 51, 44] },
     CDg: 0, retract: false, spoilCD: 0,
-    Cm0: 0.05, Cma: -1.6, Cmq: -12, Cmde: 0.55, Clb: -0.09, Clp: -0.47, Clda: 0.06, Cnb: 0.07, Cnr: -0.11, Cndr: 0.022, Cnda: -0.006, Cldr: 0.004,
+    Cm0: 0.05, Cma: -1.6, Cmq: -18, Cmde: 0.55, Clb: -0.12, Clp: -0.47, Clda: 0.036, Cnb: 0.07, Cnr: -0.11, Cndr: 0.022, Cnda: -0.006, Cldr: 0.004,
     law: 'direct', propwash: 0.6,
     engine: { type: 'prop', P: 134000, eta: 0.8, T0: 3100, spool: 2.6, idle: 0.08, count: 1 },
     gear: [{ p: V3(0, -1.25, -1.6), steer: 22 * DEG, brake: false }, { p: V3(-1.2, -1.25, 0.45), brake: true }, { p: V3(1.2, -1.25, 0.45), brake: true }],
@@ -1860,6 +1869,19 @@ class FlightModel {
     const d = this.d, I = this.in; const { V, qbar, alpha, beta, P, Q, R, att } = s;
     let pitch = I.pitch, roll = I.roll, yaw = I.yaw;
     if (this.ap) { const o = this.autopilot(dt, s); pitch = o.pitch; roll = o.roll; if (o.yaw !== undefined) yaw += o.yaw; }
+    // stick feel: soft centre, full authority at the ends
+    const expo = (x, k) => Math.sign(x) * (k * Math.pow(Math.abs(x), 3) + (1 - k) * Math.abs(x));
+    pitch = expo(pitch, 0.35); roll = expo(roll, 0.45);
+    if (d.law === 'direct' && !this.wow && V >= 25) {
+      // light aircraft: honest but friendly -- damped phugoid, gentle wings-level tendency, coordinated turns
+      const phi = att.roll, th = att.pitch;
+      if (Math.abs(pitch) > 0.02) this._holdTh = th; else { if (this._holdTh === undefined) this._holdTh = th; this._holdTh += (th - this._holdTh) * Math.min(1, dt / 4); }
+      const e = pitch - Q * 0.28 + (Math.abs(pitch) > 0.02 ? 0 : (this._holdTh - th) * 0.35) + (1 / Math.max(Math.cos(clamp(phi, -1.2, 1.2)), 0.45) - 1) * 0.42;
+      let a = roll - P * 0.12;
+      if (Math.abs(roll) < 0.02 && Math.abs(phi) < 35 * DEG) a += -phi * 0.45 - P * 0.25;
+      const r = yaw + beta * 2.2 + roll * 0.28;
+      return { e: clamp(e, -1, 1), a: clamp(a, -1, 1), r: clamp(r, -1, 1) };
+    }
     if (d.law === 'direct' || this.wow || V < 25) {
       return { e: clamp(pitch, -1, 1), a: clamp(roll, -1, 1), r: clamp(yaw, -1, 1) };
     }
@@ -1897,7 +1919,7 @@ class FlightModel {
     }
     const e = (6 * (Qcmd - Q) - QdotRest) / QdotPer;
     const a = (7 * (Pcmd - P) - PdotRest) / PdotPer;
-    const r = clamp(yaw + beta * 3.5, -1, 1);
+    const r = clamp(yaw + beta * 3.5 + roll * (d.law === 'gcmd' ? 0.12 : 0.05), -1, 1);
     return { e: clamp(e, -1, 1), a: clamp(a, -1, 1), r };
   }
 
@@ -2103,7 +2125,9 @@ const Audio = {
       set(N.lp.frequency, 120 + n * 220); set(N.rg.gain, dead ? 0 : n * 0.5 + fm.ab * 0.6);
       set(N.wh.frequency, (air ? 1800 : 2600) + n * (air ? 2800 : 4200)); set(N.whf.frequency, (air ? 1800 : 2600) + n * (air ? 2800 : 4200)); set(N.wg.gain, dead ? 0 : (0.02 + n * 0.05) * (inside ? 0.35 : 1));
       set(N.wh2.frequency, (air ? 90 : 140) + n * (air ? 260 : 380)); set(N.wg2.gain, dead ? 0 : 0.02 + n * 0.04);
-      set(N.abg.gain, dead ? 0 : fm.ab * 0.9); set(N.ablp.frequency, 400 + fm.ab * 600);
+      const spool = Math.abs(n - (this._pn ?? n)) / Math.max(dt, 0.001); this._pn = n; // whine rises while the engine accelerates
+      set(N.wg.gain, dead ? 0 : (0.02 + n * 0.05 + Math.min(0.06, spool * 0.2)) * (inside ? 0.35 : 1));
+      set(N.abg.gain, dead ? 0 : fm.ab * 1.15 * (0.85 + 0.15 * Math.sin(t * 38))); set(N.ablp.frequency, 350 + fm.ab * 900);
     }
     const V = T.V || 0; set(N.wgn.gain, Math.min(0.5, Math.pow(V / 160, 2) * (inside ? 0.35 : 0.6)) + (fm.d.id === 'fighter' ? 0 : 0)); set(N.wbp.frequency, 400 + V * 6);
     const roll = fm.wow ? Math.min(1, (T.gs || 0) / 40) : 0; set(N.rgn.gain, roll * 0.35 + (fm.scrape || 0) * 0.6, 0.04); set(N.rlp.frequency, 120 + roll * 200 + (fm.scrape || 0) * 900);
@@ -2732,7 +2756,17 @@ function syncModel(dt) {
   // propeller / fans / flame
   if (P.prop) { const rps = (fm.crashed ? 0 : fm.rpm || 0) / 60; P.prop.group.rotation.z += rps * Math.PI * 2 * dt * 0.97; const blur = smoothstep(500, 1600, fm.rpm || 0); P.prop.disc.material.opacity = blur * P.prop.maxBlur; P.prop.group.children.forEach(b => b.visible = blur < 0.9 || Math.random() < 0.4); }
   if (P.fans) P.fans.forEach(f => { f.rotation.z += (fm.crashed ? 0 : 6 + fm.n * 80) * dt; });
-  if (P.flame) { flameMat.uniforms.uAB.value = fm.crashed ? 0 : fm.ab; flameMat.uniforms.uPow.value = fm.crashed ? 0 : fm.n; flameMat.uniforms.uTime.value += dt; P.flame.forEach((f, i) => { f.visible = fm.ab > 0.02 || fm.n > 0.5; f.scale.set(1, 1, 0.6 + fm.ab * 0.5 + Math.sin(S.t * 40 + i) * 0.03); }); P.nozzleGlow.material.color.setRGB(0.25 + fm.ab * 3, 0.08 + fm.ab * 1.2, 0.02 + fm.ab * 0.3); }
+  if (P.fanDisc) P.fanDisc.forEach(d => { d.material.opacity = fm.crashed ? 0 : smoothstep(0.3, 0.85, fm.n) * 0.7; });
+  if (P.flame) {
+    const ab = fm.crashed ? 0 : fm.ab; const kick = Math.max(0, 1 - (S.t - (AC_I.abLit || -9)) * 3);
+    if (ab > 0.35 && !AC_I.abOn) { AC_I.abOn = true; AC_I.abLit = S.t; Audio.burst(0.9, 260, 0.55, 'lowpass'); camState.shake = Math.max(camState.shake, 0.35); }
+    if (ab < 0.1) AC_I.abOn = false;
+    flameMat.uniforms.uAB.value = ab; flameMat.uniforms.uPow.value = fm.crashed ? 0 : fm.n; flameMat.uniforms.uKick.value = AC_I.abOn ? kick : 0; flameMat.uniforms.uTime.value += dt;
+    const len = 0.45 + ab * (0.75 + kick * 0.4) + Math.sin(S.t * 47) * 0.03 * ab;
+    P.flame.forEach((f, i) => { f.visible = ab > 0.02 || fm.n > 0.45; f.scale.set(1 + ab * 0.12 * i, 1 + ab * 0.12 * i, (i === 2 ? len * (0.9 + ab * 0.5) : len) * (0.7 + 0.3 * smoothstep(0.4, 1, fm.n + ab))); });
+    P.nozzleGlow.material.color.setRGB(0.22 + ab * 3.2 + fm.n * 0.5, 0.07 + ab * 1.3, 0.02 + ab * 0.4);
+    if (P.glow) { P.glow.material.opacity = Math.min(1, ab * 1.2 + fm.n * 0.15); P.glow.scale.setScalar((0.4 + ab * (4.5 + kick * 2.5)) * (0.9 + Math.random() * 0.15)); P.glow.visible = ab > 0.02 || fm.n > 0.6; }
+  }
   // lights
   const night = TIMES[S.time].night; const on = AC_I.lights;
   const tt = S.t; const strobe = on && ((tt % 1.2) < 0.06 || ((tt % 1.2) > 0.14 && (tt % 1.2) < 0.2));

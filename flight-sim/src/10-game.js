@@ -270,7 +270,17 @@ function syncModel(dt) {
   // propeller / fans / flame
   if (P.prop) { const rps = (fm.crashed ? 0 : fm.rpm || 0) / 60; P.prop.group.rotation.z += rps * Math.PI * 2 * dt * 0.97; const blur = smoothstep(500, 1600, fm.rpm || 0); P.prop.disc.material.opacity = blur * P.prop.maxBlur; P.prop.group.children.forEach(b => b.visible = blur < 0.9 || Math.random() < 0.4); }
   if (P.fans) P.fans.forEach(f => { f.rotation.z += (fm.crashed ? 0 : 6 + fm.n * 80) * dt; });
-  if (P.flame) { flameMat.uniforms.uAB.value = fm.crashed ? 0 : fm.ab; flameMat.uniforms.uPow.value = fm.crashed ? 0 : fm.n; flameMat.uniforms.uTime.value += dt; P.flame.forEach((f, i) => { f.visible = fm.ab > 0.02 || fm.n > 0.5; f.scale.set(1, 1, 0.6 + fm.ab * 0.5 + Math.sin(S.t * 40 + i) * 0.03); }); P.nozzleGlow.material.color.setRGB(0.25 + fm.ab * 3, 0.08 + fm.ab * 1.2, 0.02 + fm.ab * 0.3); }
+  if (P.fanDisc) P.fanDisc.forEach(d => { d.material.opacity = fm.crashed ? 0 : smoothstep(0.3, 0.85, fm.n) * 0.7; });
+  if (P.flame) {
+    const ab = fm.crashed ? 0 : fm.ab; const kick = Math.max(0, 1 - (S.t - (AC_I.abLit || -9)) * 3);
+    if (ab > 0.35 && !AC_I.abOn) { AC_I.abOn = true; AC_I.abLit = S.t; Audio.burst(0.9, 260, 0.55, 'lowpass'); camState.shake = Math.max(camState.shake, 0.35); }
+    if (ab < 0.1) AC_I.abOn = false;
+    flameMat.uniforms.uAB.value = ab; flameMat.uniforms.uPow.value = fm.crashed ? 0 : fm.n; flameMat.uniforms.uKick.value = AC_I.abOn ? kick : 0; flameMat.uniforms.uTime.value += dt;
+    const len = 0.45 + ab * (0.75 + kick * 0.4) + Math.sin(S.t * 47) * 0.03 * ab;
+    P.flame.forEach((f, i) => { f.visible = ab > 0.02 || fm.n > 0.45; f.scale.set(1 + ab * 0.12 * i, 1 + ab * 0.12 * i, (i === 2 ? len * (0.9 + ab * 0.5) : len) * (0.7 + 0.3 * smoothstep(0.4, 1, fm.n + ab))); });
+    P.nozzleGlow.material.color.setRGB(0.22 + ab * 3.2 + fm.n * 0.5, 0.07 + ab * 1.3, 0.02 + ab * 0.4);
+    if (P.glow) { P.glow.material.opacity = Math.min(1, ab * 1.2 + fm.n * 0.15); P.glow.scale.setScalar((0.4 + ab * (4.5 + kick * 2.5)) * (0.9 + Math.random() * 0.15)); P.glow.visible = ab > 0.02 || fm.n > 0.6; }
+  }
   // lights
   const night = TIMES[S.time].night; const on = AC_I.lights;
   const tt = S.t; const strobe = on && ((tt % 1.2) < 0.06 || ((tt % 1.2) > 0.14 && (tt % 1.2) < 0.2));

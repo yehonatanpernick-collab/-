@@ -136,27 +136,33 @@ function makeGear(parent, at, r, strutTop, opts = {}) {
 
 // ---------------------------------------------------------------- Afterburner flame
 const flameMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uAB: { value: 0 }, uPow: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { uTime: { value: 0 }, uAB: { value: 0 }, uPow: { value: 0 }, uKick: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
     #include <common>
     #include <logdepthbuf_pars_vertex>
     void main(){ vUv = uv; vec4 mv = modelViewMatrix*vec4(position,1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv;
     #include <logdepthbuf_vertex>
     }`,
-  fragmentShader: `uniform float uTime, uAB, uPow; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  fragmentShader: `uniform float uTime, uAB, uPow, uKick; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
     #include <common>
     #include <logdepthbuf_pars_fragment>
     ${GLSL_NOISE}
     void main(){
       #include <logdepthbuf_fragment>
-      float along = vUv.y; // 1 at nozzle, 0 at tip
-      float rim = pow(abs(dot(vN, vV)), 1.5);
-      float n = vnoise(vec2(vUv.x*8.0, along*6.0 - uTime*18.0));
-      float diamonds = 0.6 + 0.4*sin(along*36.0 - uTime*2.0);
-      float a = pow(along, 1.6) * rim * (0.55 + 0.45*n) * diamonds;
-      vec3 core = mix(vec3(1.0,0.45,0.15), vec3(0.6,0.75,1.0), pow(along, 3.0));
-      vec3 col = core * a * (uAB * 3.2) + vec3(1.0,0.5,0.2)*a*uPow*0.18;
-      gl_FragColor = vec4(col, a * (uAB + uPow*0.08));
+      float along = vUv.y;                       // 1 at nozzle, 0 at tip
+      float len = 1.0 - along;
+      float rim = pow(abs(dot(vN, vV)), 1.2);   // bright core, soft edge
+      float turb = vnoise(vec2(vUv.x*14.0 + uTime*3.0, len*7.0 - uTime*26.0)) * 0.6 + vnoise(vec2(vUv.x*29.0, len*17.0 - uTime*44.0)) * 0.4;
+      float cells = 0.55 + 0.45 * pow(abs(sin(len * 30.0 - uTime * 3.0 + uKick * 4.0)), 3.0);
+      float body = pow(along, 1.25) * rim * (0.5 + 0.7*turb);
+      vec3 hot  = vec3(1.0, 0.97, 0.9), mid = vec3(1.0, 0.56, 0.2), cool = vec3(0.35, 0.5, 1.0);
+      vec3 col = mix(mid, hot, smoothstep(0.55, 1.0, along) * rim);
+      col = mix(cool, col, smoothstep(0.02, 0.35, along) );
+      col += cool * pow(rim, 3.0) * 0.4 * smoothstep(0.7, 1.0, along);
+      float ab = uAB * (1.0 + uKick * 0.8);
+      float dry = uPow * 0.14 * pow(along, 2.4) * rim;     // dry thrust: short blue-orange shimmer
+      float a = body * cells * ab + dry;
+      gl_FragColor = vec4(col * a * 3.4, clamp(a, 0.0, 1.0));
     }`,
 });
 
@@ -260,7 +266,9 @@ function buildFighter() {
   const glow = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), new THREE.MeshBasicMaterial({ color: 0x331100 })); glow.position.set(0, 0.05, 7.2); root.add(glow); P.nozzleGlow = glow;
   const flame = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.05, 6, 24, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 10.9), flameMat); flame.renderOrder = 10; root.add(flame);
   const flame2 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.02, 3.2, 16, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 9.5), flameMat); flame2.renderOrder = 10; root.add(flame2);
-  P.flame = [flame, flame2];
+  const flame3 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.08, 8.5, 24, 1, true).rotateX(-Math.PI / 2).translate(0, 0.05, 11.6), flameMat); flame3.renderOrder = 9; root.add(flame3);
+  P.flame = [flame, flame2, flame3];
+  P.glow = navLight(root, new THREE.Vector3(0, 0.05, 7.6), 0xff8a3a, 0); P.glow.renderOrder = 11;
   // wingtip missiles
   for (const s of [-1, 1]) { const m = addMesh(root, new THREE.CylinderGeometry(0.065, 0.065, 2.9, 10).rotateX(Math.PI / 2), solidMat(0xe6e6e6, 0.4)); m.position.set(s * 4.98, -0.12, 1.3); const nose = addMesh(root, new THREE.ConeGeometry(0.065, 0.3, 10).rotateX(-Math.PI / 2), MAT.darkMetal); nose.position.set(s * 4.98, -0.12, -0.25); }
   // speed brakes
@@ -335,7 +343,8 @@ function buildAirliner() {
     const fan = new THREE.Group(); fan.position.z = 0.5; eng.add(fan);
     addMesh(fan, new THREE.ConeGeometry(0.3, 0.6, 20).rotateX(-Math.PI / 2), MAT.strut);
     for (let i = 0; i < 18; i++) { const b = addMesh(fan, new THREE.BoxGeometry(0.06, 0.62, 0.12).translate(0, 0.6, 0), MAT.darkMetal, false); b.rotation.z = i / 18 * Math.PI * 2; b.rotation.y = 0.35; }
-    P.fans.push(fan);
+    const fd = new THREE.Mesh(new THREE.CircleGeometry(0.93, 28), new THREE.MeshBasicMaterial({ color: 0x24262a, transparent: true, opacity: 0, depthWrite: false })); fd.position.z = 0.52; fd.rotation.y = Math.PI; eng.add(fd);
+    (P.fanDisc = P.fanDisc || []).push(fd); P.fans.push(fan);
     const core = addMesh(eng, new THREE.ConeGeometry(0.42, 1.2, 20).rotateX(Math.PI / 2).translate(0, 0, 5.3), MAT.darkMetal);
     const pylon = addMesh(eng, new THREE.BoxGeometry(0.28, 0.9, 4.2).translate(0, 1.15, 2.3), wingM);
   }

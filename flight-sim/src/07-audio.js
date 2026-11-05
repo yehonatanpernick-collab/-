@@ -63,7 +63,9 @@ const Audio = {
       set(N.lp.frequency, 120 + n * 220); set(N.rg.gain, dead ? 0 : n * 0.5 + fm.ab * 0.6);
       set(N.wh.frequency, (air ? 1800 : 2600) + n * (air ? 2800 : 4200)); set(N.whf.frequency, (air ? 1800 : 2600) + n * (air ? 2800 : 4200)); set(N.wg.gain, dead ? 0 : (0.02 + n * 0.05) * (inside ? 0.35 : 1));
       set(N.wh2.frequency, (air ? 90 : 140) + n * (air ? 260 : 380)); set(N.wg2.gain, dead ? 0 : 0.02 + n * 0.04);
-      set(N.abg.gain, dead ? 0 : fm.ab * 0.9); set(N.ablp.frequency, 400 + fm.ab * 600);
+      const spool = Math.abs(n - (this._pn ?? n)) / Math.max(dt, 0.001); this._pn = n; // whine rises while the engine accelerates
+      set(N.wg.gain, dead ? 0 : (0.02 + n * 0.05 + Math.min(0.06, spool * 0.2)) * (inside ? 0.35 : 1));
+      set(N.abg.gain, dead ? 0 : fm.ab * 1.15 * (0.85 + 0.15 * Math.sin(t * 38))); set(N.ablp.frequency, 350 + fm.ab * 900);
     }
     const V = T.V || 0; set(N.wgn.gain, Math.min(0.5, Math.pow(V / 160, 2) * (inside ? 0.35 : 0.6)) + (fm.d.id === 'fighter' ? 0 : 0)); set(N.wbp.frequency, 400 + V * 6);
     const roll = fm.wow ? Math.min(1, (T.gs || 0) / 40) : 0; set(N.rgn.gain, roll * 0.35 + (fm.scrape || 0) * 0.6, 0.04); set(N.rlp.frequency, 120 + roll * 200 + (fm.scrape || 0) * 900);

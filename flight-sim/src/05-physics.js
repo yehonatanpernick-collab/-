@@ -11,7 +11,7 @@ const AC = {
     CL0: 0.32, CLa: 5.0, aStall: 15.5 * DEG, CD0: 0.032, k: 0.054, CYb: -0.31, mcrit: 0.7, wave: 0,
     flaps: { label: ['0°', '10°', '20°', '30°'], dCL: [0, 0.25, 0.5, 0.72], dCD: [0, 0.012, 0.03, 0.062], dCm: [0, -0.02, -0.04, -0.055], vmax: [999, 57, 51, 44] },
     CDg: 0, retract: false, spoilCD: 0,
-    Cm0: 0.05, Cma: -1.6, Cmq: -12, Cmde: 0.55, Clb: -0.09, Clp: -0.47, Clda: 0.06, Cnb: 0.07, Cnr: -0.11, Cndr: 0.022, Cnda: -0.006, Cldr: 0.004,
+    Cm0: 0.05, Cma: -1.6, Cmq: -18, Cmde: 0.55, Clb: -0.12, Clp: -0.47, Clda: 0.036, Cnb: 0.07, Cnr: -0.11, Cndr: 0.022, Cnda: -0.006, Cldr: 0.004,
     law: 'direct', propwash: 0.6,
     engine: { type: 'prop', P: 134000, eta: 0.8, T0: 3100, spool: 2.6, idle: 0.08, count: 1 },
     gear: [{ p: V3(0, -1.25, -1.6), steer: 22 * DEG, brake: false }, { p: V3(-1.2, -1.25, 0.45), brake: true }, { p: V3(1.2, -1.25, 0.45), brake: true }],
@@ -276,6 +276,19 @@ class FlightModel {
     const d = this.d, I = this.in; const { V, qbar, alpha, beta, P, Q, R, att } = s;
     let pitch = I.pitch, roll = I.roll, yaw = I.yaw;
     if (this.ap) { const o = this.autopilot(dt, s); pitch = o.pitch; roll = o.roll; if (o.yaw !== undefined) yaw += o.yaw; }
+    // stick feel: soft centre, full authority at the ends
+    const expo = (x, k) => Math.sign(x) * (k * Math.pow(Math.abs(x), 3) + (1 - k) * Math.abs(x));
+    pitch = expo(pitch, 0.35); roll = expo(roll, 0.45);
+    if (d.law === 'direct' && !this.wow && V >= 25) {
+      // light aircraft: honest but friendly -- damped phugoid, gentle wings-level tendency, coordinated turns
+      const phi = att.roll, th = att.pitch;
+      if (Math.abs(pitch) > 0.02) this._holdTh = th; else { if (this._holdTh === undefined) this._holdTh = th; this._holdTh += (th - this._holdTh) * Math.min(1, dt / 4); }
+      const e = pitch - Q * 0.28 + (Math.abs(pitch) > 0.02 ? 0 : (this._holdTh - th) * 0.35) + (1 / Math.max(Math.cos(clamp(phi, -1.2, 1.2)), 0.45) - 1) * 0.42;
+      let a = roll - P * 0.12;
+      if (Math.abs(roll) < 0.02 && Math.abs(phi) < 35 * DEG) a += -phi * 0.45 - P * 0.25;
+      const r = yaw + beta * 2.2 + roll * 0.28;
+      return { e: clamp(e, -1, 1), a: clamp(a, -1, 1), r: clamp(r, -1, 1) };
+    }
     if (d.law === 'direct' || this.wow || V < 25) {
       return { e: clamp(pitch, -1, 1), a: clamp(roll, -1, 1), r: clamp(yaw, -1, 1) };
     }
@@ -313,7 +326,7 @@ class FlightModel {
     }
     const e = (6 * (Qcmd - Q) - QdotRest) / QdotPer;
     const a = (7 * (Pcmd - P) - PdotRest) / PdotPer;
-    const r = clamp(yaw + beta * 3.5, -1, 1);
+    const r = clamp(yaw + beta * 3.5 + roll * (d.law === 'gcmd' ? 0.12 : 0.05), -1, 1);
     return { e: clamp(e, -1, 1), a: clamp(a, -1, 1), r };
   }
 
