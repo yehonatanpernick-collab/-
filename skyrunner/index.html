@@ -131,7 +131,9 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--
 #knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px;border-radius:50%;background:rgba(63,216,255,.25);border:1px solid rgba(63,216,255,.6)}
 #tbtns{position:absolute;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(150px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:64px 64px;gap:10px}
 #tbtns button{pointer-events:auto;height:56px;border-radius:14px;background:rgba(10,14,20,.5);border:1px solid var(--line);color:var(--ink);font:700 11px var(--f-mono);letter-spacing:.08em}
-#tbtns button.on{border-color:var(--volt);color:var(--volt)}
+#tbtns button.on{border-color:var(--volt);color:var(--volt);background:rgba(63,216,255,.16)}
+#tbtns button.wide{grid-column:span 2}
+#tGas{border-color:rgba(157,255,176,.45)!important}
 body.touch #mission{left:max(12px,env(safe-area-inset-left,0px));transform:none;top:calc(10px + env(safe-area-inset-top,0px));width:min(330px,44vw);min-width:0;padding:7px 10px}
 body.touch #mission .mRow+.mRow{display:none}
 body.touch #mapWrap{top:calc(98px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));bottom:auto}
@@ -243,6 +245,7 @@ body.touch #cash{padding:4px 10px} body.touch #cashV{font-size:18px}
       <div><kbd>F</kbd>Fly</div><div><kbd>⇧</kbd>Boost</div>
       <div><kbd>SPACE</kbd><span id="hSpace">Drift</span></div><div><kbd>C</kbd>Descend</div>
       <div><kbd>V</kbd>Camera</div><div><kbd>R</kbd>Sky race</div>
+      <div><kbd>L</kbd>Cruise lock</div>
     </div>
   </div>
 
@@ -255,10 +258,11 @@ body.touch #cash{padding:4px 10px} body.touch #cashV{font-size:18px}
   <div id="touch" hidden>
     <div id="stick"><div id="knob"></div></div>
     <div id="tbtns">
-      <button id="tUp" type="button">▲ UP</button>
+      <button id="tLock" type="button">LOCK</button>
       <button id="tBoost" type="button">BOOST</button>
-      <button id="tDown" type="button">▼ DOWN</button>
-      <button id="tFly" type="button">FLY</button>
+      <button id="tBrake" type="button">◀ BRAKE</button>
+      <button id="tGas" type="button">GAS ▶</button>
+      <button id="tFly" type="button" class="wide">FLY</button>
     </div>
   </div>
 </div>
@@ -284,6 +288,7 @@ body.touch #cash{padding:4px 10px} body.touch #cashV{font-size:18px}
       <div><kbd>C</kbd>ירידה</div>
       <div><kbd>V</kbd>מצלמה · <kbd>T</kbd>שעה</div>
       <div><kbd>R</kbd>מרוץ שערים</div>
+      <div><kbd>L</kbd>נעילת מהירות</div>
     </div>
     <div id="loadWrap"><div id="loadBar"><i id="loadI"></i></div><div id="loadTxt">Building Nova Bay…</div></div>
     <button id="play" type="button" disabled>התחל לנהוג</button>
@@ -1328,12 +1333,39 @@ function buildPlayerCar(paintHex) {
     wheels.push({ pivot, spin, side: Math.sign(x), front: z > 0 });
   }
   car.traverse((o) => { if (o.isMesh && o.material !== thrDisc && o.material !== thrMat) { o.castShadow = true; o.receiveShadow = true; } });
+  // plasma flames: additive cones with a white-hot core, flicker and heat colour shift on boost
+  const flameMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uPower: { value: 0 }, uBoost: { value: 0 } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `uniform float uTime; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){ vUv = uv; vec3 p = position; float t = 1.0 - uv.y;
+        p.xz *= 1.0 + 0.18 * sin(uTime * 55.0 + t * 14.0 + uv.x * 6.283) * t;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uTime, uPower, uBoost; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){ float t = 1.0 - vUv.y;
+        vec3 core = vec3(1.0, 0.97, 0.92);
+        vec3 mid = mix(vec3(0.25, 0.78, 1.0), vec3(1.0, 0.62, 0.22), uBoost);
+        vec3 tip = mix(vec3(0.12, 0.2, 1.0), vec3(1.0, 0.18, 0.35), uBoost);
+        vec3 col = t < 0.1 ? mix(core, mid, t / 0.1) : mix(mid, tip, (t - 0.1) / 0.9);
+        float rim = pow(abs(dot(vN, vV)), 1.6);
+        float bands = 0.78 + 0.22 * sin(t * 26.0 - uTime * 48.0);
+        float a = pow(1.0 - t, 1.4) * rim * bands * uPower;
+        gl_FragColor = vec4(col * a * 1.9, 1.0); }`,
+  });
+  const flameG = new THREE.CylinderGeometry(0.21, 0.025, 1, 18, 6, true); flameG.translate(0, -0.5, 0);
+  const coreG = new THREE.CylinderGeometry(0.1, 0.01, 1, 12, 4, true); coreG.translate(0, -0.5, 0);
+  const mkFlame = (x, y, z, rear) => { const f = new THREE.Group(); f.position.set(x, y, z); if (rear) f.rotation.x = Math.PI / 2; const a = new THREE.Mesh(flameG, flameMat), b = new THREE.Mesh(coreG, flameMat); b.scale.set(1, 0.6, 1); f.add(a, b); f.frustumCulled = false; a.frustumCulled = b.frustumCulled = false; body.add(f); return f; };
+  const flames = {
+    mat: flameMat,
+    wheel: [[-0.93, 1.42], [0.93, 1.42], [-0.93, -1.42], [0.93, -1.42]].map(([x, z]) => mkFlame(x, 0.22, z, false)),
+    rear: [-0.6, -0.22, 0.22, 0.6].map((x) => mkFlame(x, 0.52, -2.33, true)),
+  };
   // under glow + headlamp
   const glow = new THREE.PointLight(0x4fb8ff, 0, 14, 2); glow.position.set(0, 0.1, 0); car.add(glow);
   const headL = new THREE.SpotLight(0xf4f6ff, 0, 90, 0.5, 0.45, 1.4); headL.position.set(0, 0.7, 2.0); headL.target.position.set(0, -0.6, 14); car.add(headL, headL.target);
   const blob = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 6).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: makeGlow('rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)'), transparent: true, depthWrite: false, opacity: 0.6 }));
   scene.add(blob);
-  return { car, body, paint, wheels, wing, thrMat, thrDisc, tailMat, headMat, rearThr, glow, headL, blob };
+  return { car, body, paint, wheels, wing, thrMat, thrDisc, tailMat, headMat, rearThr, glow, headL, blob, flames };
 }
 
 // ================================================================ traffic / parked / police geometry
@@ -1674,7 +1706,7 @@ let STATE = 'loading'; // loading | menu | play | pause
 let NIGHT = 0, GOLDEN = 0, TIME = 0;
 const SAVE = { cash: store.get('cash', 250), xp: store.get('xp', 0), level: store.get('level', 1), best: store.get('best', null), paint: store.get('paint', '#e8ebee') };
 const START = { pos: new V3(-200 + LANE, 0, 235), yaw: Math.PI };
-const P = { pos: START.pos.clone(), vel: new V3(), yaw: START.yaw, mode: 'drive', fold: 0, pitch: 0, roll: 0, steerS: 0, onGround: true, energy: 1, air: 0, drift: 0, driftAmt: 0, lowFly: 0, skim: 0, lastSafe: START.pos.clone(), lastSafeYaw: START.yaw, safeT: 0, hitCD: 0, boosting: false, thr: 0, wheelSpin: 0, respawning: false };
+const P = { pos: START.pos.clone(), vel: new V3(), yaw: START.yaw, mode: 'drive', fold: 0, pitch: 0, roll: 0, steerS: 0, onGround: true, energy: 1, air: 0, drift: 0, driftAmt: 0, lowFly: 0, skim: 0, lastSafe: START.pos.clone(), lastSafeYaw: START.yaw, safeT: 0, steerIn: 0, cruise: null, hitCD: 0, boosting: false, thr: 0, wheelSpin: 0, respawning: false };
 const CAM = { mode: 0, pos: new V3(), look: new V3(), yawS: START.yaw, fov: 62, shake: 0, orbitYaw: 0, orbitPitch: 0, drag: null, idle: 0, menuA: 0 };
 let CARP = null; // car parts
 
@@ -1733,7 +1765,7 @@ const SND = {
 
 // ================================================================ input
 const keys = {};
-const TOUCH = { x: 0, y: 0, up: false, down: false, boost: false, id: null };
+const TOUCH = { x: 0, y: 0, gas: false, brake: false, boost: false, id: null };
 let padPrev = {};
 addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(e.code)) e.preventDefault();
@@ -1745,6 +1777,7 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (STATE === 'play') setPause(true); });
 function onAction(code) {
   if (code === 'KeyF') toggleFly();
+  else if (code === 'KeyL') toggleCruise();
   else if (code === 'KeyV') { CAM.mode = (CAM.mode + 1) % 3; toast(['Chase cam', 'Wide chase', 'Cockpit'][CAM.mode]); }
   else if (code === 'KeyT') cycleTime();
   else if (code === 'KeyR') toggleRace();
@@ -1758,8 +1791,13 @@ function readInput() {
   I.thr = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
   I.steer = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   I.up = k.Space ? 1 : 0; I.down = k.KeyC || k.ControlLeft || k.KeyQ ? 1 : 0; I.boost = !!(k.ShiftLeft || k.ShiftRight); I.hand = !!k.Space;
-  if (TOUCH.id !== null || TOUCH.x || TOUCH.y) { I.thr = clamp(I.thr - TOUCH.y * 1.25, -1, 1); I.steer = clamp(I.steer + TOUCH.x * 1.15, -1, 1); }
-  if (TOUCH.up) I.up = 1; if (TOUCH.down) I.down = 1; if (TOUCH.boost) I.boost = true;
+  // touch: joystick = direction (x) + altitude in flight (y); GAS / BRAKE buttons = speed
+  if (TOUCH.id !== null || TOUCH.x || TOUCH.y) {
+    const sx = Math.sign(TOUCH.x) * Math.pow(Math.abs(TOUCH.x), 1.4);
+    I.steer = clamp(I.steer + sx * 1.1, -1, 1);
+    if (P.mode === 'fly') { const ay = Math.abs(TOUCH.y) > 0.12 ? -TOUCH.y : 0; I.up = Math.max(I.up, ay); I.down = Math.max(I.down, -ay); }
+  }
+  if (TOUCH.gas) I.thr = 1; if (TOUCH.brake) I.thr = -1; if (TOUCH.boost) I.boost = true;
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const gp of pads) {
     if (!gp) continue; const ax = gp.axes[0] || 0, dz = Math.abs(ax) > 0.12 ? ax : 0;
@@ -1773,6 +1811,13 @@ function readInput() {
     break;
   }
   if (P.mode === 'fly') I.hand = false;
+  // cruise lock: hold the locked speed; GAS raises it, BRAKE releases the lock
+  if (P.cruise !== null) {
+    const vF = P.vel.x * Math.sin(P.yaw) + P.vel.z * Math.cos(P.yaw);
+    if (I.thr < 0) setCruise(null);
+    else if (I.thr > 0) P.cruise = Math.max(P.cruise, vF);
+    else I.thr = clamp((P.cruise - vF) / 3, -0.6, 1);
+  }
   return I;
 }
 // mouse drag to orbit camera
@@ -1788,7 +1833,8 @@ canvas.addEventListener('pointerup', () => { CAM.drag = null; });
   const end = () => { TOUCH.id = null; TOUCH.x = TOUCH.y = 0; knob.style.transform = ''; };
   stick.addEventListener('pointerup', end); stick.addEventListener('pointercancel', end);
   const hold = (id, key) => { const b = $(id); b.addEventListener('pointerdown', (e) => { e.preventDefault(); TOUCH[key] = true; b.classList.add('on'); }); const off = () => { TOUCH[key] = false; b.classList.remove('on'); }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off); };
-  hold('tUp', 'up'); hold('tDown', 'down'); hold('tBoost', 'boost');
+  hold('tGas', 'gas'); hold('tBrake', 'brake'); hold('tBoost', 'boost');
+  $('tLock').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleCruise(); });
   $('tFly').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleFly(); });
 }
 $('bRace').onclick = () => toggleRace();
@@ -1798,6 +1844,13 @@ $('bTime').onclick = () => cycleTime();
 $('bSound').onclick = () => toggleSound();
 $('bMenu').onclick = () => setPause(true);
 $('resume').onclick = () => setPause(false);
+function setCruise(v) { P.cruise = v; $('tLock').classList.toggle('on', v !== null); $('tLock').textContent = v !== null ? 'LOCK ' + Math.round(v * 2.237) : 'LOCK'; }
+function toggleCruise() {
+  if (STATE !== 'play') return;
+  if (P.cruise !== null) { setCruise(null); toast('Cruise lock off'); return; }
+  const vF = P.vel.x * Math.sin(P.yaw) + P.vel.z * Math.cos(P.yaw);
+  setCruise(Math.max(vF, P.mode === 'fly' ? 45 : 30)); toast(`Cruise lock <b>${Math.round(P.cruise * 2.237)} mph</b>`);
+}
 function toggleSound() { SND.on = !SND.on; $('bSound').classList.toggle('on', SND.on); toast(SND.on ? 'Sound on' : 'Sound muted'); }
 function setPause(v) { if (STATE !== 'play' && STATE !== 'pause') return; STATE = v ? 'pause' : 'play'; $('pause').hidden = !v; if (!v) canvas.focus(); }
 
@@ -1985,6 +2038,7 @@ const _f = new V3(), _r = new V3();
 function updatePlayer(dt, I) {
   const fly = P.mode === 'fly';
   P.fold = damp(P.fold, fly ? 1 : 0, 5, dt);
+  P.steerIn = damp(P.steerIn, I.steer, fly ? 6 : 9, dt);
   _f.set(Math.sin(P.yaw), 0, Math.cos(P.yaw)); _r.set(-Math.cos(P.yaw), 0, Math.sin(P.yaw));
   let vF = P.vel.dot(_f), vR = P.vel.dot(_r);
   P.boosting = I.boost && P.energy > 0.02 && I.thr > 0;
@@ -1994,15 +2048,15 @@ function updatePlayer(dt, I) {
   let slip = 0;
   if (!fly) {
     if (P.onGround) {
-      const top = P.boosting ? 80 : 54;
-      if (I.thr > 0) vF += I.thr * (P.boosting ? 30 : 17) * dt * clamp(1 - vF / top, 0, 1.2);
+      const top = P.boosting ? 125 : 86;
+      if (I.thr > 0) vF += I.thr * (P.boosting ? 46 : 28) * dt * clamp(1.15 - vF / top, 0, 1.2);
       else if (I.thr < 0) { if (vF > 0.5) vF -= 40 * dt * -I.thr; else vF += I.thr * 11 * dt * clamp(1 + vF / 15, 0, 1); }
       vF -= vF * 0.22 * dt + Math.sign(vF) * Math.min(Math.abs(vF), (I.thr === 0 ? 2.5 : 0.6) * dt);
-      const grip = I.hand ? 1.1 : 8.5;
+      const grip = I.hand ? 1.1 : 7 + Math.min(4, Math.abs(vF) / 25);
       vR *= Math.exp(-grip * dt);
       const spd = Math.abs(vF);
-      const rate = 2.35 * clamp(spd / 5, 0, 1) / (1 + spd / 38) * (I.hand ? 1.5 : 1);
-      P.yaw -= I.steer * rate * Math.sign(vF || 1) * dt;
+      const rate = 2.4 * clamp(spd / 5, 0, 1) / (1 + spd / 65) * (I.hand ? 1.5 : 1);
+      P.yaw -= P.steerIn * rate * Math.sign(vF || 1) * dt;
       slip = clamp((Math.abs(vR) - 2.5) / 8, 0, 1) * (spd > 6 ? 1 : 0);
       if (Math.abs(vR) > 4 && spd > 12) { P.drift += dt; P.driftAmt += Math.abs(vR) * dt; } else if (P.drift > 0) { if (P.drift > 1.1) addSkill('Drift', Math.round(P.driftAmt * 6)); P.drift = 0; P.driftAmt = 0; }
       if (P.air > 1.0) addSkill('Air time ' + P.air.toFixed(1) + 's', Math.round(P.air * 120));
@@ -2010,12 +2064,12 @@ function updatePlayer(dt, I) {
     } else { P.air += dt; vR *= Math.exp(-0.5 * dt); }
     P.vel.copy(_f).multiplyScalar(vF).addScaledVector(_r, vR).setY(P.vel.y - 27 * dt);
   } else {
-    const thrust = P.boosting ? 52 : 26;
+    const thrust = P.boosting ? 82 : 44;
     if (I.thr > 0) vF += I.thr * thrust * dt; else if (I.thr < 0) vF += I.thr * 24 * dt;
-    vF -= vF * Math.abs(vF) * 0.0048 * dt + vF * 0.12 * dt;
-    vR *= Math.exp(-2.4 * dt);
-    P.yaw -= I.steer * 1.9 / (1 + Math.abs(vF) / 80) * dt;
-    const vt = (I.up - I.down) * (P.boosting ? 24 : 17);
+    vF -= vF * Math.abs(vF) * 0.0022 * dt + vF * 0.1 * dt;
+    vR *= Math.exp(-3.2 * dt);
+    P.yaw -= P.steerIn * 2.1 / (1 + Math.abs(vF) / 150) * dt;
+    const vt = (I.up - I.down) * (P.boosting ? 38 : 27);
     const vy = damp(P.vel.y, vt, 3.2, dt);
     P.vel.copy(_f).multiplyScalar(vF).addScaledVector(_r, vR).setY(vy);
     const hAbove = P.pos.y - g0;
@@ -2023,7 +2077,7 @@ function updatePlayer(dt, I) {
     P.air = 0;
   }
   P.thr = I.thr;
-  P.pos.addScaledVector(P.vel, dt);
+  { const steps = Math.min(12, Math.max(1, Math.ceil(P.vel.length() * dt / 1.5))); for (let k = 0; k < steps; k++) { _v.copy(P.pos).addScaledVector(P.vel, dt / steps); const hit = solidAt(_v.x, _v.y + 0.5, _v.z); if (hit && hit !== true) break; P.pos.copy(_v); } }
   // building collisions
   const RAD = 2.0;
   let skimNear = 99;
@@ -2111,12 +2165,20 @@ function updateCarVisual(dt, I) {
   // shadow blob on ground under car
   const g = groundHeight(P.pos.x, P.pos.z, P.pos.y);
   const alt = P.pos.y - g; c.blob.position.set(P.pos.x, Math.max(g, WATER_Y) + 0.05, P.pos.z); c.blob.rotation.y = P.yaw; c.blob.material.opacity = clamp(0.55 - alt * 0.012, 0, 0.55); c.blob.scale.setScalar(1 + alt * 0.02);
+  // plasma flames
+  const fm = c.flames.mat.uniforms; fm.uTime.value = TIME; fm.uBoost.value = damp(fm.uBoost.value, P.boosting ? 1 : 0, 6, dt);
+  const thrIn = Math.max(0, I.thr), lift = Math.max(0, I.up);
+  const wp = t * (0.55 + lift * 0.35 + thrIn * 0.25 + (P.boosting ? 0.35 : 0)); fm.uPower.value = 1;
+  const trail = clamp(vF / 70, -0.4, 1) * 0.95;
+  for (const f of c.flames.wheel) { const L = (0.7 + lift * 1.1 + thrIn * 0.5 + (P.boosting ? 0.9 : 0)) * t * (0.9 + Math.random() * 0.2); f.visible = t > 0.3; f.scale.set(0.75 + wp * 0.35, L, 0.75 + wp * 0.35); f.rotation.x = trail; }
+  const rp = fly ? thrIn * (P.boosting ? 1.3 : 0.85) : (P.boosting ? 1.1 : 0);
+  for (const f of c.flames.rear) { const L = rp * (1.2 + (P.boosting ? 2.2 : 0.6)) * (0.88 + Math.random() * 0.24); f.visible = rp > 0.02; f.scale.set(0.55 + rp * 0.45, L, 0.55 + rp * 0.45); }
   // thruster particles
   if (t > 0.5 && STATE === 'play') {
     const n = P.boosting ? 4 : 2; const vy = -6 - Math.max(0, I.up) * 6;
-    for (const w of c.wheels) if (Math.random() < 0.5 * n) { _v.set(w.side * 0.93, 0.25, w.front ? 1.42 : -1.42).applyEuler(c.car.rotation).add(c.car.position); PART.emit(_v.x, _v.y, _v.z, P.vel.x * 0.6 + (Math.random() - 0.5), vy + P.vel.y * 0.5, P.vel.z * 0.6 + (Math.random() - 0.5), 0.15, 0.6, 1.6, 0.35); }
+    for (const w of c.wheels) if (Math.random() < 0.5 * n) { _v.set(w.side * 0.93, 0.25, w.front ? 1.42 : -1.42).applyEuler(c.car.rotation).add(c.car.position); { const hot = Math.random() < 0.3; PART.emit(_v.x, _v.y - 0.3, _v.z, P.vel.x * 0.6 + (Math.random() - 0.5) * 2, vy * 1.4 + P.vel.y * 0.5, P.vel.z * 0.6 + (Math.random() - 0.5) * 2, hot ? 1.6 : 0.2, hot ? 1.5 : 0.7, hot ? 1.8 : 2.0, 0.25 + Math.random() * 0.25); } }
   }
-  if (P.boosting || (t > 0.5 && I.thr > 0)) for (let k = 0; k < (P.boosting ? 5 : 1); k++) { const x = [-0.6, -0.22, 0.22, 0.6][k % 4]; _v.set(x, 0.52, -2.4).applyEuler(c.car.rotation).add(c.car.position); const bx = -Math.sin(P.yaw) * 18, bz = -Math.cos(P.yaw) * 18; PART.emit(_v.x, _v.y, _v.z, P.vel.x * 0.8 + bx, P.vel.y * 0.8, P.vel.z * 0.8 + bz, 0.3, 1.0, 2.4, 0.22); }
+  if (P.boosting || (t > 0.5 && I.thr > 0)) for (let k = 0; k < (P.boosting ? 5 : 1); k++) { const x = [-0.6, -0.22, 0.22, 0.6][k % 4]; _v.set(x, 0.52, -2.4).applyEuler(c.car.rotation).add(c.car.position); const bx = -Math.sin(P.yaw) * 18, bz = -Math.cos(P.yaw) * 18; const b = P.boosting; PART.emit(_v.x, _v.y, _v.z, P.vel.x * 0.85 + bx * (b ? 1.6 : 1) + (Math.random() - 0.5) * 2, P.vel.y * 0.8 + (Math.random() - 0.5) * 2, P.vel.z * 0.85 + bz * (b ? 1.6 : 1) + (Math.random() - 0.5) * 2, b ? 2.4 : 0.3, b ? 1.1 : 1.0, b ? 0.5 : 2.4, b ? 0.3 : 0.22); }
   if (!fly && P.onGround) { const sl = Math.abs(P.vel.dot(_r.set(-Math.cos(P.yaw), 0, Math.sin(P.yaw)))); if (sl > 5 && Math.random() < 0.8) for (const w of c.wheels) if (!w.front) { _v.set(w.side * 0.93, 0.1, -1.42).applyEuler(c.car.rotation).add(c.car.position); PART.emit(_v.x, _v.y + 0.2, _v.z, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.35, 0.35, 0.38, 1.4); } }
 }
 
@@ -2165,7 +2227,7 @@ let hudCache = {};
 const setTxt = (id, v) => { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
 function drawSpeedo(mph) {
   const S = spC.width, cx = S / 2, cy = S / 2, r = S * 0.4; const x = spX; x.clearRect(0, 0, S, S);
-  const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, maxV = 220, v = clamp(mph / maxV, 0, 1);
+  const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, maxV = 320, v = clamp(mph / maxV, 0, 1);
   x.save(); x.fillStyle = 'rgba(8,12,18,0.72)'; x.beginPath(); x.arc(cx, cy, r + 26, 0, Math.PI * 2); x.fill(); x.strokeStyle = 'rgba(170,210,235,0.14)'; x.lineWidth = 2; x.stroke();
   x.lineCap = 'round'; x.lineWidth = 12; x.strokeStyle = 'rgba(255,255,255,0.08)'; x.beginPath(); x.arc(cx, cy, r, a0, a1); x.stroke();
   const gr = x.createLinearGradient(0, S, S, 0); gr.addColorStop(0, '#0a8fb8'); gr.addColorStop(0.7, '#3fd8ff'); gr.addColorStop(1, P.boosting ? '#ffb23f' : '#a6f0ff');
@@ -2173,7 +2235,7 @@ function drawSpeedo(mph) {
   x.lineWidth = 5; x.strokeStyle = 'rgba(255,178,63,0.9)'; x.beginPath(); x.arc(cx, cy, r - 20, a0, a0 + (a1 - a0) * P.energy); x.stroke();
   for (let k = 0; k <= 22; k++) { const a = a0 + (a1 - a0) * (k / 22), big = k % 5 === 0; x.strokeStyle = big ? 'rgba(238,244,248,0.8)' : 'rgba(238,244,248,0.3)'; x.lineWidth = big ? 3 : 2; x.beginPath(); x.moveTo(cx + Math.cos(a) * (r + 12), cy + Math.sin(a) * (r + 12)); x.lineTo(cx + Math.cos(a) * (r + (big ? 22 : 17)), cy + Math.sin(a) * (r + (big ? 22 : 17))); x.stroke(); }
   x.font = '600 19px "JetBrains Mono", monospace'; x.fillStyle = 'rgba(143,163,178,0.95)'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  for (const k of [0, 50, 100, 150, 200]) { const a = a0 + (a1 - a0) * (k / maxV); x.fillText(k, cx + Math.cos(a) * (r - 44), cy + Math.sin(a) * (r - 44)); }
+  for (const k of [0, 80, 160, 240, 320]) { const a = a0 + (a1 - a0) * (k / maxV); x.fillText(k, cx + Math.cos(a) * (r - 44), cy + Math.sin(a) * (r - 44)); }
   const s = String(Math.round(mph)).padStart(3, '0'); const lead = s.match(/^0*/)[0].length; x.font = '700 104px "Chakra Petch", sans-serif';
   const w = x.measureText(s).width; let px = cx - w / 2; x.textAlign = 'left';
   for (let i = 0; i < 3; i++) { x.fillStyle = i < lead && i < 2 ? 'rgba(238,244,248,0.22)' : '#eef4f8'; x.fillText(s[i], px, cy + 8); px += x.measureText(s[i]).width; }
