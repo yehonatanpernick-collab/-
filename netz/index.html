@@ -490,12 +490,43 @@ function bakeSky(size) {
           float g=smoothstep(-0.25,0.35,fbm3(q*0.8+wv));
           col=mix(vec3(0.95,0.2,0.05),vec3(0.35,0.85,0.12),g)*(0.16+n*0.7+pow(fil,2.0)*1.1)*mask;
           col*=1.0-dust*0.5;
+        } else if(kind==6){
+          col=mix(vec3(0.9,0.28,0.07),vec3(1.0,0.62,0.35),pow(fil,2.0))*(0.12+pow(fil,1.6)*1.5+n*0.45)*mask;
+          col+=vec3(0.65,0.75,1.0)*pow(smoothstep(0.75,0.0,a),2.0)*(0.35+0.4*n);
+          col*=1.0-dust*0.6;
+        } else if(kind==7){
+          col=mix(vec3(0.12,0.22,0.95),vec3(0.55,0.25,0.95),smoothstep(0.2,0.9,fil2+n*0.4))*(0.08+pow(fil,1.4)*1.5+n*0.3)*mask;
+        } else if(kind==8){
+          float ring=smoothstep(0.32,0.0,abs(a-0.7+n*0.28));
+          col=mix(vec3(1.0,0.42,0.1),vec3(1.0,0.7,0.35),pow(fil,3.0))*ring*(0.3+pow(fil,1.5)*1.8)*(1.0-dust*0.6);
+          col+=mix(vec3(0.95,0.35,0.7),vec3(0.35,0.55,1.0),smoothstep(-0.4,0.4,n))*smoothstep(0.75,0.05,a)*(0.25+fil2*0.3);
         } else {
           vec3 pc=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.67)+c.x*1.7+c.y*0.9));
           col=pc*(0.1+pow(fil,2.0)*1.1+n*0.4)*mask*0.7;
         }
         col*=0.45+1.1*body;
         return max(col,vec3(0.0));
+      }
+      vec3 spiralGal(vec3 d, vec3 c, vec3 up, float R, float tilt, float rot, vec3 armCol, vec3 knotCol){
+        float cd=dot(d,c); if(cd<0.8) return vec3(0.0);
+        vec3 u=normalize(cross(c,up)); vec3 v=cross(u,c);
+        vec2 p=vec2(dot(d,u),dot(d,v))/R;
+        float cs=cos(rot), sn=sin(rot); p=vec2(cs*p.x-sn*p.y,sn*p.x+cs*p.y);
+        p.y/=tilt;
+        float r=length(p); if(r>1.6) return vec3(0.0);
+        float th=atan(p.y,p.x);
+        float sp=th-log(r+0.04)*2.4;
+        float arm=pow(0.5+0.5*cos(2.0*sp),3.0);
+        float n=snoise(vec3(p*7.0,cd*3.0))*0.5+0.5;
+        float n2=snoise(vec3(p*22.0,1.7))*0.5+0.5;
+        float disk=exp(-r*2.6);
+        float lane=pow(0.5+0.5*cos(2.0*sp+0.55),10.0)*smoothstep(0.08,0.3,r)*smoothstep(1.2,0.5,r);
+        vec3 col=armCol*arm*disk*(0.6+0.8*n)*1.4;
+        col+=vec3(0.75,0.72,0.8)*disk*0.35;
+        col+=knotCol*pow(n2,6.0)*arm*smoothstep(1.3,0.3,r)*3.0;
+        col+=vec3(1.0,0.82,0.6)*exp(-r*r*55.0)*2.2+vec3(1.0,0.75,0.5)*exp(-r*r*8.0)*0.5;
+        col*=1.0-lane*0.75;
+        return col*smoothstep(1.6,1.0,r);
       }
       void main(){
         vec3 d=normalize(vD);
@@ -542,8 +573,17 @@ function bakeSky(size) {
           +nebPatch(d,normalize(vec3(0.2,0.1,0.97)),0.36,5)
           +nebPatch(d,normalize(vec3(0.5,0.8,0.3)),0.38,5)
           +nebPatch(d,normalize(vec3(-0.3,-0.9,-0.3)),0.36,5)
-          +nebPatch(d,normalize(vec3(0.95,0.3,-0.1)),0.36,5);
+          +nebPatch(d,normalize(vec3(0.95,0.3,-0.1)),0.36,5)
+          +nebPatch(d,normalize(vec3(-0.55,-0.55,0.62)),0.4,6)
+          +nebPatch(d,normalize(vec3(0.6,-0.35,0.72)),0.42,7)
+          +nebPatch(d,normalize(vec3(-0.2,0.25,-0.95)),0.3,8);
         col+=np;
+        vec3 bN2=normalize(vec3(0.7,0.45,-0.2)); float bd2=dot(d,bN2); float band2=exp(-bd2*bd2*28.0);
+        float bn=fbm(d*3.0+vec3(31.0)); float rift=smoothstep(0.45,0.85,ridgeN(d*3.6+vec3(4.0)+bn));
+        vec3 mw=mix(vec3(0.32,0.16,0.55),vec3(0.95,0.62,0.6),smoothstep(0.2,0.9,band2*(0.6+bn)));
+        col+=mw*band2*(0.22+0.3*bn)*(1.0-rift*0.85);
+        col+=0.95*spiralGal(d,normalize(vec3(0.42,0.68,-0.6)),vec3(0.3,0.2,0.9),0.25,0.85,0.4,vec3(0.55,0.7,1.0),vec3(0.5,0.75,1.0));
+        col+=0.95*spiralGal(d,normalize(vec3(-0.5,0.75,0.42)),vec3(0.2,0.9,0.1),0.19,0.7,1.3,vec3(1.0,0.5,0.7),vec3(1.0,0.4,0.6));
         col*=0.7;
         float sd=max(dot(d,uSun),0.0);
         col+=vec3(1.0,0.66,0.38)*pow(sd,6.0)*0.11;
@@ -615,6 +655,48 @@ function makeHeroStars() {
       float cr=(exp(-abs(c.x)*80.0)*exp(-abs(c.y)*8.0)+exp(-abs(c.y)*80.0)*exp(-abs(c.x)*8.0))*0.6; float m=smoothstep(1.0,0.55,r); gl_FragColor=vec4(vC*(core+halo+cr)*m,1.0); }`
   });
   const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = -5; return p;
+}
+
+function makeExtraSky() {
+  const R = 24500, v = new V3(), t = new V3();
+  const vert = `attribute vec3 aColor; attribute float aSize; attribute float aAng; attribute float aRat; uniform float uPR; varying vec3 vC; varying float vAng; varying float vRat;
+    void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_PointSize=aSize*uPR; vC=aColor; vAng=aAng; vRat=aRat; }`;
+  const layer = (N, fill, frag) => {
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), ang = new Float32Array(N), rat = new Float32Array(N);
+    for (let i = 0; i < N; i++) { const o = fill(i); pos.set([o.p.x * R, o.p.y * R, o.p.z * R], i * 3); col.set(o.c, i * 3); size[i] = o.s; ang[i] = o.a || 0; rat[i] = o.r || 1; }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aColor', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+    g.setAttribute('aAng', new THREE.BufferAttribute(ang, 1)); g.setAttribute('aRat', new THREE.BufferAttribute(rat, 1));
+    const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uPR: { value: 1 } }, vertexShader: vert,
+      fragmentShader: `varying vec3 vC; varying float vAng; varying float vRat; void main(){ vec2 c=gl_PointCoord-0.5; float r=length(c)*2.0; ${frag} }` });
+    const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = -5; return p;
+  };
+  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+  const bN2 = new V3(0.7, 0.45, -0.2).normalize(), sb = new V3(-0.55, -0.55, 0.62).normalize();
+  // 1. dense glittering star clouds along the purple band and in the starburst galaxy
+  const dense = layer(11000, () => {
+    let c;
+    if (Math.random() < 0.6) { randUnit(v); v.addScaledVector(bN2, -v.dot(bN2) * rand(0.88, 1)).normalize(); const w = Math.random(); c = w < 0.6 ? [0.95, 0.9, 1.0] : w < 0.85 ? [0.8, 0.65, 1.0] : [1.0, 0.75, 0.8]; }
+    else { v.copy(sb).addScaledVector(randUnit(t), gauss() * 0.22).normalize(); c = Math.random() < 0.55 ? [0.7, 0.82, 1.0] : [1.0, 0.82, 0.55]; }
+    const b = rand(0.35, 1.3);
+    return { p: v, c: [c[0] * b, c[1] * b, c[2] * b], s: rand(1.0, 1.9) };
+  }, `float a=exp(-r*r*5.0)*(1.0-r); if(a<=0.0) discard; gl_FragColor=vec4(vC*a,1.0);`);
+  // 2. tiny distant galaxies (elliptical smudges)
+  const gals = layer(150, () => {
+    randUnit(v); const w = Math.random(), c = w < 0.4 ? [1.0, 0.62, 0.32] : w < 0.75 ? [0.55, 0.72, 1.0] : [0.95, 0.88, 0.8], b = rand(0.5, 1.2);
+    return { p: v, c: [c[0] * b, c[1] * b, c[2] * b], s: rand(5, 12), a: rand(0, Math.PI), r: rand(0.25, 0.7) };
+  }, `float cs=cos(vAng), sn=sin(vAng); vec2 q=vec2(cs*c.x-sn*c.y,sn*c.x+cs*c.y); q.y/=vRat; float e=length(q)*2.0;
+     float a=(exp(-e*e*7.0)+exp(-e*e*40.0)*0.8)*smoothstep(1.0,0.8,r); gl_FragColor=vec4(vC*a,1.0);`);
+  // 3. JWST-style spiked stars
+  const spikes = layer(24, () => {
+    randUnit(v); const w = Math.random(), c = w < 0.6 ? [0.75, 0.85, 1.0] : [1.0, 0.92, 0.8], b = rand(1.4, 2.4);
+    return { p: v, c: [c[0] * b, c[1] * b, c[2] * b], s: rand(14, 22) };
+  }, `float s=0.0;
+     for(int k=0;k<3;k++){ float an=float(k)*1.0472+0.5236; vec2 dir=vec2(cos(an),sin(an)); s+=exp(-abs(dot(c,vec2(-dir.y,dir.x)))*110.0)*exp(-abs(dot(c,dir))*7.0); }
+     s+=exp(-abs(c.y)*130.0)*exp(-abs(c.x)*12.0)*0.5;
+     float core=exp(-r*r*30.0)+exp(-r*6.0)*0.25;
+     gl_FragColor=vec4(vC*(core+s*0.8)*smoothstep(1.0,0.6,r),1.0);`);
+  return [dense, gals, spikes];
 }
 
 /* gas giant + rings, kept at a fixed offset from the camera so it reads as infinitely far */
@@ -1234,6 +1316,7 @@ async function buildWorld() {
 
   stars = makeStars(); scene.add(stars);
   stars.userData.hero = makeHeroStars(); stars.add(stars.userData.hero);
+  stars.userData.extra = makeExtraSky(); stars.userData.extra.forEach(x => stars.add(x));
   for (let i = 0; i < 3; i++) { const rib = new Ribbon(18, 22, new THREE.Color(1.3, 2.3, 6.0), 1); rib.mesh.visible = false; scene.add(rib.mesh); meteors.push({ rib, life: 0, ttl: 1, p: new V3(), v: new V3() }); }
   planet = makePlanet(); scene.add(planet.grp);
 
@@ -2747,7 +2830,7 @@ function frame(now) {
   planet.grp.position.copy(camera.position).add(planet.offset);
   planet.ringMat.uniforms.uPC.value.copy(planet.grp.position);
   planet.body.material.uniforms.uTime.value = G.time;
-  stars.position.copy(camera.position); stars.material.uniforms.uTime.value = G.time; stars.material.uniforms.uPR.value = renderer.getPixelRatio(); stars.userData.hero.material.uniforms.uPR.value = renderer.getPixelRatio();
+  stars.position.copy(camera.position); stars.material.uniforms.uTime.value = G.time; stars.material.uniforms.uPR.value = renderer.getPixelRatio(); stars.userData.hero.material.uniforms.uPR.value = renderer.getPixelRatio(); for (const x of stars.userData.extra) x.material.uniforms.uPR.value = renderer.getPixelRatio();
   const sc = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   fxAdd.mat.uniforms.uScale.value = sc; fxSmoke.mat.uniforms.uScale.value = sc;
   G.dmgFx = Math.max(0, G.dmgFx - rdt * 1.6);
