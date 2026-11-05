@@ -382,6 +382,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -436,6 +437,13 @@ scene.add(camera);
 const rt = new THREE.WebGLRenderTarget(Math.floor(innerWidth * Q.pr), Math.floor(innerHeight * Q.pr), { type: THREE.HalfFloatType, samples: Q.msaa });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
+// ambient occlusion: contact shadows in corners, under cars, along walls
+const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+gtao.blendIntensity = 0.85;
+gtao.updateGtaoMaterial({ radius: 2.4, distanceExponent: 1.5, thickness: 4, scale: 1.25, samples: 12, distanceFallOff: 1 });
+gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+{ const ov = gtao.overrideVisibility.bind(gtao); gtao.overrideVisibility = function () { ov(); this.scene.traverse((o) => { if (o.isSprite || (o.material && (o.material.transparent || o.material.type === 'ShaderMaterial'))) o.visible = false; }); }; }
+composer.addPass(gtao);
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.55, 0.9);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -521,6 +529,8 @@ const SDEF = [
   { k: 'shadows', t: 'gfx', l: 'צללים', type: 'bool', d: true },
   { k: 'shadowQ', t: 'gfx', l: 'איכות צללים', type: 'sel', d: String(Q.shadow), o: [['512', '512'], ['1024', '1024'], ['2048', '2048'], ['4096', '4096']] },
   { k: 'shadowDist', t: 'gfx', l: 'טווח צללים (מ׳)', type: 'range', d: Q.shadowR, a: 50, b: 350, s: 5 },
+  { k: 'ao', t: 'gfx', l: 'הצללה מגעית (SSAO)', type: 'bool', d: !isTouch },
+  { k: 'aoStr', t: 'gfx', l: 'עוצמת הצללה מגעית', type: 'range', d: 1, a: 0.2, b: 1.6, s: 0.05, x: true },
   { k: 'bloom', t: 'gfx', l: 'זוהר (Bloom)', type: 'bool', d: true },
   { k: 'bloomStr', t: 'gfx', l: 'עוצמת זוהר', type: 'range', d: 1, a: 0, b: 2.5, s: 0.05, x: true },
   { k: 'drawDist', t: 'gfx', l: 'טווח ראייה (מ׳)', type: 'range', d: 12000, a: 1200, b: 12000, s: 100 },
@@ -566,10 +576,10 @@ const SDEF = [
 const S = {};
 { const saved = store.get('settings', {}); for (const d of SDEF) S[d.k] = saved[d.k] !== undefined ? saved[d.k] : d.d; }
 const PRESETS = {
-  low: { res: 0.6, shadows: false, shadowQ: '512', bloom: false, particles: 0.4, drawDist: 3500, shadowDist: 80 },
-  med: { res: 0.85, shadows: true, shadowQ: '1024', bloom: true, particles: 0.7, drawDist: 7000, shadowDist: 110 },
-  high: { res: 1, shadows: true, shadowQ: '2048', bloom: true, particles: 1, drawDist: 12000, shadowDist: 150 },
-  ultra: { res: 1.3, shadows: true, shadowQ: '4096', bloom: true, particles: 1, drawDist: 12000, shadowDist: 220 },
+  low: { ao: false, res: 0.6, shadows: false, shadowQ: '512', bloom: false, particles: 0.4, drawDist: 3500, shadowDist: 80 },
+  med: { ao: false, res: 0.85, shadows: true, shadowQ: '1024', bloom: true, particles: 0.7, drawDist: 7000, shadowDist: 110 },
+  high: { ao: true, res: 1, shadows: true, shadowQ: '2048', bloom: true, particles: 1, drawDist: 12000, shadowDist: 150 },
+  ultra: { ao: true, res: 1.3, shadows: true, shadowQ: '4096', bloom: true, particles: 1, drawDist: 12000, shadowDist: 220 },
 };
 const FLAME_COLORS = { blue: [[0.25, 0.78, 1.0], [0.12, 0.2, 1.0]], orange: [[1.0, 0.55, 0.15], [0.9, 0.12, 0.05]], purple: [[0.75, 0.35, 1.0], [0.35, 0.1, 1.0]], green: [[0.35, 1.0, 0.5], [0.05, 0.6, 0.35]], white: [[1.0, 0.92, 0.8], [0.7, 0.75, 1.0]] };
 
@@ -923,7 +933,7 @@ const sunDir = new V3(0, 1, 0);
 
 // ================================================================ shared materials (textures filled in buildWorld)
 const M = {};
-const WORLD = { boxes: [], trees: [], lights: [], signals: [], ac: [], tanks: [], antennas: [], spots: [], rooftops: [], fountains: [] };
+const WORLD = { shrubs: [], hydrants: [], bins: [], poles: [], wires: [], boxes: [], trees: [], lights: [], signals: [], ac: [], tanks: [], antennas: [], spots: [], rooftops: [], fountains: [] };
 
 function facadeMat(f, extra = {}) {
   return new THREE.MeshStandardMaterial(Object.assign({ map: f.map, roughnessMap: f.rm, metalnessMap: f.rm, emissiveMap: f.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 1, metalness: 1, vertexColors: true }, extra));
@@ -1028,6 +1038,17 @@ async function buildWorld() {
       if (front === 'e') { const m = hz1 - w * c; addBox(B.bay, hx1, hx1 + pr, y0, y1, m - bw / 2, m + bw / 2, col, { unit: true, faces: 'ens', top: B.trim, topCol: trimC }); }
     }
     if (rand() < 0.25) { const cx = R(hx0 + 1, hx1 - 1), cz = R(hz0 + 1, hz1 - 1); addBox(B.trim, cx - 0.4, cx + 0.4, h, h + 1.6, cz - 0.4, cz + 0.4, [0.45, 0.25, 0.2], { unit: true, top: true }); }
+    // entry stoop (3 steps) + shrubs along the front
+    const stC = rand() < 0.6 ? [0.8, 0.78, 0.74] : trimC, end = rand() < 0.5 ? 1.3 : w - 1.3;
+    for (let s = 0; s < 3; s++) {
+      const d = 1.9 - s * 0.62, y1 = 0.45 + s * 0.42;
+      if (front === 'n') { const sx = hx0 + end; addBox(B.trim, sx - 0.8, sx + 0.8, 0, y1, hz0 - d, hz0, stC, { unit: true, top: true }); }
+      if (front === 's') { const sx = hx1 - end; addBox(B.trim, sx - 0.8, sx + 0.8, 0, y1, hz1, hz1 + d, stC, { unit: true, top: true }); }
+      if (front === 'w') { const sz = hz1 - end; addBox(B.trim, hx0 - d, hx0, 0, y1, sz - 0.8, sz + 0.8, stC, { unit: true, top: true }); }
+      if (front === 'e') { const sz = hz0 + end; addBox(B.trim, hx1, hx1 + d, 0, y1, sz - 0.8, sz + 0.8, stC, { unit: true, top: true }); }
+    }
+    if (rand() < 0.7) { const t = w - end; const a = (front === 'n' || front === 's') ? (front === 'n' ? hx0 + t : hx1 - t) : (front === 'w' ? hz1 - t : hz0 + t);
+      const o = 0.6; if (front === 'n') WORLD.shrubs.push([a, hz0 - o, R(0.55, 0.9)]); if (front === 's') WORLD.shrubs.push([a, hz1 + o, R(0.55, 0.9)]); if (front === 'w') WORLD.shrubs.push([hx0 - o, a, R(0.55, 0.9)]); if (front === 'e') WORLD.shrubs.push([hx1 + o, a, R(0.55, 0.9)]); }
   }
   function split(r, minS, depth) {
     const [x0, x1, z0, z1] = r, w = x1 - x0, d = z1 - z0;
@@ -1045,6 +1066,9 @@ async function buildWorld() {
     const x0 = roadC(bi) + RH, x1 = roadC(bi + 1) - RH, z0 = roadC(bj) + RH, z1 = roadC(bj + 1) - RH;
     const d = DIST[bi][bj], cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     addBox(B.side, x0 - 3.5, x1 + 3.5, 0, SWH, z0 - 3.5, z1 + 3.5, WHITE, { unit: true, top: B.side, topScale: 1 / 3 });
+    // street furniture: hydrants at the curb, bins near busy blocks
+    for (const [hx, hz] of [[R(x0 + 8, x1 - 8), z0 - 3.0], [R(x0 + 8, x1 - 8), z1 + 3.0], [x0 - 3.0, R(z0 + 8, z1 - 8)], [x1 + 3.0, R(z0 + 8, z1 - 8)]]) if (rand() < 0.55) WORLD.hydrants.push([hx, hz]);
+    if (d === 'downtown' || d === 'midtown') for (let k = 0; k < 4; k++) if (rand() < 0.6) { const side = RI(0, 3), t = R(6, x1 - x0 - 6); WORLD.bins.push(side === 0 ? [x0 + t, z0 - 2.9] : side === 1 ? [x0 + t, z1 + 2.9] : side === 2 ? [x0 - 2.9, z0 + t] : [x1 + 2.9, z0 + t]); }
     // street trees on the sidewalk band
     const st = d === 'downtown' ? 16 : d === 'residential' ? 13 : 15;
     if (d !== 'harbor') for (let a = x0 + 6; a < x1 - 4; a += st + R(-2, 2)) { if (rand() < 0.62) tree(a, z0 - 2.2, R(0.8, 1.15)); if (rand() < 0.62) tree(a, z1 + 2.2, R(0.8, 1.15)); }
@@ -1133,6 +1157,24 @@ async function buildWorld() {
     const nx = roadC(i), nz = roadC(j), rx = -dz, rz = dx;
     WORLD.signals.push({ x: nx - dx * (RH + 1.0) + rx * (RH - 2.3), z: nz - dz * (RH + 1.0) + rz * (RH - 2.3), yaw: Math.atan2(-dx, -dz), axis: d % 2, i, j });
   }
+  // utility poles + overhead wires along residential / harbor streets
+  { const resi = (i, j) => i >= 0 && j >= 0 && i < N && j < N && (DIST[i][j] === 'residential' || DIST[i][j] === 'harbor');
+    for (let k = 0; k <= N; k++) for (const ax of [0, 1]) {
+      let prev = null;
+      for (let m = 0; m < N; m++) {
+        if (!(ax === 0 ? resi(m, k) : resi(k, m))) { prev = null; continue; }
+        for (const t of [16, 39, 61, 84]) {
+          const along = roadC(m) + t, off = roadC(k) + 7.4, x = ax === 0 ? along : off, z = ax === 0 ? off : along;
+          WORLD.poles.push([x, z, ax, rand() < 0.18]); boxes.push({ x0: x - 0.25, x1: x + 0.25, z0: z - 0.25, z1: z + 0.25, h: 9.5, kind: 2 });
+          if (prev) for (const o of [-1.0, 0, 1.0]) {
+            const ox = ax === 0 ? 0 : o, oz = ax === 0 ? o : 0, y = o === 0 ? 9.55 : 9.0;
+            for (let q = 0; q < 8; q++) { const a = q / 8, b = (q + 1) / 8;
+              WORLD.wires.push(lerp(prev[0], x, a) + ox, y - Math.sin(a * Math.PI) * 0.75, lerp(prev[1], z, a) + oz, lerp(prev[0], x, b) + ox, y - Math.sin(b * Math.PI) * 0.75, lerp(prev[1], z, b) + oz); }
+          }
+          prev = [x, z];
+        }
+      }
+    } }
   // bridge approach road
   B.road.flat(HALF + RH, BR.x0 + 2, -RH, RH, 0.012, WHITE, 1 / 30);
   for (let s = HALF + RH + 2; s < BR.x0; s += 8) { mk.flat(s, s + 4, -0.3, -0.18, my, YEL); mk.flat(s, s + 4, 0.18, 0.3, my, YEL); }
@@ -1288,6 +1330,27 @@ function buildProps() {
   });
   trunkMesh.castShadow = true; scene.add(trunkMesh);
 
+  // shrubs, hydrants, bins, utility poles, wires
+  if (WORLD.shrubs.length) { const sg = finish(mergeGeometries([blob(0.9, 0, 0.55, 0), blob(0.7, 0.6, 0.6, 0.2), blob(0.65, -0.55, 0.5, -0.1)]), 0, 1.2); const sm = new THREE.InstancedMesh(sg, leafMat, WORLD.shrubs.length);
+    WORLD.shrubs.forEach((s, i) => { dummy.position.set(s[0], SWH, s[1]); dummy.rotation.set(0, i * 1.7, 0); dummy.scale.set(s[2], s[2] * 0.85, s[2]); dummy.updateMatrix(); sm.setMatrixAt(i, dummy.matrix); sm.setColorAt(i, greens[i % greens.length]); });
+    sm.castShadow = true; sm.receiveShadow = true; scene.add(sm); }
+  if (WORLD.hydrants.length) { const hg = mergeGeometries([new THREE.CylinderGeometry(0.15, 0.17, 0.6, 10).translate(0, 0.3, 0), new THREE.SphereGeometry(0.16, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.6, 0), new THREE.CylinderGeometry(0.06, 0.06, 0.42, 6).rotateZ(Math.PI / 2).translate(0, 0.42, 0), new THREE.CylinderGeometry(0.21, 0.21, 0.06, 10).translate(0, 0.05, 0)]);
+    const hm = new THREE.InstancedMesh(hg, new THREE.MeshStandardMaterial({ color: 0xd6a21d, roughness: 0.45, metalness: 0.3 }), WORLD.hydrants.length);
+    WORLD.hydrants.forEach((h, i) => { dummy.position.set(h[0], SWH, h[1]); dummy.rotation.set(0, i, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); hm.setMatrixAt(i, dummy.matrix); }); hm.castShadow = true; scene.add(hm); }
+  if (WORLD.bins.length) { const bg = mergeGeometries([new THREE.CylinderGeometry(0.3, 0.26, 0.95, 12).translate(0, 0.48, 0), new THREE.CylinderGeometry(0.33, 0.33, 0.06, 12).translate(0, 0.98, 0)]);
+    const bm = new THREE.InstancedMesh(bg, new THREE.MeshStandardMaterial({ color: 0x243a2e, roughness: 0.55, metalness: 0.5 }), WORLD.bins.length);
+    WORLD.bins.forEach((h, i) => { dummy.position.set(h[0], SWH, h[1]); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); bm.setMatrixAt(i, dummy.matrix); }); bm.castShadow = true; scene.add(bm); }
+  if (WORLD.poles.length) {
+    const pg = mergeGeometries([new THREE.CylinderGeometry(0.11, 0.16, 9.8, 7).translate(0, 4.9, 0), new THREE.BoxGeometry(0.12, 0.12, 2.4).translate(0, 9.0, 0), new THREE.CylinderGeometry(0.03, 0.03, 0.25, 4).translate(0, 9.15, 1.0), new THREE.CylinderGeometry(0.03, 0.03, 0.25, 4).translate(0, 9.15, -1.0), new THREE.CylinderGeometry(0.03, 0.03, 0.25, 4).translate(0, 9.7, 0)]);
+    const pm = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: 0x5a4a3b, roughness: 0.95 }), WORLD.poles.length);
+    const tf = WORLD.poles.filter((p) => p[3]); const tm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.32, 0.32, 0.9, 10).translate(0.42, 7.6, 0), new THREE.MeshStandardMaterial({ color: 0x8b9094, roughness: 0.5, metalness: 0.6 }), Math.max(1, tf.length)); tm.count = tf.length;
+    let ti2 = 0;
+    WORLD.poles.forEach((p, i) => { dummy.position.set(p[0], SWH, p[1]); dummy.rotation.set(0, p[2] === 0 ? 0 : Math.PI / 2, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); pm.setMatrixAt(i, dummy.matrix); if (p[3]) tm.setMatrixAt(ti2++, dummy.matrix); });
+    pm.castShadow = true; tm.castShadow = true; scene.add(pm, tm);
+    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(WORLD.wires, 3));
+    scene.add(new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x15171a, transparent: true, opacity: 0.85 })));
+  }
+
   // rooftop AC units & water tanks & antennas
   const acG = new THREE.BoxGeometry(1, 1, 1); acG.translate(0, 0.5, 0);
   const ac = new THREE.InstancedMesh(acG, new THREE.MeshStandardMaterial({ color: 0xb9bcbe, roughness: 0.6, metalness: 0.4 }), WORLD.ac.length);
@@ -1359,7 +1422,7 @@ function buildProps() {
   // clouds
   const cloudTex = [makeCloud(), makeCloud(), makeCloud()];
   PROPS.clouds = [];
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < (isTouch ? 50 : 80); i++) {
     const m = new THREE.SpriteMaterial({ map: cloudTex[i % 3], transparent: true, depthWrite: false, fog: false, opacity: 0.9 });
     const s = new THREE.Sprite(m); const sc = R(500, 1100); s.scale.set(sc, sc * 0.45, 1);
     const a = R(0, Math.PI * 2), r = R(900, 5200); s.position.set(Math.cos(a) * r + 400, R(420, 900), Math.sin(a) * r); scene.add(s); PROPS.clouds.push(s);
@@ -1466,6 +1529,16 @@ function buildPlayerCar(paintHex) {
   const under = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.16, 4.1), carbon); under.position.set(0, 0.3, -0.05); body.add(under);
   const diff = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 0.5), carbon); diff.position.set(0, 0.32, -2.2); diff.rotation.x = -0.35; body.add(diff);
   const splitter = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.05, 0.4), carbon); splitter.position.set(0, 0.26, 2.15); body.add(splitter);
+  // extra detail: mirrors, side intakes, sill blades, plate, roof fin
+  for (const s of [-1, 1]) {
+    const mir = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.14), paint); mir.position.set(s * 0.86, 0.9, 0.78); mir.rotation.y = s * 0.2; body.add(mir);
+    const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.03, 0.05), carbon); stalk.position.set(s * 0.76, 0.87, 0.8); body.add(stalk);
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.62), carbon); intake.position.set(s * 0.93, 0.52, -0.6); intake.rotation.y = s * 0.06; body.add(intake);
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.0), carbon); sill.position.set(s * 0.95, 0.31, 0); body.add(sill);
+    const fog = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.04), carbon); fog.position.set(s * 0.6, 0.38, 2.24); body.add(fog);
+  }
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.13, 0.02), new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.4 })); plate.position.set(0, 0.36, -2.3); body.add(plate);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.22), carbon); fin.position.set(0, 1.15, -0.55); body.add(fin);
   // light signatures
   const headMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3.1, 3.3) });
   const tailMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 0.05, 0.05) });
@@ -2590,7 +2663,7 @@ function applySettings(key) {
   const sq = +S.shadowQ; if (sq !== sun.shadow.mapSize.x) { sun.shadow.mapSize.set(sq, sq); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   Q.shadow = sq; Q.shadowR = S.shadowDist;
   { const c = sun.shadow.camera; c.left = -S.shadowDist; c.right = S.shadowDist; c.top = S.shadowDist; c.bottom = -S.shadowDist; c.updateProjectionMatrix(); }
-  bloom.enabled = !!S.bloom;
+  bloom.enabled = !!S.bloom; gtao.enabled = !!S.ao; gtao.blendIntensity = 0.85 * S.aoStr;
   camera.far = S.drawDist; camera.updateProjectionMatrix();
   const gu = grade.uniforms; gu.uVig.value = S.vignette; gu.uSat.value = 1.08 * S.sat; gu.uCon.value = 1.04 * S.contrast; gu.uGrain.value = S.grain; gu.uWarm.value = S.warmth;
   if (M.water) M.water.normalScale.setScalar(0.1 * S.waves);
