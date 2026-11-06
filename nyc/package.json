@@ -1,0 +1,30 @@
+{
+  "name": "skyway-nyc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "data": "bash tools/fetch.sh && node tools/build-world.mjs",
+    "world": "node tools/build-world.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "build:artifact": "vite build --mode artifact --outDir dist-artifact && node tools/pack-artifact.mjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.186.1",
+    "yuka": "^0.7.8"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@turf/turf": "^7.4.0",
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.186.0",
+    "meshoptimizer": "^1.3.0",
+    "typescript": "5.9",
+    "vite": "^7.3.7"
+  }
+}

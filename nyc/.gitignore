@@ -1,0 +1,6 @@
+node_modules/
+dist/
+tools/raw/
+tools/sim/*.mjs
+dist-artifact/
+artifact-files.json

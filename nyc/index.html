@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Skyway Manhattan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700;800&family=Saira+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed canvas; HUD pinned to corners. Single committed dark-glass look over a bright city. */
+:root{
+  --ink:#f4f7fa; --ink-2:#b9c4cf; --ink-3:#7f8c99;
+  --glass:rgba(12,16,22,.58); --glass-2:rgba(20,26,34,.72); --edge:rgba(255,255,255,.12);
+  --sig:#ffd23f;      /* NYC taxi yellow: primary signal */
+  --air:#5fd4ff;      /* flight */
+  --go:#7cf2a4; --warn:#ff6b5e;
+  --bg:#0a0d11;
+  --f-ui:"Saira",system-ui,sans-serif; --f-cond:"Saira Condensed","Saira",system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--f-ui);-webkit-user-select:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+canvas#view{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:14px;backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)}
+.cap{font:600 10px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+#hud{position:fixed;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
+#hud button{pointer-events:auto}
+/* location */
+#loc{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:max(14px,env(safe-area-inset-left,0px));padding:12px 16px 12px 14px;display:flex;gap:12px;align-items:stretch;max-width:min(420px,60vw)}
+#loc .sign{width:5px;border-radius:3px;background:#1f7a4d;box-shadow:0 0 0 1px rgba(255,255,255,.25) inset}
+#street{font:700 22px/1.05 var(--f-cond);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cross{font:500 14px/1.2 var(--f-ui);color:var(--ink-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hood{margin-top:7px}
+/* compass */
+#compass{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(360px,40vw);height:34px;overflow:hidden;border-radius:10px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent);mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
+#compassC{width:100%;height:100%}
+/* buttons */
+#tools{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));display:flex;gap:8px}
+.tbtn{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:var(--ink);background:var(--glass);border:1px solid var(--edge);cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.tbtn:hover,.tbtn:focus-visible{border-color:var(--sig);outline:none}
+.tbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* minimap */
+#map{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:210px;height:210px;border-radius:50%;overflow:hidden;border:1px solid var(--edge);box-shadow:0 12px 40px rgba(0,0,0,.45)}
+#mapC{width:100%;height:100%;display:block}
+/* speed cluster */
+#cluster{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:12px}
+#speedBox{padding:14px 18px 12px;min-width:170px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+#speed{font:700 64px/0.9 var(--f-cond);letter-spacing:-.01em}
+#unit{font:600 11px var(--f-mono);letter-spacing:.2em;color:var(--ink-3)}
+#bar{width:100%;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:6px}
+#bar i{display:block;height:100%;width:0;background:var(--sig);transition:background .3s}
+#modeRow{display:flex;gap:8px;align-items:center;margin-top:6px}
+.chip{font:700 11px/1 var(--f-mono);letter-spacing:.16em;padding:6px 9px;border-radius:999px;border:1px solid var(--edge);color:var(--ink-2)}
+.chip.on{color:#111;background:var(--sig);border-color:transparent}
+.chip.air.on{background:var(--air)}
+#gear{font:700 13px var(--f-mono);color:var(--ink-2);min-width:16px;text-align:center}
+/* altimeter */
+#alt{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);width:74px;height:260px;padding:0;overflow:hidden}
+#altC{width:100%;height:100%;display:block}
+/* transform */
+#xform{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(170px + env(safe-area-inset-bottom,0px));width:64px;height:64px;border-radius:50%;border:1px solid var(--edge);background:var(--glass-2);color:var(--ink);cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .2s,border-color .2s}
+#xform svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#xform:hover,#xform:focus-visible{border-color:var(--air);outline:none}
+#xform.air{color:var(--air);border-color:rgba(95,212,255,.6)}
+#xform .k{position:absolute;bottom:-18px;font:600 10px var(--f-mono);color:var(--ink-3);letter-spacing:.12em}
+/* touch */
+#touch{position:absolute;inset:0;pointer-events:none}
+#stick{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;background:rgba(10,14,20,.32);border:1px solid var(--edge);pointer-events:auto;touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+#lift{position:absolute;right:max(96px,calc(env(safe-area-inset-right,0px) + 96px));bottom:calc(150px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+#lift button{width:62px;height:62px;border-radius:16px;border:1px solid var(--edge);background:var(--glass-2);color:var(--ink);font:700 12px var(--f-mono);letter-spacing:.08em;pointer-events:auto;touch-action:none}
+#lift button.on{border-color:var(--air);color:var(--air)}
+body.touch #map{top:calc(110px + env(safe-area-inset-top,0px));bottom:auto;width:120px;height:120px}
+body.touch #compass{display:none}
+body.touch #speedBox{min-width:120px;padding:10px 14px}
+body.touch #speed{font-size:44px}
+body.touch #alt{height:180px;width:62px}
+body.touch #xform{bottom:calc(140px + env(safe-area-inset-bottom,0px))}
+body.touch #hints{display:none}
+#hints{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:14px;font:600 10px var(--f-mono);letter-spacing:.12em;color:var(--ink-2);text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+#hints kbd{font:700 10px var(--f-mono);background:rgba(0,0,0,.35);border:1px solid var(--edge);border-radius:4px;padding:2px 5px;margin-right:4px;color:var(--ink)}
+#toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;font:700 34px/1 var(--f-cond);letter-spacing:.06em;text-shadow:0 3px 24px rgba(0,0,0,.55);opacity:0;transition:opacity .35s}
+#toast small{display:block;font:600 11px var(--f-mono);letter-spacing:.26em;color:var(--sig);margin-top:10px}
+#toast.show{opacity:1}
+#credit{position:absolute;left:50%;transform:translateX(-50%);bottom:2px;font:500 9px var(--f-mono);color:rgba(255,255,255,.55);text-shadow:0 1px 3px #000;white-space:nowrap}
+body.touch #credit{bottom:auto;top:calc(2px + env(safe-area-inset-top,0px))}
+/* start screen */
+#start{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:max(28px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(28px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(0deg,rgba(6,8,11,.94) 0%,rgba(6,8,11,.55) 45%,rgba(6,8,11,.15) 100%);box-sizing:border-box}
+.inner{max-width:560px;display:flex;flex-direction:column;gap:16px;padding-left:clamp(0px,4vw,56px);padding-bottom:clamp(0px,3vh,32px)}
+.kicker{font:600 11px var(--f-mono);letter-spacing:.34em;color:var(--sig)}
+h1{margin:0;font:800 clamp(44px,9vw,96px)/.88 var(--f-cond);letter-spacing:-.01em;text-wrap:balance}
+h1 span{display:block;color:var(--ink-2);font-weight:600;font-size:.42em;letter-spacing:.2em;margin-top:10px}
+.lede{font:400 16px/1.55 var(--f-ui);color:#d7dee5;max-width:52ch;margin:0}
+.lede.he{direction:rtl;text-align:right}
+#prog{height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+#prog i{display:block;height:100%;width:0;background:var(--sig);transition:width .25s}
+#progT{font:500 11px var(--f-mono);letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+#go{align-self:flex-start;font:700 16px var(--f-ui);letter-spacing:.04em;color:#111;background:var(--sig);border:0;border-radius:12px;padding:15px 30px;cursor:pointer;box-shadow:0 14px 40px rgba(255,210,63,.28)}
+#go:disabled{opacity:.45;cursor:wait}
+#go:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.keys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;font:500 13px var(--f-ui);color:var(--ink-2)}
+.keys kbd{font:700 10.5px var(--f-mono);background:rgba(255,255,255,.08);border:1px solid var(--edge);border-radius:5px;padding:2px 6px;margin-right:6px;color:var(--ink)}
+body.touch .keys{display:none}
+@media (max-width:700px){#loc{max-width:62vw}#street{font-size:18px}#tools .tbtn{width:38px;height:38px}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="view" tabindex="0"></canvas>
+
+<div id="hud" hidden>
+  <div id="loc" class="glass"><div class="sign"></div><div style="min-width:0"><div id="street">—</div><div id="cross"></div><div id="hood" class="cap">Midtown</div></div></div>
+  <div id="compass" class="glass"><canvas id="compassC" width="720" height="68"></canvas></div>
+  <div id="tools">
+    <button class="tbtn" id="bCam" type="button" aria-label="Change camera" title="Camera (V)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button>
+    <button class="tbtn" id="bTime" type="button" aria-label="Time of day" title="Time of day (T)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    <button class="tbtn" id="bQual" type="button" aria-label="Graphics quality" title="Graphics quality (G)"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></button>
+    <button class="tbtn" id="bReset" type="button" aria-label="Reset car" title="Reset car (R)"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+  </div>
+  <div id="map" class="glass"><canvas id="mapC" width="420" height="420"></canvas></div>
+  <div id="alt" class="glass" hidden><canvas id="altC" width="148" height="520"></canvas></div>
+  <button id="xform" type="button" aria-label="Transform: drive / fly" title="Transform (F)"><svg viewBox="0 0 24 24"><path d="M4 15h16l-2-5H6z"/><circle cx="7.5" cy="16.5" r="1.6"/><circle cx="16.5" cy="16.5" r="1.6"/><path d="M8 7l4-3 4 3"/></svg><span class="k">F</span></button>
+  <div id="cluster">
+    <div id="speedBox" class="glass">
+      <div id="speed">0</div><div id="unit">KM/H</div>
+      <div id="bar"><i id="barI"></i></div>
+      <div id="modeRow"><span class="chip on" id="chipDrive">DRIVE</span><span class="chip air" id="chipFly">FLIGHT</span><span id="gear">N</span></div>
+    </div>
+  </div>
+  <div id="hints"><span><kbd>W A S D</kbd>Drive</span><span><kbd>F</kbd>Transform</span><span><kbd>Space</kbd><span id="hSpace">Handbrake</span></span><span><kbd>C</kbd>Descend</span><span><kbd>Shift</kbd>Boost</span><span><kbd>V</kbd>Camera</span></div>
+  <div id="toast"></div>
+  <div id="touch" hidden>
+    <div id="stick"><div id="knob"></div></div>
+    <div id="lift" hidden><button id="tUp" type="button">▲ UP</button><button id="tDown" type="button">▼ DOWN</button></div>
+  </div>
+  <div id="credit">Map: NYC Open Data (OTI) · Sky &amp; textures: Poly Haven, ambientCG (CC0) · Vehicles: Kenney (CC0)</div>
+</div>
+
+<div id="start">
+  <div class="inner">
+    <div class="kicker">MIDTOWN MANHATTAN · 1:1 SCALE</div>
+    <h1>SKYWAY<span>DRIVE · TRANSFORM · FLY</span></h1>
+    <p class="lede">Every building, curb and park from 34th Street to Central Park, built from New York City's own survey data. Drive the real grid, then fold the wheels and take off between the towers.</p>
+    <p class="lede he">כל בניין, מדרכה ופארק מרחוב 34 ועד סנטרל פארק, בנויים מנתוני המדידה הרשמיים של העיר. נוהגים ברחובות האמיתיים, ובלחיצה אחת ממריאים בין המגדלים.</p>
+    <div class="keys"><div><kbd>W/S</kbd>Throttle · brake</div><div><kbd>A/D</kbd>Steer</div><div><kbd>F</kbd>Transform drive ↔ fly</div><div><kbd>Space / C</kbd>Up · down (flight)</div><div><kbd>Shift</kbd>Boost</div><div><kbd>V</kbd>Camera · <kbd>T</kbd>Time</div></div>
+    <div id="prog"><i id="progI"></i></div><div id="progT">Loading engine…</div>
+    <button id="go" type="button" disabled>Start driving</button>
+  </div>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
