@@ -85,11 +85,9 @@ async function main() {
       rig.headLight.intensity = engine.night.value > 0.3 ? 90 : 0;
     }
   };
-  $('xform').addEventListener('click', () => input.onAction('transform'));
-  $('bCam').addEventListener('click', () => input.onAction('camera'));
-  $('bTime').addEventListener('click', () => input.onAction('time'));
-  $('bReset').addEventListener('click', () => input.onAction('reset'));
-  $('bQual').addEventListener('click', () => input.onAction('quality'));
+  // HUD buttons act once, then hand keyboard focus straight back to the game
+  const hudBtn = (id: string, a: Parameters<typeof input.onAction>[0]) => $(id).addEventListener('click', (e) => { input.onAction(a); (e.currentTarget as HTMLElement).blur(); ($('view') as HTMLCanvasElement).focus(); });
+  hudBtn('xform', 'transform'); hudBtn('bCam', 'camera'); hudBtn('bTime', 'time'); hudBtn('bReset', 'reset'); hudBtn('bQual', 'quality');
   go.addEventListener('click', () => { started = true; $('start').hidden = true; $('hud').hidden = false; if (isTouch) $('touch').hidden = false; ($('view') as HTMLCanvasElement).focus(); hud.toast('MIDTOWN MANHATTAN', 'Press F to take off'); });
 
   // ---------------------------------------------------------------- loop

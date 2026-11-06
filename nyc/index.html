@@ -71,7 +71,11 @@ canvas#view{position:fixed;inset:0;width:100%;height:100%;display:block;outline:
 #knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 6px 20px rgba(0,0,0,.35)}
 #lift{position:absolute;right:max(96px,calc(env(safe-area-inset-right,0px) + 96px));bottom:calc(150px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
 #lift button{width:62px;height:62px;border-radius:16px;border:1px solid var(--edge);background:var(--glass-2);color:var(--ink);font:700 12px var(--f-mono);letter-spacing:.08em;pointer-events:auto;touch-action:none}
-#lift button.on{border-color:var(--air);color:var(--air)}
+#lift button.on{border-color:var(--air);color:var(--air);background:rgba(95,212,255,.16)}
+#lift button small{display:block;font:600 8.5px var(--f-mono);letter-spacing:.1em;color:var(--ink-3);margin-top:4px}
+body.touch #lift button small{display:none}
+body:not(.touch) #lift{right:max(96px,calc(env(safe-area-inset-right,0px) + 96px));bottom:calc(250px + env(safe-area-inset-bottom,0px))}
+body:not(.touch) #lift button{width:74px;height:56px;cursor:pointer}
 body.touch #map{top:calc(110px + env(safe-area-inset-top,0px));bottom:auto;width:120px;height:120px}
 body.touch #compass{display:none}
 body.touch #speedBox{min-width:120px;padding:10px 14px}
@@ -129,12 +133,12 @@ body.touch .keys{display:none}
       <div id="modeRow"><span class="chip on" id="chipDrive">DRIVE</span><span class="chip air" id="chipFly">FLIGHT</span><span id="gear">N</span></div>
     </div>
   </div>
-  <div id="hints"><span><kbd>W A S D</kbd>Drive</span><span><kbd>F</kbd>Transform</span><span><kbd>Space</kbd><span id="hSpace">Handbrake</span></span><span><kbd>C</kbd>Descend</span><span><kbd>Shift</kbd>Boost</span><span><kbd>V</kbd>Camera</span></div>
+  <div id="hints"><span><kbd>W A S D</kbd>Drive</span><span><kbd>F</kbd>Transform</span><span><kbd>Space</kbd><span id="hSpace">Handbrake</span></span><span><kbd>Space</kbd>/<kbd>E</kbd> Climb · <kbd>C</kbd>/<kbd>Q</kbd> Descend</span><span><kbd>Shift</kbd>Boost</span><span><kbd>V</kbd>Camera</span></div>
   <div id="toast"></div>
   <div id="touch" hidden>
     <div id="stick"><div id="knob"></div></div>
-    <div id="lift" hidden><button id="tUp" type="button">▲ UP</button><button id="tDown" type="button">▼ DOWN</button></div>
   </div>
+  <div id="lift" hidden><button id="tUp" type="button" aria-label="Climb">▲ UP<small>SPACE · E</small></button><button id="tDown" type="button" aria-label="Descend">▼ DOWN<small>C · Q</small></button></div>
   <div id="credit">Map: NYC Open Data (OTI) · Sky &amp; textures: Poly Haven, ambientCG (CC0) · Vehicles: Kenney (CC0)</div>
 </div>
 

@@ -2,6 +2,8 @@ import type { Controls } from '../vehicle/vehicle';
 
 /** Keyboard + touch joystick + gamepad → one Controls struct.
  *  Drive: joystick x = steer, y = gas / brake / reverse.  Fly: same joystick + UP/DOWN buttons. */
+const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyQ', 'KeyC', 'KeyF', 'KeyV', 'KeyT', 'KeyR', 'KeyG', 'PageUp', 'PageDown', 'Enter', 'ShiftLeft', 'ShiftRight']);
+
 export class Input {
   keys: Record<string, boolean> = {};
   stick = { x: 0, y: 0, id: -1 };
@@ -11,13 +13,14 @@ export class Input {
 
   constructor() {
     addEventListener('keydown', (e) => {
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-      if (this.keys[e.code]) return; this.keys[e.code] = true;
+      if (GAME_KEYS.has(e.code)) e.preventDefault();
+      if (this.keys[e.code]) return; this.keys[e.code] = true; this.lightLift();
       const map: Record<string, any> = { KeyF: 'transform', KeyV: 'camera', KeyT: 'time', KeyR: 'reset', KeyG: 'quality' };
       if (map[e.code]) this.onAction(map[e.code]);
     });
-    addEventListener('keyup', (e) => { this.keys[e.code] = false; });
-    addEventListener('blur', () => { this.keys = {}; });
+    // a focused HUD button would otherwise be 'clicked' by Space/Enter on key release (e.g. re-toggling transform)
+    addEventListener('keyup', (e) => { if (GAME_KEYS.has(e.code)) e.preventDefault(); this.keys[e.code] = false; this.lightLift(); });
+    addEventListener('blur', () => { this.keys = {}; this.lightLift(); });
     const stick = document.getElementById('stick')!, knob = document.getElementById('knob')!;
     const upd = (e: PointerEvent) => {
       const r = stick.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2);
@@ -37,13 +40,19 @@ export class Input {
     hold('tUp', 'up'); hold('tDown', 'down');
   }
 
+  private lightLift() {
+    const k = this.keys;
+    document.getElementById('tUp')?.classList.toggle('on', this.lift.up || !!(k.Space || k.KeyE || k.PageUp));
+    document.getElementById('tDown')?.classList.toggle('on', this.lift.down || !!(k.KeyC || k.KeyQ || k.ControlLeft || k.PageDown));
+  }
+
   read(flying: boolean): Controls {
     const k = this.keys;
     const dz = (v: number, d = 0.08) => (Math.abs(v) < d ? 0 : Math.sign(v) * ((Math.abs(v) - d) / (1 - d)));
     const curve = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), 1.35);
     let steer = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
     let throttle = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
-    let up = k.Space && flying ? 1 : 0, down = k.KeyC || k.ControlLeft || k.KeyQ ? 1 : 0;
+    let up = flying && (k.Space || k.KeyE || k.PageUp) ? 1 : 0, down = k.KeyC || k.ControlLeft || k.KeyQ || k.PageDown ? 1 : 0;
     let boost = !!(k.ShiftLeft || k.ShiftRight); let handbrake = !!(k.Space && !flying);
     if (this.stick.id >= 0) { steer = curve(dz(this.stick.x)); throttle = dz(this.stick.y, 0.1); }
     if (this.lift.up) up = 1; if (this.lift.down) down = 1;

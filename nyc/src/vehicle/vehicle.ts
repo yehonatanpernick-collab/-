@@ -140,8 +140,9 @@ export class Vehicle {
     const clear = this.groundClearance();
     const vyT = (I.up - I.down) * T.climb * (boosting ? 1.35 : 1);
     const ground = clear < 3 ? (3 - clear) * 9.0 : 0;          // ground-effect cushion
-    let fy = m * (9.81 + (vyT - v.y) * 2.6 + ground);
-    fy = Math.max(0, fy) * f;
+    // vertical thrusters can push both ways (capped), so climbs stop and descents start immediately
+    let fy = m * (9.81 + (vyT - v.y) * 3.6 + ground);
+    fy = THREE.MathUtils.clamp(fy, -m * 16, m * 42) * f;
     // forward thrust, quadratic drag, lateral damping (no sideways skating)
     const acc = (boosting ? T.flyBoost : T.flyAccel) * I.throttle;
     const fx = flatF.x * m * acc - v.x * Math.abs(vF) * T.flyDrag * m - flatR.x * vR * T.flyLatDamp * m - flatF.x * vF * 0.08 * m;
