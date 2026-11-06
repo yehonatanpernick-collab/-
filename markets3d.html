@@ -129,7 +129,7 @@
   </div>
   <div id="list"></div>
   <div class="foot">
-    מקור: Yahoo Finance (מחירי מדד רשמיים, מתעדכן כל 60 שניות). חלק מהבורסות מעבירות נתונים בהשהיה של עד 15 דקות. כשהבורסה סגורה מוצג מחיר הסגירה האחרון והשינוי של יום המסחר האחרון.
+    מקור: CNBC (מחירי מדד רשמיים מהבורסות), מתעדכן כל 60 שניות. מדדים מסומנים "בהשהיה" מגיעים באיחור של עד 15 דקות. כשהבורסה סגורה מוצגים מחיר הסגירה והשינוי של יום המסחר האחרון.
     גובה בניין = 40 קומות בסיס ± קומה לכל 0.1% שינוי מהסגירה הקודמת.
   </div>
 </aside>
@@ -164,108 +164,205 @@ let selected = 'AVG';
 
 /* ------------------------------------------------------------------ */
 /*  Live data                                                          */
+/*  Primary: CNBC quote service (all 10 indices in one request).       */
+/*  Inside claude.ai it is fetched through the viewer's Firecrawl      */
+/*  connector; elsewhere it is fetched directly, then Yahoo fallbacks. */
 /* ------------------------------------------------------------------ */
-const yUrl = (sym, host = 'query1') =>
-  `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=5m&includePrePost=false&_=${Date.now()}`;
+const CNBC = { '^GSPC': '.SPX', '^IXIC': '.IXIC', '^DJI': '.DJI', '000001.SS': '.SSEC', '^N225': '.N225',
+               '^HSI': '.HSI', '^NSEI': '.NSEI', '^FTSE': '.FTSE', '^GDAXI': '.GDAXI', '^FCHI': '.FCHI' };
+const CNBC_URL = 'https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=' +
+  encodeURIComponent(Object.values(CNBC).join('|')) + '&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json';
+const FC_SERVER = 'Firecrawl', FC_TOOL = 'firecrawl_scrape';
+const FC_INPUT = { url: CNBC_URL, formats: ['rawHtml'], maxAge: 0, objective: 'Live quotes for the 10 largest world stock indices shown as a 3D city.' };
 
-// Strategies, tried in order; the first one that works is remembered.
-const STRATEGIES = [
-  { name: 'שרת מקומי',  build: s => `/api/chart?symbol=${encodeURIComponent(s)}`, onlyHttp: true },
-  { name: 'ישיר',        build: s => yUrl(s) },
-  { name: 'corsproxy.io', build: s => `https://corsproxy.io/?url=${encodeURIComponent(yUrl(s))}` },
-  { name: 'allorigins',  build: s => `https://api.allorigins.win/raw?url=${encodeURIComponent(yUrl(s, 'query2'))}` },
-  { name: 'codetabs',    build: s => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yUrl(s))}` },
-  { name: 'thingproxy',  build: s => `https://thingproxy.freeboard.io/fetch/${yUrl(s, 'query2')}` },
-];
-let preferred = null;
+const history = new Map(INDICES.map(i => [i.sym, []]));   // samples since the page opened
+const num = s => { if (s == null || s === '') return null; const v = parseFloat(String(s).replace(/[,+%\s]/g, '')); return isNaN(v) ? null : v; };
+const isoFix = s => s ? Date.parse(String(s).replace(/([+-]\d\d)(\d\d)$/, '$1:$2')) : NaN;
 
-async function fetchJSON(url, ms = 9000) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try {
-    const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = JSON.parse(await r.text());
-    if (!j?.chart?.result?.[0]?.meta) throw new Error(j?.chart?.error?.description || 'תשובה לא תקינה');
-    return j.chart.result[0];
-  } finally { clearTimeout(t); }
-}
-
-async function fetchSymbol(sym) {
-  const order = preferred ? [preferred, ...STRATEGIES.filter(s => s !== preferred)] : STRATEGIES;
-  let lastErr;
-  for (const st of order) {
-    if (st.onlyHttp && !location.protocol.startsWith('http')) continue;
-    try {
-      const res = await fetchJSON(st.build(sym));
-      preferred = st;
-      return res;
-    } catch (e) { lastErr = e; }
+function parseCnbc(json) {
+  const list = json?.FormattedQuoteResult?.FormattedQuote;
+  if (!Array.isArray(list)) throw new Error('תשובה לא תקינה מ־CNBC');
+  const bySym = new Map(list.map(q => [q.symbol, q]));
+  const out = new Map();
+  for (const i of INDICES) {
+    const q = bySym.get(CNBC[i.sym]);
+    if (!q || q.code !== 0 || num(q.last) == null) continue;
+    const time = isoFix(q.last_time);
+    const price = num(q.last), prev = num(q.previous_day_closing);
+    out.set(i.sym, {
+      price, prev,
+      change: num(q.change) ?? price - prev,
+      pct: num(q.change_pct) ?? (price - prev) / prev * 100,
+      high: num(q.high), low: num(q.low), dayOpen: num(q.open),
+      w52h: num(q.yrhiprice), w52l: num(q.yrloprice),
+      volume: q.volume_alt && q.volume_alt !== '0.0' ? q.volume_alt : null,
+      open: !isNaN(time) && (Date.now() - time) < 25 * 60 * 1000,
+      delayed: q.realTime !== 'true',
+      currency: q.currencyCode, exchange: q.exchange,
+      time, timeLabel: q.last_timedate,
+    });
   }
-  throw lastErr || new Error('אין חיבור');
+  return out;
 }
 
-function parse(res) {
+function parseYahoo(res) {
   const m = res.meta;
-  const price = m.regularMarketPrice;
-  const prev = m.previousClose ?? m.chartPreviousClose;
+  const price = m.regularMarketPrice, prev = m.previousClose ?? m.chartPreviousClose;
   const closes = (res.indicators?.quote?.[0]?.close || []).filter(v => v != null);
-  const now = Date.now() / 1000;
-  const reg = m.currentTradingPeriod?.regular;
-  const open = reg ? (now >= reg.start && now <= reg.end && (now - m.regularMarketTime) < 1800) : false;
+  const now = Date.now() / 1000, reg = m.currentTradingPeriod?.regular;
   return {
-    price, prev,
-    change: price - prev,
-    pct: (price - prev) / prev * 100,
-    high: m.regularMarketDayHigh, low: m.regularMarketDayLow,
+    price, prev, change: price - prev, pct: (price - prev) / prev * 100,
+    high: m.regularMarketDayHigh, low: m.regularMarketDayLow, dayOpen: closes[0],
     w52h: m.fiftyTwoWeekHigh, w52l: m.fiftyTwoWeekLow,
-    open, currency: m.currency, exchange: m.fullExchangeName || m.exchangeName,
-    time: m.regularMarketTime * 1000, tz: m.exchangeTimezoneName,
-    spark: closes,
-    dayOpen: closes[0],
+    open: reg ? (now >= reg.start && now <= reg.end && (now - m.regularMarketTime) < 1800) : false,
+    currency: m.currency, exchange: m.fullExchangeName || m.exchangeName,
+    time: m.regularMarketTime * 1000, intraday: closes,
   };
 }
 
-let nextAt = 0, loading = false;
-async function refresh() {
-  if (loading) return;
-  loading = true;
-  setStatus('load', 'מעדכן נתונים…');
-  const results = await Promise.allSettled(INDICES.map(i => fetchSymbol(i.sym)));
-  let ok = 0;
-  results.forEach((r, k) => {
-    const s = state.get(INDICES[k].sym);
-    if (r.status === 'fulfilled') {
-      try { s.data = parse(r.value); s.error = null; ok++; }
-      catch (e) { s.error = 'שגיאה בפענוח'; }
-    } else {
-      s.error = 'לא התקבל עדכון (' + (r.reason?.message || 'שגיאה') + ')';
-    }
-  });
-  // Average building = mean of the 10 daily % changes.
-  const valid = INDICES.map(i => state.get(i.sym).data).filter(Boolean);
+async function fetchText(url, ms = 9000) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+
+// Browser-only sources (used when not running inside claude.ai)
+async function fetchDirect() {
+  try { return { map: parseCnbc(JSON.parse(await fetchText(CNBC_URL))), via: 'CNBC' }; } catch (e) {}
+  const yahooRoutes = [];
+  if (location.protocol.startsWith('http')) yahooRoutes.push(s => `/api/chart?symbol=${encodeURIComponent(s)}`);
+  yahooRoutes.push(s => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?range=1d&interval=5m`);
+  for (const route of yahooRoutes) {
+    const res = await Promise.allSettled(INDICES.map(async i => {
+      const j = JSON.parse(await fetchText(route(i.sym)));
+      return [i.sym, parseYahoo(j.chart.result[0])];
+    }));
+    const map = new Map(res.filter(r => r.status === 'fulfilled').map(r => r.value));
+    if (map.size) return { map, via: 'Yahoo Finance' };
+  }
+  throw new Error('no source');
+}
+
+let nextAt = 0, loading = false, lastVia = '';
+function applyQuotes(map, via) {
+  lastVia = via;
+  for (const i of INDICES) {
+    const s = state.get(i.sym), d = map.get(i.sym);
+    if (!d) { s.error = s.data ? null : 'המדד לא הופיע בתשובה'; continue; }
+    const h = history.get(i.sym);
+    if (!h.length || h[h.length - 1].t !== d.time) h.push({ t: d.time, v: d.price });
+    if (h.length > 600) h.shift();
+    d.spark = d.intraday?.length > 1 ? d.intraday : h.map(p => p.v);
+    d.sparkLabel = d.intraday?.length > 1 ? 'מהלך היום' : 'מאז פתיחת הדף';
+    s.data = d; s.error = null;
+  }
+  const valid = INDICES.filter(i => state.get(i.sym).data);
   const a = state.get('AVG');
   if (valid.length) {
-    const pct = valid.reduce((s, d) => s + d.pct, 0) / valid.length;
+    const pcts = valid.map(i => state.get(i.sym).data.pct);
+    const sorted = [...valid].sort((x, y) => state.get(y.sym).data.pct - state.get(x.sym).data.pct);
     a.data = {
-      pct, count: valid.length,
-      up: valid.filter(d => d.pct > 0).length,
-      down: valid.filter(d => d.pct < 0).length,
-      best: INDICES.filter(i => state.get(i.sym).data).sort((x, y) => state.get(y.sym).data.pct - state.get(x.sym).data.pct)[0],
-      worst: INDICES.filter(i => state.get(i.sym).data).sort((x, y) => state.get(x.sym).data.pct - state.get(y.sym).data.pct)[0],
-      openCount: valid.filter(d => d.open).length,
-      time: Math.max(...valid.map(d => d.time)),
+      pct: pcts.reduce((s, v) => s + v, 0) / pcts.length, count: valid.length,
+      up: pcts.filter(v => v > 0).length, down: pcts.filter(v => v < 0).length,
+      best: sorted[0], worst: sorted[sorted.length - 1],
+      openCount: valid.filter(i => state.get(i.sym).data.open).length,
     };
-    a.error = null;
   }
-  loading = false;
+  const ok = valid.length;
+  setStatus(ok ? 'ok' : 'err', ok ? `חי · ${ok}/10 מדדים · ${via}` : 'אין נתונים');
+  document.getElementById('updated').textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL');
   nextAt = Date.now() + REFRESH_MS;
-  if (ok === INDICES.length) setStatus('ok', `חי · ${ok}/10 מדדים · דרך ${preferred?.name}`);
-  else if (ok > 0) setStatus('ok', `חלקי · ${ok}/10 מדדים · דרך ${preferred?.name}`);
-  else setStatus('err', 'אין חיבור למקור הנתונים — מנסה שוב בעוד דקה');
-  document.getElementById('updated').textContent = ok ? 'עודכן ' + new Date().toLocaleTimeString('he-IL') : '—';
   for (const b of buildings.values()) b.setTarget(floorsFor(state.get(b.sym)));
   renderList();
+}
+
+function showProblem(text, action) {
+  setStatus('err', text);
+  const btn = document.getElementById('refresh');
+  btn.textContent = action || 'רענון';
+  for (const s of state.values()) if (!s.data) s.error = text;
+  renderList();
+}
+
+/* ---- claude.ai path: Firecrawl connector ---- */
+let mcp = null, unwatch = null;
+function payloadToMap(result) {
+  let p = result?.payload ?? result;
+  if (typeof p === 'string') p = JSON.parse(p);
+  const raw = p?.rawHtml ?? p?.data?.rawHtml;
+  const code = p?.metadata?.statusCode ?? p?.data?.metadata?.statusCode;
+  if (code && code !== 200) throw new Error('CNBC החזיר ' + code);
+  if (!raw) throw new Error('תשובה ריקה');
+  return parseCnbc(JSON.parse(raw));
+}
+function mcpErrorText(e) {
+  switch (e?.code) {
+    case 'server_not_connected': return 'יש לחבר את Firecrawl ב־claude.ai ← הגדרות ← Connectors';
+    case 'needs_reauth': return 'החיבור ל־Firecrawl פג — יש לחבר מחדש בהגדרות claude.ai';
+    case 'approval_required': case 'not_in_manifest': case 'consent_required': return 'צריך לאשר לדף גישה ל־Firecrawl';
+    case 'selection_required': return 'יש לבחור איזה חיבור Firecrawl להשתמש בו';
+    case 'blocked_by_policy': return 'מדיניות הארגון חוסמת את Firecrawl';
+    case 'server_unavailable': return 'Firecrawl לא זמין כרגע — מנסה שוב';
+    default: return 'שגיאה בקבלת נתונים' + (e?.message ? ': ' + String(e.message).slice(0, 80) : '');
+  }
+}
+async function mcpCallOnce() {
+  if (loading) return;
+  loading = true; setStatus('load', 'מעדכן נתונים…');
+  try {
+    const r = await mcp.callTool(FC_SERVER, FC_TOOL, FC_INPUT, { cache: { staleTime: 50_000, gcTime: 300_000, refresh: true } });
+    applyQuotes(payloadToMap(r), 'CNBC דרך Firecrawl');
+    startWatch();
+  } catch (e) {
+    const t = mcpErrorText(e);
+    showProblem(t, ['approval_required', 'not_in_manifest', 'consent_required'].includes(e?.code) ? 'אשר גישה' : 'נסה שוב');
+    nextAt = Date.now() + REFRESH_MS;
+  } finally { loading = false; }
+}
+function startWatch() {
+  if (unwatch) return;
+  unwatch = mcp.watchTool(FC_SERVER, FC_TOOL, FC_INPUT, ev => {
+    if (ev.type === 'data') {
+      try { applyQuotes(payloadToMap(ev.result), 'CNBC דרך Firecrawl'); } catch (e) { setStatus('err', 'תשובה לא תקינה — מנסה שוב בעוד דקה'); }
+    } else {
+      const c = ev.error?.code;
+      if (['needs_reauth', 'server_not_connected', 'blocked_by_policy', 'approval_required', 'not_in_manifest'].includes(c)) {
+        unwatch?.(); unwatch = null;
+        showProblem(mcpErrorText(ev.error), 'נסה שוב');
+      } else setStatus('err', mcpErrorText(ev.error));
+    }
+  }, { cache: { staleTime: 50_000, gcTime: 300_000 }, refetchInterval: REFRESH_MS });
+}
+
+/* ---- browser path ---- */
+async function refreshDirect() {
+  if (loading) return;
+  loading = true; setStatus('load', 'מעדכן נתונים…');
+  try { const { map, via } = await fetchDirect(); applyQuotes(map, via); }
+  catch (e) { showProblem('אין חיבור למקור הנתונים — מנסה שוב בעוד דקה'); nextAt = Date.now() + REFRESH_MS; }
+  finally { loading = false; }
+}
+
+async function refresh() {
+  document.getElementById('refresh').textContent = 'רענון';
+  if (mcp) {
+    if (unwatch) { setStatus('load', 'מעדכן נתונים…'); mcp.invalidate(FC_SERVER, FC_TOOL).catch(() => {}); return; }
+    return mcpCallOnce();
+  }
+  return refreshDirect();
+}
+
+async function start() {
+  if (window.claude?.use) {
+    setStatus('load', 'מתחבר למקור הנתונים…');
+    try { mcp = await window.claude.use('mcp'); } catch { mcp = null; }
+  }
+  if (mcp) return mcpCallOnce();
+  refreshDirect();
+  setInterval(() => { if (!loading && Date.now() >= nextAt && !document.hidden) refreshDirect(); }, 1000);
 }
 
 function floorsFor(s) {
@@ -280,7 +377,7 @@ const fmt = (v, d = 2) => v == null || isNaN(v) ? '—' : v.toLocaleString('en-U
 const sgn = v => (v > 0 ? '+' : '') ;
 const cls = v => v > 0.005 ? 'up' : v < -0.005 ? 'down' : 'flat';
 const pctStr = v => v == null ? '—' : `${sgn(v)}${fmt(v)}%`;
-const timeIn = (ms, tz) => { try { return new Date(ms).toLocaleTimeString('he-IL', { timeZone: tz, hour: '2-digit', minute: '2-digit' }); } catch { return new Date(ms).toLocaleTimeString('he-IL'); } };
+const timeIn = ms => isNaN(ms) ? '—' : new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
 function setStatus(kind, text) {
   document.getElementById('dot').className = 'dot ' + kind;
@@ -289,7 +386,7 @@ function setStatus(kind, text) {
 
 function sparkSVG(arr, prev, up) {
   if (!arr || arr.length < 2) return '';
-  const all = [...arr, prev];
+  const all = prev == null ? arr : [...arr, prev];
   const mn = Math.min(...all), mx = Math.max(...all), w = 300, h = 46, pad = 3;
   const x = i => (i / (arr.length - 1)) * w;
   const y = v => h - pad - ((v - mn) / (mx - mn || 1)) * (h - 2 * pad);
@@ -322,7 +419,7 @@ function renderList() {
     } else if (d) {
       body = `
         <div class="row2"><span><span class="px">${fmt(d.price)}</span> ${d.currency || ''}
-          <span class="badge ${d.open ? 'open' : 'closed'}">${d.open ? 'מסחר פעיל' : 'סגור'}</span></span>
+          <span class="badge ${d.open ? 'open' : 'closed'}">${d.open ? 'מסחר פעיל' : 'סגור'}</span>${d.delayed ? '<span class="badge closed">בהשהיה</span>' : ''}</span>
           <span>${floors} קומות</span></div>
         <div class="details">
           <div class="grid">
@@ -332,9 +429,12 @@ function renderList() {
             <div><span>נמוך יומי</span><span>${fmt(d.low)}</span></div>
             <div><span>שיא 52 ש׳</span><span>${fmt(d.w52h)}</span></div>
             <div><span>שפל 52 ש׳</span><span>${fmt(d.w52l)}</span></div>
+            <div><span>פתיחה</span><span>${fmt(d.dayOpen)}</span></div>
+            <div><span>מחזור</span><span>${d.volume || '—'}</span></div>
             <div><span>בורסה</span><span>${d.exchange || '—'}</span></div>
-            <div><span>עדכון אחרון</span><span>${timeIn(d.time, d.tz)} מקומי</span></div>
+            <div><span>עדכון אחרון</span><span>${d.timeLabel || timeIn(d.time)}</span></div>
           </div>
+          ${d.spark?.length > 1 ? `<div style="color:var(--muted);font-size:10.5px;margin-top:8px">${d.sparkLabel}</div>` : ''}
           ${sparkSVG(d.spark, d.prev, d.pct >= 0)}
         </div>`;
     } else {
@@ -699,9 +799,7 @@ if (innerWidth < 820) camera.position.set(0, 50, 95);
 
 /* ---------- Go ---------- */
 renderList();
-refresh();
-setInterval(() => { if (Date.now() >= nextAt && !document.hidden) refresh(); }, 1000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() >= nextAt) refresh(); });
+start();
 </script>
 </body>
 </html>
