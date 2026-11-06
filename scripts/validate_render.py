@@ -3,7 +3,7 @@ import json, os, sys, numpy as np
 from PIL import Image, ImageDraw
 ROOT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..'); D=os.path.join(ROOT,'public/data')
 w=json.load(open(f'{D}/world.json')); g=w['grid']
-H=np.fromfile(f'{D}/height.bin',np.int16).reshape(g['h'],g['w'])/10; S=np.fromfile(f'{D}/surface.bin',np.uint8).reshape(g['h'],g['w'])
+H=np.fromfile(f'{D}/height.bin.png',np.int16).reshape(g['h'],g['w'])/10; S=np.fromfile(f'{D}/surface.bin.png',np.uint8).reshape(g['h'],g['w'])
 img=np.zeros((g['h'],g['w'],3),np.uint8)
 hn=np.clip(H/250,0,1)
 img[...,0]=(90+120*hn); img[...,1]=(95+110*hn); img[...,2]=(80+90*hn)

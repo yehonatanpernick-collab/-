@@ -119,7 +119,7 @@ export class Game {
 
     prog(0.66, 'Preparing the Skydrive');
     this.vehicle = new Vehicle(this.physics, this.world, this.graph, (x, z) => this.streamer.hasCollider(x, z));
-    await this.vehicle.init('./assets/models/skydrive-car.glb');
+    await this.vehicle.init('./assets/models/skydrive-car.glb.png');
     this.worldRoot.add(this.vehicle.model.root);
     this.vehicle.onStateChange = (s) => this.onVehicleState(s);
     this.vehicle.onImpact = (k) => { this.audio.impact(k); this.cam.addShake(k * 1.5); const p = this.vehicle.position; this.traffic.impactNear(p.x, p.z); };
@@ -134,7 +134,7 @@ export class Game {
     this.peds.maxPeds = this.q.maxPeds;
     this.peds.timeFn = () => this.traffic.time;
     this.worldRoot.add(this.peds.group);
-    try { await this.peds.load(['./assets/models/pedestrian.glb', './assets/models/pedestrian-b.glb']); }
+    try { await this.peds.load(['./assets/models/pedestrian.glb.png', './assets/models/pedestrian-b.glb.png']); }
     catch (e) { console.warn('pedestrian assets failed', e); }
 
     prog(0.76, 'Mapping the city');

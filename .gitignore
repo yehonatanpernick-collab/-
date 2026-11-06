@@ -3,3 +3,4 @@ dist
 data/raw
 assets-src/candidates
 *.log
+data/tiles_unpacked

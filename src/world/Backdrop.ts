@@ -9,7 +9,7 @@ import { U, absPos } from '../core/Uniforms';
  * the city DEM there, lowered slightly so streamed tiles always draw on top).
  */
 export async function buildBackdrop(world: WorldData, step: number): Promise<THREE.Mesh | null> {
-  const r = await fetch('./data/backdrop.bin');
+  const r = await fetch('./data/backdrop.bin.png');
   if (!r.ok) return null;
   const raw = new Int16Array(await r.arrayBuffer());
   const N = Math.round(Math.sqrt(raw.length));

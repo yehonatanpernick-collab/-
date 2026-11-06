@@ -188,4 +188,6 @@ The full asset manifest is in `public/assets/manifest.json`. It includes assets 
 - `?maxdt=0.4`: test-only setting that lets the fixed-step physics catch up on slow software renderers.
 - `python3 scripts/validate_render.py 1.0 out.png`: top-down geographic validation render.
 
+Binary files (`*.bin`, `*.glb`) carry an extra `.png` suffix (e.g. `height.bin.png`) so they can be served by hosts that only allow standard web media types; the loaders parse them by content, not by extension.
+
 The previous `index.html` app (LifeOS) is kept at `legacy/lifeos.html`.

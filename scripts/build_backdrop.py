@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from geo import KX, KY, LAT0, LON0
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-OUT = os.path.join(ROOT, "public/data/backdrop.bin")
+OUT = os.path.join(ROOT, "public/data/backdrop.bin.png")
 Z = 11; R = 36000; STEP = 120
 N = int(2 * R / STEP) + 1
 lon0, lon1 = LON0 - R / KX, LON0 + R / KX

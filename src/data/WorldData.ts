@@ -52,6 +52,7 @@ export class WorldData {
   roads!: RoadsData;
   peds!: PedsData;
   private base: string;
+  private packs = new Map<string, Promise<unknown>>();
 
   constructor(base = './data/') { this.base = base; }
   setBase(b: string): void { this.base = b; }
@@ -65,12 +66,12 @@ export class WorldData {
     progress(0.02, 'Loading San Francisco geography');
     this.meta = await (await get('world.json')).json();
     progress(0.1, 'Loading USGS elevation model');
-    const hb = await (await get('height.bin')).arrayBuffer();
+    const hb = await (await get('height.bin.png')).arrayBuffer();
     const i16 = new Int16Array(hb);
     this.heights = new Float32Array(i16.length);
     for (let i = 0; i < i16.length; i++) this.heights[i] = i16[i] / 10;
     progress(0.2, 'Loading land cover');
-    this.surface = new Uint8Array(await (await get('surface.bin')).arrayBuffer());
+    this.surface = new Uint8Array(await (await get('surface.bin.png')).arrayBuffer());
     progress(0.3, 'Loading street network');
     this.roads = await (await get('roads.json')).json();
     progress(0.42, 'Loading pedestrian network');
@@ -131,9 +132,15 @@ export class WorldData {
 
   async loadTile(i: number, j: number): Promise<TileData | null> {
     if (!this.hasTileFile(i, j)) return null;
-    const r = await fetch(`${this.base}tiles/T_${i}_${j}.json`);
-    if (!r.ok) return null;
-    return r.json();
+    // tiles are packed into 2 km region bundles (4x4 tiles) to keep the file/request count low
+    const key = `${Math.floor(i / 4)}_${Math.floor(j / 4)}`;
+    let p = this.packs.get(key);
+    if (!p) {
+      p = fetch(`${this.base}packs/P_${key}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+      this.packs.set(key, p);
+      if (this.packs.size > 24) this.packs.delete(this.packs.keys().next().value!);
+    }
+    return ((await p) as Record<string, TileData>)[`${i}_${j}`] ?? null;
   }
 
   nearestHood(x: number, z: number): string {

@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
-    "data": "cd scripts && python3 overture_index.py theme=buildings/type=building theme=transportation/type=segment theme=transportation/type=connector theme=base/type=water theme=base/type=land theme=base/type=land_use theme=base/type=infrastructure theme=divisions/type=division && python3 fetch_overture.py && python3 fetch_dem.py && python3 -W ignore build_world.py && python3 build_backdrop.py"
+    "data": "cd scripts && python3 overture_index.py theme=buildings/type=building theme=transportation/type=segment theme=transportation/type=connector theme=base/type=water theme=base/type=land theme=base/type=land_use theme=base/type=infrastructure theme=divisions/type=division && python3 fetch_overture.py && python3 fetch_dem.py && python3 -W ignore build_world.py && python3 build_backdrop.py && python3 pack_tiles.py"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

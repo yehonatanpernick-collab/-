@@ -31,19 +31,19 @@ async function build(name, src, out, prep, opts = {}) {
 }
 
 // 1. Hero vehicle base — Khronos "CarConcept" (CC-BY 4.0, derived from a CC0 model by Unity Fan)
-const carSize = await build('vehicle', 'CarConcept.glb', 'skydrive-car.glb', async (doc) => {
+const carSize = await build('vehicle', 'CarConcept.glb', 'skydrive-car.glb.png', async (doc) => {
   // drop the dense windshield-wiper mesh (24k verts) — the hero car uses hydrophobic glass
   for (const n of doc.getRoot().listNodes()) if (/Wipers$|License Plate/.test(n.getName())) n.dispose();
 }, { tex: 1024 });
-manifest.push({ name: 'Skydrive hero vehicle base', category: 'vehicle', file: 'models/skydrive-car.glb', source: 'KhronosGroup/glTF-Sample-Assets Models/CarConcept (based on "Free Concept Car 004" by Unity Fan, CC0)', license: 'CC-BY-4.0 (Khronos logos excluded/removed)', attribution: 'Car Concept — Khronos Group, Eric Chadwick et al.; original model by Unity Fan', format: 'glb (meshopt, webp)', bytes: carSize, optimized: true, integrated: 'VehicleModel.ts — doors, wheels, steering, lights, interior animated; custom flight thrusters added procedurally' });
+manifest.push({ name: 'Skydrive hero vehicle base', category: 'vehicle', file: 'models/skydrive-car.glb.png', source: 'KhronosGroup/glTF-Sample-Assets Models/CarConcept (based on "Free Concept Car 004" by Unity Fan, CC0)', license: 'CC-BY-4.0 (Khronos logos excluded/removed)', attribution: 'Car Concept — Khronos Group, Eric Chadwick et al.; original model by Unity Fan', format: 'glb (meshopt, webp)', bytes: carSize, optimized: true, integrated: 'VehicleModel.ts — doors, wheels, steering, lights, interior animated; custom flight thrusters added procedurally' });
 
 // 2. Pedestrians: rigs WITH their native locomotion clips (cross-rig retargeting of Mixamo exports with
 //    different bone rest orientations proved unreliable, so each character keeps its own animations)
 const keep = (names) => async (doc) => { for (const a of doc.getRoot().listAnimations()) if (!names.includes(a.getName())) a.dispose(); };
-const pedSize = await build('pedestrian-a', 'Xbot.glb', 'pedestrian.glb', keep(['idle', 'walk', 'run']), { tex: 512 });
-const soldierSize = await build('pedestrian-b', 'Soldier.glb', 'pedestrian-b.glb', keep(['Idle', 'Walk', 'Run']), { tex: 512 });
-manifest.push({ name: 'Pedestrian A (mannequin, tinted clothing)', category: 'character', file: 'models/pedestrian.glb', source: 'three.js examples (Xbot, Adobe Mixamo character + animations)', license: 'Mixamo royalty-free use in projects (distributed with three.js examples)', attribution: 'Adobe Mixamo', format: 'glb (meshopt)', bytes: pedSize, optimized: true, integrated: 'PedestrianManager.ts (skinned, pooled, idle/walk/run blending)' });
-manifest.push({ name: 'Pedestrian B (jacket)', category: 'character', file: 'models/pedestrian-b.glb', source: 'three.js examples (Soldier/Vanguard, Adobe Mixamo character + animations)', license: 'Mixamo royalty-free use in projects (distributed with three.js examples)', attribution: 'Adobe Mixamo', format: 'glb (meshopt)', bytes: soldierSize, optimized: true, integrated: 'PedestrianManager.ts' });
+const pedSize = await build('pedestrian-a', 'Xbot.glb', 'pedestrian.glb.png', keep(['idle', 'walk', 'run']), { tex: 512 });
+const soldierSize = await build('pedestrian-b', 'Soldier.glb', 'pedestrian-b.glb.png', keep(['Idle', 'Walk', 'Run']), { tex: 512 });
+manifest.push({ name: 'Pedestrian A (mannequin, tinted clothing)', category: 'character', file: 'models/pedestrian.glb.png', source: 'three.js examples (Xbot, Adobe Mixamo character + animations)', license: 'Mixamo royalty-free use in projects (distributed with three.js examples)', attribution: 'Adobe Mixamo', format: 'glb (meshopt)', bytes: pedSize, optimized: true, integrated: 'PedestrianManager.ts (skinned, pooled, idle/walk/run blending)' });
+manifest.push({ name: 'Pedestrian B (jacket)', category: 'character', file: 'models/pedestrian-b.glb.png', source: 'three.js examples (Soldier/Vanguard, Adobe Mixamo character + animations)', license: 'Mixamo royalty-free use in projects (distributed with three.js examples)', attribution: 'Adobe Mixamo', format: 'glb (meshopt)', bytes: soldierSize, optimized: true, integrated: 'PedestrianManager.ts' });
 manifest.push({ name: 'Michelle (casual female)', category: 'character', file: null, source: 'three.js examples (Adobe Mixamo)', license: 'Mixamo', attribution: 'Adobe Mixamo', format: 'glb', bytes: 0, optimized: false, integrated: 'evaluated, NOT used: ships only a dance clip and cross-rig retargeting failed visual QA' });
 
 // 3. Delivery truck for traffic

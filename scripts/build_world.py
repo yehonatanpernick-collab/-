@@ -709,8 +709,8 @@ for pi, e in enumerate(ped_edges):
 # ---------------------------------------------------------------- 7. write outputs
 log("writing")
 HQ = np.round(H * 10).astype(np.int16)
-HQ.tofile(os.path.join(OUT, "height.bin"))
-SURF.tofile(os.path.join(OUT, "surface.bin"))
+HQ.tofile(os.path.join(OUT, "height.bin.png"))
+SURF.tofile(os.path.join(OUT, "surface.bin.png"))
 # keep float version consistent with runtime decode
 HQ = HQ.astype(np.float32) / 10.0
 
