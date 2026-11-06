@@ -136,7 +136,7 @@
   <div id="list"></div>
   <div class="foot">
     מקור: CNBC (מחירי מדד רשמיים מהבורסות), מתעדכן כל 60 שניות. מדדים מסומנים "בהשהיה" מגיעים באיחור של עד 15 דקות. כשהבורסה סגורה מוצגים מחיר הסגירה והשינוי של יום המסחר האחרון.
-    גובה בניין = 20 קומות בסיס ± קומה לכל 0.25% שינוי מהסגירה הקודמת.
+    גובה בניין = 40 קומות (נקודת האפס) ± קומה לכל 0.25% שינוי מהסגירה הקודמת.
   </div>
 </aside>
 
@@ -162,7 +162,7 @@ const INDICES = [
 const AVG = { sym: 'AVG', name: 'ממוצע 10 המדדים', he: 'גלובלי', flag: '🌍', color: 0xffcc4d, isAvg: true };
 const ALL = [...INDICES, AVG];
 
-const BASE_FLOORS = 20, FLOORS_PER_PCT = 4, MIN_FLOORS = 2, MAX_FLOORS = 60;  // 4 floors per 1% = a floor per 0.25%
+const BASE_FLOORS = 40, FLOORS_PER_PCT = 4, MIN_FLOORS = 2, MAX_FLOORS = 90;  // 4 floors per 1% = a floor per 0.25%
 const FLOOR_H = 1.5, REFRESH_MS = 60_000;
 
 const state = new Map(ALL.map(i => [i.sym, { info: i, data: null, error: null }]));
@@ -460,7 +460,7 @@ function select(sym) {
   selected = sym;
   renderList();
   const b = buildings.get(sym);
-  if (b) focusTarget.set(b.group.position.x, Math.min(b.height() * 0.5, 22), b.group.position.z);
+  if (b) focusTarget.set(b.group.position.x, Math.min(b.height() * 0.5, 34), b.group.position.z);
   document.querySelector(`.card[data-sym="${CSS.escape(sym)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
@@ -488,18 +488,18 @@ host.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x2b3f8a);
-scene.fog = new THREE.FogExp2(0x2b3f8a, 0.0055);
+scene.fog = new THREE.FogExp2(0x2b3f8a, 0.0032);
 
 const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.5, 600);
-camera.position.set(0, 62, 118);
+camera.position.set(0, 75, 135);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.maxPolarAngle = Math.PI * 0.47;
-controls.minDistance = 18; controls.maxDistance = 220;
+controls.minDistance = 25; controls.maxDistance = 320;
 controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
-controls.target.set(0, 14, 0);
-const focusTarget = new THREE.Vector3(0, 14, 0);
+controls.target.set(0, 28, 0);
+const focusTarget = new THREE.Vector3(0, 28, 0);
 controls.addEventListener('start', () => { controls.autoRotate = false; clearTimeout(window.__ar); });
 controls.addEventListener('end', () => { window.__ar = setTimeout(() => controls.autoRotate = true, 12000); });
 
@@ -545,9 +545,9 @@ scene.add(moon);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ map: t, roughness: .85, metalness: .2 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
   // Central plaza
-  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 0.3, 96), new THREE.MeshStandardMaterial({ color: 0x46548f, roughness: .6, metalness: .3 }));
+  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(50, 50, 0.3, 96), new THREE.MeshStandardMaterial({ color: 0x46548f, roughness: .6, metalness: .3 }));
   plaza.position.y = 0.15; plaza.receiveShadow = true; scene.add(plaza);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 0.12, 8, 160), new THREE.MeshBasicMaterial({ color: 0x5b7bff }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(50, 0.15, 8, 160), new THREE.MeshBasicMaterial({ color: 0x5b7bff }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.32; scene.add(ring);
 }
 
@@ -603,7 +603,9 @@ class Building {
       emissiveIntensity: 0.75, roughness: 0.35, metalness: 0.55,
     }));
     this.capMat = new THREE.MeshStandardMaterial({ color: baseColor.clone().multiplyScalar(1.4), roughness: .4, metalness: .7 });
-    this.floorGeo = new THREE.BoxGeometry(width, FLOOR_H * 0.9, width);
+    this.ledgeGeo = new THREE.BoxGeometry(width * 1.1, FLOOR_H * 0.2, width * 1.1);
+    this.ledgeMat = new THREE.MeshStandardMaterial({ color: 0x0d1233, roughness: .5, metalness: .4 });
+    this.floorGeo = new THREE.BoxGeometry(width, FLOOR_H * 0.8, width);
 
     // Plinth
     const plinth = new THREE.Mesh(new THREE.BoxGeometry(width + 1.6, 0.6, width + 1.6), new THREE.MeshStandardMaterial({ color: 0x5a6aaa, roughness: .6, metalness: .3 }));
@@ -673,7 +675,7 @@ class Building {
     this.tag.innerHTML = `<div class="n">${this.info.flag} ${this.info.name}</div>
       <div class="p ${c}-t">${d ? pctStr(d.pct) : '—'}</div><div class="f">${extra}</div>`;
     const tint = !d ? FLAT : d.pct > 0.005 ? UP : d.pct < -0.005 ? DOWN : FLAT;
-    this.tintTarget.copy(this.info.isAvg ? tint.clone().lerp(new THREE.Color(0xffcc4d), 0.45) : tint);
+    this.tintTarget.copy(tint);
   }
 
   tick(now, dt) {
@@ -684,6 +686,7 @@ class Building {
         const i = this.floors.length;
         const m = new THREE.Mesh(this.floorGeo, this.mats[(i * 7 + this.sym.length) % this.mats.length]);
         m.castShadow = true; m.receiveShadow = true;
+        const led = new THREE.Mesh(this.ledgeGeo, this.ledgeMat); led.position.y = -FLOOR_H * 0.45; led.castShadow = true; m.add(led);
         m.userData = { born: now, y: 0.6 + i * FLOOR_H + FLOOR_H / 2 };
         m.position.y = m.userData.y + 7; m.scale.set(1.2, 1, 1.2);
         this.group.add(m); this.floors.push(m);
@@ -714,8 +717,8 @@ class Building {
     this.padMat.color.copy(this.tint);
     this.topLight.color.copy(this.tint);
     this.topLight.intensity = this.floors.length ? 120 : 0;
-    const winTint = this.tint.clone().lerp(new THREE.Color(0xfff2d0), 0.35);
-    for (const m of this.mats) m.emissive.copy(winTint);
+    for (const m of this.mats) { m.color.copy(this.tint).multiplyScalar(0.85); m.emissive.copy(this.tint); }
+    this.capMat.color.copy(this.tint);
 
     const blink = (Math.sin(now / 400 + this.phase) > 0.6);
     this.beacon.material.color.setHex(blink ? 0xff3355 : 0x330a10);
@@ -740,7 +743,7 @@ function spawnSpark(x, y, z, color) {
 const buildings = new Map();
 INDICES.forEach((info, k) => {
   const a = (k / INDICES.length) * Math.PI * 2 - Math.PI / 2;
-  const r = 27;
+  const r = 36;
   buildings.set(info.sym, new Building(info, new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r), 4.2));
 });
 buildings.set('AVG', new Building(AVG, new THREE.Vector3(0, 0, 0), 6));
@@ -785,7 +788,7 @@ function frame(now) {
       b.tag.style.left = ((v3.x + 1) / 2 * innerWidth) + 'px';
       b.tag.style.top = ((1 - v3.y) / 2 * innerHeight) + 'px';
       const dist = camera.position.distanceTo(b.group.position);
-      b.tag.style.opacity = Math.max(0.45, Math.min(1, 1.6 - dist / 120));
+      b.tag.style.opacity = Math.max(0.9, Math.min(1, 1.6 - dist / 120));
       b.tag.style.zIndex = Math.round(1000 - dist);
     }
   }
@@ -802,7 +805,7 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
-if (innerWidth < 820) camera.position.set(0, 70, 135);
+if (innerWidth < 820) camera.position.set(0, 100, 190);
 
 /* ---------- Go ---------- */
 renderList();
