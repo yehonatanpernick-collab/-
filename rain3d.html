@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>גשם חי מעל ישראל</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg:#0b1220; --panel:rgba(12,20,36,.78); --line:rgba(255,255,255,.10);
+    --text:#eef3fb; --muted:#9fb0c8; --accent:#4fb3ff; --warn:#ffb020; --bad:#ff5a5a; --ok:#3fd68a;
+  }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Rubik,system-ui,sans-serif;overflow:hidden}
+  #map{position:absolute;inset:0}
+  .maplibregl-ctrl-attrib{font-size:10px}
+  #haze{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(120,135,155,0) 30%,rgba(60,70,85,.85) 100%);opacity:0;transition:opacity 1.5s}
+  #flash{position:absolute;inset:0;pointer-events:none;background:#dfe8ff;opacity:0}
+
+  .panel{position:absolute;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  #side{top:12px;right:12px;width:310px;max-height:calc(100% - 24px);overflow:auto;padding:14px 14px 10px}
+  #side h1{margin:0 0 2px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .live{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:#fff;background:#c62828;border-radius:20px;padding:2px 8px}
+  .live i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+  .live.demo{background:#8a5cf6}.live.replay{background:#d97706}.live.model{background:#0e7490}.live.err{background:#555}
+  @keyframes pulse{50%{opacity:.25}}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .stat{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+  .stat b{display:block;font-size:16px;font-weight:600;white-space:nowrap}
+  .stat span{font-size:11px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:3px 0;color:var(--muted)}
+  .row b{color:var(--text);font-weight:500}
+  h2{font-size:13px;margin:12px 0 6px;color:var(--muted);font-weight:500}
+  #cities{display:flex;flex-direction:column;gap:3px}
+  .city{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+  .city:hover{background:rgba(255,255,255,.07)}
+  .city .nm{flex:1}
+  .city .t{color:var(--muted);font-size:12px;min-width:34px;text-align:left;direction:ltr}
+  .chip{font-size:11px;border-radius:20px;padding:2px 8px;min-width:46px;text-align:center;background:rgba(255,255,255,.07);color:var(--muted)}
+  .msg{font-size:12px;border-radius:9px;padding:8px 10px;margin:8px 0;line-height:1.45}
+  .msg.info{background:rgba(79,179,255,.12);border:1px solid rgba(79,179,255,.35)}
+  .msg.warn{background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4)}
+  .msg button{margin-top:6px}
+  .src{font-size:10.5px;color:#7f90a8;margin-top:10px;line-height:1.5}
+  .src a{color:#9cc8ff}
+
+  #bar{left:12px;bottom:28px;display:flex;flex-wrap:wrap;gap:6px;padding:8px;max-width:calc(100% - 360px)}
+  button,.tg{font-family:inherit;font-size:12.5px;color:var(--text);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:9px;padding:6px 10px;cursor:pointer;user-select:none}
+  button:hover,.tg:hover{background:rgba(255,255,255,.14)}
+  .tg.on{background:rgba(79,179,255,.28);border-color:rgba(79,179,255,.6)}
+  select{font-family:inherit;font-size:12.5px;color:var(--text);background:#1a2538;border:1px solid var(--line);border-radius:9px;padding:5px 6px}
+
+  #legend{left:12px;top:12px;padding:9px 11px;width:230px}
+  #legend .ttl{font-size:12px;color:var(--muted);margin-bottom:5px}
+  #legend .scale{height:10px;border-radius:5px;background:linear-gradient(to left,#88ddee,#00a3e0,#0077aa,#005588,#ffee00,#ffaa00,#ff4400,#c10000,#ff77ff)}
+  #legend .lbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px}
+  #replayBox{display:none;margin-top:8px;font-size:12px}
+  #replayBox input{width:100%}
+  #toggleSide{display:none}
+  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:16px;background:var(--bg)}
+
+  @media (max-width:760px){
+    #side{top:auto;bottom:0;right:0;left:0;width:auto;border-radius:14px 14px 0 0;max-height:46%;padding:10px 12px}
+    #side.min{max-height:64px;overflow:hidden}
+    #toggleSide{display:block;position:absolute;left:10px;top:8px;padding:3px 9px}
+    #bar{top:12px;bottom:auto;left:8px;right:8px;max-width:none;padding:6px}
+    #bar button,#bar .tg{padding:5px 7px;font-size:11.5px}
+    #legend{top:auto;bottom:calc(46% + 8px);left:8px;width:190px;padding:6px 8px}
+    #side.min ~ #legend{bottom:76px}
+    .maplibregl-ctrl-top-left{top:90px}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="haze"></div>
+<div id="flash"></div>
+
+<div id="side" class="panel">
+  <button id="toggleSide" title="הקטן/הגדל">☰</button>
+  <h1>🌧️ גשם חי מעל ישראל <span id="liveBadge" class="live"><i></i><span id="liveTxt">טוען…</span></span></h1>
+  <div class="sub" id="subTxt">מכ״ם גשם אמיתי ← הדמיית גשם תלת־ממדית על מפת לוויין</div>
+  <div id="msgBox"></div>
+  <div class="grid2">
+    <div class="stat"><span>עוצמה מרבית בארץ</span><b id="sMax">—</b></div>
+    <div class="stat"><span>שטח עם גשם</span><b id="sArea">—</b></div>
+    <div class="stat"><span>תנועת הגשם</span><b id="sMove">—</b></div>
+    <div class="stat"><span>במרכז המסך</span><b id="sHere">—</b></div>
+  </div>
+  <div class="row"><span>סריקת מכ״ם אחרונה</span><b id="sScan">—</b></div>
+  <div class="row"><span>מוקרן לזמן אמת (תזוזה)</span><b id="sProj">—</b></div>
+  <div class="row"><span>בדיקת עדכון הבאה</span><b id="sNext">—</b></div>
+  <div class="row"><span>רוח (משפיע על זווית הגשם)</span><b id="sWind">—</b></div>
+  <h2>ערים — לחיצה מעבירה למקום</h2>
+  <div id="cities"></div>
+  <div class="src">
+    מכ״ם: השירות המטאורולוגי הישראלי (IMS) דרך <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> ·
+    לוויין: Esri World Imagery · גבהים: AWS Terrain Tiles · מזג אוויר ורוח: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open‑Meteo</a>.<br>
+    עוצמת הגשם מחושבת מהחזר המכ״ם (dBZ) לפי Marshall‑Palmer, והגשם מוזז בין סריקות לפי וקטורי תנועה שמחושבים מהשוואת שתי הסריקות האחרונות.
+  </div>
+</div>
+
+<div id="legend" class="panel">
+  <div class="ttl">עוצמת גשם (מ״מ/שעה)</div>
+  <div class="scale"></div>
+  <div class="lbl"><span>חלש</span><span>1</span><span>5</span><span>20</span><span>50</span><span>מבול</span></div>
+</div>
+
+<div id="bar" class="panel">
+  <span class="tg on" data-k="rain">💧 גשם</span>
+  <span class="tg on" data-k="clouds">☁️ עננים</span>
+  <span class="tg" data-k="radar">📡 שכבת מכ״ם</span>
+  <span class="tg" data-k="sound">🔊 קול</span>
+  <span class="tg" data-k="demo">🧪 הדגמה</span>
+  <span class="tg" data-k="replay">⏪ שעתיים אחרונות</span>
+  <button id="btnHome">🇮🇱 כל הארץ</button>
+  <select id="quality" title="איכות">
+    <option value="low">איכות: נמוכה</option>
+    <option value="med">איכות: בינונית</option>
+    <option value="high">איכות: גבוהה</option>
+  </select>
+  <div id="replayBox"><input id="replaySlider" type="range" min="0" max="1000" value="0"><div id="replayTime"></div></div>
+</div>
+
+<div id="err"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Geometry of the data grid.
+   RainViewer free API: max zoom 7, 512px tiles. Israel + surroundings
+   are covered by tiles x=75..76, y=50..53 at z7 (lon 30.9–36.6, lat 27.1–35.5).
+   Everything (radar, flow, elevation) lives on the same mercator grid.
+   ===================================================================== */
+const Z = 7, TX0 = 75, TX1 = 76, TY0 = 50, TY1 = 53;
+const NTX = TX1 - TX0 + 1, NTY = TY1 - TY0 + 1;
+const FULL_W = NTX * 512, FULL_H = NTY * 512;       // decoded tile mosaic
+const GW = FULL_W / 2, GH = FULL_H / 2;             // working grid (~1 km/px)
+const MX0 = TX0 / 128, MX1 = (TX1 + 1) / 128, MY0 = TY0 / 128, MY1 = (TY1 + 1) / 128;
+const FB = 32;                                      // flow block size (grid px)
+const FW = GW / FB, FH = GH / FB;                   // flow field size
+const MAX_ADVECT = 45 * 60;                         // never extrapolate more than 45 minutes
+const CIRC = 40075016.686;
+const EXAG = 1.5;
+const ISRAEL = { w: 34.2, e: 35.95, s: 29.45, n: 33.35 };
+
+const CITIES = [
+  ['ירושלים', 35.215, 31.778], ['תל אביב', 34.781, 32.08], ['חיפה', 34.99, 32.794],
+  ['באר שבע', 34.791, 31.252], ['אשקלון', 34.571, 31.668], ['נתניה', 34.86, 32.33],
+  ['טבריה', 35.53, 32.79], ['צפת', 35.496, 32.965], ['קריית שמונה', 35.57, 33.207],
+  ['אילת', 34.952, 29.557]
+];
+
+/* ---------- small helpers ---------- */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lon2mx = lon => (lon + 180) / 360;
+const lat2my = lat => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
+const my2lat = my => Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180 / Math.PI;
+const mx2lon = mx => mx * 360 - 180;
+const gridX = lon => (lon2mx(lon) - MX0) / (MX1 - MX0) * GW;
+const gridY = lat => (lat2my(lat) - MY0) / (MY1 - MY0) * GH;
+const pxMeters = (() => { const lat = 31.5 * Math.PI / 180; return (MX1 - MX0) / GW * CIRC * Math.cos(lat); })();
+const dbzToRate = dbz => dbz < 12 ? 0 : Math.pow(Math.pow(10, dbz / 10) / 200, 1 / 1.6);   // Marshall–Palmer, mm/h
+const rateToDbz = r => r <= 0 ? 0 : 10 * Math.log10(200 * Math.pow(r, 1.6));
+const fmtTime = t => new Date(t * 1000).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+function rainLabel(r) {
+  if (r < 0.1) return ['אין גשם', 'rgba(255,255,255,.07)', '#9fb0c8'];
+  if (r < 2) return ['חלש', '#1baee2', '#fff'];
+  if (r < 10) return ['בינוני', '#005588', '#fff'];
+  if (r < 30) return ['חזק', '#ffaa00', '#111'];
+  if (r < 60) return ['עז מאוד', '#d91b00', '#fff'];
+  return ['מבול', '#ff77ff', '#111'];
+}
+const fmtRate = r => r < 0.1 ? '0' : r < 10 ? r.toFixed(1) : Math.round(r).toString();
+function compassHeb(vx, vy) { // vx east, vy north
+  const a = (Math.atan2(vx, vy) * 180 / Math.PI + 360) % 360;
+  return ['צפונה', 'צפון־מזרחה', 'מזרחה', 'דרום־מזרחה', 'דרומה', 'דרום־מערבה', 'מערבה', 'צפון־מערבה'][Math.round(a / 45) % 8];
+}
+
+/* =====================================================================
+   RainViewer "Universal Blue" palette  →  dBZ
+   (the only colour scheme left in the free API since 2026)
+   ===================================================================== */
+const UB_RAIN = '63615914 66635a19 69665c1e 6c685d24 6f6b5f29 726e612e 75706234 78736439 7c75653e 7f786744 827b6949 857d6a4e 88806c54 8b826d59 8e856f5e 92887164 9e93756e aa9e7978 b6a97e82 c2b4828c cec08796 d2c48ba0 d6c88faa dacc93b4 ded097be 88ddeeff 6cd1ebff 51c5e8ff 36bae5ff 1baee2ff 00a3e0ff 009ad5ff 0091caff 0088bfff 007fb4ff 0077aaff 0070a3ff 00699cff 006295ff 005b8eff 005588ff 005180ff 004e78ff 004a70ff 004768ff ffee00ff ffe000ff ffd200ff ffc500ff ffb700ff ffaa00ff ff9f00ff ff9500ff ff8b00ff ff8100ff ff4400ff f23600ff e62800ff d91b00ff cd0d00ff c10000ff a80000ff 8f0000ff 760000ff 5d0000ff ffaaffff ff9fffff ff95ffff ff8bffff ff81ffff ff77ffff ff6cffff ff62ffff ff58ffff ff4effff ffffffff';
+const UB_SNOW = 'cfffff00 ceffff0c cdffff19 ccffff26 cbffff33 cbffff3f caffff4c c9ffff59 c8ffff66 c7ffff72 c7ffff7f c6ffff8c c5ffff99 c4ffffa5 c3ffffb2 c3ffffbf c2ffffcc c1ffffd8 c0ffffe5 bffffff2 bfffffff b8f8ffff b2f2ffff abebffff a5e5ffff 9fdfffff 98d8ffff 92d2ffff 8bcbffff 85c5ffff 7fbfffff 78b8ffff 72b2ffff 6babffff 65a5ffff 5f9fffff 5b9bffff 5898ffff 5595ffff 5292ffff 4f8fffff 4b8bffff 4888ffff 4585ffff 4282ffff 3f7fffff 3b7bffff 3878ffff 3575ffff 3272ffff 2f6fffff 2b6bffff 2868ffff 2565ffff 2262ffff 1f5fffff 1b5bffff 1858ffff 1555ffff 1252ffff 0f4fffff 0c4bffff 0948ffff 0645ffff 0242ffff 003fffff 003bffff 0038ffff 0035ffff 0032ffff 002fffff 002bffff 0028ffff 0025ffff 0022ffff 001fffff';
+const PALETTE = [];
+UB_RAIN.split(' ').forEach((h, i) => PALETTE.push({ c: parseInt(h, 16) >>> 0, dbz: i - 10, snow: 0 }));
+UB_SNOW.split(' ').forEach((h, i) => PALETTE.push({ c: parseInt(h, 16) >>> 0, dbz: i - 10, snow: 1 }));
+PALETTE.forEach(p => { p.r = p.c >>> 24; p.g = (p.c >>> 16) & 255; p.b = (p.c >>> 8) & 255; p.a = p.c & 255; });
+const colorCache = new Map();
+function decodeColor(r, g, b, a) {           // returns dbz*2 + snow   (or -1 for no echo)
+  if (a < 10) return -1;
+  const key = (r << 24 | g << 16 | b << 8 | a) >>> 0;
+  let v = colorCache.get(key);
+  if (v !== undefined) return v;
+  let best = 1e9, bp = null;
+  for (const p of PALETTE) {
+    const d = (p.r - r) ** 2 + (p.g - g) ** 2 + (p.b - b) ** 2 + 0.6 * (p.a - a) ** 2;
+    if (d < best) { best = d; bp = p; }
+  }
+  v = best > 9000 ? -1 : (bp.dbz * 2 + bp.snow);
+  colorCache.set(key, v);
+  return v;
+}
+
+/* =====================================================================
+   Map: real satellite imagery draped on real 3-D terrain
+   ===================================================================== */
+const isMobile = matchMedia('(max-width:760px)').matches;
+let map;
+try {
+  map = new maplibregl.Map({
+    container: 'map',
+    attributionControl: { compact: true },
+    style: {
+      version: 8,
+      sources: {
+        sat: { type: 'raster', tileSize: 256, maxzoom: 18,
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' },
+        dem: { type: 'raster-dem', encoding: 'terrarium', tileSize: 256, maxzoom: 12,
+          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+          attribution: 'Terrain: Mapzen / AWS' },
+        demHs: { type: 'raster-dem', encoding: 'terrarium', tileSize: 256, maxzoom: 12,
+          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'] }
+      },
+      layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': '#0b1a2b' } },
+        { id: 'sat', type: 'raster', source: 'sat', paint: { 'raster-fade-duration': 200 } },
+        { id: 'hs', type: 'hillshade', source: 'demHs', paint: { 'hillshade-exaggeration': 0.18, 'hillshade-shadow-color': '#000' } }
+      ],
+      sky: {
+        'sky-color': '#5d84b8', 'horizon-color': '#c8d6e8', 'fog-color': '#cfd9e6',
+        'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.7, 'fog-ground-blend': 0.75, 'atmosphere-blend': 0.6
+      }
+    },
+    center: [35.0, isMobile ? 31.0 : 31.35],
+    zoom: isMobile ? 6.2 : 6.95,
+    pitch: 52, bearing: -12, maxPitch: 80,
+    maxBounds: [[30.5, 26.5], [39.5, 36.0]],
+    antialias: true
+  });
+} catch (e) {
+  showFatal('לא ניתן להפעיל WebGL בדפדפן הזה. נסו דפדפן אחר (Chrome / Edge / Safari עדכני).');
+}
+function showFatal(t) { const e = $('err'); e.style.display = 'flex'; e.textContent = t; }
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+/* =====================================================================
+   State
+   ===================================================================== */
+const S = {
+  host: 'https://tilecache.rainviewer.com',
+  apiFrames: [],          // [{time,path}]
+  frames: new Map(),      // time -> frame object
+  liveA: null, liveB: null, mixStart: 0,
+  flow: null,             // {field Float32Array(FW*FH*2) in grid px per 10 min, global:[vx,vy]}
+  mode: 'loading',        // live | demo | replay | model | error
+  corsBlocked: false,
+  wind: [0, 0],           // m/s east,north (surface)
+  windBy: [],             // per city
+  cityWx: [],
+  nextPoll: 0,
+  lastNewFrameAt: 0,
+  toggles: { rain: true, clouds: true, radar: false, sound: false, demo: false, replay: false },
+  quality: isMobile ? 'low' : 'high',
+  elev: null,             // Float32Array GW*GH (meters)
+  flash: { t: -10, x: 0, y: 0 },
+  replay: { t0: 0, t1: 0, playing: true, pos: 0 },
+  demoFrame: null,
+  dispose: []             // GL textures to delete (done inside render)
+};
+$('quality').value = S.quality;
+
+/* =====================================================================
+   Frames: download radar tiles, decode colours -> dBZ, build textures
+   ===================================================================== */
+function loadImage(url) {
+  return new Promise(res => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => res(im);
+    im.onerror = () => res(null);
+    im.src = url;
+  });
+}
+
+async function fetchFrame(f) {
+  if (S.frames.has(f.time)) return S.frames.get(f.time);
+  const cv = document.createElement('canvas');
+  cv.width = FULL_W; cv.height = FULL_H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const jobs = [];
+  for (let x = TX0; x <= TX1; x++) for (let y = TY0; y <= TY1; y++) {
+    const url = `${S.host}${f.path}/512/${Z}/${x}/${y}/2/1_1.png`;
+    jobs.push(loadImage(url).then(im => { if (im) ctx.drawImage(im, (x - TX0) * 512, (y - TY0) * 512, 512, 512); return !!im; }));
+  }
+  const ok = await Promise.all(jobs);
+  if (!ok.some(Boolean)) throw new Error('tiles');
+  let img;
+  try { img = ctx.getImageData(0, 0, FULL_W, FULL_H).data; }
+  catch (e) { S.corsBlocked = true; throw new Error('cors'); }
+  const frame = decodeMosaic(img, f.time);
+  frame.path = f.path;
+  S.frames.set(f.time, frame);
+  return frame;
+}
+
+/* full-res RGBA mosaic -> working grid: dBZ byte + snow flag + rain rate */
+function decodeMosaic(px, time) {
+  const rate = new Float32Array(GW * GH), snow = new Uint8Array(GW * GH);
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    let sum = 0, sn = 0, n = 0;
+    for (let k = 0; k < 4; k++) {
+      const X = gx * 2 + (k & 1), Y = gy * 2 + (k >> 1), i = (Y * FULL_W + X) * 4;
+      const v = decodeColor(px[i], px[i + 1], px[i + 2], px[i + 3]);
+      if (v < 0) continue;
+      const r = dbzToRate(v >> 1);
+      if (r > 0) { sum += r; n++; if (v & 1) sn++; }
+    }
+    const j = gy * GW + gx;
+    rate[j] = sum / 4;
+    snow[j] = n > 0 && sn * 2 >= n ? 1 : 0;
+  }
+  return makeFrame(rate, snow, time);
+}
+
+function makeFrame(rate, snow, time) {
+  const tex = new Uint8Array(GW * GH * 2);
+  for (let j = 0; j < GW * GH; j++) {
+    const r = rate[j];
+    tex[j * 2] = r > 0.05 ? clamp(Math.round(rateToDbz(r) / 70 * 255), 0, 255) : 0;
+    tex[j * 2 + 1] = snow[j] ? 255 : 0;
+  }
+  const fr = { time, rate, snow, tex, glTex: null, stats: null };
+  fr.stats = frameStats(fr);
+  return fr;
+}
+
+function frameStats(fr) {
+  const x0 = Math.floor(gridX(ISRAEL.w)), x1 = Math.ceil(gridX(ISRAEL.e));
+  const y0 = Math.floor(gridY(ISRAEL.n)), y1 = Math.ceil(gridY(ISRAEL.s));
+  let max = 0, wet = 0, tot = 0;
+  const heavy = [];
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const r = fr.rate[y * GW + x];
+    tot++;
+    if (r > 0.2) wet++;
+    if (r > max) max = r;
+  }
+  for (let y = 0; y < GH; y += 2) for (let x = 0; x < GW; x += 2) if (fr.rate[y * GW + x] > 25) heavy.push([x, y]);
+  return { max, area: wet / tot, heavy };
+}
+
+/* =====================================================================
+   Motion vectors: block matching between two consecutive scans.
+   Gives a smooth flow field used to move the rain between scans
+   (and to project the last scan forward to "now").
+   ===================================================================== */
+function computeFlow(prev, next) {
+  const C = 4, CW = GW / C, CH = GH / C;
+  const coarse = fr => {
+    const o = new Float32Array(CW * CH);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) o[((y / C) | 0) * CW + ((x / C) | 0)] += Math.sqrt(fr.rate[y * GW + x]);
+    for (let i = 0; i < o.length; i++) o[i] /= C * C;
+    return o;
+  };
+  const A = coarse(prev), B = coarse(next);
+  const BS = FB / C, R = 7;
+  const vx = new Float32Array(FW * FH), vy = new Float32Array(FW * FH), w = new Float32Array(FW * FH);
+  for (let by = 0; by < FH; by++) for (let bx = 0; bx < FW; bx++) {
+    let mass = 0;
+    for (let y = 0; y < BS; y++) for (let x = 0; x < BS; x++) mass += B[(by * BS + y) * CW + bx * BS + x];
+    if (mass < 2.5) continue;
+    const cost = new Float32Array((2 * R + 1) ** 2);
+    let best = 1e9, bdx = 0, bdy = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      let s = 0;
+      for (let y = 0; y < BS; y++) {
+        const Y = by * BS + y, py = Y - dy;
+        for (let x = 0; x < BS; x++) {
+          const X = bx * BS + x, pxx = X - dx;
+          const a = (py >= 0 && py < CH && pxx >= 0 && pxx < CW) ? A[py * CW + pxx] : 0;
+          s += Math.abs(B[Y * CW + X] - a);
+        }
+      }
+      s += 0.004 * mass * (dx * dx + dy * dy);   // mild preference for small motion
+      cost[(dy + R) * (2 * R + 1) + dx + R] = s;
+      if (s < best) { best = s; bdx = dx; bdy = dy; }
+    }
+    // sub-pixel refinement (parabola fit)
+    const at = (dx, dy) => cost[(dy + R) * (2 * R + 1) + dx + R];
+    let fx = bdx, fy = bdy;
+    if (Math.abs(bdx) < R) { const l = at(bdx - 1, bdy), r = at(bdx + 1, bdy), d = l - 2 * best + r; if (d > 0) fx += clamp(0.5 * (l - r) / d, -0.5, 0.5); }
+    if (Math.abs(bdy) < R) { const u = at(bdx, bdy - 1), dn = at(bdx, bdy + 1), d = u - 2 * best + dn; if (d > 0) fy += clamp(0.5 * (u - dn) / d, -0.5, 0.5); }
+    const zero = at(0, 0);
+    const conf = clamp((zero - best) / (zero + 1e-6) * 4, 0.15, 1);
+    const i = by * FW + bx;
+    vx[i] = fx * C; vy[i] = fy * C; w[i] = mass * conf;
+  }
+  // global (mass-weighted) motion
+  let gx = 0, gy = 0, gw = 0;
+  for (let i = 0; i < w.length; i++) { gx += vx[i] * w[i]; gy += vy[i] * w[i]; gw += w[i]; }
+  if (gw > 0) { gx /= gw; gy /= gw; }
+  // fill + smooth
+  let fxv = new Float32Array(FW * FH), fyv = new Float32Array(FW * FH);
+  for (let i = 0; i < w.length; i++) { const k = w[i] / (w[i] + 8); fxv[i] = vx[i] * k + gx * (1 - k); fyv[i] = vy[i] * k + gy * (1 - k); }
+  for (let pass = 0; pass < 3; pass++) {
+    const nx = new Float32Array(FW * FH), ny = new Float32Array(FW * FH);
+    for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
+      let sx = 0, sy = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= FW || Y >= FH) continue;
+        const ww = (dx || dy) ? 1 : 2; sx += fxv[Y * FW + X] * ww; sy += fyv[Y * FW + X] * ww; n += ww;
+      }
+      nx[y * FW + x] = sx / n; ny[y * FW + x] = sy / n;
+    }
+    fxv = nx; fyv = ny;
+  }
+  const scale = 600 / Math.max(60, next.time - prev.time);   // -> grid px per 10 minutes
+  const field = new Float32Array(FW * FH * 2);
+  for (let i = 0; i < FW * FH; i++) { field[i * 2] = fxv[i] * scale; field[i * 2 + 1] = fyv[i] * scale; }
+  return { field, global: [gx * scale, gy * scale], valid: gw > 0 };
+}
+const ZERO_FLOW = { field: new Float32Array(FW * FH * 2), global: [0, 0], valid: false };
+const zeroFlow = () => ZERO_FLOW;
+
+function flowAt(flow, gx, gy) {
+  const fx = clamp(gx / FB - 0.5, 0, FW - 1), fy = clamp(gy / FB - 0.5, 0, FH - 1);
+  const i = Math.round(fy) * FW + Math.round(fx);
+  return [flow.field[i * 2], flow.field[i * 2 + 1]];
+}
+/* rain rate (mm/h) at lon/lat, advected to "now" exactly like the GPU does */
+function rateAt(lon, lat) {
+  const v = currentView();
+  if (!v.B) return 0;
+  const sample = (fr, dt) => {
+    if (!fr) return 0;
+    let gx = gridX(lon), gy = gridY(lat);
+    const f = flowAt(v.flow, gx, gy);
+    gx -= f[0] * dt / 600; gy -= f[1] * dt / 600;
+    const x = Math.round(gx), y = Math.round(gy);
+    if (x < 0 || y < 0 || x >= GW || y >= GH) return 0;
+    let m = 0; // small neighbourhood max smooths pixel noise
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+      m += fr.rate[Y * GW + X] / 9;
+    }
+    return m;
+  };
+  return sample(v.A, v.dtA) * (1 - v.mix) + sample(v.B, v.dtB) * v.mix;
+}
+
+/* =====================================================================
+   Which frames are on screen right now (live / replay / demo)
+   ===================================================================== */
+function currentView() {
+  const now = Date.now() / 1000;
+  if (S.toggles.replay && S.replayList && S.replayList.length > 1) {
+    const L = S.replayList, t = S.replay.t0 + (S.replay.t1 - S.replay.t0) * S.replay.pos;
+    let i = 0; while (i < L.length - 2 && L[i + 1].time <= t) i++;
+    const A = L[i], B = L[i + 1];
+    const mix = clamp((t - A.time) / (B.time - A.time), 0, 1);
+    return { A, B, dtA: t - A.time, dtB: t - B.time, mix, flow: B.flowIn || S.flow || zeroFlow(), simTime: t };
+  }
+  if (S.toggles.demo && S.demoFrame) {
+    const D = S.demoFrame, P = S.demoPrev || D;
+    const mix = clamp((now - S.demoMixStart) / 4, 0, 1);
+    return { A: P, B: D, dtA: now - P.time, dtB: now - D.time, mix, flow: D.flowIn, simTime: now };
+  }
+  const B = S.liveB, A = S.liveA || B;
+  if (!B) return { A: null, B: null, dtA: 0, dtB: 0, mix: 1, flow: zeroFlow(), simTime: now };
+  const mix = A === B ? 1 : clamp((now - S.mixStart) / 4, 0, 1);
+  return { A, B, dtA: Math.min(now - A.time, MAX_ADVECT), dtB: Math.min(now - B.time, MAX_ADVECT), mix, flow: S.flow || zeroFlow(), simTime: now };
+}
+
+/* =====================================================================
+   Live polling of the RainViewer index – every minute
+   ===================================================================== */
+async function poll() {
+  S.nextPoll = Date.now() + 60000;
+  try {
+    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    S.host = j.host || S.host;
+    const past = (j.radar && j.radar.past) || [];
+    if (!past.length) throw new Error('empty');
+    S.apiFrames = past;
+    const latest = past[past.length - 1];
+    if (S.liveB && S.liveB.time >= latest.time) { setMode(S.mode === 'loading' ? 'live' : S.mode); return; }
+    // need previous frame for motion vectors
+    const prevMeta = past[past.length - 2];
+    const prev = S.liveB && prevMeta && S.liveB.time === prevMeta.time ? S.liveB : (prevMeta ? await fetchFrame(prevMeta).catch(() => null) : null);
+    const fr = await fetchFrame(latest);
+    if (prev) fr.flowIn = computeFlow(prev, fr);
+    S.flow = fr.flowIn && fr.flowIn.valid ? fr.flowIn : (S.flow && S.flow.valid ? S.flow : (fr.flowIn || zeroFlow()));
+    fr.flowIn = S.flow;
+    S.liveA = S.liveB || prev || fr;
+    S.liveB = fr;
+    pruneFrames();
+    S.mixStart = Date.now() / 1000;
+    S.lastNewFrameAt = Date.now();
+    queueUpload();
+    updateRadarOverlay();
+    if (S.mode === 'loading' || S.mode === 'error' || S.mode === 'model') setMode('live');
+    updateMessages();
+  } catch (e) {
+    console.warn('radar poll failed', e);
+    if (S.corsBlocked || !S.liveB) await modelFallback();
+  }
+}
+
+/* forget scans that dropped out of the 2-hour window (GPU textures are freed inside render) */
+function pruneFrames() {
+  const keep = new Set(S.apiFrames.map(f => f.time));
+  for (const [t, fr] of S.frames) {
+    if (keep.has(t) || fr === S.liveA || fr === S.liveB) continue;
+    S.frames.delete(t);
+    if (fr.glTex) S.dispose.push(fr.glTex);
+    if (fr.flowIn && fr.flowIn.glTex && fr.flowIn !== S.flow) { S.dispose.push(fr.flowIn.glTex); fr.flowIn.glTex = null; }
+  }
+}
+
+/* If the radar is unreachable: build a precipitation field from Open-Meteo (model nowcast) */
+async function modelFallback() {
+  try {
+    const lats = [], lons = [];
+    for (let la = 29.5; la <= 33.36; la += 0.25) for (let lo = 34.2; lo <= 35.95; lo += 0.25) { lats.push(la.toFixed(2)); lons.push(lo.toFixed(2)); }
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=precipitation,snowfall&timezone=UTC`;
+    const r = await fetch(url); const j = await r.json();
+    const arr = Array.isArray(j) ? j : [j];
+    const rate = new Float32Array(GW * GH), snow = new Uint8Array(GW * GH), wsum = new Float32Array(GW * GH);
+    const sig = 0.13 * GW / (MX1 - MX0) / 360 * 1.0; // ~0.13° gaussian in grid px
+    arr.forEach((p, k) => {
+      const mm = p.current ? p.current.precipitation : 0; const rr = mm * 4; // 15-min sum -> mm/h
+      const cx = gridX(+lons[k]), cy = gridY(+lats[k]);
+      const R = Math.ceil(sig * 2.5);
+      for (let y = Math.max(0, Math.floor(cy - R)); y < Math.min(GH, cy + R); y++) for (let x = Math.max(0, Math.floor(cx - R)); x < Math.min(GW, cx + R); x++) {
+        const wgt = Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * sig * sig));
+        rate[y * GW + x] += rr * wgt; wsum[y * GW + x] += wgt;
+        if (p.current && p.current.snowfall > 0 && wgt > 0.5) snow[y * GW + x] = 1;
+      }
+    });
+    for (let i = 0; i < rate.length; i++) rate[i] = wsum[i] > 0.15 ? rate[i] / wsum[i] * clamp(wsum[i] * 1.5, 0, 1) : 0;
+    const fr = makeFrame(rate, snow, Date.now() / 1000);
+    fr.flowIn = zeroFlow();
+    S.liveA = S.liveB || fr; S.liveB = fr; S.flow = fr.flowIn; S.mixStart = Date.now() / 1000;
+    queueUpload();
+    setMode('model');
+  } catch (e) {
+    console.warn('model fallback failed', e);
+    if (!S.liveB) setMode('error');
+  }
+  updateMessages();
+}
+
+/* =====================================================================
+   Replay of the last two hours
+   ===================================================================== */
+async function startReplay() {
+  const list = S.apiFrames.slice();
+  if (list.length < 2) { S.toggles.replay = false; syncToggles(); return; }
+  $('replayBox').style.display = 'block';
+  setMode('replay');
+  S.replayList = [];
+  $('replayTime').textContent = 'טוען סריקות…';
+  let prev = null;
+  for (let i = 0; i < list.length; i++) {
+    if (!S.toggles.replay) return;
+    const need = !S.frames.has(list[i].time);
+    const fr = await fetchFrame(list[i]).catch(() => null);
+    if (!fr) continue;
+    if (prev && !fr.flowIn) fr.flowIn = computeFlow(prev, fr);
+    if (fr.flowIn && !fr.flowIn.valid && S.flow) fr.flowIn = S.flow;
+    prev = fr;
+    S.replayList.push(fr);
+    if (S.replayList.length >= 2) { S.replay.t0 = S.replayList[0].time; S.replay.t1 = fr.time; }
+    $('replayTime').textContent = `נטענו ${S.replayList.length}/${list.length} סריקות`;
+    queueUpload();
+    if (need) await new Promise(r => setTimeout(r, 900));   // be gentle with the free API (100 req/min)
+  }
+}
+function stopReplay() { $('replayBox').style.display = 'none'; S.replayList = null; setMode(S.toggles.demo ? 'demo' : (S.liveB ? 'live' : 'loading')); }
+
+/* =====================================================================
+   Demo storms (clearly labelled) – for dry days
+   ===================================================================== */
+function makeDemoFrame() {
+  const rate = new Float32Array(GW * GH), snow = new Uint8Array(GW * GH);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const cells = [];
+  // a cold-front line SW–NE across the country with embedded convective cells
+  const ox = rnd(34.3, 34.8), oy = rnd(30.8, 31.4);
+  for (let k = 0; k < 16; k++) {
+    const t = k / 15;
+    cells.push({ lon: ox + t * 1.3 + rnd(-.12, .12), lat: oy + t * 2.3 + rnd(-.1, .1), r: rnd(0.08, 0.2), peak: rnd(2, 70) });
+  }
+  for (let k = 0; k < 7; k++) cells.push({ lon: rnd(33.6, 34.7), lat: rnd(31.2, 33.4), r: rnd(.06, .16), peak: rnd(1, 30) }); // showers over the sea
+  cells.push({ lon: 35.78, lat: 33.3, r: 0.12, peak: 4, snow: true });  // snow on the Hermon
+  for (const c of cells) {
+    const cx = gridX(c.lon), cy = gridY(c.lat), rpx = c.r / ((MX1 - MX0) * 360) * GW;
+    const R = Math.ceil(rpx * 3);
+    for (let y = Math.max(0, Math.floor(cy - R)); y < Math.min(GH, cy + R); y++) for (let x = Math.max(0, Math.floor(cx - R)); x < Math.min(GW, cx + R); x++) {
+      const d2 = ((x - cx) ** 2 + (y - cy) ** 2) / (rpx * rpx);
+      const n = 0.65 + 0.35 * Math.sin(x * 0.37 + c.lon * 9) * Math.cos(y * 0.29 + c.lat * 7);
+      const v = c.peak * Math.exp(-d2 * 1.6) * n;
+      const i = y * GW + x;
+      if (v > rate[i]) { rate[i] = v; if (c.snow) snow[i] = 1; }
+    }
+  }
+  for (let i = 0; i < rate.length; i++) if (rate[i] < 0.25) rate[i] = 0;
+  const fr = makeFrame(rate, snow, Date.now() / 1000);
+  // moves east-north-east at ~45 km/h
+  const pxPer10 = 45 / 6 * 1000 / pxMeters;
+  const ang = 20 * Math.PI / 180;
+  const field = new Float32Array(FW * FH * 2);
+  for (let i = 0; i < FW * FH; i++) { field[i * 2] = Math.cos(ang) * pxPer10; field[i * 2 + 1] = -Math.sin(ang) * pxPer10; }
+  fr.flowIn = { field, global: [field[0], field[1]], valid: true };
+  return fr;
+}
+function startDemo() {
+  S.demoPrev = S.demoFrame || null;
+  S.demoFrame = makeDemoFrame();
+  if (!S.demoPrev) S.demoPrev = S.demoFrame;
+  S.demoMixStart = Date.now() / 1000;
+  queueUpload();
+  setMode('demo');
+}
+
+/* =====================================================================
+   Elevation grid (same mercator grid) – so raindrops stop at the ground
+   ===================================================================== */
+async function loadElevation() {
+  const z = 8, x0 = TX0 * 2, x1 = TX1 * 2 + 1, y0 = TY0 * 2, y1 = TY1 * 2 + 1;
+  const W = (x1 - x0 + 1) * 256, H = (y1 - y0 + 1) * 256;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const jobs = [];
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++)
+    jobs.push(loadImage(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`).then(im => im && ctx.drawImage(im, (x - x0) * 256, (y - y0) * 256)));
+  await Promise.all(jobs);
+  let d;
+  try { d = ctx.getImageData(0, 0, W, H).data; } catch (e) { return; }
+  const sx = W / GW, sy = H / GH, el = new Float32Array(GW * GH);
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    let s = 0;
+    for (let k = 0; k < sx * sy; k++) {
+      const X = gx * sx + (k % sx), Y = gy * sy + ((k / sx) | 0), i = (Y * W + X) * 4;
+      s += Math.max(0, d[i] * 256 + d[i + 1] + d[i + 2] / 256 - 32768);
+    }
+    el[gy * GW + gx] = s / (sx * sy);
+  }
+  S.elev = el;
+  queueUpload();
+}
+
+/* =====================================================================
+   WebGL custom layer: falling rain / snow particles + rain clouds
+   ===================================================================== */
+const RAIN_VS = `#version 300 es
+precision highp float;
+in vec4 a_seed;      // x, y in [0,1), phase, visibility threshold
+in float a_end;      // 0 = drop head (lower end), 1 = tail
+uniform mat4 u_matrix;
+uniform vec2 u_center, u_domOrigin, u_domSize;
+uniform float u_wrap;
+uniform vec4 u_ext;
+uniform sampler2D u_radarA, u_radarB, u_flow, u_elev;
+uniform float u_dtA, u_dtB, u_mix, u_time, u_exag, u_camElev;
+uniform float u_colH, u_fallT, u_streak, u_alpha;
+uniform vec2 u_wind;
+uniform vec2 u_gridSize;
+out float v_alpha; out float v_end; out float v_snow; out float v_dens;
+const float PI = 3.141592653589793;
+float metersToMerc(float my){ float lat = atan(sinh(PI*(1.0-2.0*my))); return 1.0/(40075016.686*cos(lat)); }
+vec2 radar(sampler2D t, vec2 uv, float dt){
+  vec2 v = texture(u_flow, uv).rg / u_gridSize / 600.0;
+  return texture(t, uv - v*dt).rg;
+}
+void main(){
+  vec2 base = u_wrap > 0.5
+    ? u_center + u_domSize*(fract(a_seed.xy - u_center/u_domSize + 0.5) - 0.5)
+    : u_domOrigin + a_seed.xy*u_domSize;
+  vec2 uv = (base - u_ext.xy)/u_ext.zw;
+  vec2 r = mix(radar(u_radarA, uv, u_dtA), radar(u_radarB, uv, u_dtB), u_mix);
+  float dbz = r.x*70.0;
+  float rate = dbz < 12.0 ? 0.0 : pow(pow(10.0, dbz/10.0)/200.0, 0.625);
+  float dens = clamp(log(1.0 + rate)/log(1.0 + 70.0), 0.0, 1.0);
+  dens = pow(dens, 0.8);
+  // fade out the square edge of the wrapping (near) domain
+  if (u_wrap > 0.5) {
+    vec2 q = abs(base - u_center)/(u_domSize*0.5);
+    dens *= 1.0 - smoothstep(0.75, 1.0, max(q.x, q.y));
+  }
+  if (a_seed.w > dens || uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  float snow = step(0.5, r.y);
+  float fallT = u_fallT * mix(1.0, 6.0, snow);
+  float ph = fract(a_seed.z + u_time/fallT);             // 0 = cloud base, 1 = ground
+  float h = (1.0 - ph)*u_colH;
+  float len = u_colH*u_streak*mix(0.7, 1.5, dens)*mix(1.0, 0.12, snow);
+  float hh = h + a_end*len;
+  float zpm = metersToMerc(base.y);
+  // slant: horizontal displacement = height * wind / terminal velocity
+  float vt = mix(8.0, 1.3, snow);
+  float ws = length(u_wind);
+  vec2 dir = ws > 0.01 ? u_wind/ws : vec2(0.0);
+  float slope = min(ws/vt, 1.3);
+  vec2 drift = vec2(dir.x, -dir.y)*hh*slope*zpm;
+  if (snow > 0.5) drift += vec2(sin(u_time*1.7 + a_seed.z*40.0), cos(u_time*1.3 + a_seed.x*50.0))*0.05*u_colH*zpm;
+  vec2 p = base + drift;
+  float ground = texture(u_elev, uv).r;
+  float z = (ground*u_exag + hh - u_camElev)*zpm;
+  gl_Position = u_matrix*vec4(p - u_center, z, 1.0);
+  // more drops where it rains harder, but each drop a bit fainter so heavy rain reads as a grey curtain, not a white blob
+  v_alpha = u_alpha*mix(0.75, 0.32, dens)*smoothstep(0.0, 0.12, ph);
+  v_end = a_end; v_snow = snow; v_dens = dens;
+}`;
+const RAIN_FS = `#version 300 es
+precision mediump float;
+in float v_alpha; in float v_end; in float v_snow; in float v_dens;
+uniform float u_grey;
+out vec4 o;
+void main(){
+  float a = v_alpha*mix(1.0, 0.05, v_end);
+  vec3 c = mix(vec3(0.82, 0.87, 0.96), vec3(0.50, 0.55, 0.64), v_dens*u_grey);
+  c = mix(c, vec3(0.98, 0.99, 1.0), v_snow);
+  o = vec4(c*a, a);
+}`;
+const CLOUD_VS = `#version 300 es
+precision highp float;
+in vec2 a_uv;
+uniform mat4 u_matrix;
+uniform vec2 u_center;
+uniform vec4 u_ext;
+uniform float u_alt, u_camElev;
+out vec2 v_uv; out vec2 v_merc;
+const float PI = 3.141592653589793;
+void main(){
+  vec2 m = u_ext.xy + a_uv*u_ext.zw;
+  float lat = atan(sinh(PI*(1.0-2.0*m.y)));
+  float zpm = 1.0/(40075016.686*cos(lat));
+  v_uv = a_uv; v_merc = m;
+  gl_Position = u_matrix*vec4(m - u_center, (u_alt - u_camElev)*zpm, 1.0);
+}`;
+const CLOUD_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; in vec2 v_merc;
+uniform sampler2D u_radarA, u_radarB, u_flow;
+uniform float u_dtA, u_dtB, u_mix, u_time, u_seed, u_opacity;
+uniform vec2 u_gridSize, u_globalFlow;
+uniform vec3 u_flash;   // uv.x, uv.y, strength
+out vec4 o;
+float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a*noise(p); p = p*2.03 + 7.1; a *= 0.5; } return s; }
+float dens(sampler2D t, vec2 uv, float dt){
+  vec2 v = texture(u_flow, uv).rg/u_gridSize/600.0;
+  vec2 q = uv - v*dt;
+  vec2 px = 3.0/u_gridSize;  // soft, slightly blurred edges
+  float d = texture(t, q).r*0.4 + (texture(t, q + vec2(px.x, 0)).r + texture(t, q - vec2(px.x, 0)).r + texture(t, q + vec2(0, px.y)).r + texture(t, q - vec2(0, px.y)).r)*0.15;
+  return d;
+}
+void main(){
+  float r = mix(dens(u_radarA, v_uv, u_dtA), dens(u_radarB, v_uv, u_dtB), u_mix);
+  float dbz = r*70.0;
+  float k = smoothstep(9.0, 50.0, dbz);
+  if (k <= 0.001) discard;
+  vec2 np = (v_uv - u_globalFlow*u_time)*u_gridSize/30.0 + u_seed;
+  float n = fbm(np);
+  float n2 = fbm(np*3.1 + 5.0);
+  float cover = k*1.25 + (n - 0.5)*0.95 + (n2 - 0.5)*0.35;
+  float a = smoothstep(0.12, 0.55, cover)*(0.45 + 0.55*k);
+  a = clamp(a, 0.0, 0.92)*u_opacity;
+  // lit tops, dark heavy cores
+  float shade = clamp(0.88 - 0.62*k + (n2 - 0.5)*0.35 + (n - 0.5)*0.2, 0.12, 0.95);
+  vec3 c = vec3(shade)*vec3(0.97, 0.98, 1.02);
+  float fd = length((v_uv - u_flash.xy)*u_gridSize);
+  c += vec3(0.85, 0.9, 1.0)*u_flash.z*exp(-fd*fd/(2.0*18.0*18.0))*1.6;
+  o = vec4(c*a, a);
+}`;
+
+function compile(gl, vs, fs) {
+  const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  const p = gl.createProgram();
+  gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; u[nm] = gl.getUniformLocation(p, nm); }
+  return { p, u };
+}
+
+const COUNTS = { low: [45000, 30000], med: [100000, 60000], high: [190000, 110000] };
+
+const rainLayer = {
+  id: 'rain3d', type: 'custom', renderingMode: '3d',
+  onAdd(m, gl) {
+    this.gl = gl;
+    if (!(gl instanceof WebGL2RenderingContext)) { showFatal('הדפדפן לא תומך ב־WebGL2 — נדרש להדמיה.'); return; }
+    this.rain = compile(gl, RAIN_VS, RAIN_FS);
+    this.cloud = compile(gl, CLOUD_VS, CLOUD_FS);
+    this.buildParticles();
+    // cloud grid mesh
+    const N = 2, uv = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const a = [x / N, y / N], b = [(x + 1) / N, y / N], c = [x / N, (y + 1) / N], d = [(x + 1) / N, (y + 1) / N];
+      uv.push(...a, ...b, ...c, ...b, ...d, ...c);
+    }
+    this.cloudCount = uv.length / 2;
+    this.cloudVao = gl.createVertexArray(); gl.bindVertexArray(this.cloudVao);
+    const cb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uv), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(this.cloud.p, 'a_uv'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    this.tex = {};
+    this.emptyRadar = this.makeTex(gl, 1, 1, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(2));
+    this.emptyFlow = this.makeTex(gl, 1, 1, gl.RG16F, gl.RG, gl.FLOAT, new Float32Array(2));
+    this.emptyElev = this.makeTex(gl, 1, 1, gl.R16F, gl.RED, gl.FLOAT, new Float32Array(1));
+    this.flowTexFor = new Map();
+  },
+  buildParticles() {
+    const gl = this.gl;
+    const [nNear, nFar] = COUNTS[S.quality];
+    const mk = n => {
+      const data = new Float32Array(n * 2 * 5);
+      for (let i = 0; i < n; i++) {
+        const s = [Math.random(), Math.random(), Math.random(), Math.random()];
+        for (let e = 0; e < 2; e++) data.set([...s, e], (i * 2 + e) * 5);
+      }
+      const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      const l1 = gl.getAttribLocation(this.rain.p, 'a_seed'), l2 = gl.getAttribLocation(this.rain.p, 'a_end');
+      gl.enableVertexAttribArray(l1); gl.vertexAttribPointer(l1, 4, gl.FLOAT, false, 20, 0);
+      gl.enableVertexAttribArray(l2); gl.vertexAttribPointer(l2, 1, gl.FLOAT, false, 20, 16);
+      gl.bindVertexArray(null);
+      return { vao, buf: b, n };
+    };
+    if (this.near) { gl.deleteBuffer(this.near.buf); gl.deleteVertexArray(this.near.vao); gl.deleteBuffer(this.far.buf); gl.deleteVertexArray(this.far.vao); }
+    this.near = mk(nNear); this.far = mk(nFar);
+    this.builtQuality = S.quality;
+  },
+  makeTex(gl, w, h, ifmt, fmt, type, data) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  },
+  frameTex(gl, fr) {
+    if (!fr) return this.emptyRadar;
+    if (!fr.glTex) fr.glTex = this.makeTex(gl, GW, GH, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, fr.tex);
+    return fr.glTex;
+  },
+  flowTex(gl, flow) {
+    if (!flow) return this.emptyFlow;
+    if (!flow.glTex) flow.glTex = this.makeTex(gl, FW, FH, gl.RG16F, gl.RG, gl.FLOAT, flow.field);
+    return flow.glTex;
+  },
+  render(gl, matrix) {
+    if (!this.rain) return;
+    const mat = matrix && matrix.length === 16 ? matrix : (matrix && matrix.defaultProjectionData ? matrix.defaultProjectionData.mainMatrix : null);
+    if (!mat) return;
+    if (this.builtQuality !== S.quality) this.buildParticles();
+    while (S.dispose.length) gl.deleteTexture(S.dispose.pop());
+    if (S.elev && !this.elevTex) this.elevTex = this.makeTex(gl, GW, GH, gl.R16F, gl.RED, gl.FLOAT, S.elev);
+
+    const v = currentView();
+    const t = performance.now() / 1000;
+    const c = maplibregl.MercatorCoordinate.fromLngLat(map.getCenter());
+    const m = new Float32Array(16);
+    for (let i = 0; i < 16; i++) m[i] = mat[i];
+    m[12] = mat[0] * c.x + mat[4] * c.y + mat[12];
+    m[13] = mat[1] * c.x + mat[5] * c.y + mat[13];
+    m[14] = mat[2] * c.x + mat[6] * c.y + mat[14];
+    m[15] = mat[3] * c.x + mat[7] * c.y + mat[15];
+    const camElev = map.transform.elevation || 0;
+    const ext = [MX0, MY0, MX1 - MX0, MY1 - MY0];
+
+    const texA = this.frameTex(gl, v.A), texB = this.frameTex(gl, v.B), texF = this.flowTex(gl, v.flow);
+    const bindCommon = (prog) => {
+      const u = prog.u;
+      gl.uniformMatrix4fv(u.u_matrix, false, m);
+      gl.uniform2f(u.u_center, c.x, c.y);
+      gl.uniform4fv(u.u_ext, ext);
+      gl.uniform1f(u.u_camElev, camElev);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA); gl.uniform1i(u.u_radarA, 0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB); gl.uniform1i(u.u_radarB, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, texF); gl.uniform1i(u.u_flow, 2);
+      if (u.u_elev) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.elevTex || this.emptyElev); gl.uniform1i(u.u_elev, 3); }
+      if (u.u_dtA) gl.uniform1f(u.u_dtA, v.dtA);
+      if (u.u_dtB) gl.uniform1f(u.u_dtB, v.dtB);
+      if (u.u_mix) gl.uniform1f(u.u_mix, v.mix);
+      if (u.u_time) gl.uniform1f(u.u_time, t);
+      if (u.u_gridSize) gl.uniform2f(u.u_gridSize, GW, GH);
+    };
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+
+    if (S.toggles.rain && v.B) {
+      gl.useProgram(this.rain.p);
+      bindCommon(this.rain);
+      const u = this.rain.u;
+      gl.uniform1f(u.u_exag, EXAG);
+      gl.uniform2f(u.u_wind, S.wind[0], S.wind[1]);
+      // far layer: covers the whole radar area
+      gl.uniform1f(u.u_wrap, 0);
+      gl.uniform2f(u.u_domOrigin, MX0, MY0);
+      gl.uniform2f(u.u_domSize, MX1 - MX0, MY1 - MY0);
+      gl.uniform1f(u.u_colH, 3200);
+      gl.uniform1f(u.u_fallT, 1.7);
+      gl.uniform1f(u.u_streak, 0.4);
+      gl.uniform1f(u.u_alpha, 0.55);
+      gl.uniform1f(u.u_grey, 0.9);
+      gl.bindVertexArray(this.far.vao);
+      gl.drawArrays(gl.LINES, 0, this.far.n * 2);
+      // near layer: dense rain around the point you look at (world anchored)
+      const lat = map.getCenter().lat * Math.PI / 180;
+      const mpp = CIRC * Math.cos(lat) / (512 * Math.pow(2, map.getZoom()));
+      const viewM = Math.max(map.getCanvas().clientWidth, map.getCanvas().clientHeight) * mpp;
+      const domM = clamp(viewM * 1.5, 1500, 260000);
+      if (domM < 250000) {
+        const dom = domM / (CIRC * Math.cos(lat));
+        gl.uniform1f(u.u_wrap, 1);
+        gl.uniform2f(u.u_domSize, dom, dom);
+        gl.uniform1f(u.u_colH, clamp(domM * 0.22, 120, 3000));
+        gl.uniform1f(u.u_fallT, clamp(0.55 + Math.log10(domM) * 0.12, 0.6, 1.3));
+        gl.uniform1f(u.u_streak, 0.07);
+        gl.uniform1f(u.u_alpha, 0.8);
+        gl.uniform1f(u.u_grey, 0.35);
+        gl.bindVertexArray(this.near.vao);
+        gl.drawArrays(gl.LINES, 0, this.near.n * 2);
+      }
+    }
+
+    if (S.toggles.clouds && v.B) {
+      gl.useProgram(this.cloud.p);
+      bindCommon(this.cloud);
+      const u = this.cloud.u;
+      const g = v.flow.global;
+      gl.uniform2f(u.u_globalFlow, g[0] / GW / 600, g[1] / GH / 600);
+      const fl = S.flash, age = t - fl.t;
+      const fs = age < 0.6 ? Math.max(0, 1 - age / 0.6) * (0.6 + 0.4 * Math.sin(age * 70)) : 0;
+      gl.uniform3f(u.u_flash, fl.x, fl.y, fs);
+      gl.bindVertexArray(this.cloudVao);
+      // far away you look down through the clouds onto the rain, close up they close in
+      const zk = clamp((map.getZoom() - 6.5) / 4, 0, 1);
+      const layers = [[3400, 11.3, 0.38 + 0.3 * zk], [2600, 4.7, 0.32 + 0.3 * zk]];   // drawn top first
+      for (const [alt, seed, op] of layers) {
+        gl.uniform1f(u.u_alt, alt * 1.0);
+        gl.uniform1f(u.u_seed, seed);
+        gl.uniform1f(u.u_opacity, op);
+        gl.drawArrays(gl.TRIANGLES, 0, this.cloudCount);
+      }
+    }
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    map.triggerRepaint();
+  }
+};
+
+/* textures are (re)created lazily inside render(); this just asks for a repaint */
+function queueUpload() { if (map) map.triggerRepaint(); }
+
+/* =====================================================================
+   Raw radar overlay (optional) – the original RainViewer tiles
+   ===================================================================== */
+function updateRadarOverlay() {
+  if (!map.isStyleLoaded() || !S.liveB || !S.liveB.path) return;
+  const url = `${S.host}${S.liveB.path}/512/{z}/{x}/{y}/2/1_1.png`;
+  if (map.getLayer('radarRaw')) map.removeLayer('radarRaw');
+  if (map.getSource('radarRaw')) map.removeSource('radarRaw');
+  map.addSource('radarRaw', { type: 'raster', tiles: [url], tileSize: 512, maxzoom: 7, attribution: 'Radar © RainViewer / IMS' });
+  map.addLayer({ id: 'radarRaw', type: 'raster', source: 'radarRaw', paint: { 'raster-opacity': 0.6 }, layout: { visibility: S.toggles.radar ? 'visible' : 'none' } }, 'rain3d');
+}
+
+/* =====================================================================
+   Open-Meteo: temperature & wind per city (wind sets the rain slant)
+   ===================================================================== */
+async function loadWeather() {
+  try {
+    const lat = CITIES.map(c => c[2]).join(','), lon = CITIES.map(c => c[1]).join(',');
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&timezone=Asia%2FJerusalem`);
+    const j = await r.json();
+    S.cityWx = (Array.isArray(j) ? j : [j]).map(x => x.current || {});
+  } catch (e) { console.warn('open-meteo failed', e); }
+}
+function updateWind() {
+  if (!S.cityWx.length) return;
+  const c = map.getCenter();
+  let best = 0, bd = 1e9;
+  CITIES.forEach((ci, i) => { const d = (ci[1] - c.lng) ** 2 + (ci[2] - c.lat) ** 2; if (d < bd) { bd = d; best = i; } });
+  const w = S.cityWx[best];
+  if (w && w.wind_speed_10m != null) {
+    const sp = w.wind_speed_10m, dir = w.wind_direction_10m * Math.PI / 180;  // direction it blows FROM
+    const tx = -Math.sin(dir) * sp, ty = -Math.cos(dir) * sp;
+    S.wind[0] += (tx - S.wind[0]) * 0.05; S.wind[1] += (ty - S.wind[1]) * 0.05;
+    $('sWind').textContent = `${Math.round(sp * 3.6)} קמ״ש, נושבת ${compassHeb(tx, ty)} (${CITIES[best][0]})`;
+  }
+}
+
+/* =====================================================================
+   Sound (optional): rain noise follows the intensity at screen centre
+   ===================================================================== */
+const audio = { ctx: null, gain: null, thunder: null };
+function initAudio() {
+  if (audio.ctx) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const len = ctx.sampleRate * 3, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch); let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.11; }
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 400;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+  const g = ctx.createGain(); g.gain.value = 0;
+  src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(ctx.destination); src.start();
+  audio.ctx = ctx; audio.gain = g; audio.buf = buf;
+}
+function thunder(delay) {
+  if (!audio.ctx || !S.toggles.sound) return;
+  const ctx = audio.ctx, s = ctx.createBufferSource(); s.buffer = audio.buf;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160;
+  const g = ctx.createGain(); const t0 = ctx.currentTime + delay;
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(2.2, t0 + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t0 + 3.5);
+  s.connect(lp); lp.connect(g); g.connect(ctx.destination); s.start(t0, Math.random()); s.stop(t0 + 3.6);
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+function setMode(m) {
+  S.mode = m;
+  const b = $('liveBadge');
+  b.className = 'live' + ({ demo: ' demo', replay: ' replay', model: ' model', error: ' err', loading: ' err' }[m] || '');
+  $('liveTxt').textContent = { live: 'חי', demo: 'הדגמה', replay: 'שחזור', model: 'מודל', error: 'שגיאה', loading: 'טוען…' }[m];
+  updateMessages();
+}
+function updateMessages() {
+  const box = $('msgBox');
+  let h = '';
+  if (S.mode === 'demo') h = `<div class="msg warn">🧪 <b>מצב הדגמה</b> — סופות מלאכותיות כדי לראות איך זה נראה. הנתונים <b>אינם אמיתיים</b>.</div>`;
+  else if (S.mode === 'model') h = `<div class="msg warn">המכ״ם לא זמין כרגע${S.corsBlocked ? ' (הדפדפן חסם קריאת תמונות המכ״ם)' : ''}, לכן מוצג משקע לפי מודל Open‑Meteo העדכני. ננסה שוב את המכ״ם בכל דקה.</div>`;
+  else if (S.mode === 'error') h = `<div class="msg warn">לא הצלחתי להתחבר לנתוני מזג האוויר. בודק שוב בעוד דקה…</div>`;
+  else if (S.mode === 'live' && S.liveB) {
+    const st = S.liveB.stats;
+    const age = (Date.now() / 1000 - S.liveB.time) / 60;
+    if (age > 40) h += `<div class="msg warn">הסריקה האחרונה ישנה (${Math.round(age)} דק׳). ייתכן שהמכ״ם בהשבתה.</div>`;
+    if (st.max < 0.2) h += `<div class="msg info">☀️ כרגע אין גשם במכ״ם מעל ישראל. ההדמיה תתחיל לרדת ברגע שיופיע גשם בסריקה.<br><button onclick="toggle('demo')">🧪 להראות הדגמה בינתיים</button></div>`;
+  }
+  box.innerHTML = h;
+}
+
+function buildCities() {
+  const el = $('cities');
+  el.innerHTML = CITIES.map((c, i) => `<div class="city" data-i="${i}"><span class="nm">${c[0]}</span><span class="t" id="ct${i}"></span><span class="chip" id="cc${i}">—</span></div>`).join('');
+  el.querySelectorAll('.city').forEach(d => d.onclick = () => {
+    const c = CITIES[+d.dataset.i];
+    map.flyTo({ center: [c[1], c[2]], zoom: 11.2, pitch: 70, bearing: map.getBearing(), duration: 3500, essential: true });
+    if (isMobile) $('side').classList.add('min');
+  });
+}
+
+function refreshUI() {
+  const v = currentView();
+  updateWind();
+  // stats
+  if (v.B) {
+    const st = v.B.stats;
+    const [lab] = rainLabel(st.max);
+    $('sMax').textContent = st.max < 0.1 ? 'אין גשם' : `${fmtRate(st.max)} מ״מ/ש׳ · ${lab}`;
+    $('sArea').textContent = `${(st.area * 100).toFixed(st.area < 0.1 ? 1 : 0)}%`;
+    const g = v.flow.global, kmh = Math.hypot(g[0], g[1]) * pxMeters / 1000 * 6;
+    $('sMove').textContent = v.flow.valid && kmh > 2 ? `${Math.round(kmh)} קמ״ש ${compassHeb(g[0], -g[1])}` : (st.max < 0.2 ? '—' : 'כמעט נייח');
+    const c = map.getCenter(), here = rateAt(c.lng, c.lat);
+    $('sHere').textContent = here < 0.1 ? 'יבש' : `${fmtRate(here)} מ״מ/ש׳`;
+    $('sScan').textContent = S.mode === 'demo' ? 'הדגמה' : fmtTime(v.B.time);
+    const ahead = (v.simTime - v.B.time) / 60;
+    $('sProj').textContent = S.mode === 'replay' ? fmtTime(v.simTime) : (S.mode === 'live' ? `${fmtTime(Date.now() / 1000)} (+${Math.round(Math.min(ahead, MAX_ADVECT / 60))} דק׳)` : '—');
+    CITIES.forEach((ci, i) => {
+      const r = rateAt(ci[1], ci[2]);
+      const [t, bg, fg] = rainLabel(r);
+      const chip = $('cc' + i);
+      chip.textContent = r >= 0.1 ? `${t} ${fmtRate(r)}` : t;
+      chip.style.background = bg; chip.style.color = fg;
+      const w = S.cityWx[i];
+      $('ct' + i).textContent = w && w.temperature_2m != null ? `${Math.round(w.temperature_2m)}°` : '';
+    });
+    // atmosphere: haze + sound follow the rain at screen centre (when zoomed in)
+    const zoomK = clamp((map.getZoom() - 8) / 3, 0, 1);
+    const hz = clamp(Math.log(1 + here) / Math.log(60), 0, 1);
+    $('haze').style.opacity = (hz * zoomK * 0.75).toFixed(2);
+    if (audio.gain) {
+      const near = clamp(Math.log(1 + here) / Math.log(50), 0, 1) * (0.35 + 0.65 * zoomK);
+      audio.gain.gain.setTargetAtTime(S.toggles.sound ? near * 0.9 : 0, audio.ctx.currentTime, 0.4);
+    }
+  }
+  const secs = Math.max(0, Math.round((S.nextPoll - Date.now()) / 1000));
+  $('sNext').textContent = S.mode === 'demo' || S.mode === 'replay' ? 'מושהה' : `${secs} שנ׳`;
+}
+
+/* lightning in strong convective cells (>~25 mm/h) */
+function lightningTick(dt) {
+  const v = currentView();
+  if (!v.B || !S.toggles.clouds) return;
+  const heavy = v.B.stats.heavy;
+  if (!heavy.length) return;
+  const p = Math.min(0.7, heavy.length / 150) * dt;
+  if (Math.random() > p) return;
+  const h = heavy[(Math.random() * heavy.length) | 0];
+  const f = flowAt(v.flow, h[0], h[1]);
+  const gx = h[0] + f[0] * v.dtB / 600, gy = h[1] + f[1] * v.dtB / 600;
+  S.flash = { t: performance.now() / 1000, x: gx / GW, y: gy / GH };
+  // how far is it from the screen centre? -> screen flash + thunder
+  const c = map.getCenter();
+  const dKm = Math.hypot(gx - gridX(c.lng), gy - gridY(c.lat)) * pxMeters / 1000;
+  if (map.getZoom() > 8 && dKm < 25) {
+    const fl = $('flash'); fl.style.transition = 'none'; fl.style.opacity = (0.35 * (1 - dKm / 25)).toFixed(2);
+    requestAnimationFrame(() => { fl.style.transition = 'opacity .35s'; fl.style.opacity = 0; });
+  }
+  if (dKm < 40) thunder(dKm / 0.343 / 6);   // (sound delay shortened 6x so it is noticeable)
+}
+
+/* toggles */
+function syncToggles() { document.querySelectorAll('.tg').forEach(e => e.classList.toggle('on', !!S.toggles[e.dataset.k])); }
+function toggle(k) {
+  S.toggles[k] = !S.toggles[k];
+  if (k === 'radar' && map.getLayer('radarRaw')) map.setLayoutProperty('radarRaw', 'visibility', S.toggles.radar ? 'visible' : 'none');
+  if (k === 'sound' && S.toggles.sound) { initAudio(); audio.ctx.resume(); }
+  if (k === 'demo') {
+    if (S.toggles.demo) { if (S.toggles.replay) { S.toggles.replay = false; stopReplay(); } startDemo(); }
+    else { S.demoFrame = S.demoPrev = null; setMode(S.liveB ? (S.liveB.path ? 'live' : 'model') : 'loading'); }
+  }
+  if (k === 'replay') {
+    if (S.toggles.replay) { if (S.toggles.demo) { S.toggles.demo = false; S.demoFrame = null; } S.replay.pos = 0; startReplay(); }
+    else stopReplay();
+  }
+  syncToggles();
+}
+window.toggle = toggle;
+document.querySelectorAll('.tg').forEach(e => e.onclick = () => toggle(e.dataset.k));
+$('quality').onchange = e => { S.quality = e.target.value; map.triggerRepaint(); };
+$('btnHome').onclick = () => map.flyTo({ center: [35.0, isMobile ? 31.0 : 31.35], zoom: isMobile ? 6.2 : 6.95, pitch: 52, bearing: -12, duration: 3000 });
+$('toggleSide').onclick = () => $('side').classList.toggle('min');
+$('replaySlider').oninput = e => { S.replay.pos = e.target.value / 1000; S.replay.playing = false; };
+$('replaySlider').onchange = () => { S.replay.playing = true; };
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+buildCities();
+syncToggles();
+map.on('load', () => {
+  map.setTerrain({ source: 'dem', exaggeration: EXAG });
+  map.addLayer(rainLayer);
+  updateRadarOverlay();
+});
+map.on('error', e => console.warn('map error', e && e.error && e.error.message));
+
+loadElevation();
+loadWeather();
+poll();
+setInterval(poll, 60000);                 // check for a new radar scan every minute
+setInterval(loadWeather, 10 * 60000);     // temperatures & wind every 10 minutes
+setInterval(() => { if (S.toggles.demo && Date.now() / 1000 - S.demoFrame.time > 15 * 60) startDemo(); }, 10000);
+setInterval(refreshUI, 500);
+let lastT = performance.now();
+(function tick() {
+  const now = performance.now(), dt = (now - lastT) / 1000; lastT = now;
+  lightningTick(dt);
+  if (S.toggles.replay && S.replay.playing && S.replayList && S.replayList.length > 1) {
+    S.replay.pos = (S.replay.pos + dt / 24) % 1;     // two hours in 24 seconds
+    $('replaySlider').value = Math.round(S.replay.pos * 1000);
+    const t = S.replay.t0 + (S.replay.t1 - S.replay.t0) * S.replay.pos;
+    $('replayTime').textContent = `שחזור: ${fmtTime(t)}  (${S.replayList.length} סריקות)`;
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
