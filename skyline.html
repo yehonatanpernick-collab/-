@@ -1,0 +1,527 @@
+<title>עיר המדדים</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an architectural elevation drawing — one skyline of 11 towers on a shared ground line, then a ledger of index cards */
+:root {
+  --bg: #eef1f3;
+  --paper: #f8f9fa;
+  --ink: #1c2530;
+  --muted: #5d6b79;
+  --line: #cfd6dd;
+  --tower: #3a4756;
+  --tower-edge: #2a3542;
+  --win-off: #56657a;
+  --up: #1d8a5a;
+  --down: #c4423a;
+  --brass: #a9802f;
+  --sky-top: #dfe7ee;
+  --sky-bot: #f3f5f7;
+  --ground: #9aa6b2;
+  --focus: #2f5d8a;
+  --font-display: "Secular One", "Assistant", system-ui, sans-serif;
+  --font-body: "Assistant", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161e; --paper: #161e28; --ink: #e6ebf0; --muted: #93a1b0; --line: #273341;
+    --tower: #1f2a37; --tower-edge: #2c3a4b; --win-off: #2b3747; --up: #3fbf86; --down: #ee6a5f;
+    --brass: #d2a54e; --sky-top: #0b1118; --sky-bot: #1a2431; --ground: #3a4757; --focus: #7fb0e0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161e; --paper: #161e28; --ink: #e6ebf0; --muted: #93a1b0; --line: #273341;
+  --tower: #1f2a37; --tower-edge: #2c3a4b; --win-off: #2b3747; --up: #3fbf86; --down: #ee6a5f;
+  --brass: #d2a54e; --sky-top: #0b1118; --sky-bot: #1a2431; --ground: #3a4757; --focus: #7fb0e0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 60ch; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.live .dot { background: var(--up); animation: pulse 2s infinite; }
+.pill.stale .dot { background: var(--brass); }
+.pill.err .dot { background: var(--down); }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+button { font: inherit; font-weight: 600; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--focus); }
+button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.notice { border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.notice p { margin: 0; min-width: 0; }
+
+.stage { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.stage-scroll { overflow-x: auto; }
+canvas { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.legend b { color: var(--ink); font-weight: 600; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card.avg { border-color: var(--brass); }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.card h3 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.2; }
+.card .where { color: var(--muted); font-size: 13px; }
+.state { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.state.open { color: var(--up); border-color: currentColor; }
+.price-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.spark-empty { height: 44px; display: grid; place-items: center; font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; }
+.price { font-family: var(--font-data); font-size: 22px; font-weight: 500; direction: ltr; }
+.chg { font-family: var(--font-data); font-weight: 500; direction: ltr; }
+.up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: left; unicode-bidi: plaintext; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.range { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.bar { position: relative; height: 6px; border-radius: 3px; background: var(--line); }
+.bar i { position: absolute; top: -3px; width: 3px; height: 12px; border-radius: 2px; background: var(--ink); transform: translateX(50%); }
+.bar-ends { display: flex; justify-content: space-between; direction: ltr; font-family: var(--font-data); }
+svg.spark { width: 100%; height: 44px; display: block; }
+.foot { color: var(--muted); font-size: 13px; }
+.foot p { margin: 0 0 4px; }
+@media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } }
+</style>
+
+<div class="wrap" dir="rtl" lang="he">
+  <header>
+    <div>
+      <h1>עיר המדדים</h1>
+      <p class="sub">עשרה מגדלים לעשרת מדדי המניות הגדולים בעולם, ומגדל אחד לממוצע שלהם. כל מגדל עומד על 40 קומות בנקודת הסגירה הקודמת, ומוסיף או מאבד קומה על כל 0.25% של שינוי.</p>
+    </div>
+    <div class="status" aria-live="polite">
+      <span id="pill" class="pill stale"><span class="dot"></span><span id="pillText">תמונת מצב שמורה</span></span>
+      <span id="updated" class="mono" style="color:var(--muted)"></span>
+      <button id="refresh" type="button">רענן עכשיו</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden>
+    <p id="noticeText"></p>
+    <button id="noticeBtn" type="button" hidden>אפשר נתונים חיים</button>
+  </div>
+
+  <section class="stage" aria-label="קו הרקיע של המדדים">
+    <div class="stage-scroll"><canvas id="sky" role="img" aria-label="11 מגדלים שגובהם משקף את שינוי המדדים היום"></canvas></div>
+    <div class="legend">
+      <span><b>40 קומות</b> = סגירה קודמת</span>
+      <span><b>קומה אחת</b> = 0.25%</span>
+      <span><b style="color:var(--up)">חלונות ירוקים</b> = מדד בעלייה</span>
+      <span><b style="color:var(--down)">חלונות אדומים</b> = מדד בירידה</span>
+      <span><b style="color:var(--brass)">מגדל מוזהב</b> = ממוצע 10 המדדים</span>
+    </div>
+  </section>
+
+  <section class="grid" id="cards" aria-label="פרטי המדדים"></section>
+
+  <div class="foot">
+    <p>מקור הנתונים: Yahoo Finance, נמשך דרך החיבור Firecrawl שלך פעם בדקה כשהדף פתוח וגלוי. שינוי באחוזים הוא ביחס לסגירה הקודמת של כל בורסה. ממוצע = ממוצע פשוט של אחוזי השינוי של 10 המדדים.</p>
+    <p>מדדים בבורסות סגורות מציגים את ערך הסגירה האחרון שלהם עד שהמסחר נפתח מחדש. נתוני מדדים מ-Yahoo יכולים להגיע בעיכוב של עד כמה דקות לפי הבורסה.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const INDICES = [
+    { sym: "^GSPC", he: "S&P 500", where: "ארה״ב · ניו יורק", short: "S&P 500" },
+    { sym: "^IXIC", he: "נאסד״ק קומפוזיט", where: "ארה״ב · ניו יורק", short: "נאסד״ק" },
+    { sym: "^DJI", he: "דאו ג׳ונס", where: "ארה״ב · ניו יורק", short: "דאו ג׳ונס" },
+    { sym: "000001.SS", he: "שנגחאי קומפוזיט", where: "סין · שנגחאי", short: "שנגחאי" },
+    { sym: "^N225", he: "ניקיי 225", where: "יפן · טוקיו", short: "ניקיי" },
+    { sym: "^HSI", he: "האנג סנג", where: "הונג קונג", short: "האנג סנג" },
+    { sym: "^FTSE", he: "FTSE 100", where: "בריטניה · לונדון", short: "FTSE" },
+    { sym: "^GDAXI", he: "DAX", where: "גרמניה · פרנקפורט", short: "DAX" },
+    { sym: "^FCHI", he: "CAC 40", where: "צרפת · פריז", short: "CAC 40" },
+    { sym: "^BSESN", he: "סנסקס", where: "הודו · מומבאי", short: "סנסקס" },
+  ];
+  const URL_SPARK = "https://query1.finance.yahoo.com/v7/finance/spark?symbols=" +
+    INDICES.map(i => encodeURIComponent(i.sym)).join(",") + "&range=1d&interval=5m";
+  const TOOL_INPUT = { url: URL_SPARK, formats: ["rawHtml"], maxAge: 0, onlyMainContent: false,
+    objective: "Live quotes of the 10 largest world stock indices for a building visualization" };
+  const SERVER = "Firecrawl", TOOL = "firecrawl_scrape", POLL = 60000;
+
+  // Saved snapshot (Yahoo Finance, 6 Nov 2026 ~15:00 UTC) shown only until the first live reading arrives.
+  const SNAP_AT = 1793977194000;
+  const SNAP = {
+    "^GSPC": [7427.87,1.008,74.14,7353.73,7444.2,7369.55,7844.52,6316.91,1793977194,1793975400,1793998800,"USD","America/New_York"],
+    "^IXIC": [24759.484,1.828,444.486,24314.998,24825.547,24561.105,27722.75,20690.25,1793977188,1793975400,1793998800,"USD","America/New_York"],
+    "^DJI": [51411.39,-0.217,-111.668,51523.06,51506.97,50992.61,54744.33,45057.28,1793977193,1793975400,1793998800,"USD","America/New_York"],
+    "000001.SS": [3649.177,-1.104,-40.733,3686.17,3660.486,3610.198,4258.863,3574.271,1793948429,1793928600,1793948400,"CNY","Asia/Shanghai"],
+    "^N225": [57434.77,-5.965,-3643.129,61077.9,60374.35,56745.81,72831.73,48235.3,1793947502,1793923200,1793946600,"JPY","Asia/Tokyo"],
+    "^HSI": [24481.86,-1.271,-315.121,24796.981,24740.18,24349.3,28056.1,22518.0,1793952550,1793928600,1793952600,"HKD","Asia/Hong_Kong"],
+    "^FTSE": [10600.53,-1.689,-182.13,10782.66,10784.16,10528.07,10989.5,9423.9,1793976293,1793952000,1793982600,"GBP","Europe/London"],
+    "^GDAXI": [25711.11,-2.332,-613.9,26325.01,26061.64,25617.54,26692.9,21863.81,1793976293,1793952000,1793982600,"EUR","Europe/Berlin"],
+    "^FCHI": [8092.01,-1.382,-113.36,8205.37,8139.69,8049.64,8755.03,7505.27,1793976285,1793952000,1793982600,"EUR","Europe/Paris"],
+    "^BSESN": [81028.02,2.166,1718.016,79310.004,81028.02,79016.05,86159.02,71292.88,1793959353,1793936700,1793959200,"INR","Asia/Kolkata"],
+  };
+
+  const BASE_FLOORS = 40, PCT_PER_FLOOR = 0.25, MAX_FLOORS = 80, MIN_FLOORS = 2;
+  const floorsFor = pct => Math.max(MIN_FLOORS, Math.min(MAX_FLOORS, Math.round(BASE_FLOORS + pct / PCT_PER_FLOOR)));
+
+  const state = { quotes: {}, live: false, receivedAt: SNAP_AT, prevFloors: {}, delta: {} };
+  const towers = []; // { key, cur, target, flash }
+
+  function fromSnap() {
+    for (const i of INDICES) {
+      const s = SNAP[i.sym];
+      state.quotes[i.sym] = { price: s[0], pct: s[1], change: s[2], prev: s[3], dayHigh: s[4], dayLow: s[5],
+        hi52: s[6], lo52: s[7], time: s[8], regStart: s[9], regEnd: s[10], currency: s[11], tz: s[12], closes: [] };
+    }
+  }
+
+  // ---------- parsing the Firecrawl result ----------
+  function findSpark(v, depth = 0) {
+    if (v == null || depth > 6) return null;
+    if (typeof v === "string") {
+      const k = v.indexOf('{"spark"');
+      if (k < 0) return null;
+      let s = v.slice(k); const end = s.lastIndexOf("}");
+      try { return JSON.parse(s.slice(0, end + 1)).spark; } catch { return null; }
+    }
+    if (typeof v === "object") {
+      if (v.spark && v.spark.result) return v.spark;
+      for (const key of ["rawHtml", "html", "markdown", "text", "data"]) {
+        if (key in v) { const r = findSpark(v[key], depth + 1); if (r) return r; }
+      }
+      if (Array.isArray(v)) { for (const x of v) { const r = findSpark(x, depth + 1); if (r) return r; } }
+      else for (const key in v) { const r = findSpark(v[key], depth + 1); if (r) return r; }
+    }
+    return null;
+  }
+
+  function applyResult(result) {
+    const spark = findSpark(result && result.payload) || findSpark(result && result.content);
+    if (!spark || !Array.isArray(spark.result)) return false;
+    let n = 0;
+    for (const r of spark.result) {
+      const resp = r.response && r.response[0]; if (!resp || !resp.meta) continue;
+      const m = resp.meta, sym = r.symbol || m.symbol;
+      if (!INDICES.some(i => i.sym === sym)) continue;
+      const price = m.regularMarketPrice;
+      const prev = m.previousClose ?? m.chartPreviousClose;
+      let pct = m.regularMarketChangePercent ?? m.fulldayChangePercent;
+      if (pct == null && prev) pct = (price - prev) / prev * 100;
+      let change = m.fulldayChange ?? (prev != null ? price - prev : null);
+      const closes = (resp.indicators && resp.indicators.quote && resp.indicators.quote[0] && resp.indicators.quote[0].close || []).filter(x => x != null);
+      const reg = m.currentTradingPeriod && m.currentTradingPeriod.regular || {};
+      state.quotes[sym] = { price, pct, change, prev: change != null ? price - change : prev,
+        dayHigh: m.regularMarketDayHigh, dayLow: m.regularMarketDayLow, hi52: m.fiftyTwoWeekHigh, lo52: m.fiftyTwoWeekLow,
+        time: m.regularMarketTime, regStart: reg.start, regEnd: reg.end, currency: m.currency, tz: m.exchangeTimezoneName, closes };
+      n++;
+    }
+    return n > 0;
+  }
+
+  // ---------- derived ----------
+  function avgQuote() {
+    const qs = INDICES.map(i => state.quotes[i.sym]).filter(q => q && isFinite(q.pct));
+    const pct = qs.reduce((a, q) => a + q.pct, 0) / (qs.length || 1);
+    const ups = qs.filter(q => q.pct > 0).length;
+    const best = INDICES.filter(i => state.quotes[i.sym]).sort((a, b) => state.quotes[b.sym].pct - state.quotes[a.sym].pct);
+    const open = INDICES.filter(i => isOpen(state.quotes[i.sym])).length;
+    return { pct, ups, downs: qs.length - ups, best: best[0], worst: best[best.length - 1], open, n: qs.length };
+  }
+  function isOpen(q) { if (!q || !q.regStart) return false; const t = Date.now() / 1000; return t >= q.regStart && t < q.regEnd; }
+
+  function updateTargets() {
+    const avg = avgQuote();
+    const all = INDICES.map(i => ({ key: i.sym, pct: state.quotes[i.sym] ? state.quotes[i.sym].pct : 0 }));
+    all.push({ key: "AVG", pct: avg.pct });
+    for (const a of all) {
+      const f = floorsFor(a.pct);
+      let t = towers.find(x => x.key === a.key);
+      if (!t) { t = { key: a.key, cur: BASE_FLOORS, target: f, flash: 0 }; towers.push(t); }
+      if (state.prevFloors[a.key] != null && f !== state.prevFloors[a.key]) { state.delta[a.key] = f - state.prevFloors[a.key]; t.flash = 1; }
+      else if (state.prevFloors[a.key] == null) state.delta[a.key] = 0;
+      state.prevFloors[a.key] = f;
+      t.target = f; t.pct = a.pct;
+    }
+  }
+
+  // ---------- formatting ----------
+  const nf2 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtPct = p => (p > 0 ? "+" : p < 0 ? "−" : "") + nf2.format(Math.abs(p)) + "%";
+  const fmtChg = c => (c > 0 ? "+" : c < 0 ? "−" : "") + nf2.format(Math.abs(c));
+  const cls = p => p > 0.0001 ? "up" : p < -0.0001 ? "down" : "flat";
+  function fmtTime(sec, tz) {
+    if (!sec) return "—";
+    try { return new Intl.DateTimeFormat("he-IL", { timeZone: tz, hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" }).format(new Date(sec * 1000)); }
+    catch { return new Date(sec * 1000).toLocaleString("he-IL"); }
+  }
+  function ago(ms) {
+    const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return `עודכן לפני ${s} שנ׳`;
+    const m = Math.round(s / 60); if (m < 60) return `עודכן לפני ${m} דק׳`;
+    return "עודכן " + new Date(ms).toLocaleString("he-IL", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" });
+  }
+
+  // ---------- cards ----------
+  function sparkSvg(closes, prev, p) {
+    if (!closes || closes.length < 2) return '<div class="spark-empty">הגרף היומי יופיע עם העדכון החי</div>';
+    const vals = closes.concat(prev != null ? [prev] : []);
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+    const x = i => (i / (closes.length - 1)) * 100, y = v => 40 - ((v - lo) / span) * 36;
+    const pts = closes.map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+    const col = p >= 0 ? "var(--up)" : "var(--down)";
+    const base = prev != null ? `<line x1="0" x2="100" y1="${y(prev).toFixed(2)}" y2="${y(prev).toFixed(2)}" stroke="var(--muted)" stroke-width=".6" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>` : "";
+    const last = closes.length - 1;
+    return `<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true" style="direction:ltr">${base}
+      <polygon points="0,44 ${pts} 100,44" fill="${col}" opacity=".12"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      <circle cx="${x(last)}" cy="${y(closes[last])}" r="1.8" fill="${col}"/></svg>`;
+  }
+  function rangeBar(label, lo, hi, v) {
+    if (lo == null || hi == null || !(hi > lo)) return "";
+    const pos = Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    return `<div class="range"><span>${label}</span><div class="bar" style="direction:ltr"><i style="left:calc(${pos.toFixed(1)}% - 3px)"></i></div>
+      <div class="bar-ends"><span>${nf2.format(lo)}</span><span>${nf2.format(hi)}</span></div></div>`;
+  }
+  function renderCards() {
+    const avg = avgQuote(), af = floorsFor(avg.pct), ad = state.delta.AVG || 0;
+    const dTxt = d => d ? `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : "";
+    let html = `<article class="card avg">
+      <div class="card-head"><div><h3>מגדל הממוצע</h3><div class="where">ממוצע 10 המדדים</div></div><span class="state">${avg.open} בורסות פתוחות</span></div>
+      <div class="price-row"><span class="price ${cls(avg.pct)}">${fmtPct(avg.pct)}</span><span class="mono">${af} קומות ${dTxt(ad)}</span></div>
+      <dl class="kv"><dt>בעלייה / בירידה</dt><dd>${avg.ups} / ${avg.downs}</dd>
+      <dt>החזק ביותר</dt><dd>${avg.best ? avg.best.he + " " + fmtPct(state.quotes[avg.best.sym].pct) : "—"}</dd>
+      <dt>החלש ביותר</dt><dd>${avg.worst ? avg.worst.he + " " + fmtPct(state.quotes[avg.worst.sym].pct) : "—"}</dd></dl>
+    </article>`;
+    for (const i of INDICES) {
+      const q = state.quotes[i.sym]; if (!q) continue;
+      const open = isOpen(q), f = floorsFor(q.pct);
+      html += `<article class="card">
+        <div class="card-head"><div><h3>${i.he}</h3><div class="where">${i.where} · <span class="mono">${i.sym}</span></div></div>
+          <span class="state ${open ? "open" : ""}">${open ? "מסחר פתוח" : "בורסה סגורה"}</span></div>
+        <div class="price-row"><span class="price">${nf2.format(q.price)}</span>
+          <span class="chg ${cls(q.pct)}">${fmtChg(q.change)} (${fmtPct(q.pct)})</span></div>
+        ${sparkSvg(q.closes, q.prev, q.pct)}
+        <dl class="kv"><dt>קומות</dt><dd>${f} ${dTxt(state.delta[i.sym] || 0)}</dd>
+          <dt>סגירה קודמת</dt><dd>${q.prev != null ? nf2.format(q.prev) : "—"}</dd>
+          <dt>מטבע</dt><dd>${q.currency || "—"}</dd>
+          <dt>עסקה אחרונה (שעון מקומי)</dt><dd>${fmtTime(q.time, q.tz)}</dd></dl>
+        ${rangeBar("טווח יומי", q.dayLow, q.dayHigh, q.price)}
+        ${rangeBar("טווח 52 שבועות", q.lo52, q.hi52, q.price)}
+      </article>`;
+    }
+    document.getElementById("cards").innerHTML = html;
+  }
+
+  // ---------- skyline canvas ----------
+  const cv = document.getElementById("sky"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, colors = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["ink","muted","tower","tower-edge","win-off","up","down","brass","sky-top","sky-bot","ground","paper","line"]) colors[k] = cs.getPropertyValue("--" + k).trim();
+    colors.font = cs.getPropertyValue("--font-body").trim(); colors.data = cs.getPropertyValue("--font-data").trim(); colors.disp = cs.getPropertyValue("--font-display").trim();
+  }
+  function resize() {
+    const box = cv.parentElement.getBoundingClientRect();
+    W = Math.max(1080, Math.floor(box.width)); H = 600;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // order on screen, right to left: 5 indices, the average tower, 5 indices
+  function layout() {
+    const order = INDICES.slice(0, 5).map(i => i.sym).concat(["AVG"], INDICES.slice(5).map(i => i.sym));
+    const n = order.length, pad = 24, gap = 14;
+    const avgW = 1.45, units = n - 1 + avgW;
+    const unit = (W - pad * 2 - gap * (n - 1)) / units;
+    let x = W - pad; const out = [];
+    for (const key of order) { const w = key === "AVG" ? unit * avgW : unit; x -= w; out.push({ key, x, w }); x -= gap; }
+    return out;
+  }
+  function draw(dt) {
+    const groundY = H - 92, top = 46, floorH = (groundY - top) / MAX_FLOORS;
+    const g = ctx.createLinearGradient(0, 0, 0, groundY);
+    g.addColorStop(0, colors["sky-top"]); g.addColorStop(1, colors["sky-bot"]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // floor guide lines every 10 floors, with the 40-floor baseline emphasized
+    ctx.font = `11px ${colors.data}`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    for (let f = 10; f <= MAX_FLOORS; f += 10) {
+      const y = groundY - f * floorH;
+      ctx.strokeStyle = colors.line; ctx.globalAlpha = f === BASE_FLOORS ? 1 : 0.5;
+      ctx.setLineDash(f === BASE_FLOORS ? [] : [3, 5]); ctx.lineWidth = f === BASE_FLOORS ? 1.5 : 1;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.setLineDash([]);
+      ctx.fillStyle = colors.muted;
+      const pct = (f - BASE_FLOORS) * PCT_PER_FLOOR;
+      ctx.fillText(`${f}  ${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`, 6, y - 7);
+    }
+    // ground
+    ctx.fillStyle = colors.ground; ctx.fillRect(0, groundY, W, 3);
+    const slots = layout();
+    for (const s of slots) {
+      const t = towers.find(x => x.key === s.key); if (!t) continue;
+      const speed = Math.max(8, Math.abs(t.target - t.cur) * 2.2);
+      if (Math.abs(t.target - t.cur) < 0.01) t.cur = t.target;
+      else t.cur += Math.sign(t.target - t.cur) * Math.min(Math.abs(t.target - t.cur), speed * dt);
+      t.flash = Math.max(0, t.flash - dt * 0.5);
+      const isAvg = s.key === "AVG", pct = t.pct || 0;
+      const lit = pct > 0.0001 ? colors.up : pct < -0.0001 ? colors.down : colors.muted;
+      const full = Math.floor(t.cur), frac = t.cur - full;
+      const hgt = t.cur * floorH, x = s.x, w = s.w, yTop = groundY - hgt;
+      // body
+      ctx.fillStyle = isAvg ? colors.brass : colors.tower;
+      ctx.globalAlpha = isAvg ? 0.9 : 1;
+      ctx.fillRect(x, yTop, w, hgt);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = isAvg ? colors.brass : colors["tower-edge"]; ctx.lineWidth = 1;
+      ctx.strokeRect(x + .5, yTop + .5, w - 1, hgt - 1);
+      // windows
+      const cols = Math.max(3, Math.round(w / 16)), mx = 6, wg = 3;
+      const ww = (w - mx * 2 - wg * (cols - 1)) / cols, wh = Math.max(1.5, floorH - 2.2);
+      for (let f = 0; f < Math.ceil(t.cur); f++) {
+        const y = groundY - (f + 1) * floorH + 1.1;
+        const alphaF = f === full ? frac : 1;
+        for (let c = 0; c < cols; c++) {
+          const h = (f * 31 + c * 17 + (s.key.charCodeAt(1) || 3) * 7) % 10;
+          const on = h < 7;
+          ctx.globalAlpha = alphaF * (on ? 0.9 : 0.6);
+          ctx.fillStyle = on ? (isAvg ? colors.paper : lit) : (isAvg ? colors.tower : colors["win-off"]);
+          ctx.fillRect(x + mx + c * (ww + wg), y, ww, wh);
+        }
+      }
+      ctx.globalAlpha = 1;
+      // flash band on newly changed floors
+      if (t.flash > 0) {
+        ctx.globalAlpha = t.flash * 0.5; ctx.fillStyle = lit;
+        ctx.fillRect(x - 3, yTop - 3, w + 6, Math.min(hgt, floorH * 4) + 3); ctx.globalAlpha = 1;
+      }
+      // roof + antenna
+      ctx.fillStyle = isAvg ? colors.brass : colors["tower-edge"];
+      ctx.fillRect(x + w * 0.2, yTop - 5, w * 0.6, 5);
+      ctx.fillRect(x + w / 2 - 1, yTop - 16, 2, 11);
+      // roof label: floors
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = colors.ink; ctx.font = `600 13px ${colors.data}`;
+      ctx.fillText(String(Math.round(t.cur)), x + w / 2, yTop - 22);
+      // ground labels
+      const meta = INDICES.find(i => i.sym === s.key);
+      ctx.fillStyle = colors.ink; ctx.font = `${isAvg ? "" : "700 "}${isAvg ? 17 : 14}px ${isAvg ? colors.disp : colors.font}`;
+      ctx.direction = "rtl";
+      ctx.fillText(isAvg ? "ממוצע" : meta.short, x + w / 2, groundY + 26);
+      ctx.direction = "ltr";
+      ctx.font = `500 15px ${colors.data}`; ctx.fillStyle = lit === colors.muted ? colors.muted : lit;
+      ctx.fillText(fmtPct(pct), x + w / 2, groundY + 48);
+      if (!isAvg) {
+        const q = state.quotes[s.key];
+        ctx.font = `11px ${colors.data}`; ctx.fillStyle = colors.muted;
+        ctx.fillText(q ? nf2.format(q.price) : "", x + w / 2, groundY + 66);
+        if (isOpen(q)) { ctx.fillStyle = colors.up; ctx.beginPath(); ctx.arc(x + w / 2, groundY + 80, 3, 0, Math.PI * 2); ctx.fill(); }
+      } else {
+        ctx.font = `12px ${colors.font}`; ctx.fillStyle = colors.muted; ctx.direction = "rtl";
+        ctx.fillText("ממוצע 10 מדדים", x + w / 2, groundY + 66); ctx.direction = "ltr";
+      }
+    }
+  }
+  let last = performance.now(), raf = 0;
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function loop(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (reduce) towers.forEach(t => { t.cur = t.target; t.flash = 0; });
+    draw(dt);
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---------- status ----------
+  const pill = document.getElementById("pill"), pillText = document.getElementById("pillText"), updated = document.getElementById("updated");
+  function setPill(kind, text) { pill.className = "pill " + kind; pillText.textContent = text; }
+  function tickStatus() {
+    updated.textContent = state.live ? ago(state.receivedAt) : "תמונת מצב מ-" + new Date(state.receivedAt).toLocaleString("he-IL", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" });
+    if (state.live && Date.now() - state.receivedAt > POLL * 3) setPill("stale", "ממתין לעדכון");
+  }
+  const notice = document.getElementById("notice"), noticeText = document.getElementById("noticeText"), noticeBtn = document.getElementById("noticeBtn");
+  function showNotice(text, withBtn) { notice.hidden = false; noticeText.textContent = text; noticeBtn.hidden = !withBtn; }
+  function hideNotice() { notice.hidden = true; }
+
+  function handleError(err) {
+    const code = err && err.code;
+    switch (code) {
+      case "server_not_connected": case "server_not_found":
+        setPill("err", "אין חיבור לנתונים");
+        showNotice("כדי לקבל נתונים חיים צריך את החיבור Firecrawl: claude.ai ← הגדרות ← Connectors ← הוסף את Firecrawl. בינתיים מוצגת תמונת המצב האחרונה.", false); break;
+      case "needs_reauth":
+        setPill("err", "החיבור פג");
+        showNotice("החיבור Firecrawl צריך התחברות מחדש: claude.ai ← הגדרות ← Connectors.", false); break;
+      case "selection_required":
+        setPill("err", "בחר חיבור");
+        showNotice("יש לך יותר מחיבור Firecrawl אחד. בחר אחד בחלון שנפתח, או רענן את הדף.", false); break;
+      case "approval_required": case "not_in_manifest": case "consent_required":
+        setPill("stale", "ממתין לאישור");
+        showNotice("הדף צריך את אישורך לקרוא נתונים חיים דרך Firecrawl (בקשה אחת בדקה, קרדיט אחד לבקשה).", true); break;
+      case "blocked_by_policy":
+        setPill("err", "חסום בארגון");
+        showNotice("מדיניות הארגון חוסמת את Firecrawl עבורך. מוצגת תמונת המצב האחרונה.", false); break;
+      case "tool_error":
+        setPill("stale", "שגיאת מקור");
+        showNotice("Firecrawl לא הצליח למשוך את Yahoo Finance בפעם הזו: " + (err.message || "").slice(0, 160) + ". הניסיון הבא בעוד דקה.", false); break;
+      default:
+        setPill("stale", "בעיה זמנית");
+        showNotice("העדכון האחרון נכשל זמנית. מוצגים הנתונים האחרונים שהתקבלו, והניסיון הבא בעוד דקה.", false);
+    }
+  }
+  function onData(result) {
+    if (!applyResult(result)) { setPill("stale", "תשובה לא צפויה"); showNotice("התקבלה תשובה מ-Yahoo Finance בפורמט לא צפוי. הניסיון הבא בעוד דקה.", false); return; }
+    state.live = true;
+    state.receivedAt = result.cache && result.cache.storedAt ? result.cache.storedAt : Date.now();
+    hideNotice(); setPill("live", "חי · מתעדכן כל דקה");
+    updateTargets(); renderCards(); tickStatus();
+  }
+
+  // ---------- connector wiring ----------
+  let mcp = null, unwatch = null;
+  async function callOnce() {
+    if (!mcp) return;
+    const btn = document.getElementById("refresh"); btn.disabled = true; btn.textContent = "מרענן…";
+    try { onData(await mcp.callTool(SERVER, TOOL, TOOL_INPUT, { cache: { staleTime: 0, gcTime: 300000, refresh: true } })); }
+    catch (e) { handleError(e); }
+    finally { btn.disabled = false; btn.textContent = "רענן עכשיו"; }
+  }
+  document.getElementById("refresh").addEventListener("click", callOnce);
+  noticeBtn.addEventListener("click", callOnce);
+
+  async function connect() {
+    try { mcp = window.claude && window.claude.use ? await window.claude.use("mcp") : null; } catch { mcp = null; }
+    if (!mcp) {
+      setPill("err", "ללא נתונים חיים");
+      document.getElementById("refresh").hidden = true;
+      showNotice("התצוגה הזו לא יכולה למשוך נתונים חיים. פתח את הדף ב-claude.ai כשהחיבור Firecrawl מחובר. מוצגת תמונת מצב שמורה.", false);
+      return;
+    }
+    setPill("stale", "מתחבר לנתונים…");
+    unwatch = mcp.watchTool(SERVER, TOOL, TOOL_INPUT, ev => {
+      if (ev.type === "data") onData(ev.result);
+      else {
+        const c = ev.error && ev.error.code;
+        handleError(ev.error);
+        if (c === "approval_required" || c === "not_in_manifest") callOnce(); // first visit: ask once
+      }
+    }, { cache: { staleTime: 55000, gcTime: 300000 }, refetchInterval: POLL });
+  }
+
+  // ---------- boot ----------
+  fromSnap(); updateTargets(); state.delta = {};
+  towers.forEach(t => t.cur = t.target);
+  readColors(); resize(); renderCards(); tickStatus();
+  raf = requestAnimationFrame(loop);
+  window.addEventListener("resize", resize);
+  const mq = matchMedia("(prefers-color-scheme: dark)"); mq.addEventListener && mq.addEventListener("change", readColors);
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  document.fonts && document.fonts.ready.then(readColors);
+  setInterval(() => { tickStatus(); renderCardsStateOnly(); }, 5000);
+  function renderCardsStateOnly() { /* market open/closed can flip between polls */ if (Date.now() % 60000 < 5000) renderCards(); }
+  connect();
+})();
+</script>
