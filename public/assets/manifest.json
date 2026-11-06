@@ -1,0 +1,65 @@
+{
+ "generated": "2026-11-06T16:07:40.578Z",
+ "assets": [
+  {
+   "name": "Skydrive hero vehicle base",
+   "category": "vehicle",
+   "file": "models/skydrive-car.glb",
+   "source": "KhronosGroup/glTF-Sample-Assets Models/CarConcept (based on \"Free Concept Car 004\" by Unity Fan, CC0)",
+   "license": "CC-BY-4.0 (Khronos logos excluded/removed)",
+   "attribution": "Car Concept — Khronos Group, Eric Chadwick et al.; original model by Unity Fan",
+   "format": "glb (meshopt, webp)",
+   "bytes": 2995780,
+   "optimized": true,
+   "integrated": "VehicleModel.ts — doors, wheels, steering, lights, interior animated; custom flight thrusters added procedurally"
+  },
+  {
+   "name": "Pedestrian A (mannequin, tinted clothing)",
+   "category": "character",
+   "file": "models/pedestrian.glb",
+   "source": "three.js examples (Xbot, Adobe Mixamo character + animations)",
+   "license": "Mixamo royalty-free use in projects (distributed with three.js examples)",
+   "attribution": "Adobe Mixamo",
+   "format": "glb (meshopt)",
+   "bytes": 773492,
+   "optimized": true,
+   "integrated": "PedestrianManager.ts (skinned, pooled, idle/walk/run blending)"
+  },
+  {
+   "name": "Pedestrian B (jacket)",
+   "category": "character",
+   "file": "models/pedestrian-b.glb",
+   "source": "three.js examples (Soldier/Vanguard, Adobe Mixamo character + animations)",
+   "license": "Mixamo royalty-free use in projects (distributed with three.js examples)",
+   "attribution": "Adobe Mixamo",
+   "format": "glb (meshopt)",
+   "bytes": 465888,
+   "optimized": true,
+   "integrated": "PedestrianManager.ts"
+  },
+  {
+   "name": "Michelle (casual female)",
+   "category": "character",
+   "file": null,
+   "source": "three.js examples (Adobe Mixamo)",
+   "license": "Mixamo",
+   "attribution": "Adobe Mixamo",
+   "format": "glb",
+   "bytes": 0,
+   "optimized": false,
+   "integrated": "evaluated, NOT used: ships only a dance clip and cross-rig retargeting failed visual QA"
+  },
+  {
+   "name": "Delivery truck",
+   "category": "traffic",
+   "file": "models/delivery-truck.glb",
+   "source": "KhronosGroup/glTF-Sample-Assets Models/CesiumMilkTruck",
+   "license": "CC-BY-4.0",
+   "attribution": "Cesium",
+   "format": "glb",
+   "bytes": 0,
+   "optimized": true,
+   "integrated": "evaluated, NOT used: procedural instanced traffic classes chosen for draw-call efficiency and visual consistency"
+  }
+ ]
+}
