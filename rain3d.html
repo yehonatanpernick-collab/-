@@ -56,6 +56,8 @@
   #legend .ttl{font-size:12px;color:var(--muted);margin-bottom:5px}
   #legend .scale{height:10px;border-radius:5px;background:linear-gradient(to left,#88ddee,#00a3e0,#0077aa,#005588,#ffee00,#ffaa00,#ff4400,#c10000,#ff77ff)}
   #legend .lbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px}
+  .rng{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.07)}
+  .rng input{width:90px;accent-color:#4fb3ff}
   #replayBox{display:none;margin-top:8px;font-size:12px}
   #replayBox input{width:100%}
   #toggleSide{display:none}
@@ -116,6 +118,7 @@
   <span class="tg" data-k="demo">🧪 הדגמה</span>
   <span class="tg" data-k="replay">⏪ שעתיים אחרונות</span>
   <button id="btnHome">🇮🇱 כל הארץ</button>
+  <label class="rng" title="כמה בולט הגשם">💧 בולטות <input id="boost" type="range" min="0.6" max="3" step="0.1" value="1.6"></label>
   <select id="quality" title="איכות">
     <option value="low">איכות: נמוכה</option>
     <option value="med">איכות: בינונית</option>
@@ -156,6 +159,7 @@ const CITIES = [
 /* ---------- small helpers ---------- */
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mix = (a, b, t) => a + (b - a) * t;
 const lon2mx = lon => (lon + 180) / 360;
 const lat2my = lat => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 const my2lat = my => Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180 / Math.PI;
@@ -276,6 +280,10 @@ const S = {
   dispose: []             // GL textures to delete (done inside render)
 };
 $('quality').value = S.quality;
+S.boost = 1.6;
+try { const b = parseFloat(localStorage.getItem('rain3d.boost')); if (b >= 0.6 && b <= 3) S.boost = b; } catch (e) {}
+$('boost').value = S.boost;
+$('boost').oninput = e => { S.boost = parseFloat(e.target.value); try { localStorage.setItem('rain3d.boost', S.boost); } catch (_) {} map.triggerRepaint(); };
 
 /* =====================================================================
    Frames: download radar tiles, decode colours -> dBZ, build textures
@@ -354,7 +362,11 @@ function frameStats(fr) {
     if (r > max) max = r;
   }
   for (let y = 0; y < GH; y += 2) for (let x = 0; x < GW; x += 2) if (fr.rate[y * GW + x] > 25) heavy.push([x, y]);
-  return { max, area: wet / tot, heavy };
+  let bx0 = GW, by0 = GH, bx1 = -1, by1 = -1;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (fr.rate[y * GW + x] > 0.3) {
+    if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y;
+  }
+  return { max, area: wet / tot, heavy, bbox: bx1 >= 0 ? [bx0, by0, bx1 + 1, by1 + 1] : null };
 }
 
 /* =====================================================================
@@ -665,71 +677,88 @@ async function loadElevation() {
    ===================================================================== */
 const RAIN_VS = `#version 300 es
 precision highp float;
-in vec4 a_seed;      // x, y in [0,1), phase, visibility threshold
-in float a_end;      // 0 = drop head (lower end), 1 = tail
+in vec2 a_corner;    // x: 0 = drop head (lower end), 1 = tail; y: -1/+1 side of the quad
+in vec4 a_seed;      // per drop: x, y in [0,1), phase, visibility threshold
 uniform mat4 u_matrix;
-uniform vec2 u_center, u_domOrigin, u_domSize;
-uniform float u_wrap;
+uniform vec2 u_center, u_domOrigin, u_domSize, u_res;
+uniform float u_wrap, u_keep, u_boost, u_widthPx, u_minLenPx, u_pass;
 uniform vec4 u_ext;
 uniform sampler2D u_radarA, u_radarB, u_flow, u_elev;
 uniform float u_dtA, u_dtB, u_mix, u_time, u_exag, u_camElev;
 uniform float u_colH, u_fallT, u_streak, u_alpha;
 uniform vec2 u_wind;
 uniform vec2 u_gridSize;
-out float v_alpha; out float v_end; out float v_snow; out float v_dens;
+out float v_alpha; out float v_snow; out float v_dens; out vec2 v_c;
 const float PI = 3.141592653589793;
 float metersToMerc(float my){ float lat = atan(sinh(PI*(1.0-2.0*my))); return 1.0/(40075016.686*cos(lat)); }
 vec2 radar(sampler2D t, vec2 uv, float dt){
   vec2 v = texture(u_flow, uv).rg / u_gridSize / 600.0;
   return texture(t, uv - v*dt).rg;
 }
+vec4 proj(vec2 base, float hh, float ground, float zpm, vec2 dir, float slope, vec2 sd){
+  vec2 p = base + vec2(dir.x, -dir.y)*hh*slope*zpm + sd;
+  return u_matrix*vec4(p - u_center, (ground*u_exag + hh - u_camElev)*zpm, 1.0);
+}
 void main(){
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vec2 base = u_wrap > 0.5
     ? u_center + u_domSize*(fract(a_seed.xy - u_center/u_domSize + 0.5) - 0.5)
     : u_domOrigin + a_seed.xy*u_domSize;
   vec2 uv = (base - u_ext.xy)/u_ext.zw;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return;
   vec2 r = mix(radar(u_radarA, uv, u_dtA), radar(u_radarB, uv, u_dtB), u_mix);
   float dbz = r.x*70.0;
   float rate = dbz < 12.0 ? 0.0 : pow(pow(10.0, dbz/10.0)/200.0, 0.625);
-  float dens = clamp(log(1.0 + rate)/log(1.0 + 70.0), 0.0, 1.0);
-  dens = pow(dens, 0.8);
-  // fade out the square edge of the wrapping (near) domain
-  if (u_wrap > 0.5) {
+  if (rate < 0.12) return;
+  // even light drizzle gets a clearly visible share of drops; heavier rain fills up
+  float dens = clamp(0.22 + 0.78*log(1.0 + rate)/log(71.0), 0.0, 1.0);
+  if (u_wrap > 0.5) {                       // fade out the square edge of the near domain
     vec2 q = abs(base - u_center)/(u_domSize*0.5);
     dens *= 1.0 - smoothstep(0.75, 1.0, max(q.x, q.y));
   }
-  if (a_seed.w > dens || uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  if (a_seed.w > clamp(dens*u_boost, 0.0, 1.0)*u_keep) return;
   float snow = step(0.5, r.y);
-  float fallT = u_fallT * mix(1.0, 6.0, snow);
-  float ph = fract(a_seed.z + u_time/fallT);             // 0 = cloud base, 1 = ground
+  float ph = fract(a_seed.z + u_time/(u_fallT*mix(1.0, 6.0, snow)));   // 0 = cloud base, 1 = ground
   float h = (1.0 - ph)*u_colH;
   float len = u_colH*u_streak*mix(0.7, 1.5, dens)*mix(1.0, 0.12, snow);
-  float hh = h + a_end*len;
   float zpm = metersToMerc(base.y);
-  // slant: horizontal displacement = height * wind / terminal velocity
-  float vt = mix(8.0, 1.3, snow);
+  float vt = mix(8.0, 1.3, snow);           // terminal speed -> slant from the wind
   float ws = length(u_wind);
   vec2 dir = ws > 0.01 ? u_wind/ws : vec2(0.0);
   float slope = min(ws/vt, 1.3);
-  vec2 drift = vec2(dir.x, -dir.y)*hh*slope*zpm;
-  if (snow > 0.5) drift += vec2(sin(u_time*1.7 + a_seed.z*40.0), cos(u_time*1.3 + a_seed.x*50.0))*0.05*u_colH*zpm;
-  vec2 p = base + drift;
+  vec2 sd = vec2(0.0);
+  if (snow > 0.5) sd = vec2(sin(u_time*1.7 + a_seed.z*40.0), cos(u_time*1.3 + a_seed.x*50.0))*0.05*u_colH*zpm;
   float ground = texture(u_elev, uv).r;
-  float z = (ground*u_exag + hh - u_camElev)*zpm;
-  gl_Position = u_matrix*vec4(p - u_center, z, 1.0);
-  // more drops where it rains harder, but each drop a bit fainter so heavy rain reads as a grey curtain, not a white blob
-  v_alpha = u_alpha*mix(0.75, 0.32, dens)*smoothstep(0.0, 0.12, ph);
-  v_end = a_end; v_snow = snow; v_dens = dens;
+  vec4 c0 = proj(base, h, ground, zpm, dir, slope, sd);
+  vec4 c1 = proj(base, h + len, ground, zpm, dir, slope, sd);
+  if (c0.w <= 0.0 || c1.w <= 0.0) return;
+  vec2 n0 = c0.xy/c0.w, n1 = c1.xy/c1.w;
+  vec2 dpx = (n1 - n0)*0.5*u_res;           // streak as it appears on screen, in pixels
+  float l = length(dpx);
+  vec2 d2 = l > 0.01 ? dpx/l : normalize(vec2(0.12, 1.0));
+  // never let a drop shrink below a minimum on-screen length: this is what keeps rain visible from far away
+  float L = max(l, u_minLenPx*mix(0.75, 1.0, dens)*mix(1.0, 0.2, snow));
+  vec2 tailp = n0 + d2*L*2.0/u_res;
+  vec2 perp = vec2(-d2.y, d2.x);
+  float w = u_widthPx*mix(0.8, 1.35, dens)*(0.75 + 0.5*fract(a_seed.z*7.31))*mix(1.0, 1.8, snow);
+  vec2 pos = mix(n0, tailp, a_corner.x) + perp*a_corner.y*w/u_res;
+  gl_Position = vec4(pos, c0.z/c0.w, 1.0);
+  v_alpha = u_alpha*mix(0.6, 1.0, dens)*smoothstep(0.0, 0.1, ph)*min(1.0, 0.55 + 0.28*u_boost);
+  v_snow = snow; v_dens = dens; v_c = a_corner;
 }`;
 const RAIN_FS = `#version 300 es
 precision mediump float;
-in float v_alpha; in float v_end; in float v_snow; in float v_dens;
-uniform float u_grey;
+in float v_alpha; in float v_snow; in float v_dens; in vec2 v_c;
+uniform float u_pass;      // 0 = dark outline (contrast on bright ground), 1 = bright core
 out vec4 o;
 void main(){
-  float a = v_alpha*mix(1.0, 0.05, v_end);
-  vec3 c = mix(vec3(0.82, 0.87, 0.96), vec3(0.50, 0.55, 0.64), v_dens*u_grey);
-  c = mix(c, vec3(0.98, 0.99, 1.0), v_snow);
+  float side = 1.0 - smoothstep(0.35, 1.0, abs(v_c.y));
+  float a = v_alpha*side*(1.0 - 0.9*v_c.x);
+  vec3 core = mix(vec3(0.88, 0.96, 1.0), vec3(0.60, 0.80, 1.0), smoothstep(0.15, 0.55, v_dens));
+  core = mix(core, vec3(0.90, 0.72, 1.0), smoothstep(0.78, 1.0, v_dens));
+  core = mix(core, vec3(1.0), v_snow);
+  vec3 c = u_pass > 0.5 ? core : vec3(0.03, 0.06, 0.14);
+  a *= u_pass > 0.5 ? 1.0 : 0.34;
   o = vec4(c*a, a);
 }`;
 const CLOUD_VS = `#version 300 es
@@ -752,7 +781,7 @@ const CLOUD_FS = `#version 300 es
 precision highp float;
 in vec2 v_uv; in vec2 v_merc;
 uniform sampler2D u_radarA, u_radarB, u_flow;
-uniform float u_dtA, u_dtB, u_mix, u_time, u_seed, u_opacity;
+uniform float u_dtA, u_dtB, u_mix, u_time, u_seed, u_opacity, u_tint;
 uniform vec2 u_gridSize, u_globalFlow;
 uniform vec3 u_flash;   // uv.x, uv.y, strength
 out vec4 o;
@@ -767,6 +796,14 @@ float dens(sampler2D t, vec2 uv, float dt){
   float d = texture(t, q).r*0.4 + (texture(t, q + vec2(px.x, 0)).r + texture(t, q - vec2(px.x, 0)).r + texture(t, q + vec2(0, px.y)).r + texture(t, q - vec2(0, px.y)).r)*0.15;
   return d;
 }
+// radar colours (light blue -> blue -> yellow -> orange -> red -> magenta) so intensity reads from far away
+vec3 ramp(float d){
+  vec3 c = mix(vec3(0.35, 0.80, 1.0), vec3(0.15, 0.40, 1.0), smoothstep(14.0, 30.0, d));
+  c = mix(c, vec3(1.0, 0.88, 0.10), smoothstep(30.0, 40.0, d));
+  c = mix(c, vec3(1.0, 0.40, 0.05), smoothstep(40.0, 48.0, d));
+  c = mix(c, vec3(0.90, 0.05, 0.12), smoothstep(48.0, 56.0, d));
+  return mix(c, vec3(1.0, 0.45, 1.0), smoothstep(58.0, 66.0, d));
+}
 void main(){
   float r = mix(dens(u_radarA, v_uv, u_dtA), dens(u_radarB, v_uv, u_dtB), u_mix);
   float dbz = r*70.0;
@@ -777,10 +814,11 @@ void main(){
   float n2 = fbm(np*3.1 + 5.0);
   float cover = k*1.25 + (n - 0.5)*0.95 + (n2 - 0.5)*0.35;
   float a = smoothstep(0.12, 0.55, cover)*(0.45 + 0.55*k);
-  a = clamp(a, 0.0, 0.92)*u_opacity;
+  a = clamp(a, 0.0, 0.92)*max(u_opacity, u_tint*0.6);
   // lit tops, dark heavy cores
   float shade = clamp(0.88 - 0.62*k + (n2 - 0.5)*0.35 + (n - 0.5)*0.2, 0.12, 0.95);
   vec3 c = vec3(shade)*vec3(0.97, 0.98, 1.02);
+  c = mix(c, ramp(dbz), u_tint*smoothstep(10.0, 22.0, dbz));
   float fd = length((v_uv - u_flash.xy)*u_gridSize);
   c += vec3(0.85, 0.9, 1.0)*u_flash.z*exp(-fd*fd/(2.0*18.0*18.0))*1.6;
   o = vec4(c*a, a);
@@ -797,7 +835,7 @@ function compile(gl, vs, fs) {
   return { p, u };
 }
 
-const COUNTS = { low: [45000, 30000], med: [100000, 60000], high: [190000, 110000] };
+const COUNTS = { low: [40000, 70000], med: [90000, 170000], high: [150000, 340000] };   // [near, far]
 
 const rainLayer = {
   id: 'rain3d', type: 'custom', renderingMode: '3d',
@@ -827,17 +865,20 @@ const rainLayer = {
   buildParticles() {
     const gl = this.gl;
     const [nNear, nFar] = COUNTS[S.quality];
+    if (!this.cornerBuf) {            // one quad (two triangles) shared by every drop
+      this.cornerBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 0, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+    }
     const mk = n => {
-      const data = new Float32Array(n * 2 * 5);
-      for (let i = 0; i < n; i++) {
-        const s = [Math.random(), Math.random(), Math.random(), Math.random()];
-        for (let e = 0; e < 2; e++) data.set([...s, e], (i * 2 + e) * 5);
-      }
+      const data = new Float32Array(n * 4);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random();
       const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuf);
+      const lc = gl.getAttribLocation(this.rain.p, 'a_corner');
+      gl.enableVertexAttribArray(lc); gl.vertexAttribPointer(lc, 2, gl.FLOAT, false, 0, 0);
       const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-      const l1 = gl.getAttribLocation(this.rain.p, 'a_seed'), l2 = gl.getAttribLocation(this.rain.p, 'a_end');
-      gl.enableVertexAttribArray(l1); gl.vertexAttribPointer(l1, 4, gl.FLOAT, false, 20, 0);
-      gl.enableVertexAttribArray(l2); gl.vertexAttribPointer(l2, 1, gl.FLOAT, false, 20, 16);
+      const ls = gl.getAttribLocation(this.rain.p, 'a_seed');
+      gl.enableVertexAttribArray(ls); gl.vertexAttribPointer(ls, 4, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(ls, 1);
       gl.bindVertexArray(null);
       return { vao, buf: b, n };
     };
@@ -867,6 +908,36 @@ const rainLayer = {
     if (!flow) return this.emptyFlow;
     if (!flow.glTex) flow.glTex = this.makeTex(gl, FW, FH, gl.RG16F, gl.RG, gl.FLOAT, flow.field);
     return flow.glTex;
+  },
+  /* Rectangle (in mercator units) that contains all current rain; smoothed so it never jumps. */
+  rainDomain(v) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const fr of [v.A, v.B]) {
+      const b = fr && fr.stats.bbox; if (!b) continue;
+      x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]);
+    }
+    let tgt;
+    if (x0 > x1) tgt = [0, 0, GW, GH];
+    else {
+      const g = v.flow.global, dt = Math.max(Math.abs(v.dtA), Math.abs(v.dtB)) / 600;
+      const pad = 0.12 * Math.max(x1 - x0, y1 - y0) + 30;
+      x0 -= pad + Math.abs(g[0]) * dt; x1 += pad + Math.abs(g[0]) * dt;
+      y0 -= pad + Math.abs(g[1]) * dt; y1 += pad + Math.abs(g[1]) * dt;
+      const MINS = 150;
+      if (x1 - x0 < MINS) { const c = (x0 + x1) / 2; x0 = c - MINS / 2; x1 = c + MINS / 2; }
+      if (y1 - y0 < MINS) { const c = (y0 + y1) / 2; y0 = c - MINS / 2; y1 = c + MINS / 2; }
+      tgt = [Math.max(0, x0), Math.max(0, y0), Math.min(GW, x1), Math.min(GH, y1)];
+    }
+    const now = performance.now(), dt = clamp((now - (this.domT || now)) / 1000, 0, 0.1);
+    this.domT = now;
+    if (!this.dom) this.dom = tgt.slice();
+    else { const k = 1 - Math.exp(-dt * 2); for (let i = 0; i < 4; i++) this.dom[i] += (tgt[i] - this.dom[i]) * k; }
+    const d = this.dom;
+    return {
+      ox: MX0 + d[0] / GW * (MX1 - MX0), oy: MY0 + d[1] / GH * (MY1 - MY0),
+      sx: (d[2] - d[0]) / GW * (MX1 - MX0), sy: (d[3] - d[1]) / GH * (MY1 - MY0),
+      keep: clamp((d[2] - d[0]) * (d[3] - d[1]) / (0.3 * GW * GH), 0.1, 1)
+    };
   },
   render(gl, matrix) {
     if (!this.rain) return;
@@ -911,42 +982,15 @@ const rainLayer = {
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
 
-    if (S.toggles.rain && v.B) {
-      gl.useProgram(this.rain.p);
-      bindCommon(this.rain);
-      const u = this.rain.u;
-      gl.uniform1f(u.u_exag, EXAG);
-      gl.uniform2f(u.u_wind, S.wind[0], S.wind[1]);
-      // far layer: covers the whole radar area
-      gl.uniform1f(u.u_wrap, 0);
-      gl.uniform2f(u.u_domOrigin, MX0, MY0);
-      gl.uniform2f(u.u_domSize, MX1 - MX0, MY1 - MY0);
-      gl.uniform1f(u.u_colH, 3200);
-      gl.uniform1f(u.u_fallT, 1.7);
-      gl.uniform1f(u.u_streak, 0.4);
-      gl.uniform1f(u.u_alpha, 0.55);
-      gl.uniform1f(u.u_grey, 0.9);
-      gl.bindVertexArray(this.far.vao);
-      gl.drawArrays(gl.LINES, 0, this.far.n * 2);
-      // near layer: dense rain around the point you look at (world anchored)
-      const lat = map.getCenter().lat * Math.PI / 180;
-      const mpp = CIRC * Math.cos(lat) / (512 * Math.pow(2, map.getZoom()));
-      const viewM = Math.max(map.getCanvas().clientWidth, map.getCanvas().clientHeight) * mpp;
-      const domM = clamp(viewM * 1.5, 1500, 260000);
-      if (domM < 250000) {
-        const dom = domM / (CIRC * Math.cos(lat));
-        gl.uniform1f(u.u_wrap, 1);
-        gl.uniform2f(u.u_domSize, dom, dom);
-        gl.uniform1f(u.u_colH, clamp(domM * 0.22, 120, 3000));
-        gl.uniform1f(u.u_fallT, clamp(0.55 + Math.log10(domM) * 0.12, 0.6, 1.3));
-        gl.uniform1f(u.u_streak, 0.07);
-        gl.uniform1f(u.u_alpha, 0.8);
-        gl.uniform1f(u.u_grey, 0.35);
-        gl.bindVertexArray(this.near.vao);
-        gl.drawArrays(gl.LINES, 0, this.near.n * 2);
-      }
-    }
+    const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
+    const dpr = W / Math.max(1, map.getCanvas().clientWidth);
+    const lat = map.getCenter().lat * Math.PI / 180;
+    const mpp = CIRC * Math.cos(lat) / (512 * Math.pow(2, map.getZoom()));
+    const viewM = Math.max(map.getCanvas().clientWidth, map.getCanvas().clientHeight) * mpp;
+    const zk = clamp((map.getZoom() - 6.5) / 4, 0, 1);           // 0 = whole country, 1 = street level
+    const Hf = clamp(viewM * 0.012, 3200, 14000);                // far view: taller columns so they stay readable
 
+    // clouds first (so the rain is always drawn on top and stays visible)
     if (S.toggles.clouds && v.B) {
       gl.useProgram(this.cloud.p);
       bindCommon(this.cloud);
@@ -956,15 +1000,59 @@ const rainLayer = {
       const fl = S.flash, age = t - fl.t;
       const fs = age < 0.6 ? Math.max(0, 1 - age / 0.6) * (0.6 + 0.4 * Math.sin(age * 70)) : 0;
       gl.uniform3f(u.u_flash, fl.x, fl.y, fs);
+      gl.uniform1f(u.u_tint, (1 - zk) * 0.8);                    // radar colours on the clouds when zoomed out
       gl.bindVertexArray(this.cloudVao);
-      // far away you look down through the clouds onto the rain, close up they close in
-      const zk = clamp((map.getZoom() - 6.5) / 4, 0, 1);
-      const layers = [[3400, 11.3, 0.38 + 0.3 * zk], [2600, 4.7, 0.32 + 0.3 * zk]];   // drawn top first
+      const layers = [[Hf * 1.1, 11.3, 0.26 + 0.38 * zk], [Hf * 0.85, 4.7, 0.22 + 0.38 * zk]];   // top first
       for (const [alt, seed, op] of layers) {
-        gl.uniform1f(u.u_alt, alt * 1.0);
+        gl.uniform1f(u.u_alt, alt);
         gl.uniform1f(u.u_seed, seed);
         gl.uniform1f(u.u_opacity, op);
         gl.drawArrays(gl.TRIANGLES, 0, this.cloudCount);
+      }
+    }
+
+    if (S.toggles.rain && v.B) {
+      gl.useProgram(this.rain.p);
+      bindCommon(this.rain);
+      const u = this.rain.u;
+      gl.uniform1f(u.u_exag, EXAG);
+      gl.uniform2f(u.u_wind, S.wind[0], S.wind[1]);
+      gl.uniform2f(u.u_res, W, H);
+      gl.uniform1f(u.u_boost, S.boost);
+      const wf = Math.pow(S.boost / 1.6, 0.5);
+      const passes = S.quality === 'low' ? [1] : [0, 1];
+      const drawDrops = (layer, widthCss) => {
+        for (const pass of passes) {
+          gl.uniform1f(u.u_pass, pass);
+          gl.uniform1f(u.u_widthPx, widthCss * dpr * wf + (pass ? 0 : 1.8 * dpr));
+          gl.bindVertexArray(layer.vao);
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, layer.n);
+        }
+      };
+      // far layer: only over the area where it actually rains, so the drops are dense enough to see
+      const dom = this.rainDomain(v);
+      gl.uniform1f(u.u_wrap, 0);
+      gl.uniform2f(u.u_domOrigin, dom.ox, dom.oy);
+      gl.uniform2f(u.u_domSize, dom.sx, dom.sy);
+      gl.uniform1f(u.u_keep, dom.keep);
+      gl.uniform1f(u.u_colH, Hf);
+      gl.uniform1f(u.u_fallT, 1.3);
+      gl.uniform1f(u.u_streak, 0.4);
+      gl.uniform1f(u.u_alpha, 0.95);
+      gl.uniform1f(u.u_minLenPx, mix(20, 7, zk) * dpr);
+      drawDrops(this.far, mix(2.6, 1.5, zk));
+      // near layer: dense rain around the point you look at (world anchored)
+      const domM = clamp(viewM * 1.5, 1500, 260000);
+      if (domM < 250000) {
+        gl.uniform1f(u.u_wrap, 1);
+        gl.uniform2f(u.u_domSize, domM / (CIRC * Math.cos(lat)), domM / (CIRC * Math.cos(lat)));
+        gl.uniform1f(u.u_keep, 1);
+        gl.uniform1f(u.u_colH, clamp(domM * 0.22, 120, 3000));
+        gl.uniform1f(u.u_fallT, clamp(0.55 + Math.log10(domM) * 0.12, 0.6, 1.3));
+        gl.uniform1f(u.u_streak, 0.1);
+        gl.uniform1f(u.u_alpha, 0.9);
+        gl.uniform1f(u.u_minLenPx, 6 * dpr);
+        drawDrops(this.near, 1.6);
       }
     }
     gl.bindVertexArray(null);
