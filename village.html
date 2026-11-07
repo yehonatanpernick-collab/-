@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>כפר הגשם</title>
+<meta name="description" content="כפר תלת־ממדי שמזג האוויר בו הוא מזג האוויר אצלך — מכ״ם גשם חי, משטח זכוכית וכוס מדידה">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root{
+    --sky1:#cfe3f3; --sky2:#f4f1ea;
+    --card:rgba(255,255,255,.74); --card-line:rgba(20,40,70,.08);
+    --text:#14233a; --muted:#64748b; --faint:#94a3b8;
+    --blue:#2f6fd6; --blue2:#9cc3f5; --chip:rgba(20,40,70,.06);
+    --shadow:0 10px 40px rgba(20,40,70,.12);
+  }
+  body[data-theme="night"]{
+    --card:rgba(16,24,40,.72); --card-line:rgba(255,255,255,.08);
+    --text:#e8eef8; --muted:#9aa8bf; --faint:#66758c;
+    --blue:#5d9bff; --blue2:#36507a; --chip:rgba(255,255,255,.07);
+    --shadow:0 10px 40px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:Rubik,system-ui,sans-serif;color:var(--text);
+    background:linear-gradient(180deg,var(--sky1),var(--sky2));transition:background 2s}
+  body{-webkit-tap-highlight-color:transparent}
+  #bg{position:fixed;inset:0;transition:background 2.5s}
+  canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+  #flash{position:fixed;inset:0;background:#eef3ff;opacity:0;pointer-events:none;mix-blend-mode:screen}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  .card{background:var(--card);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);
+    border:1px solid var(--card-line);border-radius:20px;box-shadow:var(--shadow)}
+
+  /* top */
+  #top{position:fixed;top:max(14px,env(safe-area-inset-top));right:16px;left:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none;z-index:5}
+  #top>*{pointer-events:auto}
+  #place{display:flex;align-items:center;gap:8px;padding:10px 14px 10px 12px;border-radius:999px;font-weight:500;font-size:15px;max-width:60vw}
+  #place span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #place svg{flex:none}
+  #status{display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:999px;font-size:12.5px;color:var(--muted)}
+  #status i{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.5);animation:ping 2s infinite}
+  #status.wait i{background:#f59e0b;animation:none}
+  #status.err i{background:#ef4444;animation:none}
+  #status.demo i{background:#8b5cf6}
+  @keyframes ping{70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+
+  /* now card */
+  #now{position:fixed;top:calc(max(14px,env(safe-area-inset-top)) + 58px);right:16px;padding:16px 18px 14px;min-width:220px;z-index:4}
+  #now .lvl{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px}
+  #now .lvl b{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  #now .big{font-size:44px;font-weight:300;letter-spacing:-1px;line-height:1.05;margin-top:4px}
+  #now .big small{font-size:15px;font-weight:400;color:var(--muted);letter-spacing:0;margin-right:8px}
+  #now .meta{display:flex;gap:14px;margin-top:8px;font-size:13px;color:var(--muted)}
+  #now .meta span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+  #now .src{margin-top:8px;font-size:11px;color:var(--faint)}
+
+  /* banner */
+  #banner{position:fixed;top:calc(max(14px,env(safe-area-inset-top)) + 4px);left:50%;transform:translate(-50%,-140%);transition:transform .45s cubic-bezier(.2,.9,.3,1.2);
+    padding:8px 8px 8px 14px;border-radius:999px;font-size:13px;display:flex;align-items:center;gap:10px;z-index:6}
+  #banner.on{transform:translate(-50%,0)}
+  #banner button{background:var(--blue);color:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px}
+
+  /* side panel */
+  #panel{position:fixed;left:16px;top:calc(max(14px,env(safe-area-inset-top)) + 58px);bottom:16px;width:370px;display:flex;flex-direction:column;z-index:4;overflow:hidden}
+  #grab{display:none}
+  #pscroll{overflow-y:auto;padding:18px 18px 16px;scrollbar-width:thin}
+  .sec{margin-bottom:18px}
+  .sec:last-child{margin-bottom:0}
+  .h{font-size:12px;color:var(--muted);letter-spacing:.3px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .cupnums{display:flex;align-items:baseline;gap:10px}
+  .cupnums .mm{font-size:40px;font-weight:300;letter-spacing:-1px;direction:ltr}
+  .cupnums .mm small{font-size:15px;color:var(--muted);margin-left:3px;letter-spacing:0}
+  .cupnums .vol{font-size:15px;color:var(--muted)}
+  .row{display:flex;gap:8px}
+  .kv{flex:1;background:var(--chip);border-radius:14px;padding:10px 12px}
+  .kv .k{font-size:11.5px;color:var(--muted)}
+  .kv .v{font-size:19px;font-weight:500;margin-top:2px;direction:ltr;text-align:right}
+  .kv .v small{font-size:12px;color:var(--muted);font-weight:400}
+  .note{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .note b{color:var(--text);font-weight:500}
+  #chartWrap{overflow-x:auto;overflow-y:hidden;direction:ltr;margin:0 -4px;padding-bottom:4px;scrollbar-width:thin}
+  #chart{display:block;height:150px;cursor:pointer}
+  .legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:5px;vertical-align:-1px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:7px 11px;border-radius:999px;background:var(--chip);font-size:13px;transition:background .2s,color .2s}
+  .chip.on{background:var(--blue);color:#fff}
+  .tog{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:14px;border-top:1px solid var(--card-line)}
+  .sw{width:40px;height:24px;border-radius:99px;background:var(--chip);position:relative;transition:background .2s;flex:none}
+  .sw::after{content:"";position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:right .2s}
+  .sw.on{background:var(--blue)}.sw.on::after{right:19px}
+  input[type=range]{width:100%;accent-color:var(--blue)}
+  #demoRow{display:none;padding:4px 0 8px}
+  #demoRow.on{display:block}
+  #demoVal{font-size:12px;color:var(--muted);direction:ltr;text-align:right}
+  .credit{font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:6px}
+  .credit a{color:inherit}
+
+  /* 3D labels */
+  .lbl{position:fixed;left:0;top:0;pointer-events:none;transform:translate(-50%,-100%);white-space:nowrap;z-index:3;
+    font-size:12px;padding:5px 9px;border-radius:10px;background:var(--card);border:1px solid var(--card-line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(20,40,70,.1);transition:opacity .3s}
+  .lbl b{font-weight:500}
+  .tick{position:fixed;left:0;top:0;pointer-events:none;font-size:10px;color:var(--muted);transform:translate(4px,-50%);white-space:nowrap;z-index:2;direction:ltr;text-shadow:0 0 6px var(--sky2)}
+
+  /* search */
+  #search{position:fixed;inset:0;z-index:20;display:none;align-items:flex-start;justify-content:center;background:rgba(10,20,35,.25);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  #search.on{display:flex}
+  #sbox{margin-top:10vh;width:min(440px,calc(100% - 32px));padding:14px;max-height:75vh;display:flex;flex-direction:column}
+  #sinput{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:14px;border:1px solid var(--card-line);background:var(--chip);color:var(--text);outline:none}
+  #sinput:focus{border-color:var(--blue)}
+  #mine{display:flex;align-items:center;gap:8px;width:100%;padding:12px 10px;margin-top:8px;border-radius:12px;color:var(--blue);font-weight:500}
+  #mine:hover,.res:hover{background:var(--chip)}
+  #sres{overflow-y:auto;margin-top:2px}
+  .res{display:block;width:100%;text-align:right;padding:10px;border-radius:12px}
+  .res small{display:block;color:var(--muted);font-size:12px}
+  #sbox .chips{margin-top:10px;padding-top:10px;border-top:1px solid var(--card-line)}
+
+  #loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;transition:opacity .8s;pointer-events:none}
+  #loader div{font-size:14px;color:var(--muted);padding:12px 18px}
+
+  @media (max-width:820px){
+    #now{padding:12px 14px 10px;min-width:0}
+    #now .big{font-size:34px}
+    #now .src{display:none}
+    #panel{left:0;right:0;top:auto;bottom:0;width:auto;max-height:46vh;border-radius:22px 22px 0 0;border-bottom:0;transition:max-height .35s ease}
+    #panel.min{max-height:120px}
+    #grab{display:block;width:100%;padding:8px 0 0}
+    #grab::before{content:"";display:block;margin:0 auto;width:40px;height:5px;border-radius:9px;background:var(--faint);opacity:.5}
+    #pscroll{padding:10px 16px calc(16px + env(safe-area-inset-bottom))}
+    .cupnums .mm{font-size:32px}
+    #place{max-width:52vw}
+  }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="labels"></div>
+
+<div id="top">
+  <button id="place" class="card" aria-label="בחירת מיקום">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+    <span id="placeName">טוען…</span>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".5"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div id="status" class="card wait"><i></i><span id="statusText">מתחבר…</span></div>
+</div>
+
+<div id="banner" class="card"><span id="bannerText"></span><button id="bannerBtn">חזרה לחי</button></div>
+
+<div id="now" class="card">
+  <div class="lvl"><b id="lvlDot"></b><span id="lvlText">—</span></div>
+  <div class="big"><span id="rateVal">0</span><small>מ״מ/שעה</small></div>
+  <div class="meta">
+    <span id="tempVal">—°</span>
+    <span id="windVal">—</span>
+    <span id="cloudVal">—</span>
+  </div>
+  <div class="src" id="srcText"></div>
+</div>
+
+<div id="panel" class="card">
+  <button id="grab" aria-label="הרחב / כווץ"></button>
+  <div id="pscroll">
+    <div class="sec">
+      <div class="h"><span>בכוס היום · מחצות</span><span id="cupSince"></span></div>
+      <div class="cupnums"><div class="mm"><span id="cupMm">0.0</span><small>mm</small></div><div class="vol" id="cupVol">0 מ״ל</div></div>
+      <div class="row" style="margin-top:10px">
+        <div class="kv"><div class="k">בשעה הקרובה</div><div class="v" id="nextHour">—</div></div>
+        <div class="kv"><div class="k">צפוי עד סוף היום</div><div class="v" id="restDay">—</div></div>
+      </div>
+      <div class="note" id="outlook"></div>
+    </div>
+
+    <div class="sec">
+      <div class="h"><span>גשם לפי שעות (מ״מ)</span><span style="font-size:11px">הקישו על שעה לצפייה בכפר</span></div>
+      <div id="chartWrap"><canvas id="chart"></canvas></div>
+      <div class="legend"><span><i style="background:var(--blue)"></i>ירד בפועל</span><span><i style="background:var(--blue2)"></i>תחזית</span><span id="probLegend">% סיכוי לגשם</span></div>
+    </div>
+
+    <div class="sec">
+      <div class="h"><span>גודל משטח הזכוכית</span></div>
+      <div class="chips" id="areas"></div>
+      <div class="note" style="margin-top:8px">מ״מ גשם = ליטר לכל מ״ר. ככל שהמשטח גדול יותר — יותר מים זורמים לכוס.</div>
+    </div>
+
+    <div class="sec">
+      <div class="tog"><span>צלילי גשם</span><button class="sw" id="swSound" aria-label="צלילי גשם"></button></div>
+      <div class="tog"><span>סיבוב אוטומטי</span><button class="sw on" id="swRotate" aria-label="סיבוב אוטומטי"></button></div>
+      <div class="tog"><span>הדגמה — לנסות עוצמות גשם</span><button class="sw" id="swDemo" aria-label="הדגמה"></button></div>
+      <div id="demoRow"><input type="range" id="demo" min="0" max="100" value="45"><div id="demoVal"></div></div>
+      <div class="credit">
+        מכ״ם: השירות המטאורולוגי (IMS) דרך <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> ·
+        תחזית ומודלים: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open‑Meteo</a> ·
+        מיקומים: Open‑Meteo Geocoding, BigDataCloud.
+        הכמויות מחושבות ממכ״ם (Marshall–Palmer) ומהמודל — הערכה, לא מד גשם רשמי.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="search">
+  <div id="sbox" class="card">
+    <input id="sinput" placeholder="חיפוש יישוב, עיר או מקום…" autocomplete="off">
+    <button id="mine"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>המיקום שלי</button>
+    <div id="sres"></div>
+    <div class="chips" id="cities"></div>
+  </div>
+</div>
+
+<div id="loader"><div class="card">בונה את הכפר…</div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries as _merge } from 'three/addons/utils/BufferGeometryUtils.js';
+const mergeGeometries = list => _merge(list.map(g => g.index ? g.toNonIndexed() : g));
+
+/* =====================================================================
+   Helpers
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const TZ = 'Asia/Jerusalem';
+const nowS = () => Date.now() / 1000;
+const fmtHM = t => new Date(t * 1000).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const fmtH = t => new Date(t * 1000).toLocaleTimeString('he-IL', { hour: '2-digit', timeZone: TZ, hour12: false }).padStart(2, '0');
+const isMobile = matchMedia('(max-width: 820px)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+const store = { get(k, d) { try { const v = localStorage.getItem('village.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+                set(k, v) { try { localStorage.setItem('village.' + k, JSON.stringify(v)); } catch (e) {} } };
+function tzOffset(t) {   // seconds east of UTC for Israel at time t
+  try {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(t * 1000));
+    const g = k => +p.find(x => x.type === k).value;
+    return Math.round((Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) / 1000 - t) / 60) * 60;
+  } catch (e) { return 7200; }
+}
+const midnight = t => { const o = tzOffset(t); return Math.floor((t + o) / 86400) * 86400 - o; };
+const fmtMm = v => v < 0.05 ? '0' : v < 10 ? v.toFixed(1) : Math.round(v).toString();
+function fmtVol(l) {
+  if (l < 0.001) return '0 מ״ל';
+  if (l < 1) return Math.round(l * 1000) + ' מ״ל';
+  if (l < 10) return l.toFixed(2) + ' ליטר';
+  return l.toFixed(1) + ' ליטר';
+}
+
+/* rain intensity classes (mm/h) */
+const LEVELS = [
+  { max: 0.05, name: 'אין גשם', color: '#94a3b8' },
+  { max: 0.5, name: 'טפטוף', color: '#7cc4f0' },
+  { max: 2.5, name: 'גשם קל', color: '#38a5e8' },
+  { max: 8, name: 'גשם בינוני', color: '#1f6fd1' },
+  { max: 25, name: 'גשם חזק', color: '#f59e0b' },
+  { max: 1e9, name: 'מבול', color: '#e11d48' }
+];
+const levelOf = r => LEVELS.find(l => r < l.max);
+
+/* =====================================================================
+   Radar decoding (RainViewer "Universal Blue" colour scheme -> dBZ -> mm/h)
+   ===================================================================== */
+const UB_RAIN = '63615914 66635a19 69665c1e 6c685d24 6f6b5f29 726e612e 75706234 78736439 7c75653e 7f786744 827b6949 857d6a4e 88806c54 8b826d59 8e856f5e 92887164 9e93756e aa9e7978 b6a97e82 c2b4828c cec08796 d2c48ba0 d6c88faa dacc93b4 ded097be 88ddeeff 6cd1ebff 51c5e8ff 36bae5ff 1baee2ff 00a3e0ff 009ad5ff 0091caff 0088bfff 007fb4ff 0077aaff 0070a3ff 00699cff 006295ff 005b8eff 005588ff 005180ff 004e78ff 004a70ff 004768ff ffee00ff ffe000ff ffd200ff ffc500ff ffb700ff ffaa00ff ff9f00ff ff9500ff ff8b00ff ff8100ff ff4400ff f23600ff e62800ff d91b00ff cd0d00ff c10000ff a80000ff 8f0000ff 760000ff 5d0000ff ffaaffff ff9fffff ff95ffff ff8bffff ff81ffff ff77ffff ff6cffff ff62ffff ff58ffff ff4effff ffffffff';
+const UB_SNOW = 'cfffff00 ceffff0c cdffff19 ccffff26 cbffff33 cbffff3f caffff4c c9ffff59 c8ffff66 c7ffff72 c7ffff7f c6ffff8c c5ffff99 c4ffffa5 c3ffffb2 c3ffffbf c2ffffcc c1ffffd8 c0ffffe5 bffffff2 bfffffff b8f8ffff b2f2ffff abebffff a5e5ffff 9fdfffff 98d8ffff 92d2ffff 8bcbffff 85c5ffff 7fbfffff 78b8ffff 72b2ffff 6babffff 65a5ffff 5f9fffff 5b9bffff 5898ffff 5595ffff 5292ffff 4f8fffff 4b8bffff 4888ffff 4585ffff 4282ffff 3f7fffff 3b7bffff 3878ffff 3575ffff 3272ffff 2f6fffff 2b6bffff 2868ffff 2565ffff 2262ffff 1f5fffff 1b5bffff 1858ffff 1555ffff 1252ffff 0f4fffff 0c4bffff 0948ffff 0645ffff 0242ffff 003fffff 003bffff 0038ffff 0035ffff 0032ffff 002fffff 002bffff 0028ffff 0025ffff 0022ffff 001fffff';
+const PALETTE = [];
+UB_RAIN.split(' ').forEach((h, i) => PALETTE.push({ c: parseInt(h, 16) >>> 0, dbz: i - 10, snow: 0 }));
+UB_SNOW.split(' ').forEach((h, i) => PALETTE.push({ c: parseInt(h, 16) >>> 0, dbz: i - 10, snow: 1 }));
+PALETTE.forEach(p => { p.r = p.c >>> 24; p.g = (p.c >>> 16) & 255; p.b = (p.c >>> 8) & 255; p.a = p.c & 255; });
+const colorCache = new Map();
+function decodeColor(r, g, b, a) {
+  if (a < 10) return null;
+  const key = (r << 24 | g << 16 | b << 8 | a) >>> 0;
+  if (colorCache.has(key)) return colorCache.get(key);
+  let best = 1e9, bp = null;
+  for (const p of PALETTE) {
+    const d = (p.r - r) ** 2 + (p.g - g) ** 2 + (p.b - b) ** 2 + 0.6 * (p.a - a) ** 2;
+    if (d < best) { best = d; bp = p; }
+  }
+  const v = best > 9000 ? null : bp;
+  colorCache.set(key, v);
+  return v;
+}
+const dbzToRate = dbz => dbz < 12 ? 0 : Math.pow(Math.pow(10, dbz / 10) / 200, 1 / 1.6); // Marshall–Palmer
+
+/* =====================================================================
+   State
+   ===================================================================== */
+const CITIES = [
+  ['תל אביב', 32.08, 34.781], ['ירושלים', 31.778, 35.215], ['חיפה', 32.794, 34.99], ['באר שבע', 31.252, 34.791],
+  ['נתניה', 32.33, 34.86], ['אשקלון', 31.668, 34.571], ['טבריה', 32.79, 35.53], ['צפת', 32.965, 35.496],
+  ['קריית שמונה', 33.207, 35.57], ['אילת', 29.557, 34.952]
+];
+const AREAS = [
+  { a: 0.04, name: '20×20 ס״מ' }, { a: 0.25, name: '50×50 ס״מ' }, { a: 1, name: '1×1 מ׳' }, { a: 4, name: '2×2 מ׳' }
+];
+const ST = {
+  loc: store.get('loc', { name: 'תל אביב', lat: 32.08, lon: 34.781 }),
+  area: store.get('area', 1),
+  radar: { ok: false, frames: [], host: 'https://tilecache.rainviewer.com', meta: [], tiles: new Map(), checked: 0 },
+  model: null,
+  obs: null,          // {mid, cum Float32Array, tEnd}
+  live: { rate: 0, src: 'none', snow: false },
+  preview: null,      // {t, rate, label}
+  demo: null,
+  bars: [],
+  locSeq: 0
+};
+
+/* =====================================================================
+   Data: RainViewer radar at the point
+   ===================================================================== */
+const RZ = 7, RT = 512;
+function loadImage(url) {
+  return new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = url; });
+}
+function tileOf(lat, lon) {
+  const n = 2 ** RZ, s = Math.sin(lat * Math.PI / 180);
+  const mx = (lon + 180) / 360 * n, my = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n;
+  const tx = Math.floor(mx), ty = Math.floor(my);
+  return { tx, ty, px: (mx - tx) * RT, py: (my - ty) * RT };
+}
+const _cv = document.createElement('canvas'); _cv.width = _cv.height = RT;
+const _ctx = _cv.getContext('2d', { willReadFrequently: true });
+async function radarAtPoint(frame, lat, lon) {
+  const T = tileOf(lat, lon);
+  const url = `${ST.radar.host}${frame.path}/${RT}/${RZ}/${T.tx}/${T.ty}/2/1_1.png`;
+  const im = await loadImage(url);
+  if (!im) throw new Error('tile');
+  _ctx.clearRect(0, 0, RT, RT); _ctx.drawImage(im, 0, 0, RT, RT);
+  const R = 3, x0 = clamp(Math.round(T.px) - R, 0, RT - 1), y0 = clamp(Math.round(T.py) - R, 0, RT - 1);
+  const w = Math.min(2 * R + 1, RT - x0), h = Math.min(2 * R + 1, RT - y0);
+  const d = _ctx.getImageData(x0, y0, w, h).data;   // throws on CORS taint
+  let sum = 0, ws = 0, snowW = 0, maxR = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, p = decodeColor(d[i], d[i + 1], d[i + 2], d[i + 3]);
+    const dx = x0 + x - T.px, dy = y0 + y - T.py, wt = Math.exp(-(dx * dx + dy * dy) / (2 * 2.2 * 2.2));
+    const r = p ? dbzToRate(p.dbz) : 0;
+    sum += r * wt; ws += wt; if (p && p.snow && r > 0) snowW += wt; maxR = Math.max(maxR, r);
+  }
+  return { time: frame.time, rate: ws ? sum / ws : 0, snow: snowW > ws * 0.4, max: maxR };
+}
+async function updateRadar(force) {
+  const seq = ST.locSeq;
+  try {
+    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    ST.radar.host = j.host || ST.radar.host;
+    const past = (j.radar && j.radar.past) || [];
+    if (!past.length) throw new Error('empty');
+    const have = new Map(force ? [] : ST.radar.frames.map(f => [f.time, f]));
+    const out = await Promise.all(past.map(f => have.get(f.time) || radarAtPoint(f, ST.loc.lat, ST.loc.lon).catch(() => null)));
+    if (seq !== ST.locSeq) return;
+    const frames = out.filter(Boolean).sort((a, b) => a.time - b.time);
+    if (!frames.length) throw new Error('no tiles');
+    ST.radar.frames = frames; ST.radar.ok = true; ST.radar.checked = nowS();
+  } catch (e) {
+    console.warn('radar failed', e);
+    if (seq !== ST.locSeq) return;
+    if (!ST.radar.frames.length || nowS() - ST.radar.frames[ST.radar.frames.length - 1].time > 1800) ST.radar.ok = false;
+  }
+  recompute();
+}
+
+/* =====================================================================
+   Data: Open-Meteo model (current + 15-minute + hourly)
+   ===================================================================== */
+async function updateModel() {
+  const seq = ST.locSeq, { lat, lon } = ST.loc;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}` +
+    `&current=temperature_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,snowfall` +
+    `&minutely_15=precipitation&past_minutely_15=100&forecast_minutely_15=110` +
+    `&hourly=precipitation,precipitation_probability,cloud_cover&past_days=1&forecast_days=3` +
+    `&timezone=Asia%2FJerusalem&timeformat=unixtime&wind_speed_unit=ms`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    if (seq !== ST.locSeq) return;
+    ST.model = {
+      cur: j.current || {},
+      m15t: (j.minutely_15 && j.minutely_15.time) || [], m15v: (j.minutely_15 && j.minutely_15.precipitation) || [],
+      ht: j.hourly.time, hv: j.hourly.precipitation, hp: j.hourly.precipitation_probability, hc: j.hourly.cloud_cover,
+      at: nowS()
+    };
+  } catch (e) {
+    console.warn('model failed', e);
+  }
+  recompute();
+}
+/* model precipitation rate (mm/h) at time t: 15-min where available, else hourly */
+function modelRate(t) {
+  const M = ST.model; if (!M) return 0;
+  const T = M.m15t, n = T.length;
+  if (n && t > T[0] - 900 && t <= T[n - 1]) {
+    const i = clamp(Math.ceil((t - T[0]) / 900), 0, n - 1);
+    return (M.m15v[i] || 0) * 4;
+  }
+  const H = M.ht;
+  if (H && H.length && t > H[0] - 3600 && t <= H[H.length - 1]) {
+    const i = clamp(Math.ceil((t - H[0]) / 3600), 0, H.length - 1);
+    return M.hv[i] || 0;
+  }
+  return 0;
+}
+function modelProb(hStart) {   // probability for the hour [hStart, hStart+1h)
+  const M = ST.model; if (!M || !M.ht) return null;
+  const i = M.ht.indexOf(hStart + 3600);
+  return i >= 0 && M.hp ? M.hp[i] : null;
+}
+function radarRate(t) {
+  const F = ST.radar.frames; let best = null, bd = 1e9;
+  for (const f of F) { const d = Math.abs(f.time - t); if (d < bd) { bd = d; best = f; } }
+  return best ? best.rate : 0;
+}
+/* best estimate of what actually fell at time t (past) */
+function obsRate(t) {
+  const F = ST.radar.frames;
+  if (ST.radar.ok && F.length) {
+    const r0 = F[0].time - 300, r1 = F[F.length - 1].time + 300;
+    if (t >= r0 && t <= r1) return radarRate(t);
+    if (t > r1) return F[F.length - 1].rate;     // persistence until the next scan
+  }
+  return modelRate(t);
+}
+function integrate(fn, a, b) {
+  if (b <= a) return 0;
+  const n = Math.max(1, Math.ceil((b - a) / 60)), dt = (b - a) / n; let s = 0;
+  for (let i = 0; i < n; i++) s += fn(a + (i + 0.5) * dt) * dt / 3600;
+  return s;
+}
+
+/* =====================================================================
+   Derived values
+   ===================================================================== */
+function recompute() {
+  const now = nowS(), mid = midnight(now);
+  // live intensity
+  const F = ST.radar.frames;
+  if (ST.radar.ok && F.length && now - F[F.length - 1].time < 1800) {
+    const f = F[F.length - 1];
+    ST.live = { rate: f.rate, src: 'radar', snow: f.snow || (ST.model && ST.model.cur.snowfall > 0), time: f.time };
+  } else if (ST.model) {
+    ST.live = { rate: modelRate(now), src: 'model', snow: ST.model.cur.snowfall > 0, time: ST.model.at };
+  } else ST.live = { rate: 0, src: 'none', snow: false };
+  // cumulative observed since midnight, per minute
+  const n = Math.max(1, Math.floor((now - mid) / 60));
+  const cum = new Float32Array(n + 1);
+  for (let i = 0; i < n; i++) cum[i + 1] = cum[i] + obsRate(mid + (i + 0.5) * 60) / 60;
+  ST.obs = { mid, cum, tEnd: mid + n * 60 };
+  // last hour (for wet ground on start)
+  ST.lastHour = integrate(obsRate, now - 3600, now);
+  // hourly bars: midnight → max(end of day, now+12h)
+  const end = Math.max(mid + 86400, Math.ceil((now + 12 * 3600) / 3600) * 3600);
+  const bars = [];
+  for (let h = mid; h < end; h += 3600) {
+    const past = h + 3600 <= now ? integrate(obsRate, h, h + 3600) : h < now ? integrate(obsRate, h, now) : 0;
+    const fut = h >= now ? integrate(modelRate, h, h + 3600) : h + 3600 > now ? integrate(modelRate, now, h + 3600) : 0;
+    bars.push({ t: h, past, fut, prob: modelProb(h), cur: h <= now && now < h + 3600 });
+  }
+  ST.bars = bars;
+  ST.restDay = integrate(modelRate, now, mid + 86400);
+  ST.nextHour = integrate(modelRate, now, now + 3600);
+  updateUI();
+}
+function cupMm() {
+  const O = ST.obs; if (!O) return 0;
+  const t = nowS();
+  if (t >= O.tEnd) return O.cum[O.cum.length - 1] + ST.live.rate * (t - O.tEnd) / 3600;
+  return O.cum[Math.max(0, Math.floor((t - O.mid) / 60))];
+}
+function targetRate() {
+  if (ST.demo != null) return ST.demo;
+  if (ST.preview) return ST.preview.rate;
+  return ST.live.rate;
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+function windText(c) {
+  if (!c || c.wind_speed_10m == null) return '—';
+  const dirs = ['צפונית', 'צפון־מזרחית', 'מזרחית', 'דרום־מזרחית', 'דרומית', 'דרום־מערבית', 'מערבית', 'צפון־מערבית'];
+  return `${Math.round(c.wind_speed_10m * 3.6)} קמ״ש ${dirs[Math.round(c.wind_direction_10m / 45) % 8]}`;
+}
+function updateUI() {
+  const r = targetRate(), L = levelOf(r), c = ST.model ? ST.model.cur : null;
+  $('rateVal').textContent = r < 0.05 ? '0' : r < 10 ? r.toFixed(1) : Math.round(r);
+  $('lvlText').textContent = (ST.live.snow && r > 0.05 && ST.demo == null ? 'שלג · ' : '') + L.name;
+  $('lvlDot').style.background = L.color;
+  $('tempVal').textContent = c && c.temperature_2m != null ? Math.round(c.temperature_2m) + '°' : '—°';
+  $('windVal').textContent = windText(c);
+  $('cloudVal').textContent = c && c.cloud_cover != null ? `☁ ${Math.round(c.cloud_cover)}%` : '';
+  const src = ST.live.src === 'radar' ? `מכ״ם · סריקה ${fmtHM(ST.live.time)}` : ST.live.src === 'model' ? 'מודל Open‑Meteo (המכ״ם לא זמין)' : '';
+  $('srcText').textContent = src + (ST.model && ST.live.src === 'radar' ? ` · מודל: ${fmtMm(modelRate(nowS()))}` : '');
+
+  const st = $('status');
+  st.className = 'card ' + (ST.demo != null ? 'demo' : ST.live.src === 'radar' ? '' : ST.live.src === 'model' ? 'wait' : 'err');
+  $('statusText').textContent = ST.demo != null ? 'הדגמה' : ST.live.src === 'radar' ? `חי · ${fmtHM(ST.live.time)}` : ST.live.src === 'model' ? `מודל · ${fmtHM(ST.model.at)}` : 'אין חיבור לנתונים';
+
+  $('nextHour').innerHTML = `${fmtMm(ST.nextHour || 0)} <small>מ״מ</small>`;
+  $('restDay').innerHTML = `+${fmtMm(ST.restDay || 0)} <small>מ״מ</small>`;
+  $('cupSince').textContent = ST.obs ? `עד ${fmtHM(nowS())}` : '';
+  $('outlook').innerHTML = outlookText();
+
+  const banner = $('banner');
+  if (ST.demo != null) { $('bannerText').textContent = 'מצב הדגמה — הכפר לא מציג נתונים אמיתיים'; banner.classList.add('on'); }
+  else if (ST.preview) { $('bannerText').textContent = ST.preview.label; banner.classList.add('on'); }
+  else banner.classList.remove('on');
+  drawChart();
+  updateCupScale();
+}
+function outlookText() {
+  if (!ST.model) return '';
+  const now = nowS(), raining = ST.live.rate >= 0.1;
+  let txt = '';
+  if (raining) {
+    for (let t = now + 900; t < now + 12 * 3600; t += 900) {
+      if (integrate(modelRate, t, t + 3600) < 0.1) { txt = `לפי התחזית הגשם ייחלש בסביבות <b>${fmtHM(Math.round(t / 900) * 900)}</b>.`; break; }
+    }
+    if (!txt) txt = 'לפי התחזית הגשם יימשך בשעות הקרובות.';
+  } else {
+    for (let t = now; t < now + 12 * 3600; t += 900) {
+      if (modelRate(t + 450) >= 0.2) {
+        const mins = Math.round((t - now) / 60);
+        txt = mins < 50 ? `גשם צפוי בעוד <b>כ־${Math.max(5, Math.round(mins / 5) * 5)} דקות</b>.` : `גשם צפוי בסביבות <b>${fmtHM(Math.round(t / 900) * 900)}</b>.`;
+        break;
+      }
+    }
+    if (!txt) txt = 'לא צפוי גשם ב־12 השעות הקרובות.';
+  }
+  let peak = null;
+  for (const b of ST.bars) if (b.t + 3600 > now && b.t < now + 12 * 3600 && b.fut > 0.3 && (!peak || b.fut > peak.fut)) peak = b;
+  if (peak) txt += ` שיא צפוי ב־<b>${fmtH(peak.t)}:00</b> (${fmtMm(peak.fut)} מ״מ בשעה).`;
+  return txt;
+}
+
+/* ---------- chart ---------- */
+const chart = $('chart'), cctx = chart.getContext('2d');
+const BW = 18, BG = 6, CH = 150;
+function cssVar(n) { return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+function drawChart() {
+  const bars = ST.bars; if (!bars.length) return;
+  const W = bars.length * (BW + BG) + 16, dpr = Math.min(2, devicePixelRatio || 1);
+  if (chart.width !== W * dpr) { chart.width = W * dpr; chart.height = CH * dpr; chart.style.width = W + 'px'; }
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0); cctx.clearRect(0, 0, W, CH);
+  const blue = cssVar('--blue'), blue2 = cssVar('--blue2'), muted = cssVar('--muted'), faint = cssVar('--faint');
+  const top = 26, bottom = CH - 22, hgt = bottom - top;
+  const max = Math.max(1, ...bars.map(b => b.past + b.fut)) * 1.05;
+  const now = nowS();
+  cctx.font = '10px Rubik, sans-serif'; cctx.textAlign = 'center';
+  bars.forEach((b, i) => {
+    const x = 8 + i * (BW + BG), tot = b.past + b.fut;
+    const hp = b.past / max * hgt, hf = b.fut / max * hgt;
+    const sel = ST.preview && ST.preview.t === b.t;
+    cctx.fillStyle = cssVar('--chip'); roundRect(x, top, BW, hgt, 5); cctx.fill();
+    if (sel) { cctx.strokeStyle = blue; cctx.lineWidth = 1.5; roundRect(x - 1, top - 1, BW + 2, hgt + 2, 6); cctx.stroke(); }
+    if (hf > 0.5) { cctx.fillStyle = blue2; roundRect(x, bottom - hp - hf, BW, hf + Math.min(hp, 4), 5); cctx.fill(); }
+    if (hp > 0.5) { cctx.fillStyle = blue; roundRect(x, bottom - hp, BW, hp, 5); cctx.fill(); }
+    if (tot >= 0.05) { cctx.fillStyle = muted; cctx.fillText(fmtMm(tot), x + BW / 2, bottom - hp - hf - 4); }
+    else if (b.prob != null && b.t >= now - 3600 && b.prob >= 15) { cctx.fillStyle = faint; cctx.fillText(b.prob + '%', x + BW / 2, bottom - 4); }
+    const hh = fmtH(b.t);
+    cctx.fillStyle = b.cur ? blue : faint;
+    if (b.cur || +hh % 3 === 0) cctx.fillText(b.cur ? 'עכשיו' : hh, x + BW / 2, CH - 7);
+    if (hh === '00' && i > 0) { cctx.fillStyle = faint; cctx.fillRect(x - BG / 2, top, 1, hgt); cctx.fillText('מחר', x + 14, top - 14); }
+  });
+  // now line
+  const i0 = (now - bars[0].t) / 3600, xn = 8 + i0 * (BW + BG) - BG / 2 * 0;
+  cctx.fillStyle = blue; cctx.fillRect(xn, top - 6, 1.5, hgt + 6);
+  cctx.beginPath(); cctx.arc(xn + 0.75, top - 7, 3, 0, Math.PI * 2); cctx.fill();
+  if (!chart.dataset.scrolled) { chart.dataset.scrolled = 1; const wr = $('chartWrap'); wr.scrollLeft = Math.max(0, xn - wr.clientWidth * 0.35); }
+}
+function roundRect(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); cctx.beginPath(); cctx.roundRect ? cctx.roundRect(x, y, w, h, r) : cctx.rect(x, y, w, h); }
+chart.addEventListener('click', e => {
+  const rect = chart.getBoundingClientRect(), i = Math.floor((e.clientX - rect.left - 8 + BG / 2) / (BW + BG)), b = ST.bars[i];
+  if (!b) return;
+  if (b.cur || (ST.preview && ST.preview.t === b.t)) { ST.preview = null; }
+  else {
+    const past = b.t + 3600 <= nowS(), rate = past ? b.past : b.fut + b.past;
+    ST.preview = { t: b.t, rate, label: `${past ? 'ירד' : 'תחזית'} ${fmtH(b.t)}:00–${fmtH(b.t + 3600)}:00 · ${fmtMm(rate)} מ״מ/שעה` };
+  }
+  updateUI();
+});
+$('bannerBtn').onclick = () => { ST.preview = null; if (ST.demo != null) setDemo(false); updateUI(); };
+
+/* ---------- areas, toggles ---------- */
+AREAS.forEach(A => {
+  const b = document.createElement('button'); b.className = 'chip' + (A.a === ST.area ? ' on' : ''); b.textContent = A.name;
+  b.onclick = () => { ST.area = A.a; store.set('area', A.a); [...$('areas').children].forEach(x => x.classList.toggle('on', x === b)); buildPanel(); updateUI(); };
+  $('areas').appendChild(b);
+});
+const demoSlider = $('demo');
+const demoRate = () => { const v = +demoSlider.value; return v < 2 ? 0 : 0.05 * Math.pow(1200, v / 100); };
+function setDemo(on) {
+  $('swDemo').classList.toggle('on', on); $('demoRow').classList.toggle('on', on);
+  ST.demo = on ? demoRate() : null; ST.preview = null; updateDemoLabel(); updateUI();
+}
+function updateDemoLabel() { const r = demoRate(); $('demoVal').textContent = `${fmtMm(r)} mm/h · ${levelOf(r).name}`; }
+$('swDemo').onclick = () => setDemo(ST.demo == null);
+demoSlider.oninput = () => { ST.demo = demoRate(); updateDemoLabel(); updateUI(); };
+$('swRotate').onclick = e => { e.currentTarget.classList.toggle('on'); controls.autoRotate = e.currentTarget.classList.contains('on'); };
+$('swSound').onclick = e => { const on = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', on); audio.enable(on); };
+$('grab').onclick = () => $('panel').classList.toggle('min');
+if (isMobile) $('panel').classList.add('min');
+
+/* ---------- location search ---------- */
+function openSearch() { $('search').classList.add('on'); $('sinput').value = ''; $('sres').innerHTML = ''; setTimeout(() => $('sinput').focus(), 50); }
+function closeSearch() { $('search').classList.remove('on'); }
+$('place').onclick = openSearch;
+$('search').onclick = e => { if (e.target.id === 'search') closeSearch(); };
+addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); });
+CITIES.forEach(([n, la, lo]) => {
+  const b = document.createElement('button'); b.className = 'chip'; b.textContent = n;
+  b.onclick = () => { setLocation({ name: n, lat: la, lon: lo }); closeSearch(); };
+  $('cities').appendChild(b);
+});
+let sTimer = 0;
+$('sinput').oninput = e => { clearTimeout(sTimer); const q = e.target.value.trim(); sTimer = setTimeout(() => search(q), 280); };
+async function search(q) {
+  const box = $('sres');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=20&language=he&format=json`);
+    const j = await r.json();
+    const inIL = p => p.latitude > 29.3 && p.latitude < 33.5 && p.longitude > 34.1 && p.longitude < 36;
+    const list = (j.results || []).sort((a, b) => inIL(b) - inIL(a)).slice(0, 8);
+    box.innerHTML = '';
+    if (!list.length) { box.innerHTML = '<div class="res"><small>לא נמצאו תוצאות</small></div>'; return; }
+    list.forEach(p => {
+      const b = document.createElement('button'); b.className = 'res';
+      b.innerHTML = `${p.name}<small>${[p.admin1, p.country].filter(Boolean).join(' · ')}</small>`;
+      b.onclick = () => { setLocation({ name: p.name, lat: p.latitude, lon: p.longitude }); closeSearch(); };
+      box.appendChild(b);
+    });
+  } catch (e) { box.innerHTML = '<div class="res"><small>החיפוש לא זמין כרגע</small></div>'; }
+}
+$('mine').onclick = () => {
+  if (!navigator.geolocation) return;
+  $('mine').lastChild.textContent = 'מאתר…';
+  navigator.geolocation.getCurrentPosition(async p => {
+    const lat = p.coords.latitude, lon = p.coords.longitude;
+    let name = 'המיקום שלי';
+    try {
+      const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=he`);
+      const j = await r.json(); name = j.city || j.locality || name;
+    } catch (e) {}
+    $('mine').lastChild.textContent = 'המיקום שלי';
+    setLocation({ name, lat, lon, mine: true }); closeSearch();
+  }, () => { $('mine').lastChild.textContent = 'לא ניתן לאתר — אשרו גישה למיקום'; }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
+};
+function setLocation(loc) {
+  ST.loc = loc; store.set('loc', loc); ST.locSeq++;
+  ST.radar.frames = []; ST.radar.ok = false; ST.model = null; ST.preview = null;
+  chart.dataset.scrolled = '';
+  $('placeName').textContent = loc.name;
+  $('status').className = 'card wait'; $('statusText').textContent = 'טוען נתונים…';
+  updateModel(); updateRadar(true);
+}
+
+/* =====================================================================
+   3D scene
+   ===================================================================== */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.75 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.45;
+scene.fog = new THREE.Fog(0xdfe7ee, 45, 110);
+
+const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 400);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.minDistance = 14; controls.maxDistance = 80;
+controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.38;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
+controls.enablePan = false;
+controls.target.set(1, 1.2, 0.5);
+let idleT = 0;
+controls.addEventListener('start', () => { controls.autoRotate = false; idleT = -1; });
+controls.addEventListener('end', () => { idleT = 0; });
+
+/* lights */
+const hemi = new THREE.HemisphereLight(0xdfefff, 0x8a7a5c, 1.1);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
+sun.position.set(-14, 26, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left: -19, right: 19, top: 19, bottom: -19, near: 5, far: 70 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
+scene.add(sun);
+
+/* materials */
+const M = (color, o = {}) => { const { wetRough, ...rest } = o; return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...rest }); };
+const wetMats = [];   // {mat, dry:Color, wet:Color, r0, r1}
+function wetM(color, wetColor, o = {}) {
+  const m = M(color, o); wetMats.push({ m, dry: new THREE.Color(color), wet: new THREE.Color(wetColor), r0: m.roughness, r1: o.wetRough ?? 0.28 });
+  return m;
+}
+const mGrass = wetM(0xa3c47e, 0x6f9a55, { roughness: 0.95 });
+const mEarth = M(0xb08d66, { roughness: 1 });
+const mEarth2 = M(0x8f6f50, { roughness: 1 });
+const mPath = wetM(0xeadcc0, 0xb9a988, { roughness: 0.9, wetRough: 0.22 });
+const WALLS = [0xf6efe2, 0xefe3cf, 0xf3f1ec, 0xe6ddd0, 0xf2e6d6].map(c => wetM(c, new THREE.Color(c).multiplyScalar(0.82).getHex(), { roughness: 0.9 }));
+const ROOFS = [0xc9674c, 0xb85a43, 0x9c6a52, 0x6f8494, 0xd17b5a].map(c => wetM(c, new THREE.Color(c).multiplyScalar(0.7).getHex(), { roughness: 0.75, wetRough: 0.15 }));
+const mTrunk = M(0x8a6748);
+const LEAVES = [0x7fae66, 0x6c9e58, 0x93b86f, 0x5f8f4f].map(c => wetM(c, new THREE.Color(c).multiplyScalar(0.78).getHex(), { roughness: 0.8, flatShading: true }));
+const mWin = new THREE.MeshStandardMaterial({ color: 0x8aa4b8, roughness: 0.25, metalness: 0.1, emissive: 0xffc56e, emissiveIntensity: 0 });
+const mDoor = M(0x7a5a43);
+const mStone = wetM(0xd8d2c6, 0xa9a397, { roughness: 0.9 });
+const mMetal = new THREE.MeshStandardMaterial({ color: 0xc9d0d6, roughness: 0.35, metalness: 0.85 });
+const mLamp = new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xffd28a, emissiveIntensity: 0 });
+const mWater = new THREE.MeshStandardMaterial({ color: 0x5f97b8, roughness: 0.08, metalness: 0.1 });
+
+function shadowed(o) { o.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } }); return o; }
+
+/* diorama base */
+const BASE_R = 16;
+const world = new THREE.Group(); scene.add(world);
+{
+  const side = new THREE.Mesh(new THREE.CylinderGeometry(BASE_R, BASE_R - 0.4, 1.4, 96), mEarth);
+  side.position.y = -0.82; side.receiveShadow = true; world.add(side);
+  const side2 = new THREE.Mesh(new THREE.CylinderGeometry(BASE_R - 0.4, BASE_R - 1.2, 0.9, 96), mEarth2);
+  side2.position.y = -1.95; world.add(side2);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(BASE_R + 0.05, BASE_R + 0.05, 0.16, 96), mGrass);
+  top.position.y = -0.08; top.receiveShadow = true; world.add(top);
+  // soft contact shadow below the diorama
+  const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+  const g = sc.getContext('2d'), gr = g.createRadialGradient(64, 64, 20, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(20,35,55,.35)'); gr.addColorStop(1, 'rgba(20,35,55,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(52, 52), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, fog: false }));
+  sh.rotation.x = -Math.PI / 2; sh.position.y = -2.6; world.add(sh);
+}
+
+/* seeded random */
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+/* houses */
+const HOUSES = [
+  [-6, -6, 3.0, 2.4, 2.0, 0.2], [-1.6, -7.2, 2.6, 2.2, 2.5, -0.1], [3, -6.2, 2.4, 2.4, 1.8, 0.35],
+  [-8.4, -1, 2.4, 3.0, 2.0, 1.57], [-7, 4.2, 3.0, 2.4, 2.2, -0.4], [-2.6, 5.6, 2.6, 2.2, 1.9, 0.15],
+  [2.4, 3.6, 2.2, 2.2, 2.9, -0.2], [4.8, -1.8, 2.4, 2.0, 2.0, 0.9], [-11, -6.2, 2.0, 2.0, 1.6, 0.5],
+  [0.2, -11.2, 2.4, 2.0, 1.8, 0], [-4.6, 10.4, 2.2, 2.0, 1.7, 0.3], [-12.2, 1.6, 2.0, 2.2, 1.6, -0.2]
+];
+const hmObjects = [];  // for rain collision
+const winEmit = [];
+function makeHouse([x, z, w, d, h, rot], i) {
+  const g = new THREE.Group();
+  const wall = WALLS[i % WALLS.length], roof = ROOFS[(i * 3 + 1) % ROOFS.length];
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wall); body.position.y = h / 2; g.add(body);
+  // gable roof
+  const rh = Math.min(w, d) * 0.42 + 0.3, ov = 0.22;
+  const sh = new THREE.Shape(); sh.moveTo(-w / 2 - ov, 0); sh.lineTo(w / 2 + ov, 0); sh.lineTo(0, rh); sh.closePath();
+  const rg = new THREE.ExtrudeGeometry(sh, { depth: d + ov * 2, bevelEnabled: false }); rg.translate(0, 0, -(d + ov * 2) / 2);
+  const rf = new THREE.Mesh(rg, roof); rf.position.y = h - 0.02; g.add(rf);
+  const gable = new THREE.Shape(); gable.moveTo(-w / 2, 0); gable.lineTo(w / 2, 0); gable.lineTo(0, rh - 0.18); gable.closePath();
+  const gg = new THREE.ShapeGeometry(gable);
+  [-1, 1].forEach(s => { const m = new THREE.Mesh(gg, wall); m.position.set(0, h, s * d / 2 * 0.999); if (s < 0) m.rotation.y = Math.PI; g.add(m); });
+  // chimney
+  if (i % 3 !== 1) { const ch = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), mStone); ch.position.set(w * 0.22, h + rh * 0.6, d * 0.15); g.add(ch); }
+  // door & windows
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.95, 0.06), mDoor); door.position.set(-w * 0.18, 0.475, d / 2 + 0.02); g.add(door);
+  const wg = new THREE.BoxGeometry(0.42, 0.46, 0.05);
+  const addWin = (px, py, pz, ry) => { const m = new THREE.Mesh(wg, mWin); m.position.set(px, py, pz); m.rotation.y = ry; g.add(m); };
+  addWin(w * 0.2, h * 0.55, d / 2 + 0.02, 0);
+  if (h > 2.3) addWin(-w * 0.18, h * 0.78, d / 2 + 0.02, 0);
+  addWin(-w * 0.2, h * 0.55, -d / 2 - 0.02, 0); addWin(w * 0.2, h * 0.55, -d / 2 - 0.02, 0);
+  addWin(w / 2 + 0.02, h * 0.55, 0, Math.PI / 2); addWin(-w / 2 - 0.02, h * 0.55, 0, Math.PI / 2);
+  // doorstep
+  const step = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.45), mStone); step.position.set(-w * 0.18, 0.04, d / 2 + 0.24); g.add(step);
+  g.position.set(x, 0, z); g.rotation.y = rot;
+  world.add(shadowed(g));
+  hmObjects.push({ type: 'box', x, z, w: w + 0.4, d: d + 0.4, rot, top: h + rh * 0.55 });
+}
+HOUSES.forEach(makeHouse);
+
+/* plaza, paths, well */
+const PLAZA = { x: -2, z: -0.6, r: 2.8 };
+{
+  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(PLAZA.r, PLAZA.r, 0.05, 48), mPath); plaza.position.set(PLAZA.x, 0.01, PLAZA.z); plaza.receiveShadow = true; world.add(plaza);
+  const paths = [];
+  HOUSES.forEach(([x, z, w, d, h, rot]) => {
+    const dx = x + Math.sin(rot) * (d / 2 + 0.5) - PLAZA.x, dz = z + Math.cos(rot) * (d / 2 + 0.5) - PLAZA.z, L = Math.hypot(dx, dz);
+    if (L > 13) return;
+    const p = new THREE.BoxGeometry(0.85, 0.04, L); p.rotateY(Math.atan2(dx, dz)); p.translate(PLAZA.x + dx / 2, 0.01, PLAZA.z + dz / 2); paths.push(p);
+  });
+  // path to the glass panel
+  { const dx = 7.5 - PLAZA.x, dz = 3.8 - PLAZA.z, L = Math.hypot(dx, dz); const p = new THREE.BoxGeometry(0.85, 0.04, L); p.rotateY(Math.atan2(dx, dz)); p.translate(PLAZA.x + dx / 2, 0.01, PLAZA.z + dz / 2); paths.push(p); }
+  const pm = new THREE.Mesh(mergeGeometries(paths), mPath); pm.receiveShadow = true; world.add(pm);
+  // well
+  const well = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.75, 0.6, 24, 1, true), mStone); ring.position.y = 0.3; well.add(ring);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.07, 8, 32), mStone); rim.rotation.x = Math.PI / 2; rim.position.y = 0.6; well.add(rim);
+  const wwater = new THREE.Mesh(new THREE.CircleGeometry(0.66, 24), mWater); wwater.rotation.x = -Math.PI / 2; wwater.position.y = 0.4; well.add(wwater);
+  [-1, 1].forEach(s => { const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.3, 0.1), mTrunk); post.position.set(s * 0.65, 1.0, 0); well.add(post); });
+  const wroof = new THREE.Mesh(new THREE.ConeGeometry(1.0, 0.55, 4), ROOFS[0]); wroof.rotation.y = Math.PI / 4; wroof.position.y = 1.9; well.add(wroof);
+  well.position.set(PLAZA.x, 0, PLAZA.z); world.add(shadowed(well));
+  hmObjects.push({ type: 'disc', x: PLAZA.x, z: PLAZA.z, r: 1.0, top: 2.0 });
+}
+
+/* pond */
+const POND = { x: -9.6, z: 9, r: 2.2 };
+const pond = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 40), mWater);
+pond.rotation.x = -Math.PI / 2; pond.position.set(POND.x, 0.02, POND.z); pond.receiveShadow = true; world.add(pond);
+{
+  const stones = [];
+  for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2, s = 0.18 + rnd() * 0.16; const g = new THREE.DodecahedronGeometry(s, 0); g.translate(POND.x + Math.cos(a) * (POND.r + 0.1), s * 0.4, POND.z + Math.sin(a) * (POND.r + 0.1)); stones.push(g); }
+  world.add(shadowed(new THREE.Mesh(mergeGeometries(stones), mStone)));
+}
+
+/* trees */
+const isFree = (x, z, m = 1.2) => {
+  if (Math.hypot(x, z) > BASE_R - 1.2) return false;
+  if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 0.8) return false;
+  if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 0.8) return false;
+  if (Math.hypot(x - 9.9, z - 4.9) < 4.4) return false;          // panel area
+  for (const [hx, hz, w, d] of HOUSES) if (Math.hypot(x - hx, z - hz) < Math.max(w, d) / 2 + m + 0.4) return false;
+  return true;
+};
+{
+  const trunks = [], leaves = LEAVES.map(() => []);
+  let placed = 0;
+  for (let k = 0; k < 400 && placed < 34; k++) {
+    const a = rnd() * Math.PI * 2, r = 3 + Math.sqrt(rnd()) * 12.5, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (!isFree(x, z)) continue;
+    placed++;
+    const s = 0.75 + rnd() * 0.6, kind = rnd();
+    const tg = new THREE.CylinderGeometry(0.09 * s, 0.13 * s, 1.1 * s, 6); tg.translate(x, 0.55 * s, z); trunks.push(tg);
+    const li = Math.floor(rnd() * LEAVES.length);
+    if (kind < 0.45) {         // round tree
+      const g = new THREE.IcosahedronGeometry(0.8 * s, 1); g.translate(x, 1.55 * s, z); leaves[li].push(g);
+      const g2 = new THREE.IcosahedronGeometry(0.55 * s, 1); g2.translate(x + 0.35 * s, 1.95 * s, z - 0.2 * s); leaves[li].push(g2);
+    } else if (kind < 0.8) {   // cypress / pine
+      const g = new THREE.ConeGeometry(0.55 * s, 2.4 * s, 7); g.translate(x, 2.0 * s, z); leaves[li].push(g);
+    } else {                   // bush
+      const g = new THREE.IcosahedronGeometry(0.5 * s, 1); g.translate(x, 0.35 * s, z); leaves[li].push(g);
+    }
+  }
+  world.add(shadowed(new THREE.Mesh(mergeGeometries(trunks), mTrunk)));
+  leaves.forEach((arr, i) => arr.length && world.add(shadowed(new THREE.Mesh(mergeGeometries(arr), LEAVES[i]))));
+}
+
+/* street lamps */
+const lampLights = [];
+[[0.8, -2.6], [-4.8, 1.6], [5.6, 2.4]].forEach(([x, z]) => {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.2, 8), mMetal); pole.position.y = 1.1; g.add(pole);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), mLamp); bulb.position.y = 2.3; g.add(bulb);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.16, 16), mMetal); cap.position.y = 2.46; g.add(cap);
+  g.position.set(x, 0, z); world.add(shadowed(g));
+  const L = new THREE.PointLight(0xffc77a, 0, 7, 2); L.position.set(x, 2.2, z); world.add(L); lampLights.push(L);
+});
+
+/* puddles (grow when wet) */
+const puddles = [];
+{
+  const spots = [[-0.6, -2.4, 0.9], [-3.6, 0.8, 0.7], [1.2, 1.8, 0.8], [-5.2, -3.4, 0.6], [3.8, -3.6, 0.7], [-2.4, 3.2, 0.65], [5.8, 3.4, 0.55], [-7.2, 1.8, 0.6], [0.6, -8.6, 0.6], [-9.6, -3.6, 0.55]];
+  const pm = new THREE.MeshStandardMaterial({ color: 0x6d8ea6, roughness: 0.03, metalness: 0.2, transparent: true, opacity: 0, depthWrite: false });
+  spots.forEach(([x, z, r], i) => {
+    const sh = new THREE.Shape(); const N = 18;
+    for (let k = 0; k <= N; k++) { const a = k / N * Math.PI * 2, rr = r * (0.75 + 0.35 * Math.sin(a * 3 + i) * Math.cos(a * 2 - i)); k ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), pm); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.045, z); m.scale.setScalar(0.01); m.receiveShadow = true;
+    m.userData.k = 0.6 + (i % 4) * 0.15; world.add(m); puddles.push(m);
+  });
+  puddles.mat = pm;
+}
+
+/* flood water (heavy rain / deluge) */
+const flood = new THREE.Mesh(new THREE.CylinderGeometry(BASE_R - 0.02, BASE_R - 0.02, 1, 96, 1, false),
+  new THREE.MeshStandardMaterial({ color: 0x6f8f9c, roughness: 0.06, metalness: 0.15, transparent: true, opacity: 0.0, depthWrite: false }));
+flood.visible = false; world.add(flood);
+
+/* =====================================================================
+   Glass panel + gutter + measuring cup
+   ===================================================================== */
+const panelG = new THREE.Group(); world.add(panelG);
+panelG.position.set(9.6, 0, 4.6); panelG.rotation.y = -0.62;
+const mGlass = new THREE.MeshPhysicalMaterial({ color: 0xe8f4ff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.24, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 });
+const mFilm = new THREE.MeshPhysicalMaterial({ color: 0x9cc9ea, roughness: 0.02, transparent: true, opacity: 0, depthWrite: false, clearcoat: 1 });
+const mCupGlass = new THREE.MeshPhysicalMaterial({ color: 0xf2f8ff, roughness: 0.03, transparent: true, opacity: 0.2, clearcoat: 1, clearcoatRoughness: 0.02, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.8 });
+const mCupWater = new THREE.MeshPhysicalMaterial({ color: 0x5aa8e0, roughness: 0.08, metalness: 0, clearcoat: 1, emissive: 0x0b3a66, emissiveIntensity: 0.25 });
+const mStream = new THREE.MeshStandardMaterial({ color: 0x8cc4ec, roughness: 0.05, transparent: true, opacity: 0.0, depthWrite: false });
+const mWood = M(0xb78e63, { roughness: 0.8 });
+const PANEL = { tilt: 0.42, W: 3, L: 3, hc: 0, glass: null, film: null, frontY: 0, frontZ: 0 };
+const CUP = { r: 0.62, h: 2.4, base: 0.35, x: 0, z: 0, water: null, surf: null, expect: null, ticks: [] };
+let panelParts = null;
+function buildPanel() {
+  if (panelParts) { panelG.remove(panelParts); panelParts.traverse(o => o.geometry && o.geometry.dispose()); }
+  const g = panelParts = new THREE.Group(); panelG.add(g);
+  const side = 1.5 + 1.05 * Math.log10(ST.area / 0.04);   // visual size follows the real area (log scale)
+  PANEL.W = side; PANEL.L = side;
+  const t = PANEL.tilt, cupTop = CUP.base + CUP.h;
+  PANEL.frontY = cupTop + 0.55; PANEL.hc = PANEL.frontY + side / 2 * Math.sin(t);
+  PANEL.frontZ = side / 2 * Math.cos(t);
+  // glass (local plane, +y = up-slope)
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(side, side, 0.035), mGlass);
+  glass.position.set(0, PANEL.hc, 0); glass.rotation.x = -Math.PI / 2 + t; glass.renderOrder = 2; g.add(glass);
+  PANEL.glass = glass;
+  const film = new THREE.Mesh(new THREE.PlaneGeometry(side * 0.98, side * 0.98), mFilm); film.position.z = 0.022; film.renderOrder = 3; glass.add(film); PANEL.film = film;
+  // frame
+  const fr = 0.07, fgeo = [];
+  [[side + fr * 2, fr, 0, side / 2 + fr / 2], [side + fr * 2, fr, 0, -side / 2 - fr / 2], [fr, side, side / 2 + fr / 2, 0], [fr, side, -side / 2 - fr / 2, 0]].forEach(([w, h, x, y]) => {
+    const b = new THREE.BoxGeometry(w, h, 0.09); b.translate(x, y, 0); fgeo.push(b);
+  });
+  const frame = new THREE.Mesh(mergeGeometries(fgeo), mMetal); glass.add(frame); frame.castShadow = true;
+  // legs
+  const corners = [[-1, 1], [1, 1], [-1, -1], [1, -1]];
+  corners.forEach(([sx, sv]) => {
+    const p = new THREE.Vector3(sx * side / 2 * 0.92, sv * side / 2 * 0.92, -0.05).applyMatrix4(new THREE.Matrix4().compose(glass.position, glass.quaternion, new THREE.Vector3(1, 1, 1)));
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, p.y, 8), mMetal); leg.position.set(p.x, p.y / 2, p.z); g.add(leg);
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.06, 12), mMetal); foot.position.set(p.x, 0.03, p.z); g.add(foot);
+  });
+  // gutter (half pipe) along the lower (front) edge
+  const gut = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, side + 0.3, 16, 1, true, Math.PI / 2, Math.PI), new THREE.MeshStandardMaterial({ color: 0xd5dbe0, roughness: 0.3, metalness: 0.8, side: THREE.DoubleSide }));
+  gut.rotation.z = Math.PI / 2; gut.position.set(0.05, PANEL.frontY - 0.05, PANEL.frontZ + 0.06); g.add(gut);
+  const gWater = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, side + 0.2, 10), mStream); gWater.rotation.z = Math.PI / 2; gWater.position.copy(gut.position).y -= 0.05; g.add(gWater);
+  // spout over the cup
+  CUP.x = side / 2 + 0.55; CUP.z = PANEL.frontZ + 0.06;
+  const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.75, 12), gut.material); sp.rotation.z = Math.PI / 2; sp.position.set(side / 2 + 0.3, PANEL.frontY - 0.08, CUP.z); g.add(sp);
+  const sp2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.22, 12), gut.material); sp2.position.set(CUP.x, PANEL.frontY - 0.17, CUP.z); g.add(sp2);
+  // cup + stool
+  const stool = new THREE.Mesh(new THREE.CylinderGeometry(CUP.r + 0.25, CUP.r + 0.32, CUP.base, 32), mWood); stool.position.set(CUP.x, CUP.base / 2, CUP.z); g.add(stool);
+  const cupG = new THREE.Group(); cupG.position.set(CUP.x, CUP.base, CUP.z); g.add(cupG);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(CUP.r, CUP.r * 0.94, CUP.h, 48, 1, true), mCupGlass); wall.position.y = CUP.h / 2; wall.renderOrder = 4; cupG.add(wall);
+  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(CUP.r * 0.94, CUP.r * 0.94, 0.08, 48), mCupGlass); bottom.position.y = 0.04; cupG.add(bottom);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(CUP.r, 0.022, 8, 48), mCupGlass); rim.rotation.x = Math.PI / 2; rim.position.y = CUP.h; cupG.add(rim);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(CUP.r * 0.93, CUP.r * 0.91, 1, 48), mCupWater); water.position.y = 0.08; cupG.add(water); CUP.water = water;
+  const ex = new THREE.Mesh(new THREE.TorusGeometry(CUP.r * 1.0, 0.012, 6, 48), new THREE.MeshBasicMaterial({ color: 0x2f6fd6, transparent: true, opacity: 0.8 })); ex.rotation.x = Math.PI / 2; cupG.add(ex); CUP.expect = ex;
+  // graduation ticks
+  const tm = new THREE.MeshBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.45 });
+  CUP.ticks = [];
+  for (let k = 1; k <= 10; k++) {
+    const y = 0.08 + (CUP.h - 0.16) * k / 10, big = k % 5 === 0;
+    const a0 = -Math.PI * 0.62, len = big ? 0.55 : 0.3;
+    const tk = new THREE.Mesh(new THREE.TorusGeometry(CUP.r * 0.985 + 0.005, big ? 0.008 : 0.005, 4, 16, len), tm);
+    tk.rotation.x = Math.PI / 2; tk.rotation.z = a0; tk.position.y = y; cupG.add(tk);
+    if (big) CUP.ticks.push({ k, y });
+  }
+  CUP.group = cupG;
+  // stream from spout to the water
+  const stream = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 10, 1, true), mStream); g.add(stream); CUP.stream = stream;
+  // drips (light rain)
+  CUP.drips = [0, 1, 2].map(i => { const d = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), mStream); d.userData.t = i / 3; g.add(d); return d; });
+  // beads (points on the glass)
+  buildBeads();
+  shadowed(g); stream.castShadow = false; glass.castShadow = true; film.castShadow = false;
+  water.castShadow = false; wall.castShadow = false;
+  scene.updateMatrixWorld(true);
+  buildHeightmap();
+  ST.cupScale = 0; updateCupScale();
+}
+
+/* water beads on the panel */
+const BEADS = { max: isMobile ? 260 : 520, n: 0, u: null, v: null, s: null, vel: null, pts: null };
+const beadTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(26, 24, 2, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(200,228,255,.85)'); gr.addColorStop(0.8, 'rgba(120,170,215,.55)'); gr.addColorStop(1, 'rgba(120,170,215,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 30, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+function buildBeads() {
+  const N = BEADS.max;
+  BEADS.u = new Float32Array(N); BEADS.v = new Float32Array(N); BEADS.s = new Float32Array(N); BEADS.vel = new Float32Array(N); BEADS.n = 0;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(new Float32Array(N), 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: beadTex }, scale: { value: 1 } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute float size; uniform float scale; void main(){ vec4 mv = modelViewMatrix*vec4(position,1.); gl_Position = projectionMatrix*mv; gl_PointSize = size*scale/-mv.z; }`,
+    fragmentShader: `uniform sampler2D map; void main(){ vec4 c = texture2D(map, gl_PointCoord); if(c.a<0.02) discard; gl_FragColor = c; }`
+  });
+  BEADS.pts = new THREE.Points(geo, mat); BEADS.pts.frustumCulled = false; BEADS.pts.renderOrder = 5;
+  PANEL.glass.add(BEADS.pts);
+}
+function addBead(u, v) {
+  if (BEADS.n >= BEADS.max) return;
+  const i = BEADS.n++; BEADS.u[i] = u; BEADS.v[i] = v; BEADS.s[i] = 0.4 + Math.random() * 0.6; BEADS.vel[i] = 0;
+}
+function updateBeads(dt, flowRate) {
+  const H = PANEL.L / 2, pos = BEADS.pts.geometry.attributes.position.array, size = BEADS.pts.geometry.attributes.size.array;
+  for (let i = 0; i < BEADS.n; i++) {
+    BEADS.s[i] = Math.min(1.6, BEADS.s[i] + dt * 0.05 * (1 + flowRate));
+    if (BEADS.s[i] > 0.95 || BEADS.vel[i] > 0) BEADS.vel[i] = Math.min(2.8, BEADS.vel[i] + dt * (0.6 + BEADS.s[i]));
+    BEADS.v[i] -= BEADS.vel[i] * dt;
+    if (!(ST.vis.rate > 0.02) ) BEADS.s[i] -= dt * 0.012;     // slowly evaporate when dry
+    if (BEADS.v[i] < -H || BEADS.s[i] < 0.15) {             // reached the gutter
+      const j = --BEADS.n;
+      BEADS.u[i] = BEADS.u[j]; BEADS.v[i] = BEADS.v[j]; BEADS.s[i] = BEADS.s[j]; BEADS.vel[i] = BEADS.vel[j]; i--; continue;
+    }
+    pos[i * 3] = BEADS.u[i]; pos[i * 3 + 1] = BEADS.v[i]; pos[i * 3 + 2] = 0.03; size[i] = BEADS.s[i] * 1.3;
+  }
+  BEADS.pts.geometry.setDrawRange(0, BEADS.n);
+  BEADS.pts.geometry.attributes.position.needsUpdate = true; BEADS.pts.geometry.attributes.size.needsUpdate = true;
+  BEADS.pts.material.uniforms.scale.value = renderer.getPixelRatio() * innerHeight * 0.06;
+}
+
+/* =====================================================================
+   Rain collision heightmap
+   ===================================================================== */
+const HM_N = 112, HM_S = 36, HM_C = HM_S / HM_N;
+const hm = new Float32Array(HM_N * HM_N), hmT = new Uint8Array(HM_N * HM_N);   // type 0 ground 1 roof 2 panel 3 water 4 cup
+const hmIdx = (x, z) => { const i = Math.floor((x + HM_S / 2) / HM_C), j = Math.floor((z + HM_S / 2) / HM_C); return i < 0 || j < 0 || i >= HM_N || j >= HM_N ? -1 : j * HM_N + i; };
+function buildHeightmap() {
+  for (let j = 0; j < HM_N; j++) for (let i = 0; i < HM_N; i++) {
+    const x = -HM_S / 2 + (i + 0.5) * HM_C, z = -HM_S / 2 + (j + 0.5) * HM_C, k = j * HM_N + i;
+    hm[k] = Math.hypot(x, z) < BASE_R ? 0 : -4; hmT[k] = 0;
+    if (Math.hypot(x - POND.x, z - POND.z) < POND.r) hmT[k] = 3;
+    for (const o of hmObjects) {
+      if (o.type === 'box') {
+        const dx = x - o.x, dz = z - o.z, c = Math.cos(o.rot), s = Math.sin(o.rot);
+        const lx = dx * c - dz * s, lz = dx * s + dz * c;
+        if (Math.abs(lx) < o.w / 2 && Math.abs(lz) < o.d / 2 && o.top > hm[k]) { hm[k] = o.top; hmT[k] = 1; }
+      } else if (Math.hypot(x - o.x, z - o.z) < o.r && o.top > hm[k]) { hm[k] = o.top; hmT[k] = 1; }
+    }
+  }
+  // panel: sample its surface
+  const v = new THREE.Vector3(), S = PANEL.W;
+  for (let a = 0; a <= 60; a++) for (let b = 0; b <= 60; b++) {
+    v.set((a / 60 - 0.5) * S, (b / 60 - 0.5) * S, 0); PANEL.glass.localToWorld(v);
+    const k = hmIdx(v.x, v.z); if (k >= 0 && v.y > hm[k]) { hm[k] = v.y; hmT[k] = 2; }
+  }
+  // cup mouth
+  const c = new THREE.Vector3(); CUP.group.getWorldPosition(c);
+  for (let a = 0; a < 20; a++) for (let b = 0; b < 20; b++) {
+    const x = c.x + (a / 19 - 0.5) * CUP.r * 2, z = c.z + (b / 19 - 0.5) * CUP.r * 2;
+    if (Math.hypot(x - c.x, z - c.z) > CUP.r) continue;
+    const k = hmIdx(x, z); if (k >= 0) { hm[k] = Math.max(hm[k], CUP.base + 0.1); hmT[k] = 4; }
+  }
+}
+
+/* =====================================================================
+   Rain + splashes
+   ===================================================================== */
+const RAIN_MAX = isMobile ? 9000 : 18000, TOP = 24, SPAWN_R = BASE_R - 0.3;
+const rx = new Float32Array(RAIN_MAX), ry = new Float32Array(RAIN_MAX), rz = new Float32Array(RAIN_MAX), rv = new Float32Array(RAIN_MAX), rph = new Float32Array(RAIN_MAX);
+const rainGeo = new THREE.BufferGeometry();
+const rainPos = new Float32Array(RAIN_MAX * 6), rainAlpha = new Float32Array(RAIN_MAX * 2);
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage));
+rainGeo.setAttribute('alpha', new THREE.BufferAttribute(rainAlpha, 1));
+const rainMat = new THREE.ShaderMaterial({
+  uniforms: { color: { value: new THREE.Color(0xc9d8e8) }, opacity: { value: 0.5 } }, transparent: true, depthWrite: false,
+  vertexShader: `attribute float alpha; varying float vA; void main(){ vA = alpha; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `uniform vec3 color; uniform float opacity; varying float vA; void main(){ gl_FragColor = vec4(color, opacity*vA); }`
+});
+const rain = new THREE.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; rain.renderOrder = 6; scene.add(rain);
+for (let i = 0; i < RAIN_MAX; i++) { rainAlpha[i * 2] = 0; rainAlpha[i * 2 + 1] = 1; rph[i] = Math.random(); }
+let rainActive = 0;
+function spawnDrop(i, anyHeight) {
+  const a = Math.random() * Math.PI * 2, r = SPAWN_R * Math.sqrt(Math.random());
+  const v = RAIN.speed * (0.85 + Math.random() * 0.3);
+  const y = anyHeight ? Math.random() * TOP : TOP + Math.random() * 4;
+  const tFall = y / v;
+  rx[i] = Math.cos(a) * r - RAIN.wx * tFall; rz[i] = Math.sin(a) * r - RAIN.wz * tFall; ry[i] = y; rv[i] = v;
+}
+/* splash points */
+const SPL_MAX = 2200;
+const splGeo = new THREE.BufferGeometry();
+const splPos = new Float32Array(SPL_MAX * 3), splLife = new Float32Array(SPL_MAX), splKind = new Float32Array(SPL_MAX);
+splGeo.setAttribute('position', new THREE.BufferAttribute(splPos, 3).setUsage(THREE.DynamicDrawUsage));
+splGeo.setAttribute('life', new THREE.BufferAttribute(splLife, 1).setUsage(THREE.DynamicDrawUsage));
+splGeo.setAttribute('kind', new THREE.BufferAttribute(splKind, 1));
+const splMat = new THREE.ShaderMaterial({
+  uniforms: { scale: { value: 1 }, color: { value: new THREE.Color(0xe6f0fa) } }, transparent: true, depthWrite: false,
+  vertexShader: `attribute float life; attribute float kind; uniform float scale; varying float vL; varying float vK;
+    void main(){ vL = life; vK = kind; vec4 mv = modelViewMatrix*vec4(position,1.); gl_Position = projectionMatrix*mv;
+      gl_PointSize = (life > 0. ? (0.35 + (1.-life)*(0.9 + kind*0.8)) : 0.) * scale / -mv.z; }`,
+  fragmentShader: `uniform vec3 color; varying float vL; varying float vK;
+    void main(){ vec2 p = gl_PointCoord - 0.5; p.y *= 2.2; float d = length(p);
+      float ring = smoothstep(0.5, 0.38, d) * smoothstep(0.12, 0.32, d);
+      float a = ring * vL * 0.75; if (a < 0.01) discard; gl_FragColor = vec4(color, a); }`
+});
+const splash = new THREE.Points(splGeo, splMat); splash.frustumCulled = false; splash.renderOrder = 7; scene.add(splash);
+let splHead = 0;
+function addSplash(x, y, z, kind) { const i = splHead; splHead = (splHead + 1) % SPL_MAX; splPos[i * 3] = x; splPos[i * 3 + 1] = y + 0.03; splPos[i * 3 + 2] = z; splLife[i] = 1; splKind[i] = kind; }
+
+const RAIN = { speed: 20, wx: 0, wz: 0, len: 0.6, count: 0 };
+const _v3 = new THREE.Vector3(), _inv = new THREE.Matrix4();
+function updateRain(dt, rate, snow) {
+  const target = rate < 0.03 ? 0 : Math.min(RAIN_MAX, Math.round(2300 * Math.pow(rate, 0.72) * (isMobile ? 0.55 : 1)));
+  RAIN.count = lerp(RAIN.count, target, 1 - Math.exp(-dt * 1.2));
+  const want = Math.round(RAIN.count);
+  if (snow) { RAIN.speed = 2.4; RAIN.len = 0.06; }
+  else { RAIN.speed = 8 + 16 * clamp(Math.log10(1 + rate * 2) / 1.6, 0, 1); RAIN.len = RAIN.speed * (rate > 25 ? 0.042 : 0.032); }
+  while (rainActive < want) spawnDrop(rainActive++, true);
+  if (rainActive > want) rainActive = want;
+  const floodY = FX.flood;
+  const hitsPerSec = rainActive * RAIN.speed / (TOP * 0.6) + 1;
+  const splChance = Math.min(1, (isMobile ? 260 : 650) / hitsPerSec);
+  const beadChance = 0.55;
+  const panelHits = { n: 0 };
+  _inv.copy(PANEL.glass.matrixWorld).invert();
+  const lx = RAIN.wx, lz = RAIN.wz, L = RAIN.len, t = performance.now() / 1000;
+  for (let i = 0; i < rainActive; i++) {
+    let x = rx[i], y = ry[i], z = rz[i];
+    const v = rv[i];
+    y -= v * dt; x += lx * dt; z += lz * dt;
+    if (snow) { x += Math.sin(t * 1.3 + rph[i] * 30) * dt * 0.5; z += Math.cos(t * 1.1 + rph[i] * 20) * dt * 0.5; }
+    const k = hmIdx(x, z);
+    let ground = k < 0 ? -6 : hm[k];
+    if (k >= 0 && hmT[k] === 0 && floodY > 0.02) ground = Math.max(ground, floodY);
+    if (y <= ground) {
+      if (k >= 0 && ground > -1) {
+        const ty = hmT[k];
+        if (ty === 2) {
+          panelHits.n++;
+          if (Math.random() < beadChance) { _v3.set(x, ground, z).applyMatrix4(_inv); if (Math.abs(_v3.x) < PANEL.W / 2 && Math.abs(_v3.y) < PANEL.L / 2) addBead(_v3.x, _v3.y); }
+          if (Math.random() < splChance * 2) addSplash(x, ground, z, 0);
+        } else if (Math.random() < splChance) addSplash(x, ground, z, ty === 3 || floodY > 0.05 ? 1 : 0);
+      }
+      spawnDrop(i, false); x = rx[i]; y = ry[i]; z = rz[i];
+    }
+    rx[i] = x; ry[i] = y; rz[i] = z;
+    const j = i * 6, f = L / v;
+    rainPos[j] = x; rainPos[j + 1] = y; rainPos[j + 2] = z;
+    rainPos[j + 3] = x - lx * f; rainPos[j + 4] = y + L; rainPos[j + 5] = z - lz * f;
+  }
+  rainGeo.setDrawRange(0, rainActive * 2);
+  rainGeo.attributes.position.needsUpdate = true;
+  rainMat.uniforms.opacity.value = snow ? 0.95 : clamp(0.5 + 0.12 * Math.log10(1 + rate), 0.45, 0.75);
+  rainMat.uniforms.color.value.set(snow ? 0xffffff : 0x6f87a0).lerp(cA.set(0xb7c9dc), NIGHT.v);
+  rain.material.linewidth = 1;
+  // splashes
+  for (let i = 0; i < SPL_MAX; i++) if (splLife[i] > 0) splLife[i] = Math.max(0, splLife[i] - dt * 3.2);
+  splGeo.attributes.position.needsUpdate = true; splGeo.attributes.life.needsUpdate = true;
+  splMat.uniforms.scale.value = renderer.getPixelRatio() * innerHeight * 0.05;
+}
+
+/* =====================================================================
+   Clouds
+   ===================================================================== */
+const clouds = new THREE.Group(); scene.add(clouds);
+const mCloud = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.9, flatShading: true, depthWrite: true });
+for (let c = 0; c < 9; c++) {
+  const parts = [], n = 4 + Math.floor(rnd() * 4);
+  for (let k = 0; k < n; k++) { const s = 1 + rnd() * 1.4; const g = new THREE.IcosahedronGeometry(s, 1); g.scale(1.25, 0.72, 1); g.translate((k - n / 2) * 1.25 + rnd() * 0.5, rnd() * 0.6, rnd() * 1.2 - 0.6); parts.push(g); }
+  const m = new THREE.Mesh(mergeGeometries(parts), mCloud.clone()); m.castShadow = true;
+  const a = c / 9 * Math.PI * 2 + rnd(), r = 3 + rnd() * 11;
+  m.position.set(Math.cos(a) * r, 15 + rnd() * 3, Math.sin(a) * r); m.userData.base = m.position.clone(); m.userData.k = rnd();
+  m.rotation.y = rnd() * Math.PI; clouds.add(m);
+}
+
+/* =====================================================================
+   Weather visuals: smoothed state
+   ===================================================================== */
+ST.vis = { rate: 0 };
+const FX = { wet: 0, flood: 0, cloud: 0, storm: 0, flash: 0, nextFlash: 3 };
+const NIGHT = { v: 0 };
+const SKY = {
+  day: { top: '#cfe3f3', bot: '#f4f1ea', fog: 0xe3ebf1, hemi: 1.1, sun: 2.6 },
+  grey: { top: '#aeb9c4', bot: '#d6dadd', fog: 0xc9d0d6, hemi: 1.0, sun: 0.7 },
+  storm: { top: '#6d7884', bot: '#a5abb1', fog: 0x8e979f, hemi: 0.75, sun: 0.15 },
+  night: { top: '#0d1626', bot: '#25324a', fog: 0x1b2638, hemi: 0.22, sun: 0.0 }
+};
+const cA = new THREE.Color(), cB = new THREE.Color(), cC = new THREE.Color();
+function mixHex(a, b, t) { return cA.set(a).lerp(cB.set(b), t).getStyle(); }
+function isNight() {
+  if (ST.model && ST.model.cur.is_day != null && ST.demo == null && !ST.preview) return !ST.model.cur.is_day;
+  const h = +fmtH(ST.preview ? ST.preview.t + 1800 : nowS()); return h < 6 || h >= 18;
+}
+let themeNight = null;
+function updateWeatherFX(dt) {
+  const target = targetRate();
+  ST.vis.rate = lerp(ST.vis.rate, target, 1 - Math.exp(-dt / 1.6));
+  const r = ST.vis.rate;
+  const snow = ST.live.snow && ST.demo == null && !ST.preview;
+  // wetness: rain wets fast, sun dries slowly
+  const wetT = r > 0.03 ? clamp(0.35 + 0.3 * Math.log10(1 + r * 3), 0, 1) : 0;
+  FX.wet = lerp(FX.wet, wetT, 1 - Math.exp(-dt / (wetT > FX.wet ? 6 : 40)));
+  const floodT = r < 6 ? 0 : clamp((r - 6) / 34, 0, 1) * 0.42;
+  FX.flood = lerp(FX.flood, floodT, 1 - Math.exp(-dt / (floodT > FX.flood ? 8 : 25)));
+  const cc = ST.model && ST.demo == null && !ST.preview ? (ST.model.cur.cloud_cover ?? 0) / 100 : 0;
+  const cloudT = clamp(Math.max(cc * 0.85, r > 0.03 ? 0.55 + 0.45 * smooth(0, 10, r) : 0), 0, 1);
+  FX.cloud = lerp(FX.cloud, cloudT, 1 - Math.exp(-dt / 3));
+  FX.storm = lerp(FX.storm, smooth(2, 30, r), 1 - Math.exp(-dt / 3));
+  NIGHT.v = lerp(NIGHT.v, isNight() ? 1 : 0, 1 - Math.exp(-dt / 2));
+
+  // sky
+  const s1 = FX.cloud * (1 - FX.storm), s2 = FX.storm;
+  let top = mixHex(SKY.day.top, SKY.grey.top, s1); top = mixHex(top, SKY.storm.top, s2);
+  let bot = mixHex(SKY.day.bot, SKY.grey.bot, s1); bot = mixHex(bot, SKY.storm.bot, s2);
+  top = mixHex(top, SKY.night.top, NIGHT.v * 0.92); bot = mixHex(bot, SKY.night.bot, NIGHT.v * 0.92);
+  document.body.style.setProperty('--sky1', top); document.body.style.setProperty('--sky2', bot);
+  $('bg').style.background = `linear-gradient(180deg, ${top}, ${bot})`;
+  cC.set(SKY.day.fog).lerp(cA.set(SKY.grey.fog), s1).lerp(cA.set(SKY.storm.fog), s2).lerp(cA.set(SKY.night.fog), NIGHT.v * 0.92);
+  scene.fog.color.copy(cC);
+  scene.fog.near = lerp(48, 18, smooth(0, 30, r)); scene.fog.far = lerp(120, 62, smooth(0, 30, r));
+  const n = NIGHT.v;
+  hemi.intensity = lerp(lerp(SKY.day.hemi, SKY.grey.hemi, s1), SKY.storm.hemi, s2) * (1 - n) + SKY.night.hemi * n;
+  hemi.color.set(0xdfefff).lerp(cA.set(0x9fb4d8), n);
+  sun.intensity = lerp(lerp(SKY.day.sun, SKY.grey.sun, s1), SKY.storm.sun, s2) * (1 - n) + 0.35 * n;
+  sun.color.set(0xfff1dc).lerp(cA.set(0x9db7ff), n);
+  scene.environmentIntensity = lerp(0.45, 0.18, n);
+  mWin.emissiveIntensity = n * 1.6 + FX.storm * 0.4;
+  mLamp.emissiveIntensity = n * 3;
+  lampLights.forEach(L => L.intensity = n * 6);
+  const th = n > 0.5;
+  if (th !== themeNight) { themeNight = th; document.body.dataset.theme = th ? 'night' : 'day'; drawChart(); }
+
+  // wet materials
+  wetMats.forEach(w => { w.m.color.copy(w.dry).lerp(w.wet, FX.wet); w.m.roughness = lerp(w.r0, w.r1, FX.wet); });
+  puddles.forEach(p => p.scale.setScalar(Math.max(0.01, smooth(0.25, 0.9, FX.wet) * p.userData.k * (1 + FX.flood * 2))));
+  puddles.mat.opacity = smooth(0.2, 0.7, FX.wet) * 0.85;
+  pond.scale.setScalar(1 + FX.wet * 0.12 + FX.flood * 0.5);
+  flood.visible = FX.flood > 0.01;
+  flood.scale.y = Math.max(0.001, FX.flood); flood.position.y = FX.flood / 2;
+  flood.material.opacity = clamp(FX.flood * 2.2, 0, 0.62);
+  flood.material.color.set(0x6f8f9c).lerp(cA.set(0x2a3a4c), n * 0.7);
+
+  // clouds
+  mCloud.color.set(0xffffff).lerp(cA.set(0x9aa3ad), FX.cloud * 0.5).lerp(cA.set(0x5c6570), FX.storm * 0.8).lerp(cA.set(0x2c3546), n * 0.8);
+  mCloud.opacity = clamp(FX.cloud * 1.2, 0, 0.94);
+  clouds.visible = FX.cloud > 0.04;
+  const t = performance.now() / 1000;
+  const camD = camera.position.distanceTo(controls.target);
+  clouds.children.forEach((m, i) => {
+    const b = m.userData.base, show = i / clouds.children.length < 0.25 + FX.cloud * 0.8;
+    // fade clouds that sit between the camera and the village
+    m.material.color.copy(mCloud.color);
+    m.material.opacity = mCloud.opacity * smooth(camD * 0.55, camD * 0.85, m.position.distanceTo(camera.position));
+    m.visible = m.material.opacity > 0.02;
+    m.scale.setScalar(lerp(m.scale.x, show ? 1 + FX.storm * 0.35 : 0.001, 1 - Math.exp(-dt / 2)));
+    m.position.x = b.x + Math.sin(t * 0.03 + m.userData.k * 9) * 3 + RAIN.wx * 0.6;
+    m.position.z = b.z + Math.cos(t * 0.025 + m.userData.k * 7) * 2 + RAIN.wz * 0.6;
+    m.position.y = b.y - FX.storm * 2.5;
+  });
+
+  // wind
+  const c = ST.model ? ST.model.cur : null;
+  let ws = c && ST.demo == null ? c.wind_speed_10m || 0 : 2 + r * 0.15, wd = c ? c.wind_direction_10m || 270 : 270;
+  const a = (wd + 180) * Math.PI / 180, sp = clamp(ws * 0.45, 0, 7);
+  RAIN.wx = lerp(RAIN.wx, Math.sin(a) * sp, 1 - Math.exp(-dt)); RAIN.wz = lerp(RAIN.wz, -Math.cos(a) * sp, 1 - Math.exp(-dt));
+
+  // lightning in heavy rain / thunderstorms
+  const thunder = (c && c.weather_code >= 95 && ST.demo == null && !ST.preview) || r > 22;
+  FX.nextFlash -= dt;
+  if (thunder && FX.nextFlash <= 0) {
+    FX.flash = 1; FX.nextFlash = 3 + Math.random() * 9;
+    audio.thunder(0.6 + Math.random() * 2.2);
+  }
+  FX.flash = Math.max(0, FX.flash - dt * 4);
+  const f = FX.flash > 0 ? FX.flash * (0.6 + 0.4 * Math.sin(FX.flash * 40)) : 0;
+  $('flash').style.opacity = (f * 0.55).toFixed(3);
+  hemi.intensity += f * 2.5;
+
+  audio.level(r, snow);
+  return { r, snow };
+}
+
+/* =====================================================================
+   Cup + panel water visuals
+   ===================================================================== */
+const NICE = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+function updateCupScale() {
+  if (!CUP.group) return;
+  const mm = cupMm(), exp = mm + (ST.restDay || 0);
+  const need = Math.max(exp * ST.area * 1.15, mm * ST.area * 1.15, 2 * ST.area);
+  const cap = NICE.find(v => v >= need) || 1000;
+  if (cap !== ST.cupScale) { ST.cupScale = cap; makeTickLabels(); }
+}
+const labelsBox = $('labels');
+const cupLabel = document.createElement('div'); cupLabel.className = 'lbl'; labelsBox.appendChild(cupLabel);
+const panelLabel = document.createElement('div'); panelLabel.className = 'lbl'; labelsBox.appendChild(panelLabel);
+let tickEls = [];
+function makeTickLabels() {
+  tickEls.forEach(e => e.remove()); tickEls = [];
+  CUP.ticks.forEach(t => {
+    const el = document.createElement('div'); el.className = 'tick';
+    const L = ST.cupScale * t.k / 10;
+    el.textContent = `${fmtVol(L).replace(' ליטר', 'L').replace(' מ״ל', 'ml')} · ${fmtMm(L / ST.area)}mm`;
+    labelsBox.appendChild(el); tickEls.push(el); el._y = t.y;
+  });
+}
+let streamPhase = 0;
+function updateCupFX(dt, r) {
+  const mm = cupMm(), vol = mm * ST.area;
+  const inner = CUP.h - 0.16;
+  const frac = clamp(vol / ST.cupScale, 0, 1);
+  CUP.water.scale.y = Math.max(0.002, frac * inner);
+  CUP.water.position.y = 0.08 + CUP.water.scale.y / 2;
+  const efrac = clamp((mm + (ST.restDay || 0)) * ST.area / ST.cupScale, 0, 1);
+  CUP.expect.position.y = 0.08 + efrac * inner; CUP.expect.visible = (ST.restDay || 0) > 0.05;
+  // panel film
+  const flow = clamp(Math.log10(1 + r * 2) / 1.8, 0, 1);
+  mFilm.opacity = lerp(mFilm.opacity, r > 0.03 ? 0.08 + flow * 0.32 : 0, 1 - Math.exp(-dt / 3));
+  // stream gutter -> cup
+  const spout = new THREE.Vector3(CUP.x, PANEL.frontY - 0.28, CUP.z), wTop = CUP.base + CUP.water.position.y + CUP.water.scale.y / 2;
+  const streamOn = r > 0.6, w = 0.012 + 0.05 * flow;
+  CUP.stream.visible = streamOn;
+  if (streamOn) {
+    const len = spout.y - wTop;
+    CUP.stream.scale.set(w, len, w); CUP.stream.position.set(CUP.x, wTop + len / 2, CUP.z);
+    mStream.opacity = 0.35 + 0.4 * flow;
+  } else mStream.opacity = r > 0.03 ? 0.55 : lerp(mStream.opacity, 0, 0.05);
+  // drips for light rain
+  streamPhase += dt * (0.5 + r * 1.5);
+  CUP.drips.forEach(d => {
+    const tt = (streamPhase + d.userData.t) % 1;
+    d.visible = r > 0.03 && r <= 0.6;
+    d.position.set(CUP.x, lerp(spout.y, wTop, tt * tt), CUP.z);
+  });
+  // labels
+  const L = levelOf(r);
+  cupLabel.innerHTML = `<b>${mm < 0.05 ? "0" : mm.toFixed(1)} מ״מ</b> · ${fmtVol(vol)}`;
+  panelLabel.innerHTML = `משטח ${AREAS.find(a => a.a === ST.area).name} · <span style="color:${L.color}">●</span> ${L.name}`;
+}
+const _p = new THREE.Vector3();
+function place(el, v, dy = 0) {
+  _p.copy(v).project(camera);
+  const hidden = _p.z > 1 || Math.abs(_p.x) > 1.1 || Math.abs(_p.y) > 1.1;
+  el.style.opacity = hidden ? 0 : 1;
+  el.style.transform = `translate(${(_p.x * 0.5 + 0.5) * innerWidth}px, ${(-_p.y * 0.5 + 0.5) * innerHeight + dy}px) translate(-50%,-100%)`;
+}
+function updateLabels() {
+  if (!CUP.group) return;
+  CUP.group.localToWorld(_v3.set(0, CUP.h + 0.35, 0)); place(cupLabel, _v3);
+  PANEL.glass.localToWorld(_v3.set(0, PANEL.L / 2 + 0.3, 0.2)); place(panelLabel, _v3);
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  tickEls.forEach(el => {
+    CUP.group.localToWorld(_v3.set(0, el._y, 0)); _v3.addScaledVector(right, CUP.r + 0.08);
+    _p.copy(_v3).project(camera);
+    el.style.opacity = _p.z > 1 ? 0 : 0.95;
+    el.style.transform = `translate(${(_p.x * 0.5 + 0.5) * innerWidth}px, ${(-_p.y * 0.5 + 0.5) * innerHeight}px) translate(4px,-50%)`;
+  });
+}
+
+/* =====================================================================
+   Audio (synthesised rain / thunder)
+   ===================================================================== */
+const audio = (() => {
+  let ctx = null, gain = null, hp = null, lp = null, on = false, cur = 0;
+  function noise(sec) {
+    const b = ctx.createBuffer(1, ctx.sampleRate * sec, ctx.sampleRate), d = b.getChannelData(0); let last = 0;
+    for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = (last + 0.04 * w) / 1.04; d[i] = w * 0.5 + last * 3; }
+    return b;
+  }
+  return {
+    enable(v) {
+      on = v;
+      if (v && !ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createBufferSource(); src.buffer = noise(3); src.loop = true;
+        hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 400;
+        lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000;
+        gain = ctx.createGain(); gain.gain.value = 0;
+        src.connect(hp).connect(lp).connect(gain).connect(ctx.destination); src.start();
+      }
+      if (ctx) ctx[v ? 'resume' : 'suspend']();
+    },
+    level(r, snow) {
+      if (!ctx || !on) return;
+      const g = r < 0.03 || snow ? 0 : clamp(0.05 + 0.16 * Math.log10(1 + r * 2), 0, 0.42);
+      cur = lerp(cur, g, 0.05); gain.gain.value = cur;
+      hp.frequency.value = lerp(1800, 300, smooth(0, 15, r)); lp.frequency.value = lerp(9000, 4500, smooth(0, 30, r));
+    },
+    thunder(delay) {
+      if (!ctx || !on) return;
+      const src = ctx.createBufferSource(); src.buffer = noise(4);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 180;
+      const g = ctx.createGain(), t = ctx.currentTime + delay;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t + 3.6);
+      src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + 4);
+    }
+  };
+})();
+
+/* =====================================================================
+   Resize + loop
+   ===================================================================== */
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  const portrait = h > w;
+  camera.fov = portrait ? 46 : 34;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+{
+  const portrait = innerHeight > innerWidth;
+  const d = portrait ? 58 : 44;
+  camera.position.set(d * 0.52, d * 0.52, d * 0.68);
+  if (!portrait && innerWidth > 820) controls.target.set(-2.5, 1.2, 0.5);    // leave room for the side panel
+  if (portrait) controls.target.set(1, -2.5, 0.5);
+}
+
+buildPanel();
+$('placeName').textContent = ST.loc.name;
+FX.wet = 0;
+const clock = new THREE.Clock();
+let uiT = 0;
+function frame() {
+  const dt = Math.min(0.05, clock.getDelta());
+  const { r, snow } = updateWeatherFX(dt);
+  updateRain(dt, r, snow);
+  updateBeads(dt, r);
+  updateCupFX(dt, r);
+  if (idleT >= 0) { idleT += dt; if (idleT > 8 && $('swRotate').classList.contains('on')) controls.autoRotate = true; }
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+  if (performance.now() - uiT > 1000) {
+    uiT = performance.now();
+    $('cupMm').textContent = cupMm().toFixed(cupMm() < 10 ? 2 : 1);
+    $('cupVol').textContent = `${fmtVol(cupMm() * ST.area)} בכוס`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(() => { $('loader').style.opacity = 0; }, 300);
+
+/* data loops */
+async function start() {
+  await Promise.all([updateModel(), updateRadar(true)]);
+  if (ST.lastHour > 0.1) FX.wet = clamp(0.3 + 0.3 * Math.log10(1 + ST.lastHour * 3), 0, 1);   // ground still wet from recent rain
+}
+start();
+setInterval(updateRadar, 2 * 60 * 1000);
+setInterval(updateModel, 10 * 60 * 1000);
+setInterval(recompute, 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { updateRadar(); if (!ST.model || nowS() - ST.model.at > 600) updateModel(); } });
+// first visit: offer the user's own location
+if (!store.get('asked', false) && navigator.geolocation && navigator.permissions) {
+  store.set('asked', true);
+  navigator.permissions.query({ name: 'geolocation' }).then(p => { if (p.state === 'granted') $('mine').click(); }).catch(() => {});
+}
+window.__village = { ST, FX, RAIN, NIGHT, setDemo, recompute };
+</script>
+</body>
+</html>
