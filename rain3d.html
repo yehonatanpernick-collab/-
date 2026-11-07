@@ -818,7 +818,7 @@ void main(){
   // lit tops, dark heavy cores
   float shade = clamp(0.88 - 0.62*k + (n2 - 0.5)*0.35 + (n - 0.5)*0.2, 0.12, 0.95);
   vec3 c = vec3(shade)*vec3(0.97, 0.98, 1.02);
-  c = mix(c, ramp(dbz), u_tint*smoothstep(10.0, 22.0, dbz));
+  c = mix(c, ramp(dbz)*0.9, min(1.0, u_tint*1.5)*smoothstep(8.0, 18.0, dbz));
   float fd = length((v_uv - u_flash.xy)*u_gridSize);
   c += vec3(0.85, 0.9, 1.0)*u_flash.z*exp(-fd*fd/(2.0*18.0*18.0))*1.6;
   o = vec4(c*a, a);
