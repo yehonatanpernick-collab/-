@@ -377,6 +377,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@7.54.3/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylon.glTF2FileLoader.min.js"></script>
 <script>
 (() => {
 'use strict';
@@ -1652,6 +1653,10 @@ const MODELS = [
   ['merc', 'מרצדע 190 של סבא', 'sedan', 2.25, .86, .9, 1.42, .16, 7, .31, 'compass', 250, 1.2, 1.14, 1.06, 'rect', 'סבא אמר לא לגעת. נגענו.'],
   ['e30', 'במוו E30 של סמיר', 'sedan', 2.18, .84, .88, 1.4, .14, 7, .3, 'roundel', 300, 1.25, 1.15, .96, 'round', 'מלכת הדריפט. סמיר עדיין לא יודע שמכרנו אותה.']
 ].map(([id, name, style, L, W, H, R, nose, n, wr, badge, price, acc, vmax, grip, head, desc], i) => ({ id, name, style, L, W, H, R, nose, n, wr, badge, price, acc, vmax, grip, head, desc, grey: GREYS[i % GREYS.length] }));
+MODELS.push(
+  { id: 'gsedan', name: 'סדאן הכפר', style: 'sedan', L: 2.3, W: 0.9, H: 1.4, R: 1.4, nose: 0.3, n: 4, wr: 0.33, badge: 'bars', price: 340, acc: 1.02, vmax: 1.02, grip: 1.0, head: 'round', grey: 0x8a8c8f, glb: 'sedan.glb', flip: false, desc: 'מודל אמיתי, מסודר מבחוץ ומבפנים. מחזיק את הכביש כמו סבא על הכורסה.' },
+  { id: 'gcharger', name: 'הטעינה המהירה', style: 'hatch', L: 2.4, W: 0.92, H: 1.4, R: 1.4, nose: 0.3, n: 4, wr: 0.3, badge: 'bars', price: 420, acc: 1.1, vmax: 1.08, grip: 1.06, head: 'slant', grey: 0x6f7174, glb: 'charger.glb', flip: false, desc: 'מודל אמיתי עם ארבעה גלגלים שמסתובבים. כשהיא עוברת, השכנים מחפשים את הכבלים.' }
+);
 const PAINTCOLS = [
   { id: 'grey', name: 'אפור טרנטה (מקורי)', hex: null, price: 0 }, { id: 'silver', name: 'כסף דהוי', hex: 0xb8bab9, price: 0 },
   { id: 'white', name: 'לבן מנהלים', hex: 0xe8e6e0, price: 15 }, { id: 'black', name: 'שחור מבריק', hex: 0x141416, price: 15 },
@@ -1932,23 +1937,79 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   const glowList = meshes.filter(m => gmats.includes(m.material)).concat(flames);
   return { root, body, wheels, meshes, spot, flame, flameMat, flames, tailMat, neonMat, spinners, glowMeshes: glowList, ownMats, M, eq, wr };
 }
-let CAR = null;
+let CAR = null, carToken = 0;
 const STAT = { acc: 1, vmax: 1, grip: 1, off: false, turbo: false, bald: false };
 function disposeCar(c) {
   c.meshes.forEach(m => { csm?.removeShadowCaster(m, false); glow.removeIncludedOnlyMesh(m); });
   c.spot?.dispose(); c.root.dispose(false, false); c.ownMats?.forEach(m => m.dispose());
 }
-function makePlayerCar() {
+function applyStats(M) {
+  Object.assign(STAT, { acc: M.acc * (EQ.engine === 'swap' ? 1.12 : 1), vmax: M.vmax * (EQ.engine === 'swap' ? 1.04 : 1), grip: M.grip * (EQ.tires === 'bald' ? 0.82 : 1), off: EQ.tires === 'offroad', turbo: EQ.engine === 'turbo', bald: EQ.tires === 'bald' });
+  const cn = $('carname'); if (cn) cn.textContent = M.name;
+}
+function installCar(newCar, M) {
   if (CAR) disposeCar(CAR);
-  const M = modelOf(EQ.car);
-  applyPaint(paint, M, EQ);
-  CAR = buildCar(false, paint, { M, eq: EQ });
+  CAR = newCar;
   CAR.meshes.forEach(m => { if (!CAR.flames.includes(m)) caster(m); });
   CAR.glowMeshes.forEach(m => glow.addIncludedOnlyMesh(m));
   CAR.root.position.set(car.x, 0, car.z); CAR.root.rotation.y = car.h;
   CAR.spot.intensity = (typeof timeMode !== 'undefined' && TIMES[timeMode]) ? TIMES[timeMode].head : 260;
-  Object.assign(STAT, { acc: M.acc * (EQ.engine === 'swap' ? 1.12 : 1), vmax: M.vmax * (EQ.engine === 'swap' ? 1.04 : 1), grip: M.grip * (EQ.tires === 'bald' ? 0.82 : 1), off: EQ.tires === 'offroad', turbo: EQ.engine === 'turbo', bald: EQ.tires === 'bald' });
-  const cn = $('carname'); if (cn) cn.textContent = M.name;
+  applyStats(M);
+}
+function makePlayerCar() {
+  const M = modelOf(EQ.car), token = ++carToken;
+  if (M.glb) { if (!CAR) { applyPaint(paint, MODELS[0], EQ); installCar(buildCar(false, paint, { M: MODELS[0], eq: EQ }), MODELS[0]); } loadGLBCar(M, token); return; }
+  applyPaint(paint, M, EQ);
+  installCar(buildCar(false, paint, { M, eq: EQ }), M);
+}
+// real car models (glTF). Normalised to a 4.6 m long car, centred, sitting on y=0.
+const GLB_LEN = 4.6;
+async function loadGLBCar(M, token) {
+  let res = null;
+  try { res = await B.SceneLoader.ImportMeshAsync('', 'models/', M.glb, scene); }
+  catch (e) { if (token === carToken) toast('המכונית לא נטענה, נשארים עם הקודמת', '', true); return; }
+  if (token !== carToken) { res.meshes.forEach(m => m.dispose()); return; }
+  installCar(buildGLBCar(res, M), M);
+}
+function buildGLBCar(res, M) {
+  const wrap = new B.TransformNode('glbCar', scene), body = new B.TransformNode('glbBody', scene), inner = new B.TransformNode('glbInner', scene);
+  body.parent = wrap; inner.parent = body;
+  res.meshes.filter(m => !m.parent).forEach(m => { m.parent = inner; });
+  (res.transformNodes || []).filter(n => !n.parent).forEach(n => { n.parent = inner; });
+  if (M.flip) inner.rotation.y = Math.PI;
+  const measure = () => { inner.computeWorldMatrix(true); return inner.getHierarchyBoundingVectors(true); };
+  let bb = measure();
+  const sz = bb.max.subtract(bb.min), s0 = GLB_LEN / Math.max(sz.x, sz.z);
+  inner.scaling.setAll(s0);
+  bb = measure();
+  const c = bb.max.add(bb.min).scale(0.5);
+  inner.position.set(-c.x, -bb.min.y, -c.z);
+  bb = measure();
+  const fz = bb.max.z - c.z + 0, bz = bb.min.z - c.z, hgt = bb.max.y - bb.min.y;
+  // wheels: pull any mesh named like a wheel into its own pivot so it can spin and steer
+  const wheels = [];
+  let wr = 0.33;
+  const wm_list = res.meshes.filter(m => /wheel|tire|tyre/i.test(m.name) && m.getTotalVertices && m.getTotalVertices() > 0);
+  for (const wm of wm_list) {
+    const wb = wm.getHierarchyBoundingVectors(true), cen = wb.min.add(wb.max).scale(0.5);
+    const pivot = new B.TransformNode('wp', scene); pivot.parent = wrap; pivot.position.copyFrom(cen);
+    const spin = new B.TransformNode('ws', scene); spin.parent = pivot;
+    wm.setParent(spin);
+    wr = Math.max(wr === 0.33 ? 0 : wr, (wb.max.y - wb.min.y) / 2);
+    wheels.push({ pivot, spin, front: cen.z > c.z ? true : cen.z > 0 });
+  }
+  if (!wheels.length) wr = 0.33;
+  const meshes = res.meshes.filter(m => m.getTotalVertices && m.getTotalVertices() > 0);
+  meshes.forEach(m => { m.isPickable = false; m.receiveShadows = true; });
+  const spot = new B.SpotLight('head', V3(0, hgt * 0.5, fz + 0.1), V3(0, -0.1, 1), 0.9, 6, scene); spot.parent = wrap;
+  spot.diffuse = new B.Color3(1, 0.94, 0.82); spot.range = 90;
+  const flame = new B.TransformNode('flame', scene); flame.parent = body; flame.position.set(0, hgt * 0.22, bz - 0.1);
+  const flameMat = unlit('flameG' + (++carUid), new B.Color3(1, 2, 6), 0.9, true);
+  const flames = [];
+  for (const x of [-0.22, 0.22]) { const f = MB.CreateCylinder('fl', { height: 0.8, diameterTop: 0, diameterBottom: 0.14, tessellation: 14 }, scene); f.parent = flame; f.rotation.x = -Math.PI / 2; f.position.set(x, 0, -0.4); f.material = flameMat; f.isPickable = false; flames.push(f); }
+  flame.setEnabled(false);
+  const tailMat = unlit('glbTail' + carUid, new B.Color3(2.2, 0.08, 0.1));
+  return { root: wrap, body, wheels, meshes: [...meshes, ...flames], spot, flame, flameMat, flames, tailMat, neonMat: null, spinners: [], glowMeshes: flames.slice(), ownMats: [flameMat, tailMat], M, eq: EQ, wr, glb: true };
 }
 const GHOST = buildCar(true); GHOST.root.setEnabled(false);
 
@@ -2873,6 +2934,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { car, combo, scene, setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { car, combo, scene, carObj: () => CAR, setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
