@@ -188,6 +188,9 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
 .pb.horn{grid-area:hn;width:84px;height:46px;border-radius:14px;font-size:13px}
 .fpsv{font:700 12px var(--num);color:#b6f5c4}
 @media (pointer:coarse){
+  .chip span{display:none}
+  .chip{padding:8px 10px}
+  #mini{width:96px;height:96px}
   .speedo{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto;padding:6px 12px 8px;gap:10px}
   .combo{top:calc(84px + env(safe-area-inset-top,0px))}
   .speedo .bars{display:none}
@@ -586,7 +589,7 @@ function strip(name, offA, yA, offB, yB, along, mat, wallSign = 0) {
   m.isPickable = false; m.freezeWorldMatrix();
   return m;
 }
-const roadMat = pbr('road', { tex: asphaltTex, bump: asphaltN, bumpLevel: 0.7, rough: 0.82, twoSided: true });
+const roadMat = pbr('road', { tex: asphaltTex, bump: asphaltN, bumpLevel: 0.7, rough: 0.6, twoSided: true });
 const curbMat = pbr('curb', { tex: curbTex, rough: 0.55, twoSided: true });
 const gravelMat = pbr('gravel', { tex: gravelTex, bump: gravelN, rough: 1, twoSided: true });
 const wallMat = pbr('wall', { tex: tireWallTex, rough: 0.8, twoSided: true });
@@ -1555,6 +1558,7 @@ mtnMats.forEach((mat, layer) => {
 /* ================= lights / sky ================= */
 const sun = new B.DirectionalLight('sun', V3(0, -1, 0), scene);
 const hemi = new B.HemisphericLight('hemi', V3(0, 1, 0), scene);
+const carFill = new B.PointLight('carFill', V3(0, 3, 0), scene); carFill.range = 14; carFill.intensity = 1.4; carFill.diffuse = new B.Color3(1, 0.8, 0.55);
 const lampLights = Array.from({ length: 4 }, (_, i) => { const l = new B.PointLight('lamp' + i, V3(0, -100, 0), scene); l.diffuse = new B.Color3(1, 0.66, 0.32); l.specular = new B.Color3(0.6, 0.4, 0.2); l.range = 46; return l; });
 const skyDay = MB.CreateBox('skyDay', { size: 6000 }, scene);
 B.Effect.ShadersStore.duskSkyVertexShader = `precision highp float; attribute vec3 position; uniform mat4 worldViewProjection; varying vec3 vDir; void main(){ vDir = position; gl_Position = worldViewProjection * vec4(position, 1.0); }`;
@@ -1966,17 +1970,18 @@ function makePlayerCar() {
 }
 // real car models (glTF). Normalised to a 4.6 m long car, centred, sitting on y=0.
 const GLB_LEN = 4.6;
+async function importModel(name) {
+  // the artifact host only serves text, so the model travels as base64 text; the repo falls back to the .glb file
+  let file = null;
+  try {
+    const r = await fetch('models/' + name.replace('.glb', '.txt'));
+    if (r.ok) { const bin = atob((await r.text()).trim()), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); file = new File([u8], name, { type: 'model/gltf-binary' }); }
+  } catch (e) { file = null; }
+  return file ? B.SceneLoader.ImportMeshAsync('', '', file, scene) : B.SceneLoader.ImportMeshAsync('', 'models/', name, scene);
+}
 async function loadGLBCar(M, token) {
   let res = null;
-  try {
-    // the artifact host only serves text, so the model travels as base64 text; the repo falls back to the .glb file
-    let file = null;
-    try {
-      const r = await fetch('models/' + M.glb.replace('.glb', '.txt'));
-      if (r.ok) { const bin = atob((await r.text()).trim()), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); file = new File([u8], M.glb, { type: 'model/gltf-binary' }); }
-    } catch (e2) { file = null; }
-    res = file ? await B.SceneLoader.ImportMeshAsync('', '', file, scene) : await B.SceneLoader.ImportMeshAsync('', 'models/', M.glb, scene);
-  }
+  try { res = await importModel(M.glb); }
   catch (e) { if (token === carToken) toast('המכונית לא נטענה, נשארים עם הקודמת', '', true); return; }
   if (token !== carToken) { res.meshes.forEach(m => m.dispose()); return; }
   installCar(buildGLBCar(res, M), M);
@@ -2189,6 +2194,37 @@ const rivals = RIVAL_DEF.map((d, k) => {
   const tag = document.createElement('span'); tag.className = 'tag'; tag.hidden = true; tag.innerHTML = `${d.name}<b></b>`; $('tags').appendChild(tag);
   return { ...d, rc, sm, tag, s: 0, v: 0, laneT: d.lane, ang: 0, x: 0, z: 0, h: 0, ahead: null, hitT: 0, passT: -99 };
 });
+/* rival cars: tinted clones of the real charger model (built-in cars are the fallback) */
+let rivalTemplate = null;
+async function loadRivalTemplate() {
+  try {
+    const res = await importModel('charger.glb');
+    const tRoot = res.meshes.find(m => !m.parent);
+    if (!tRoot) return;
+    tRoot.setEnabled(false);
+    rivalTemplate = tRoot;
+    rivals.forEach((r, k) => swapRival(r, k));
+  } catch (e) { /* keep the built-in rival cars */ }
+}
+function swapRival(r, k) {
+  if (!rivalTemplate) return;
+  const hex = RIVAL_DEF[k].hex ?? 0x8a8c8f;
+  const inst = rivalTemplate.instantiateHierarchy(null, { doNotInstantiate: false }, (src, clone) => {
+    if (clone.material) clone.material = clone.material.clone('rm' + k + '_' + clone.name);
+  });
+  inst.setEnabled(true);
+  const kids = inst.getChildMeshes(false);
+  kids.forEach(m => { m.setEnabled(true); m.isVisible = true; });
+  kids.forEach(m => { if (m.material && 'albedoColor' in m.material && !/wheel|tire|tyre|light|glass/i.test(m.name)) m.material.albedoColor = LC(hex); });
+  const newRc = buildGLBCar({ meshes: kids, transformNodes: [inst] }, MODELS.find(m => m.id === 'gcharger'));
+  newRc.spot.dispose();
+  newRc.meshes.forEach(m => caster(m));
+  r.rc.meshes.forEach(m => { csm?.removeShadowCaster(m, false); glow.removeIncludedOnlyMesh(m); });
+  r.rc.ownMats?.forEach(m => m.dispose());
+  r.rc.root.dispose(false, false);
+  r.rc = newRc;
+  r.rc.root.setEnabled(r.active !== false);
+}
 function placeRival(r) {
   const fi = (((r.s % LEN) + LEN) % LEN) / DS, i0 = Math.floor(fi) % N, i1 = (i0 + 1) % N, f = fi - Math.floor(fi);
   r.i = i0;
@@ -2705,6 +2741,7 @@ function placeLampLights() {
 }
 function syncVisuals(dt) {
   CAR.root.position.set(car.x, 0, car.z); CAR.root.rotation.y = car.h;
+  { const fch = Math.cos(car.h), fsh = Math.sin(car.h); carFill.position.set(car.x + 2.6 * fch + 1.0 * fsh, 2.6, car.z - 2.6 * fsh + 1.0 * fch); }
   const b = CAR.body;
   b.rotation.z = lerp(b.rotation.z, clamp(car.ay * 0.0042, -0.07, 0.07), 1 - Math.exp(-dt * 8));
   b.rotation.x = lerp(b.rotation.x, clamp(-car.ax * 0.0028, -0.045, 0.045), 1 - Math.exp(-dt * 8));
@@ -2780,6 +2817,7 @@ function setTime(mode) {
   TI.pool.mesh.material.alpha = T.pool;
   lampLights.forEach(l => l.intensity = T.lamp);
   CAR.spot.intensity = T.head;
+  carFill.intensity = night ? 0.7 : 1.4; carFill.diffuse = night ? new B.Color3(0.6, 0.7, 1) : new B.Color3(1, 0.8, 0.55);
   rivals.forEach(r => r.sm.setTint(T.smoke));
   sunDisc.position = SUN_DUSK.scale(2600);
   setRays();
@@ -2794,6 +2832,25 @@ function setTime(mode) {
   bulbMat.emissiveColor = new B.Color3(3.5, 2.4, 1.2).scale(night ? 1.2 : 0.6);
 }
 $('bTime').addEventListener('click', () => setTime(timeMode === 'dusk' ? 'night' : 'dusk'));
+
+/* birds circling the first village */
+const BIRD = { mesh: null, buf: null, list: [] };
+{
+  const bm = unlit('birdM', new B.Color3(0.09, 0.08, 0.1));
+  const b = MB.CreateBox('bird', { width: 0.9, height: 0.03, depth: 0.24 }, scene); b.material = bm; b.isPickable = false; b.alwaysSelectAsActiveMesh = true;
+  const vc = VILLAGES[0] || [TCX, TCZ];
+  for (let k = 0; k < 26; k++) BIRD.list.push({ cx: vc[0] + (R1() - .5) * 140, cz: vc[1] + (R1() - .5) * 140, r: 30 + R1() * 60, sp: 0.12 + R1() * 0.12, ph: R1() * 6.28, alt: 42 + R1() * 40 });
+  BIRD.buf = new Float32Array(BIRD.list.length * 16); b.thinInstanceSetBuffer('matrix', BIRD.buf, 16, false); BIRD.mesh = b;
+}
+function updateBirds(t) {
+  if (!BIRD.mesh) return;
+  BIRD.list.forEach((g, i) => {
+    const a = g.ph + t * g.sp, x = g.cx + Math.cos(a) * g.r, z = g.cz + Math.sin(a) * g.r, y = g.alt + Math.sin(t * 0.5 + g.ph) * 4;
+    const yaw = Math.atan2(-Math.sin(a), Math.cos(a));
+    B.Matrix.Compose(V3(1, 1, 1), B.Quaternion.RotationYawPitchRoll(yaw, 0, 0), V3(x, y, z)).copyToArray(BIRD.buf, i * 16);
+  });
+  BIRD.mesh.thinInstanceBufferUpdated('matrix');
+}
 
 /* ================= state / menus ================= */
 let state = 'menu', countT = 0, countStep = -1;
@@ -2896,6 +2953,7 @@ addEventListener('resize', () => engine.resize());
 
 /* ================= boot ================= */
 makePlayerCar();
+loadRivalTemplate();
 setQuality(quality);
 setTime(store.get('time', 'dusk') === 'night' ? 'night' : 'dusk');
 resetCar(30); car.h += 0.5; resetRivals();
@@ -2926,7 +2984,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed);
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
@@ -2945,6 +3003,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { car, combo, scene, carObj: () => CAR, setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { car, combo, scene, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
