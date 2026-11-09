@@ -89,10 +89,10 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .knob{position:absolute;top:50%;left:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,210,140,.55),rgba(255,179,65,.22) 60%,rgba(255,179,65,.1));border:2px solid rgba(255,179,65,.7);box-shadow:0 4px 18px rgba(0,0,0,.35);transition:transform .12s ease-out}
 .steer.active .knob{transition:none}
 .steer .hint{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);letter-spacing:.06em}
-.pedals{pointer-events:auto;display:grid;grid-template-columns:auto auto;grid-template-areas:"hb nos" "brk gas";gap:10px;align-items:end}
+.pedals{pointer-events:auto;display:grid;grid-template-columns:auto auto;grid-template-areas:"hn nos" "hb gas" "brk gas";gap:10px;align-items:end}
 .pb{touch-action:none;border:1.5px solid rgba(240,214,170,.28);background:rgba(14,13,20,.48);color:var(--fg);font:800 14px var(--body);display:grid;place-items:center;align-content:center;gap:2px;padding:0}
 .pb.on{background:rgba(255,179,65,.32);border-color:var(--sodium)}
-.pb.gas{grid-area:gas;width:84px;height:132px;border-radius:22px}
+.pb.gas{grid-area:gas;width:84px;height:100%;min-height:132px;border-radius:22px}
 .pb.brk{grid-area:brk;width:84px;height:96px;border-radius:22px}
 .pb.hb{grid-area:hb;width:84px;height:54px;border-radius:16px}
 .pb.nos{grid-area:nos;width:84px;height:54px;border-radius:16px;color:var(--sky);border-color:rgba(143,216,255,.45)}
@@ -129,6 +129,56 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
 .loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--ink);pointer-events:auto;font-family:var(--display);font-size:22px;color:var(--muted);text-align:center;padding:16px}
 .loading b{display:block;font-size:40px;color:var(--fg);margin-bottom:8px}
 .coarse-only{display:none}
+/* garage + settings */
+.modal{position:absolute;inset:0;display:flex;justify-content:flex-start;align-items:stretch;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(270deg,rgba(9,8,14,.9) 0%,rgba(9,8,14,.6) 45%,rgba(9,8,14,.05) 75%);pointer-events:auto}
+.mpanel{width:min(600px,100%);display:grid;grid-template-rows:auto auto 1fr;gap:12px;padding:16px;background:var(--plate-strong);min-height:0}
+.mhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mhead h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0;flex:1;min-width:0}
+.fal{font-family:var(--num);font-weight:700;font-size:20px;color:#ffd38a;background:rgba(255,179,65,.12);border:1px solid rgba(255,179,65,.35);border-radius:999px;padding:4px 12px;white-space:nowrap}
+.fal.bump{animation:bump .5s ease-out}
+@keyframes bump{0%{transform:scale(1)}30%{transform:scale(1.25)}100%{transform:scale(1)}}
+.btn.small{font-size:14px;padding:8px 14px;min-height:36px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:700 15px var(--body);color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:10px;padding:8px 16px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--stone);color:#1b140c;border-color:var(--stone)}
+.mbody{overflow-y:auto;min-height:0;display:grid;gap:14px;align-content:start;padding-inline-end:4px}
+.gsec{display:grid;gap:8px}
+.gsec h3{margin:0;font:800 14px var(--body);letter-spacing:.06em;color:var(--sodium)}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.gi{display:grid;gap:5px;text-align:start;font:600 14px var(--body);color:var(--fg);background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:12px;padding:10px 12px;cursor:pointer;min-height:64px}
+.gi:hover{border-color:rgba(255,179,65,.5)}
+.gi .nm{font-weight:800;font-size:15px;line-height:1.2}
+.gi .ds{font-size:12px;color:var(--muted);font-weight:500;line-height:1.35}
+.gi .pr{font:700 13px var(--num);color:#ffd38a}
+.gi.own .pr{color:var(--muted)}
+.gi.on{border-color:var(--sodium);background:rgba(255,179,65,.14)}
+.gi.on .pr{color:var(--sodium)}
+.gi.poor{opacity:.55}
+.gi.ask{border-color:#fff;background:rgba(255,255,255,.12)}
+.gi .sw2{width:100%;height:26px;border-radius:7px;box-shadow:inset 0 -6px 10px rgba(0,0,0,.3),inset 0 4px 8px rgba(255,255,255,.2)}
+.stat{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:600}
+.stat i{display:block;height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.stat i b{display:block;height:100%;background:linear-gradient(90deg,#ffd38a,var(--sodium))}
+.carrow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:12px;padding:10px 12px}
+.carrow b{display:block;font:800 18px var(--body)}
+.srow{display:grid;gap:6px}
+.srow .seg{flex-wrap:wrap}
+.sdesc{font-size:13px;color:var(--muted);margin:0}
+/* steering wheel + arrows + tilt */
+.lc{display:flex;align-items:flex-end;pointer-events:none}
+.lc > *{pointer-events:auto}
+.wheelc{width:156px;height:156px;position:relative;touch-action:none;margin-bottom:6px}
+.wheelc svg{width:100%;height:100%;transition:transform .15s ease-out;filter:drop-shadow(0 4px 14px rgba(0,0,0,.4))}
+.wheelc.active svg{transition:none}
+.wheelc .hint,.tiltc .hint{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted)}
+.arrows{display:flex;gap:12px}
+.pb.arr{width:92px;height:92px;border-radius:24px}
+.pb.arr svg{width:34px;height:34px}
+.tiltc{position:relative;display:grid;gap:8px;justify-items:center;padding:10px 12px;border-radius:16px;background:rgba(14,13,20,.42);border:1.5px solid rgba(240,214,170,.25);margin-bottom:18px}
+.tiltbar{width:180px;height:10px;border-radius:5px;background:rgba(255,255,255,.12);position:relative}
+.tiltbar i{position:absolute;top:-4px;left:50%;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--sodium)}
+.pb.horn{grid-area:hn;width:84px;height:46px;border-radius:14px;font-size:13px}
+.fpsv{font:700 12px var(--num);color:#b6f5c4}
 @media (pointer:coarse){
   .speedo{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:6px 12px 8px;gap:10px}
   .speedo .v{font-size:30px}
@@ -137,6 +187,8 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   .coarse-only{display:block}
 }
 @media (max-width:640px){
+  .modal{background:rgba(9,8,14,.82)}
+  .ggrid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
   .score,.lap{min-width:0;padding:8px 12px}
   .score .big{font-size:22px}
   .lap .big{font-size:18px}
@@ -153,7 +205,9 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   .card{gap:12px}
 }
 @media (max-height:520px) and (pointer:coarse){
-  .pb.gas{height:110px}.pb.brk{height:80px}.pb.hb,.pb.nos{height:46px}
+  .pb.gas{min-height:100px}.pb.brk{height:76px}.pb.hb,.pb.nos,.pb.horn{height:42px}
+  .wheelc{width:118px;height:118px}
+  .pb.arr{width:80px;height:80px}
   #mini{width:84px;height:84px}
 }
 @media (prefers-reduced-motion:reduce){.toast.show{animation-duration:1.2s}.combo{transition:none}.count span{animation-duration:.6s}}
@@ -167,18 +221,20 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
       <span class="lbl">ניקוד דריפט</span>
       <span class="big num" id="total">0</span>
       <span class="sub">שיא: <b id="best">0</b></span>
+      <span class="fal" id="hfal">🧆 <span id="fal">0</span></span>
     </div>
     <div class="stack">
       <div class="plate lap">
         <span class="lbl">הקפה <span class="num" id="lapn">1</span></span>
         <span class="big num" id="laptime">0:00.000</span>
         <span class="sub">מהירה: <b id="bestlap">—</b></span>
-        <span class="sub">מקום: <b id="pos">1/4</b></span>
+        <span class="sub">מקום: <b id="pos">1/8</b></span>
       </div>
       <div class="plate minibox"><canvas id="mini" width="300" height="300" aria-label="מפת המסלול"></canvas></div>
       <div class="chips">
         <button class="chip" id="bPause" type="button" aria-label="השהיה"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>השהיה</span></button>
         <button class="chip" id="bCam" type="button" aria-label="מצלמה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg><span>מצלמה</span></button>
+        <span class="chip fpsv" id="fpsv" hidden>0 FPS</span>
         <button class="chip" id="bTime" type="button" aria-label="שעה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="bTimeL">שקיעה</span></button>
       </div>
     </div>
@@ -204,13 +260,34 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   </div>
 
   <div class="touch" id="touch" dir="ltr">
-    <div class="steer" id="steer" aria-label="הגה: גרור ימינה ושמאלה">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-      <div class="knob" id="knob"></div>
-      <span class="hint">גרור להיגוי</span>
+    <div class="lc">
+      <div class="steer" id="steer" aria-label="הגה: גרור ימינה ושמאלה">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        <div class="knob" id="knob"></div>
+        <span class="hint">גרור להיגוי</span>
+      </div>
+      <div class="wheelc" id="wheelc" hidden aria-label="הגה: סובב">
+        <svg id="wheelsvg" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#2a2724" stroke-width="10"/>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#4a443d" stroke-width="5"/>
+          <path d="M50 50 L10 54 M50 50 L90 54 M50 50 L50 92" stroke="#2a2724" stroke-width="9" stroke-linecap="round"/>
+          <circle cx="50" cy="50" r="13" fill="#2a2724" stroke="#ffb341" stroke-width="2"/>
+          <rect x="47" y="4" width="6" height="10" rx="2" fill="#ffb341"/>
+        </svg>
+        <span class="hint">סובב את ההגה</span>
+      </div>
+      <div class="arrows" id="arrows" hidden>
+        <button class="pb arr" data-k="left" type="button" aria-label="שמאלה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button class="pb arr" data-k="right" type="button" aria-label="ימינה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="tiltc" id="tiltc" hidden>
+        <div class="tiltbar"><i id="tiltdot"></i></div>
+        <button class="chip" id="tcal" type="button">כיול (החזק ישר ולחץ)</button>
+      </div>
     </div>
     <div class="pedals">
+      <button class="pb horn" data-k="horn" type="button">צופר</button>
       <button class="pb hb" data-k="hb" type="button">בלם יד</button>
       <button class="pb nos" data-k="nitro" type="button">ניטרו</button>
       <button class="pb brk" data-k="brake" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9h12M6 15h12"/></svg>בלם</button>
@@ -222,15 +299,10 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
     <div class="card">
       <span class="eyebrow">מסלול הכפרים · 1.8 ק״מ · 18:47</span>
       <h1>דריפט בין ערבים</h1>
-      <p class="lead">מסלול שמתפתל בין כפרי אבן על הגבעות, מסגדים וצריחים, כרמי זיתים ועיזים על הגגות. כל הכפר יצא לראות, ושלושה נהגים מקומיים רוצים לעקוף אותך.</p>
-      <div class="group">
-        <span class="lbl">צבע המכונית</span>
-        <div class="sws" id="sws"></div>
-        <span class="paint-name" id="pname"></span>
-      </div>
-      <div class="group">
-        <span class="lbl">איכות גרפיקה</span>
-        <div class="seg" id="q1"><button type="button" data-q="high">גבוהה</button><button type="button" data-q="med">בינונית</button><button type="button" data-q="low">חסכונית</button></div>
+      <p class="lead">מסלול שמתפתל בין כפרי אבן על הגבעות, מסגדים וצריחים, כרמי זיתים ועיזים על הגגות. כל הכפר יצא לראות, ושבעה נהגים מקומיים רוצים לעקוף אותך. כל דריפט יפה שווה כדורי פלאפל, ועם הפלאפל קונים טרנטות ושדרוגים במוסך.</p>
+      <div class="carrow">
+        <div><span class="lbl">המכונית שלך</span><b id="carname">מזדע 323</b></div>
+        <div class="row-btns"><button class="btn ghost small" id="openGarage" type="button">מוסך · 🧆 <span id="sfal">0</span></button><button class="btn ghost small" id="openSettings" type="button">הגדרות</button></div>
       </div>
       <dl class="keys fine-only">
         <dt><kbd>W</kbd><kbd>↑</kbd></dt><dd>גז</dd>
@@ -240,6 +312,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <dt><kbd>Shift</kbd></dt><dd>ניטרו, מתמלא בזמן דריפט</dd>
         <dt><kbd>C</kbd><kbd>T</kbd></dt><dd>מצלמה · שקיעה או לילה</dd>
         <dt><kbd>R</kbd><kbd>P</kbd></dt><dd>חזרה למסלול · השהיה</dd>
+        <dt><kbd>H</kbd></dt><dd>צופר</dd>
       </dl>
       <p class="tip coarse-only">אגודל שמאל גורר את ההגה, אגודל ימין על הדוושות. בלם יד לרגע בכניסה לסיבוב, ואז גז מלא.</p>
       <p class="tip fine-only">בלם יד לרגע בכניסה לסיבוב, ואז גז מלא והיגוי נגדי כדי להחזיק את הזווית. דריפט צמוד לקיר שווה ×1.6, דריפט צמוד ליריב (טנדם) ×1.3, והקהל קופץ כשאתה עובר לידו.</p>
@@ -250,16 +323,40 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   <div class="pause" id="pause" hidden>
     <div class="plate box">
       <h2>הושהה</h2>
-      <div class="group">
-        <span class="lbl">איכות גרפיקה</span>
-        <div class="seg" id="q2"><button type="button" data-q="high">גבוהה</button><button type="button" data-q="med">בינונית</button><button type="button" data-q="low">חסכונית</button></div>
-      </div>
-      <div class="toggle"><span>סיוע היגוי (מונע הסתחררות)</span><div class="seg" id="assist"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
-      <div class="toggle"><span>צליל</span><div class="seg" id="sound"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
       <div class="row-btns">
         <button class="btn" id="resume" type="button">ממשיכים</button>
+        <button class="btn ghost" id="pGarage" type="button">מוסך</button>
+        <button class="btn ghost" id="pSettings" type="button">הגדרות</button>
         <button class="btn ghost" id="restart" type="button">התחלה מחדש</button>
         <button class="btn ghost" id="tomenu" type="button">לתפריט</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="garage" hidden>
+    <div class="mpanel plate">
+      <div class="mhead"><h2>המוסך של אבו דריפט</h2><span class="fal" id="gfal">🧆 0</span><button class="btn small" id="gclose" type="button">סגור</button></div>
+      <div class="tabs" id="gtabs"><button type="button" data-tab="cars" aria-pressed="true">טרנטות</button><button type="button" data-tab="parts" aria-pressed="false">שדרוגים</button><button type="button" data-tab="paint" aria-pressed="false">צבעים</button></div>
+      <div class="mbody" id="glist"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="settings" hidden>
+    <div class="mpanel plate">
+      <div class="mhead"><h2>הגדרות</h2><button class="btn small" id="sclose" type="button">סגור</button></div>
+      <div></div>
+      <div class="mbody">
+        <div class="srow"><span class="lbl">שליטה בטלפון</span>
+          <div class="seg" id="ctrl"><button type="button" data-v="slider">פס גרירה</button><button type="button" data-v="wheel">הגה</button><button type="button" data-v="arrows">חצים</button><button type="button" data-v="tilt">הטיית הטלפון</button></div>
+          <p class="sdesc" id="ctrldesc"></p></div>
+        <div class="srow"><span class="lbl">פריימים לשנייה</span>
+          <div class="seg" id="fps"><button type="button" data-v="30">30</button><button type="button" data-v="60">60</button><button type="button" data-v="90">90</button><button type="button" data-v="120">120</button><button type="button" data-v="0">בלי הגבלה</button></div>
+          <p class="sdesc">30 חוסך סוללה. "בלי הגבלה" רץ בקצב של המסך שלך.</p></div>
+        <div class="toggle"><span>הצג מונה FPS</span><div class="seg" id="showfps"><button type="button" data-v="1">כן</button><button type="button" data-v="0">לא</button></div></div>
+        <div class="srow"><span class="lbl">איכות גרפיקה</span>
+          <div class="seg" id="q1"><button type="button" data-q="high">גבוהה</button><button type="button" data-q="med">בינונית</button><button type="button" data-q="low">חסכונית</button></div></div>
+        <div class="toggle"><span>סיוע היגוי (מונע הסתחררות)</span><div class="seg" id="assist"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
+        <div class="toggle"><span>צליל</span><div class="seg" id="sound"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
       </div>
     </div>
   </div>
@@ -1096,26 +1193,96 @@ PV.forEach(v => {
   caster(v.body); caster(v.arm);
 });
 
-/* ================= car ================= */
-const PAINTS = [
-  { name: 'כתום שקיעה', hex: 0xff5a14 }, { name: 'אדום חם', hex: 0xc4101f }, { name: 'סגול חצות', hex: 0x4a2fd6 },
-  { name: 'טורקיז', hex: 0x0fa3a0 }, { name: 'לבן פנינה', hex: 0xe8e4dc }, { name: 'שחור מבריק', hex: 0x121216 }, { name: 'זהב מדבר', hex: 0xc89a3a }
+/* ================= cars ================= */
+const GREYS = [0x8a8c8f, 0x9d9b95, 0x6f7174, 0xaaa69c, 0x7c7f84, 0xb5b2aa, 0x5d5f62, 0x93918a];
+const MODELS = [
+  ['mazda', 'מזדע 323', 'hatch', 2.0, .84, .86, 1.36, .16, 4, .29, 'wing', 0, 1, 1, 1, 'rect', 'הקלאסיקה של הכפר. 300 אלף קילומטר ועוד נוסעת.'],
+  ['charade', 'דייהאצו שרדע', 'hatch', 1.84, .8, .85, 1.44, .12, 5, .27, 'D', 10, .85, .88, 1.04, 'round', 'קטנה, קלה, וחולמת להיות מכונית ראלי.'],
+  ['uno', 'פיאט אונע', 'hatch', 1.85, .8, .86, 1.46, .12, 6, .27, 'bars', 15, .88, .9, 1.08, 'rect', 'קופסת נעליים עם מנוע. מחליקה כמו סבון.'],
+  ['rio', 'קיא ריו', 'hatch', 1.98, .83, .88, 1.42, .16, 4, .29, 'kia', 20, .93, .95, 1, 'rect', 'השם אומר הכל.'],
+  ['accent', 'יונדיי אקסנט', 'sedan', 2.1, .84, .88, 1.4, .17, 4, .29, 'slantH', 25, .95, .97, 1, 'rect', 'מכונית הלימוד של כל השכונה.'],
+  ['almera', 'ניסאנו אלמרע', 'sedan', 2.12, .85, .88, 1.4, .17, 4, .29, 'ring', 30, .96, .98, 1, 'rect', 'לא מתקלקלת אף פעם. גם לא מתרגשת.'],
+  ['optra', 'שברולע אופטרה', 'sedan', 2.2, .86, .9, 1.42, .18, 4.5, .3, 'bowtie', 35, .97, .99, 1, 'rect', 'מגיעה עם ריח של ריפוד חדש מ-2006.'],
+  ['corolla', 'טויוטע קורולע 2003', 'sedan', 2.2, .86, .9, 1.42, .17, 4, .3, 'ovals', 40, .98, 1, 1.04, 'rect', 'אי אפשר להרוג אותה. ניסו.'],
+  ['megane', 'רנו מגאנץ', 'hatch', 2.08, .86, .9, 1.46, .2, 3.6, .3, 'diamond', 50, 1, 1, 1.02, 'round', 'התחת הכי מפורסם בכביש 6.'],
+  ['focus', 'פורט פוקוס', 'hatch', 2.12, .86, .9, 1.46, .2, 4, .31, 'blueoval', 55, 1.04, 1.03, 1.03, 'slant', 'שלדה טובה, מזגן מת.'],
+  ['lancer', 'מיצובוסי לנסטר 2005', 'sedan', 2.25, .87, .9, 1.42, .2, 5, .31, 'tri', 60, 1.08, 1.06, 1, 'slant', 'כל בחור בכפר רצה אחת כזאת.'],
+  ['p307', 'פיז׳ו 307', 'hatch', 2.1, .86, .9, 1.5, .24, 3.4, .3, 'shield', 70, 1.03, 1.02, 1.02, 'slant', 'צרפתייה. נדלקת נורה חדשה כל שבוע.'],
+  ['c4', 'סיטרואין C4', 'hatch', 2.12, .86, .9, 1.46, .24, 3, .31, 'chevron', 75, 1.02, 1.04, 1, 'slant', 'עגולה כמו פיתה.'],
+  ['octavia', 'סקודע אוקטביע', 'wagon', 2.25, .87, .9, 1.44, .18, 4.5, .31, 'arrow', 90, 1.06, 1.05, 1.02, 'rect', 'סטיישן. נכנסים בה 3 שקי אורז ודודה.'],
+  ['golf4', 'פולקסוואגון גולפ 4', 'hatch', 2.06, .86, .9, 1.45, .18, 5, .31, 'vw', 110, 1.1, 1.06, 1.05, 'rect', 'הגולף של כל החתונות.'],
+  ['civic', 'הונדע סיוויק 2001', 'sedan', 2.18, .86, .88, 1.4, .18, 4.5, .3, 'H', 120, 1.12, 1.08, 1.04, 'slant', 'VTEC נכנס, השכנים מתעוררים.'],
+  ['impreza', 'סוברו אימפרזע', 'sedan', 2.2, .86, .9, 1.4, .18, 4.5, .31, 'stars', 140, 1.16, 1.1, 1.08, 'slant', 'ארבע על ארבע ובוקסר שמגרגר.'],
+  ['van', 'פולקסוואגון טרנספורטע', 'van', 2.35, .92, 1.0, 1.95, .1, 6, .32, 'vw', 160, .85, .9, .95, 'rect', 'טנדר של העבודה. מחליק עם 9 פועלים.'],
+  ['merc', 'מרצדע 190 של סבא', 'sedan', 2.25, .86, .9, 1.42, .16, 7, .31, 'compass', 250, 1.2, 1.14, 1.06, 'rect', 'סבא אמר לא לגעת. נגענו.'],
+  ['e30', 'במוו E30 של סמיר', 'sedan', 2.18, .84, .88, 1.4, .14, 7, .3, 'roundel', 300, 1.25, 1.15, .96, 'round', 'מלכת הדריפט. סמיר עדיין לא יודע שמכרנו אותה.']
+].map(([id, name, style, L, W, H, R, nose, n, wr, badge, price, acc, vmax, grip, head, desc], i) => ({ id, name, style, L, W, H, R, nose, n, wr, badge, price, acc, vmax, grip, head, desc, grey: GREYS[i % GREYS.length] }));
+const PAINTCOLS = [
+  { id: 'grey', name: 'אפור טרנטה (מקורי)', hex: null, price: 0 }, { id: 'silver', name: 'כסף דהוי', hex: 0xb8bab9, price: 0 },
+  { id: 'white', name: 'לבן מנהלים', hex: 0xe8e6e0, price: 15 }, { id: 'black', name: 'שחור מבריק', hex: 0x141416, price: 15 },
+  { id: 'red', name: 'אדום פרארי של עני', hex: 0xb3121c, price: 20 }, { id: 'blue', name: 'כחול רויאל', hex: 0x1d3f8c, price: 20 },
+  { id: 'olive', name: 'ירוק זית', hex: 0x5b6a2e, price: 20 }, { id: 'taxi', name: 'צהוב מונית', hex: 0xf2c21b, price: 25 },
+  { id: 'turq', name: 'טורקיז', hex: 0x0fa3a0, price: 25 }, { id: 'purple', name: 'סגול חתונה', hex: 0x6a2fb8, price: 30 },
+  { id: 'pink', name: 'ורוד של הדודה', hex: 0xe0559a, price: 30 }, { id: 'gold', name: 'זהב שייח׳', hex: 0xc8a03a, price: 60, metal: 0.9, rough: 0.25 },
+  { id: 'chrome', name: 'כרום מראה', hex: 0xd8d8dc, price: 120, metal: 1, rough: 0.07 }
 ];
-const paint = pbr('paint', { color: 0xff5a14, metal: 0.55, rough: 0.32, env: 1.2 });
-paint.clearCoat.isEnabled = true; paint.clearCoat.intensity = 1; paint.clearCoat.roughness = 0.04;
-paint.backFaceCulling = false;
+const UPG = [
+  { cat: 'exhaust', title: 'אגזוז', items: [['std', 'מקורי חלוד', 0, 'עושה רעש של מייבש שיער'], ['dual', 'אגזוז כפול', 25, 'פי שתיים רעש'], ['cannon', 'אגזוז תותח', 60, 'קוטר של צינור ביוב'], ['fire', 'יורק אש', 90, 'פיצוצים ולהבות כשעוזבים גז']] },
+  { cat: 'wing', title: 'כנף', items: [['none', 'בלי', 0, 'נקי'], ['lip', 'שפתון קטן', 20, 'צנוע'], ['gt', 'כנף GT', 50, 'נראה מהיר עומד'], ['plane', 'כנף של מטוס', 110, 'אפשר לתלות עליה כביסה']] },
+  { cat: 'wheels', title: 'גלגלים', items: [['steel', 'פח שחור', 0, 'מקורי מהמפעל'], ['chrome', 'כרום', 30, 'נוצץ בשמש'], ['gold', 'זהב', 70, 'כמו שן של דוד'], ['spinner', 'ספינרים', 90, 'ממשיכים להסתובב גם בחניה']] },
+  { cat: 'roof', title: 'על הגג', items: [['none', 'כלום', 0, ''], ['mattress', 'מזרן קשור בחבל', 20, 'מעבר דירה תוך כדי דריפט'], ['melons', 'ארגז אבטיחים', 35, 'משלוח לשוק'], ['speaker', 'רמקול חתונות', 45, 'מכריז על כל דריפט'], ['goat', 'עז בטרמפ', 60, 'היא לא ביקשה, אבל נהנית']] },
+  { cat: 'neon', title: 'ניאון מתחת לרכב', items: [['none', 'בלי', 0, ''], ['green', 'ירוק', 30, ''], ['purple', 'סגול', 30, ''], ['rainbow', 'דיסקו', 60, 'מחליף צבעים כמו אולם אירועים']] },
+  { cat: 'engine', title: 'מנוע', items: [['stock', 'מקורי (בקושי)', 0, ''], ['swap', 'מנוע מושתל', 80, '+12% תאוצה, מאיפה? לא שואלים'], ['turbo', 'טורבו מהמוסך של סמיר', 100, 'ניטרו מתמלא מהר יותר ונגמר לאט']] },
+  { cat: 'tires', title: 'צמיגים', items: [['std', 'רגילים', 0, ''], ['bald', 'קירחים', 40, 'פחות אחיזה, יותר עשן, יותר דריפט'], ['offroad', 'צמיגי שטח', 35, 'חצץ? איזה חצץ']] },
+  { cat: 'horn', title: 'צופר', items: [['beep', 'ביפ עצוב', 0, ''], ['tune', 'צופר מנגינה', 25, 'כמו בחתונה'], ['donkey', 'צופר חמור', 30, 'אי-אה!']] },
+  { cat: 'door', title: 'דלת', items: [['same', 'באותו צבע', 0, ''], ['odd', 'דלת מפירוק', 10, 'בצבע אחר, כמו שצריך']] },
+  { cat: 'polish', title: 'גימור', items: [['dusty', 'מאובק', 0, 'אבק של שלוש שנים'], ['shine', 'פוליש מבריק', 25, 'שטיפה בתחנה ליד המסגד']] }
+];
+const DEFAULT_EQ = { car: 'mazda', paint: 'grey', exhaust: 'std', wing: 'none', wheels: 'steel', roof: 'none', neon: 'none', engine: 'stock', tires: 'std', horn: 'beep', door: 'same', polish: 'dusty' };
+let EQ = Object.assign({}, DEFAULT_EQ, store.get('eq', {}));
+const OWNED = new Set(store.get('owned', []));
+MODELS.forEach(m => { if (!m.price) OWNED.add('car:' + m.id); });
+PAINTCOLS.forEach(p => { if (!p.price) OWNED.add('paint:' + p.id); });
+UPG.forEach(g => g.items.forEach(([id, , pr]) => { if (!pr) OWNED.add(g.cat + ':' + id); }));
+let falafel = store.get('falafel', 25);
+for (const k of Object.keys(DEFAULT_EQ)) { const key = (k === 'car' ? 'car' : k) + ':' + EQ[k]; if (!OWNED.has(key)) EQ[k] = DEFAULT_EQ[k]; }
+const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
+
+const paint = pbr('paint', { color: 0x8a8c8f, metal: 0.25, rough: 0.55, env: 1.2 });
+paint.clearCoat.isEnabled = true; paint.backFaceCulling = false;
+const grimeTex = texFrom('grime', mkCanvas(512, 512, (x, w, h) => {
+  x.fillStyle = '#e6e6e6'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(${90 + R0() * 40 | 0},${80 + R0() * 30 | 0},${70 + R0() * 20 | 0},${.04 + R0() * .09})`; x.beginPath(); x.ellipse(R0() * w, R0() * h, 4 + R0() * 40, 3 + R0() * 18, R0() * 3, 0, 7); x.fill(); }
+  for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(${120 + R0() * 40 | 0},${60 + R0() * 20 | 0},${30},${.12 + R0() * .2})`; x.beginPath(); x.arc(R0() * w, R0() * h, 1 + R0() * 5, 0, 7); x.fill(); }
+}));
+function applyPaint(pm, M, eq, hexOverride) {
+  const pc = PAINTCOLS.find(p => p.id === eq.paint) || PAINTCOLS[0];
+  const shine = eq.polish === 'shine';
+  pm.albedoColor = LC(hexOverride ?? pc.hex ?? M.grey);
+  pm.metallic = pc.metal ?? (shine ? 0.5 : 0.22);
+  pm.roughness = pc.rough ?? (shine ? 0.28 : 0.58);
+  pm.clearCoat.intensity = shine || pc.metal ? 1 : 0.15; pm.clearCoat.roughness = shine ? 0.04 : 0.4;
+  pm.albedoTexture = shine ? null : grimeTex;
+}
 const carMats = {
-  glass: pbr('glass', { color: 0x07090c, metal: 0.1, rough: 0.04, env: 1.4 }),
+  glass: pbr('glass', { color: 0x07090c, metal: 0.1, rough: 0.05, env: 1.4 }),
   black: pbr('blk', { color: 0x0c0c0f, rough: 0.5, metal: 0.3 }),
+  bumper: pbr('bump', { color: 0x2b2c2f, rough: 0.75 }),
   tire: pbr('tire', { color: 0x161618, rough: 0.85 }),
   rim: pbr('rim', { color: 0xb6b8be, metal: 1, rough: 0.22 }),
+  gold: pbr('goldR', { color: 0xd6a83a, metal: 1, rough: 0.2 }),
   rimDark: pbr('rimD', { color: 0x1c1d21, metal: 0.8, rough: 0.4 }),
+  steel: pbr('steelR', { color: 0x2a2b2e, metal: 0.6, rough: 0.55 }),
   chrome: pbr('chrome', { color: 0xdcdce0, metal: 1, rough: 0.12 }),
-  caliper: pbr('cal', { color: 0xffb341, rough: 0.4, metal: 0.3 }),
-  head: unlit('head', new B.Color3(4, 3.8, 3.3)),
-  tail: unlit('tail', new B.Color3(2.2, 0.08, 0.1))
+  caliper: pbr('cal', { color: 0x6b6b6b, rough: 0.6, metal: 0.4 }),
+  primer: pbr('primer', { color: 0xc9b28a, rough: 0.8 }),
+  wood: pbr('wood', { color: 0x8a6440, rough: 0.9 }),
+  melon: pbr('melon', { color: 0x2e6b22, rough: 0.5 }),
+  amber: unlit('amber', new B.Color3(1.4, 0.55, 0.05)),
+  head: unlit('head', new B.Color3(4, 3.8, 3.3))
 };
 carMats.glass.clearCoat.isEnabled = true; carMats.glass.backFaceCulling = false;
+carMats.mattress = pbr('matt', { tex: texFrom('mattT', mkCanvas(128, 128, (x, w, h) => { for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#e8dcc2' : '#6f8fb8'; x.fillRect(0, i * 16, w, 16); } })), rough: 0.9 });
 function sectionPath(z, w, yb, yt, taper, n, segs = 32) {
   const pts = [], yc = (yb + yt) / 2, hh = (yt - yb) / 2;
   for (let k = 0; k <= segs; k++) {
@@ -1127,76 +1294,196 @@ function sectionPath(z, w, yb, yt, taper, n, segs = 32) {
   }
   return pts;
 }
-function buildCar(ghost = false, pm = paint) {
+// look-alike badges and plates
+function badgeCanvas(type) {
+  return mkCanvas(128, 96, (x, w, h) => {
+    x.translate(w / 2, h / 2);
+    const chrome = '#dfe1e6';
+    x.lineWidth = 7; x.strokeStyle = chrome; x.fillStyle = chrome; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const oval = (rx, ry, fill) => { x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); fill ? x.fill() : x.stroke(); };
+    switch (type) {
+      case 'wing': oval(52, 38); x.beginPath(); x.moveTo(-34, -6); x.quadraticCurveTo(0, 30, 34, -6); x.stroke(); break;
+      case 'tri': x.fillStyle = '#d8242c'; for (const dx of [-17, 17]) { x.beginPath(); x.moveTo(dx, -32); x.lineTo(dx + 14, 0); x.lineTo(dx, 32); x.lineTo(dx - 14, 0); x.fill(); } break;
+      case 'stars': x.fillStyle = '#1d3f8c'; oval(56, 36, true); x.lineWidth = 4; oval(56, 36); x.fillStyle = '#fff'; [[-26, -6], [-6, 8], [14, -8], [32, 6]].forEach(([a, b]) => { x.beginPath(); x.arc(a, b, 6, 0, 7); x.fill(); }); break;
+      case 'ovals': oval(54, 36); x.lineWidth = 6; x.beginPath(); x.ellipse(0, -8, 30, 13, 0, 0, 7); x.stroke(); break;
+      case 'slantH': oval(56, 34); x.beginPath(); x.moveTo(-14, 22); x.lineTo(14, -22); x.stroke(); break;
+      case 'kia': oval(58, 32); x.font = 'bold 30px Assistant, sans-serif'; x.fillText('קיא', 0, 2); break;
+      case 'shield': x.beginPath(); x.moveTo(-30, -36); x.lineTo(30, -36); x.lineTo(28, 8); x.quadraticCurveTo(14, 30, 0, 40); x.quadraticCurveTo(-14, 30, -28, 8); x.closePath(); x.stroke(); x.font = 'bold 34px serif'; x.fillText('ש', 0, 0); break;
+      case 'chevron': x.lineWidth = 11; x.beginPath(); x.moveTo(-36, 12); x.lineTo(0, -14); x.lineTo(36, 12); x.stroke(); break;
+      case 'blueoval': x.fillStyle = '#1c3d8f'; oval(58, 32, true); x.lineWidth = 4; oval(58, 32); x.fillStyle = '#fff'; x.font = 'italic bold 26px serif'; x.fillText('Furd', 0, 2); break;
+      case 'diamond': x.lineWidth = 8; x.beginPath(); x.moveTo(0, -40); x.lineTo(24, 0); x.lineTo(0, 40); x.lineTo(-24, 0); x.closePath(); x.stroke(); break;
+      case 'bowtie': x.fillStyle = '#d6a83a'; x.fillRect(-46, -10, 92, 20); x.fillRect(-14, -24, 28, 48); break;
+      case 'arrow': oval(40, 40); x.fillStyle = '#4caf50'; x.beginPath(); x.moveTo(-24, 8); x.lineTo(22, -12); x.lineTo(8, 14); x.closePath(); x.fill(); break;
+      case 'vw': oval(40, 40); x.font = 'bold 48px sans-serif'; x.fillText('W', 0, 4); break;
+      case 'H': x.beginPath(); if (x.roundRect) x.roundRect(-36, -30, 72, 60, 12); else x.rect(-36, -30, 72, 60); x.stroke(); x.font = 'bold 46px sans-serif'; x.fillText('H', 0, 3); break;
+      case 'ring': oval(40, 40); x.fillRect(-52, -10, 104, 20); break;
+      case 'bars': for (let i = 0; i < 4; i++) { x.save(); x.translate(-30 + i * 20, 0); x.rotate(0.35); x.fillRect(-4, -28, 8, 56); x.restore(); } break;
+      case 'D': oval(40, 40); x.font = 'bold 46px serif'; x.fillText('D', 0, 4); break;
+      case 'compass': oval(40, 40); x.lineWidth = 5; x.beginPath(); x.moveTo(0, -36); x.lineTo(0, 36); x.moveTo(-36, 0); x.lineTo(36, 0); x.stroke(); break;
+      case 'roundel': x.fillStyle = '#1f4fa8'; x.beginPath(); x.arc(0, 0, 38, Math.PI, 0); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.arc(0, 0, 38, 0, Math.PI); x.fill(); x.lineWidth = 6; x.strokeStyle = '#222'; x.beginPath(); x.arc(0, 0, 40, 0, 7); x.stroke(); break;
+    }
+  });
+}
+const BADGE_MAT = {}, PLATE_MAT = {};
+function badgeMat(type) {
+  if (BADGE_MAT[type]) return BADGE_MAT[type];
+  const t = new B.DynamicTexture('bdg' + type, badgeCanvas(type), scene, true); t.update(true); t.hasAlpha = true;
+  const m = new B.StandardMaterial('bdgM' + type, scene); m.diffuseTexture = t; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new B.Color3(0.25, 0.25, 0.25); m.specularColor = new B.Color3(0.6, 0.6, 0.6); m.backFaceCulling = false;
+  return BADGE_MAT[type] = m;
+}
+function plateMat(M) {
+  if (PLATE_MAT[M.id]) return PLATE_MAT[M.id];
+  let hsh = 0; for (const ch of M.id) hsh = (hsh * 31 + ch.charCodeAt(0)) >>> 0;
+  const num = `${10 + hsh % 89}-${100 + (hsh >> 5) % 899}-${10 + (hsh >> 13) % 89}`;
+  const c = mkCanvas(256, 64, (x, w, h) => {
+    x.fillStyle = '#f6c915'; x.fillRect(0, 0, w, h); x.strokeStyle = '#111'; x.lineWidth = 5; x.strokeRect(3, 3, w - 6, h - 6);
+    x.fillStyle = '#1d4aa8'; x.fillRect(5, 5, 34, h - 10); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('IL', 22, 48);
+    x.fillStyle = '#111'; x.font = 'bold 40px "Chakra Petch", monospace'; x.textBaseline = 'middle'; x.fillText(num, 146, 34);
+  });
+  const t = new B.DynamicTexture('pl' + M.id, c, scene, true); t.update(true);
+  const m = new B.StandardMaterial('plM' + M.id, scene); m.diffuseTexture = t; m.emissiveColor = new B.Color3(0.3, 0.3, 0.3); m.specularColor = B.Color3.Black();
+  return PLATE_MAT[M.id] = m;
+}
+function goatMesh() {
+  const parts = [], bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('gg', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  bx(0.34, 0.34, 0.78, 0, 0.62, 0, [0.95, 0.94, 0.9]); bx(0.2, 0.24, 0.3, 0, 0.88, 0.46, [0.95, 0.94, 0.9]);
+  bx(0.05, 0.16, 0.05, 0.07, 1.06, 0.4, [0.3, 0.26, 0.22]); bx(0.05, 0.16, 0.05, -0.07, 1.06, 0.4, [0.3, 0.26, 0.22]);
+  bx(0.06, 0.1, 0.06, 0, 0.74, 0.6, [0.9, 0.9, 0.9]); bx(0.24, 0.05, 0.1, 0, 0.95, 0.4, [0.95, 0.95, 0.95]);
+  for (const [x, z] of [[0.11, 0.28], [-0.11, 0.28], [0.11, -0.28], [-0.11, -0.28]]) bx(0.07, 0.46, 0.07, x, 0.23, z, [0.85, 0.85, 0.85]);
+  return B.Mesh.MergeMeshes(parts, true, true);
+}
+let carUid = 0;
+function buildCar(ghost = false, pm = paint, o = {}) {
+  const M = o.M || MODELS[0], eq = Object.assign({}, DEFAULT_EQ, o.eq || {}), simple = !!o.simple, uid = ++carUid;
   const root = new B.TransformNode(ghost ? 'ghost' : 'car', scene), body = new B.TransformNode('body', scene); body.parent = root;
-  const meshes = [];
+  const meshes = [], glowMeshes = [], ownMats = [];
   const add = (m, mat, parent = body) => { m.parent = parent; m.material = mat; m.isPickable = false; m.receiveShadows = !ghost; meshes.push(m); return m; };
-  const BODY = [[-2.36, 0.04, 0.56, 0.6], [-2.33, 0.62, 0.34, 0.8], [-2.26, 0.82, 0.3, 0.86], [-2.1, 0.9, 0.28, 0.88], [-1.6, 0.94, 0.28, 0.89], [-1.2, 0.95, 0.28, 0.91],
-    [-0.4, 0.95, 0.28, 0.93], [0.4, 0.95, 0.28, 0.93], [1.0, 0.94, 0.28, 0.9], [1.5, 0.92, 0.28, 0.84], [1.9, 0.88, 0.29, 0.77], [2.15, 0.81, 0.31, 0.7], [2.28, 0.68, 0.35, 0.62], [2.34, 0.34, 0.42, 0.53], [2.36, 0.03, 0.47, 0.48]];
-  add(MB.CreateRibbon('shell', { pathArray: BODY.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.07, 5)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
-  const GH = [[-1.44, 0.82, 0.86, 0.87], [-1.32, 0.84, 0.86, 1.0], [-1.02, 0.85, 0.86, 1.25], [-0.7, 0.85, 0.86, 1.32], [0.0, 0.85, 0.86, 1.35], [0.3, 0.85, 0.86, 1.33], [0.6, 0.85, 0.86, 1.18], [0.9, 0.85, 0.86, 0.99], [1.08, 0.83, 0.86, 0.87]];
-  add(MB.CreateRibbon('glass', { pathArray: GH.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.22, 6)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), carMats.glass);
-  const RF = [[-0.86, 0.6, 1.27, 1.28], [-0.78, 0.66, 1.26, 1.31], [-0.4, 0.67, 1.29, 1.345], [0.2, 0.67, 1.3, 1.355], [0.4, 0.66, 1.29, 1.34], [0.48, 0.6, 1.28, 1.29]];
-  add(MB.CreateRibbon('roof', { pathArray: RF.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.02, 8)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
-  for (const [x, z] of [[0.93, 1.38], [-0.93, 1.38], [0.93, -1.38], [-0.93, -1.38]]) {
-    const path = []; for (let k = 0; k <= 16; k++) { const a = 0.12 * Math.PI + k / 16 * 0.76 * Math.PI; path.push(V3(x + Math.sign(x) * 0.04, 0.36 + 0.47 * Math.sin(a), z + 0.47 * Math.cos(a))); }
-    add(MB.CreateTube('flare', { path, radius: 0.075, tessellation: 10, cap: B.Mesh.CAP_ALL }, scene), pm);
-  }
-  const bx = (w, h, d, x, y, z, mat, rx = 0) => { const m = add(MB.CreateBox('p', { width: w, height: h, depth: d }, scene), mat); m.position.set(x, y, z); m.rotation.x = rx; return m; };
-  bx(1.86, 0.06, 0.42, 0, 0.27, 2.2, carMats.black);
-  bx(1.0, 0.16, 0.06, 0, 0.47, 2.36, carMats.black);
+  const { L, W, H, nose: nz, style: st } = M, Rf = M.R;
+  const trunk = st === 'sedan' ? 0.06 : 0;
+  const zs = [...[0, 0.03, 0.1, 0.26, 0.76, 1.16].map(v => -L + v), -0.4, 0.4, ...[1.36, 0.86, 0.46, 0.21, 0.08, 0.02, 0].map(v => L - v)];
+  const wf = [0.04, 0.68, 0.88, 0.96, 0.995, 1, 1, 1, 0.995, 0.975, 0.94, 0.87, 0.74, 0.4, 0.03];
+  const ybs = [H - 0.34, 0.34, 0.3, 0.28, 0.28, 0.28, 0.28, 0.28, 0.28, 0.28, 0.29, 0.31, 0.35, 0.42, 0];
+  const yts = [H - 0.3, H - 0.1, H - 0.04 - trunk, H - trunk, H - trunk, H - trunk * 0.4, H, H, H - nz * 0.15, H - nz * 0.4, H - nz * 0.7, H - nz * 0.9, H - nz - 0.06, H - nz - 0.12, 0];
+  const endY = (0.42 + H - nz - 0.12) / 2; ybs[14] = endY - 0.005; yts[14] = endY + 0.005;
+  add(MB.CreateRibbon('shell', { pathArray: zs.map((z, k) => sectionPath(z, W * wf[k], ybs[k], yts[k], 0.07, M.n)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
+  const zr = st === 'sedan' ? -L + 0.95 : st === 'wagon' ? -L + 0.2 : st === 'van' ? -L + 0.1 : -L + 0.28;
+  const zf = st === 'van' ? L - 0.42 : L - 1.3 + nz * 0.4;
+  const prof = { sedan: [0, .22, .65, .95, 1, .97, .7, .3, 0], hatch: [0, .55, .9, 1, 1, .96, .7, .3, 0], wagon: [0, .85, .98, 1, 1, .96, .72, .3, 0], van: [0, .9, 1, 1, 1, 1, .92, .6, 0] }[st];
+  const ts = [0, 0.04, 0.17, 0.3, 0.55, 0.7, 0.85, 0.96, 1], gBase = H - 0.05, gW = W - 0.08;
+  const topAt = t => { for (let k = 1; k < ts.length; k++) if (t <= ts[k]) return gBase + (Rf - gBase) * lerp(prof[k - 1], prof[k], (t - ts[k - 1]) / (ts[k] - ts[k - 1])); return gBase; };
+  add(MB.CreateRibbon('glass', { pathArray: ts.map((t, k) => sectionPath(lerp(zr, zf, t), gW * (k === 0 || k === 8 ? 0.97 : 1), gBase - 0.02, Math.max(gBase - 0.01, gBase + (Rf - gBase) * prof[k]), 0.22, 6)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), carMats.glass);
+  const [tA, tB] = { sedan: [0.3, 0.7], hatch: [0.2, 0.7], wagon: [0.1, 0.7], van: [0.06, 0.84] }[st];
+  const rw = gW * 0.78 - 0.02;
+  add(MB.CreateRibbon('roof', { pathArray: [tA, tA + 0.015, tA + 0.06, (tA + tB) / 2, tB - 0.06, tB - 0.015, tB].map((t, k) => { const y = topAt(t) + 0.012, e = k === 0 || k === 6; return sectionPath(lerp(zr, zf, t), rw * (e ? 0.9 : 1), y - (e ? 0.003 : 0.05), y, 0.02, 8); }), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
+  const bx = (w, h, d, x, y, z, mat, rx = 0, ry = 0, parent = body) => { const m = add(MB.CreateBox('p', { width: w, height: h, depth: d }, scene), mat, parent); m.position.set(x, y, z); m.rotation.x = rx; m.rotation.y = ry; return m; };
+  const fy = H - nz - 0.05;
+  bx(2 * W * 0.97, 0.2, 0.22, 0, 0.36, L - 0.04, carMats.bumper);
+  bx(2 * W * 0.97, 0.2, 0.22, 0, 0.38, -L + 0.04, carMats.bumper);
+  bx(2 * W * 0.46, 0.13, 0.06, 0, fy - 0.06, L - 0.02, carMats.black);
+  const tailMat = unlit('tail' + uid, new B.Color3(2.2, 0.08, 0.1)); ownMats.push(tailMat);
   for (const s of [-1, 1]) {
-    bx(0.42, 0.08, 0.06, s * 0.6, 0.62, 2.29, carMats.head, 0.3);
-    bx(0.3, 0.025, 0.04, s * 0.55, 0.56, 2.33, carMats.head);
-    bx(0.07, 0.11, 2.3, s * 0.97, 0.33, 0, carMats.black);
-    const mir = bx(0.16, 0.1, 0.22, s * 0.98, 1.02, 0.78, pm); mir.rotation.y = s * 0.15;
-    bx(0.42, 0.11, 0.05, s * 0.6, 0.75, -2.32, carMats.tail);
+    if (M.head === 'round') for (const [ox, oz] of [[0.52, 0.03], [0.78, 0.07]]) { const c = add(MB.CreateCylinder('hl', { height: 0.06, diameter: 0.17, tessellation: 18 }, scene), carMats.head); c.rotation.x = Math.PI / 2; c.position.set(s * W * ox, fy, L - oz); glowMeshes.push(c); }
+    else glowMeshes.push(bx(0.4, M.head === 'slant' ? 0.1 : 0.15, 0.08, s * W * 0.64, fy + (M.head === 'slant' ? 0.02 : 0), L - 0.05, carMats.head, 0, M.head === 'slant' ? -s * 0.25 : 0));
+    bx(0.1, 0.06, 0.05, s * W * 0.9, fy - 0.02, L - 0.11, carMats.amber);
+    glowMeshes.push(st === 'van' ? bx(0.14, 0.5, 0.07, s * W * 0.84, 0.8, -L - 0.005, tailMat) : bx(0.36, 0.14, 0.07, s * W * 0.66, H - 0.16 - trunk, -L + 0.0, tailMat));
+    bx(0.04, 0.06, 2 * L * 0.55, s * W * 0.995, 0.5, 0, carMats.black);
+    const mir = bx(0.14, 0.1, 0.2, s * (W + 0.06), H + 0.07, zf - 0.08, pm); mir.rotation.y = s * 0.15;
+    if (!simple) bx(0.02, 0.03, 0.14, s * W * 1.0, 0.7, (zf + zr) / 2 + 0.25, carMats.black);
   }
-  bx(1.5, 0.035, 0.03, 0, 0.8, -2.31, carMats.tail);
-  bx(1.86, 0.12, 0.3, 0, 0.32, -2.26, carMats.black);
-  bx(1.9, 0.05, 0.34, 0, 1.14, -1.95, carMats.black);
-  for (const s of [-1, 1]) { bx(0.04, 0.24, 0.12, s * 0.55, 1.0, -1.92, carMats.black); bx(0.03, 0.3, 0.42, s * 0.95, 1.08, -1.95, carMats.black); }
-  for (const s of [-0.38, -0.62]) { const e = add(MB.CreateCylinder('ex', { height: 0.22, diameter: 0.11, tessellation: 16 }, scene), carMats.chrome); e.rotation.x = Math.PI / 2; e.position.set(s, 0.27, -2.38); }
-  const wheels = [];
-  for (const [x, z, front] of [[0.93, 1.38, 1], [-0.93, 1.38, 1], [0.93, -1.38, 0], [-0.93, -1.38, 0]]) {
+  const plate = add(MB.CreatePlane('plate', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plate.position.set(0, 0.47, -L - 0.155);
+  const plateF = add(MB.CreatePlane('plateF', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plateF.position.set(0, 0.34, L + 0.155); plateF.rotation.y = Math.PI;
+  const badge = add(MB.CreatePlane('badge', { width: 0.17, height: 0.13 }, scene), badgeMat(M.badge)); badge.position.set(0, fy - 0.06, L + 0.015); badge.rotation.y = Math.PI;
+  const badgeR = add(MB.CreatePlane('badgeR', { width: 0.15, height: 0.11 }, scene), badgeMat(M.badge)); badgeR.position.set(0, H - 0.08 - trunk, -L - 0.02);
+  if (eq.door === 'odd') bx(0.02, 0.42, Math.min(1.1, (zf - zr) * 0.5), -(W + 0.004), 0.62, (zf + zr) / 2 - 0.05, eq.paint === 'grey' || eq.paint === 'silver' ? carMats.primer : (() => { const m2 = pm.clone('door' + uid); m2.albedoColor = LC(M.grey); m2.albedoTexture = grimeTex; ownMats.push(m2); return m2; })());
+  // exhaust
+  const exX = eq.exhaust === 'none' ? [] : eq.exhaust === 'dual' || eq.exhaust === 'fire' ? [-0.4, -0.58] : [-0.5];
+  const exD = eq.exhaust === 'cannon' ? 0.24 : eq.exhaust === 'std' ? 0.07 : 0.1, exLen = eq.exhaust === 'cannon' ? 0.5 : 0.24;
+  for (const x of exX) { const e = add(MB.CreateCylinder('ex', { height: exLen, diameter: exD, tessellation: 16 }, scene), eq.exhaust === 'fire' ? carMats.black : carMats.chrome); e.rotation.x = Math.PI / 2; e.position.set(x, 0.28, -L - exLen / 2 + 0.06); }
+  // wing
+  const wingZ = st === 'sedan' ? -L + 0.28 : zr + 0.08, wy = st === 'sedan' ? H - trunk : topAt(0.06);
+  if (eq.wing === 'lip') bx(2 * W * 0.85, 0.04, 0.16, 0, wy + 0.03, wingZ, pm, -0.25);
+  if (eq.wing === 'gt' || eq.wing === 'plane') {
+    const big = eq.wing === 'plane', sh = big ? 0.6 : 0.22, ww = big ? 2 * W + 0.7 : 2 * W + 0.05, wd = big ? 0.55 : 0.34;
+    for (const s of [-1, 1]) { bx(0.04, sh, 0.1, s * 0.5, wy + sh / 2, wingZ, carMats.black); bx(0.03, big ? 0.5 : 0.28, wd + 0.06, s * ww / 2, wy + sh + 0.02, wingZ - 0.05, carMats.black); }
+    bx(ww, 0.05, wd, 0, wy + sh + 0.02, wingZ - 0.05, big ? pm : carMats.black, 0.08);
+  }
+  // roof cargo
+  const rY = topAt((tA + tB) / 2) + 0.02, rZ = lerp(zr, zf, (tA + tB) / 2);
+  if (eq.roof !== 'none') for (const dz of [-0.45, 0.45]) bx(2 * W * 0.78, 0.04, 0.05, 0, rY + 0.05, rZ + dz, carMats.black);
+  if (eq.roof === 'mattress') { bx(1.25, 0.2, 1.75, 0, rY + 0.17, rZ, carMats.mattress); for (const dz of [-0.4, 0.4]) bx(1.28, 0.21, 0.05, 0, rY + 0.17, rZ + dz, carMats.black); }
+  if (eq.roof === 'melons') { bx(1.1, 0.24, 1.25, 0, rY + 0.18, rZ, carMats.wood); for (let k = 0; k < 6; k++) { const m = add(MB.CreateSphere('mel', { diameter: 0.36, segments: 10 }, scene), carMats.melon); m.scaling.set(1, 0.85, 1.2); m.position.set(((k % 2) - 0.5) * 0.42, rY + 0.38, rZ + (Math.floor(k / 2) - 1) * 0.38); } }
+  if (eq.roof === 'speaker') { bx(0.5, 0.12, 0.4, 0, rY + 0.1, rZ, carMats.black); for (const s of [-1, 1]) { const c = add(MB.CreateCylinder('hornS', { height: 0.5, diameterTop: 0.36, diameterBottom: 0.08, tessellation: 14 }, scene), carMats.rim); c.rotation.x = Math.PI / 2; c.rotation.y = s * 0.35; c.position.set(s * 0.22, rY + 0.3, rZ + 0.1); } }
+  if (eq.roof === 'goat') { const g = goatMesh(); add(g, vcMat); g.position.set(0, rY + 0.06, rZ); g.rotation.y = Math.PI / 2 + 0.3; }
+  // neon underglow
+  let neonMat = null;
+  if (eq.neon !== 'none' && !ghost) {
+    neonMat = unlit('neon' + uid, eq.neon === 'purple' ? new B.Color3(1.6, 0.3, 2.4) : new B.Color3(0.3, 2.4, 0.8), 0.9, true); neonMat.opacityTexture = poolTex; ownMats.push(neonMat);
+    const n = add(MB.CreateGround('neon', { width: 2 * W + 1.2, height: 2 * L + 0.8 }, scene), neonMat, root); n.position.y = 0.07; glowMeshes.push(n);
+  }
+  // wheels
+  const wheels = [], spinners = [], wr = M.wr, wzF = L - 0.8, wzR = -(L - (st === 'van' ? 0.62 : 0.78));
+  const rimMat = eq.wheels === 'gold' ? carMats.gold : carMats.rim;
+  for (const [x, z, front] of [[W - 0.03, wzF, 1], [-(W - 0.03), wzF, 1], [W - 0.03, wzR, 0], [-(W - 0.03), wzR, 0]]) {
     const side = Math.sign(x);
-    const pivot = new B.TransformNode('wp', scene); pivot.parent = root; pivot.position.set(x, 0.36, z);
+    const pivot = new B.TransformNode('wp', scene); pivot.parent = root; pivot.position.set(x, wr, z);
     const spin = new B.TransformNode('ws', scene); spin.parent = pivot;
-    const t = add(MB.CreateCylinder('tire', { height: 0.27, diameter: 0.72, tessellation: 36 }, scene), carMats.tire, spin); t.rotation.z = Math.PI / 2;
-    const sw = add(MB.CreateTorus('sw', { diameter: 0.6, thickness: 0.13, tessellation: 36 }, scene), carMats.tire, spin); sw.rotation.z = Math.PI / 2; sw.position.x = side * 0.09;
-    const rd = add(MB.CreateCylinder('rd', { height: 0.02, diameter: 0.5, tessellation: 32 }, scene), carMats.rimDark, spin); rd.rotation.z = Math.PI / 2; rd.position.x = side * 0.12;
-    for (let k = 0; k < 6; k++) { const sp = add(MB.CreateBox('sp', { width: 0.03, height: 0.46, depth: 0.065 }, scene), carMats.rim, spin); sp.position.x = side * 0.14; sp.rotation.x = k * Math.PI / 6; }
-    const lip = add(MB.CreateTorus('lip', { diameter: 0.5, thickness: 0.035, tessellation: 32 }, scene), carMats.rim, spin); lip.rotation.z = Math.PI / 2; lip.position.x = side * 0.135;
-    const hub = add(MB.CreateCylinder('hub', { height: 0.05, diameter: 0.12, tessellation: 16 }, scene), carMats.chrome, spin); hub.rotation.z = Math.PI / 2; hub.position.x = side * 0.15;
-    const cal = add(MB.CreateBox('cal', { width: 0.06, height: 0.16, depth: 0.2 }, scene), carMats.caliper, pivot); cal.position.set(side * 0.07, 0.13, 0.08);
+    const t = add(MB.CreateCylinder('tire', { height: 0.22, diameter: 2 * wr, tessellation: simple ? 20 : 30 }, scene), carMats.tire, spin); t.rotation.z = Math.PI / 2;
+    if (!simple) { const sw = add(MB.CreateTorus('sw', { diameter: 2 * wr - 0.1, thickness: 0.1, tessellation: 28 }, scene), carMats.tire, spin); sw.rotation.z = Math.PI / 2; sw.position.x = side * 0.07; }
+    const rd = add(MB.CreateCylinder('rd', { height: 0.02, diameter: 2 * wr * 0.68, tessellation: 24 }, scene), eq.wheels === 'steel' ? carMats.steel : carMats.rimDark, spin); rd.rotation.z = Math.PI / 2; rd.position.x = side * 0.105;
+    if (eq.wheels !== 'steel' && !simple) {
+      for (let k = 0; k < 5; k++) { const sp = add(MB.CreateBox('sp', { width: 0.03, height: 2 * wr * 0.62, depth: 0.06 }, scene), rimMat, spin); sp.position.x = side * 0.12; sp.rotation.x = k * Math.PI / 5; }
+      const lip = add(MB.CreateTorus('lip', { diameter: 2 * wr * 0.68, thickness: 0.03, tessellation: 28 }, scene), rimMat, spin); lip.rotation.z = Math.PI / 2; lip.position.x = side * 0.115;
+    } else if (eq.wheels !== 'steel') { const rr = add(MB.CreateTorus('lip', { diameter: 2 * wr * 0.6, thickness: 0.05, tessellation: 18 }, scene), rimMat, spin); rr.rotation.z = Math.PI / 2; rr.position.x = side * 0.115; }
+    const hub = add(MB.CreateCylinder('hub', { height: 0.04, diameter: 0.1, tessellation: 12 }, scene), carMats.chrome, spin); hub.rotation.z = Math.PI / 2; hub.position.x = side * 0.125;
+    if (eq.wheels === 'spinner') {
+      const sn = new B.TransformNode('spn', scene); sn.parent = pivot; spinners.push(sn);
+      for (let k = 0; k < 3; k++) { const bl = add(MB.CreateBox('bl', { width: 0.02, height: 2 * wr * 0.55, depth: 0.08 }, scene), carMats.chrome, sn); bl.position.x = side * 0.14; bl.rotation.x = k * Math.PI / 3; }
+    }
+    if (!simple) { const cal = add(MB.CreateBox('cal', { width: 0.06, height: 0.14, depth: 0.18 }, scene), carMats.caliper, pivot); cal.position.set(side * 0.06, wr * 0.35, 0.07); }
     wheels.push({ pivot, spin, front });
   }
   if (ghost) {
     const gm = unlit('ghostM', new B.Color3(0.35, 0.7, 1.0), 0.22); gm.fogEnabled = true;
     meshes.forEach(m => { m.material = gm; m.receiveShadows = false; });
-    return { root, body, wheels, meshes };
+    return { root, body, wheels, meshes, M, wr };
   }
-  const blob = MB.CreateGround('blob', { width: 2.6, height: 5.2 }, scene); blob.parent = root; blob.position.y = 0.06;
-  const bm = unlit('blobM', B.Color3.Black(), 0.55); bm.opacityTexture = poolTex; bm.fogEnabled = true; blob.material = bm;
-  const spot = new B.SpotLight('head', V3(0, 0.66, 2.55), V3(0, -0.1, 1), 0.9, 6, scene); spot.parent = root;
+  const blob = MB.CreateGround('blob', { width: 2 * W + 0.9, height: 2 * L + 0.8 }, scene); blob.parent = root; blob.position.y = 0.06;
+  const bm = unlit('blobM' + uid, B.Color3.Black(), 0.55); bm.opacityTexture = poolTex; bm.fogEnabled = true; blob.material = bm; ownMats.push(bm); meshes.push(blob);
+  const spot = new B.SpotLight('head', V3(0, H - nz, L + 0.2), V3(0, -0.1, 1), 0.9, 6, scene); spot.parent = root;
   spot.diffuse = new B.Color3(1, 0.94, 0.82); spot.range = 90;
-  const flame = new B.TransformNode('flame', scene); flame.parent = body; flame.position.set(-0.5, 0.27, -2.5);
-  const flameMat = unlit('flameM', new B.Color3(1, 2, 6), 0.9, true);
+  const flame = new B.TransformNode('flame', scene); flame.parent = body; flame.position.set(0, 0.28, -L - (eq.exhaust === 'cannon' ? 0.45 : 0.2));
+  const flameMat = unlit('flameM' + uid, new B.Color3(1, 2, 6), 0.9, true); ownMats.push(flameMat);
   const flames = [];
-  for (const s of [-0.12, 0.12]) { const f = MB.CreateCylinder('fl', { height: 0.8, diameterTop: 0, diameterBottom: 0.16, tessellation: 14 }, scene); f.parent = flame; f.rotation.x = -Math.PI / 2; f.position.set(s, 0, -0.4); f.material = flameMat; f.isPickable = false; flames.push(f); }
+  for (const x of (exX.length ? exX : [-0.5])) { const f = MB.CreateCylinder('fl', { height: 0.8, diameterTop: 0, diameterBottom: Math.max(0.12, exD * 1.4), tessellation: 14 }, scene); f.parent = flame; f.rotation.x = -Math.PI / 2; f.position.set(x, 0, -0.4); f.material = flameMat; f.isPickable = false; flames.push(f); }
   flame.setEnabled(false);
-  return { root, body, wheels, meshes, spot, flame, flameMat, flames };
+  glowMeshes.push(...flames);
+  return { root, body, wheels, meshes, spot, flame, flameMat, flames, tailMat, neonMat, spinners, glowMeshes, ownMats, M, eq, wr };
 }
-const CAR = buildCar();
-CAR.meshes.forEach(m => caster(m));
+let CAR = null;
+const STAT = { acc: 1, vmax: 1, grip: 1, off: false, turbo: false, bald: false };
+function disposeCar(c) {
+  c.meshes.forEach(m => { csm?.removeShadowCaster(m, false); glow.removeIncludedOnlyMesh(m); });
+  c.spot?.dispose(); c.root.dispose(false, false); c.ownMats?.forEach(m => m.dispose());
+}
+function makePlayerCar() {
+  if (CAR) disposeCar(CAR);
+  const M = modelOf(EQ.car);
+  applyPaint(paint, M, EQ);
+  CAR = buildCar(false, paint, { M, eq: EQ });
+  CAR.meshes.forEach(m => { if (!CAR.flames.includes(m)) caster(m); });
+  CAR.glowMeshes.forEach(m => glow.addIncludedOnlyMesh(m));
+  CAR.root.position.set(car.x, 0, car.z); CAR.root.rotation.y = car.h;
+  CAR.spot.intensity = (typeof timeMode !== 'undefined' && TIMES[timeMode]) ? TIMES[timeMode].head : 260;
+  Object.assign(STAT, { acc: M.acc * (EQ.engine === 'swap' ? 1.12 : 1), vmax: M.vmax * (EQ.engine === 'swap' ? 1.04 : 1), grip: M.grip * (EQ.tires === 'bald' ? 0.82 : 1), off: EQ.tires === 'offroad', turbo: EQ.engine === 'turbo', bald: EQ.tires === 'bald' });
+  const cn = $('carname'); if (cn) cn.textContent = M.name;
+}
 const GHOST = buildCar(true); GHOST.root.setEnabled(false);
 
 /* ================= render pipeline ================= */
 const glow = new B.GlowLayer('glow', scene, { mainTextureRatio: 0.5, blurKernelSize: 48 });
 glow.intensity = 0.55;
 ['lamp', 'winLit', 'mring'].forEach(k => glow.addIncludedOnlyMesh(TI[k].mesh));
-CAR.meshes.forEach(m => { if (m.material === carMats.head || m.material === carMats.tail) glow.addIncludedOnlyMesh(m); });
-CAR.flames.forEach(m => glow.addIncludedOnlyMesh(m));
+
 let ssao = null;
 const pipe = new B.DefaultRenderingPipeline('pipe', true, scene, [camera]);
 pipe.samples = 4;
@@ -1318,18 +1605,24 @@ for (let i = 0; i < N; i++) {
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
 const RIVAL_DEF = [
-  { name: 'אבו עלי', hex: 0xf0efe9, skill: 0.96, start: 16, lane: -3 },
-  { name: 'סמיר טורבו', hex: 0x169b48, skill: 0.93, start: -11, lane: 3 },
-  { name: 'הדודה פאטמה', hex: 0xe0559a, skill: 0.95, start: -24, lane: -2.5 }
+  { name: 'אבו עלי', model: 'corolla', hex: 0xe9e7e1, skill: 0.96, start: 16, lane: -3, eq: { wing: 'lip', wheels: 'chrome' } },
+  { name: 'סמיר טורבו', model: 'e30', hex: 0x1d8a45, skill: 0.97, start: -11, lane: 3, eq: { wing: 'gt', exhaust: 'cannon', wheels: 'chrome', polish: 'shine' } },
+  { name: 'הדודה פאטמה', model: 'rio', hex: 0xe0559a, skill: 0.94, start: -24, lane: -2.5, eq: { roof: 'mattress', wheels: 'chrome' } },
+  { name: 'אבו טסלה סעיד', model: 'golf4', hex: 0xf3f3f0, skill: 0.95, start: 30, lane: 3, eq: { exhaust: 'none', neon: 'purple', polish: 'shine' } },
+  { name: 'יוסוף התותח', model: 'lancer', hex: 0x2b2b30, skill: 0.96, start: -38, lane: -3, eq: { wing: 'plane', exhaust: 'fire', wheels: 'gold' } },
+  { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x1f4fa8, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
+  { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } }
 ];
 const rivals = RIVAL_DEF.map((d, k) => {
-  const pm = paint.clone('paintR' + k); pm.albedoColor = LC(d.hex);
-  const rc = buildCar(false, pm);
-  rc.spot.dispose(); rc.flame.dispose(false, true);
-  rc.meshes.forEach(m => { if (!rc.flames.includes(m)) caster(m); if (m.material === carMats.head || m.material === carMats.tail) glow.addIncludedOnlyMesh(m); });
-  const sm = makeSmoke('rsmoke' + k, 320, [0.85, 0.8, 0.78]);
+  const M = modelOf(d.model), eq = Object.assign({}, DEFAULT_EQ, d.eq);
+  const pm = paint.clone('paintR' + k); applyPaint(pm, M, eq, d.hex ?? M.grey);
+  const rc = buildCar(false, pm, { M, eq, simple: true });
+  rc.spot.dispose(); rc.flame.dispose(false, false);
+  rc.meshes.forEach(m => { if (!rc.flames.includes(m)) caster(m); });
+  rc.glowMeshes.filter(m => !rc.flames.includes(m)).forEach(m => glow.addIncludedOnlyMesh(m));
+  const sm = makeSmoke('rsmoke' + k, 260, [0.85, 0.8, 0.78]);
   const tag = document.createElement('span'); tag.className = 'tag'; tag.hidden = true; tag.innerHTML = `${d.name}<b></b>`; $('tags').appendChild(tag);
-  return { ...d, rc, sm, tag, s: 0, v: 0, laneT: d.lane, ang: 0, x: 0, z: 0, h: 0, ahead: null, hitT: 0 };
+  return { ...d, rc, sm, tag, s: 0, v: 0, laneT: d.lane, ang: 0, x: 0, z: 0, h: 0, ahead: null, hitT: 0, passT: -99 };
 });
 function placeRival(r) {
   const fi = (((r.s % LEN) + LEN) % LEN) / DS, i0 = Math.floor(fi) % N, i1 = (i0 + 1) % N, f = fi - Math.floor(fi);
@@ -1367,7 +1660,7 @@ function updateRivals(dt) {
     if (dist < 9 && (!nearRival || dist < nearRival.d)) nearRival = { r, d: dist };
     const ahead = r.s > pp;
     if (r.ahead !== null && ahead !== r.ahead && raceT > 4) {
-      if (!ahead) toast(`עקפת את ${r.name}!`, 'יאללה ביי'); else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
+      if (!ahead) { const pay = raceT - r.passT > 10; toast(`עקפת את ${r.name}!`, pay ? 'יאללה ביי · +1 🧆' : 'יאללה ביי'); if (pay) addFalafel(1); r.passT = raceT; } else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
     }
     r.ahead = ahead;
   }
@@ -1377,7 +1670,8 @@ function syncRivals(dt) {
   for (const r of rivals) {
     r.rc.root.position.set(r.x, 0, r.z); r.rc.root.rotation.y = r.h;
     r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.08, -0.05, 0.05), 0.1);
-    for (const w of r.rc.wheels) { w.spin.rotation.x += r.v / 0.36 * dt; if (w.front) w.pivot.rotation.y = -r.ang * 0.7; }
+    r.rc.spinners.forEach(n => n.rotation.x += dt * 2.6);
+    for (const w of r.rc.wheels) { w.spin.rotation.x += r.v / r.rc.wr * dt; if (w.front) w.pivot.rotation.y = -r.ang * 0.7; }
     const sh = Math.sin(r.h), ch = Math.cos(r.h);
     r.sm.emitter.set(r.x - sh * 1.45, 0.25, r.z - ch * 1.45);
     r.sm.minEmitBox.set(-0.9, 0, -0.9); r.sm.maxEmitBox.set(0.9, 0.1, 0.9);
@@ -1409,7 +1703,8 @@ const _pm = new B.Matrix(), _pq = new B.Quaternion(), _ps = new B.Vector3(), _pt
 function writeM(buf, i, sc, yaw, pitch, x, y, z) { B.Quaternion.RotationYawPitchRollToRef(yaw, pitch, 0, _pq); _ps.setAll(sc); _pt.set(x, y, z); B.Matrix.ComposeToRef(_ps, _pq, _pt, _pm); _pm.copyToArray(buf, i * 16); }
 function updatePeople(t, dt) {
   const cx = camera.position.x, cz = camera.position.z;
-  const hype = state === 'drive' && (combo.pts > 0 || car.speed > 20);
+  hornT = Math.max(0, hornT - dt);
+  const hype = state === 'drive' && (combo.pts > 0 || car.speed > 20 || hornT > 0);
   const k = 1 - Math.exp(-dt * 5);
   for (const v of PV) {
     if (!v.bb) continue;
@@ -1434,13 +1729,15 @@ function updatePeople(t, dt) {
 
 /* ================= input ================= */
 const keys = new Set();
-const touch = { steer: 0, gas: 0, brake: 0, hb: 0, nitro: 0 };
+const touch = { steer: 0, gas: 0, brake: 0, hb: 0, nitro: 0, left: 0, right: 0, tilt: 0, horn: 0 };
+let ctrl = store.get('ctrl', 'slider'), hornT = 0;
 const pad = { steer: 0, thr: 0, brk: 0, hb: 0, nitro: 0, prev: [] };
 addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
   keys.add(e.code);
   if (e.repeat) return;
   if (e.code === 'KeyC') cycleCam();
+  if (e.code === 'KeyH') honk();
   if (e.code === 'KeyT') setTime(timeMode === 'dusk' ? 'night' : 'dusk');
   if (e.code === 'KeyR' && state === 'drive') resetCar();
   if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
@@ -1450,7 +1747,7 @@ addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 document.querySelectorAll('.pb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); touch[k] = 1; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch {} if (k === 'nitro' || k === 'hb') buzz(8); };
+  const on = e => { e.preventDefault(); touch[k] = 1; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch {} if (k === 'nitro' || k === 'hb') buzz(8); if (k === 'horn') honk(); };
   const off = () => { touch[k] = 0; b.classList.remove('on'); };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
   b.addEventListener('contextmenu', e => e.preventDefault());
@@ -1464,6 +1761,43 @@ document.querySelectorAll('.pb').forEach(b => {
   const end = e => { if (e.pointerId !== id) return; id = null; el.classList.remove('active'); set(0); };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
 }
+// steering wheel control
+{
+  const el = $('wheelc'), svg = $('wheelsvg'); let id = null, a0 = 0, acc = 0, prev = 0;
+  const ang = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)); };
+  const set = v => { touch.steer = v; svg.style.transform = `rotate(${(v * 110).toFixed(1)}deg)`; };
+  el.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; prev = ang(e); acc = 0; el.classList.add('active'); try { el.setPointerCapture(id); } catch {} });
+  el.addEventListener('pointermove', e => { if (e.pointerId !== id) return; const a = ang(e); let d = a - prev; d = Math.atan2(Math.sin(d), Math.cos(d)); prev = a; acc = clamp(acc + d, -1.95, 1.95); set(clamp(acc / 1.9, -1, 1)); });
+  const end = e => { if (e.pointerId !== id) return; id = null; el.classList.remove('active'); set(0); };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+}
+// tilt control (works where the browser exposes the motion sensor)
+let tiltZero = 0, tiltRaw = 0, tiltSeen = false, tiltOn = false;
+function onTilt(e) {
+  if (e.beta == null && e.gamma == null) return;
+  tiltSeen = true;
+  const a = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+  tiltRaw = a === 90 ? e.beta : (a === 270 || a === -90) ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+  touch.tilt = ctrl === 'tilt' ? clamp((tiltRaw - tiltZero) / 22, -1, 1) : 0;
+  $('tiltdot').style.transform = `translateX(${(touch.tilt * 80).toFixed(1)}px)`;
+}
+async function enableTilt() {
+  try { if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') { const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') throw new Error('denied'); } } catch { tiltFail(); return; }
+  if (!tiltOn) { addEventListener('deviceorientation', onTilt); tiltOn = true; }
+  tiltSeen = false; setTimeout(() => { if (!tiltSeen && ctrl === 'tilt') tiltFail(); }, 2200);
+}
+function tiltFail() { toast('חיישן התנועה לא זמין כאן', 'עוברים לפס גרירה', true); setCtrl('slider'); }
+$('tcal').addEventListener('click', () => { tiltZero = tiltRaw; toast('כוילנו', ''); });
+const CTRL_DESC = { slider: 'מניחים אגודל על הפס וגוררים ימינה או שמאלה. ככל שגוררים רחוק יותר, ההיגוי חד יותר.', wheel: 'מסובבים את ההגה באגודל כמו הגה אמיתי.', arrows: 'שני כפתורים קלאסיים, שמאלה וימינה.', tilt: 'מטים את הטלפון לצדדים כמו הגה. במסך הנסיעה יש כפתור כיול. בחלק מהתצוגות הדפדפן לא נותן גישה לחיישן.' };
+function setCtrl(v) {
+  ctrl = v; store.set('ctrl', v); touch.steer = 0; touch.tilt = 0;
+  $('steer').hidden = v !== 'slider'; $('wheelc').hidden = v !== 'wheel'; $('arrows').hidden = v !== 'arrows'; $('tiltc').hidden = v !== 'tilt';
+  $('ctrl').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  $('ctrldesc').textContent = CTRL_DESC[v];
+  if (v === 'tilt') enableTilt();
+}
+$('ctrl').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setCtrl(b.dataset.v); });
+function honk() { sfx.init(); sfx.horn(EQ.horn); hornT = 1.6; }
 function buzz(ms) { try { navigator.vibrate?.(ms); } catch {} }
 function showTouch(on) { $('touch').classList.toggle('on', !!on); }
 addEventListener('touchstart', () => { if (!COARSE) { COARSE = true; if (state !== 'menu') showTouch(true); } }, { passive: true });
@@ -1486,8 +1820,8 @@ function readInput() {
   return {
     thr: Math.max((k('KeyW') || k('ArrowUp') || touch.gas) ? 1 : 0, pad.thr),
     brk: Math.max((k('KeyS') || k('ArrowDown') || touch.brake) ? 1 : 0, pad.brk),
-    steer: clamp(((k('KeyD') || k('ArrowRight')) ? 1 : 0) - ((k('KeyA') || k('ArrowLeft')) ? 1 : 0) + touch.steer + pad.steer, -1, 1),
-    analog: Math.abs(touch.steer) > 0 || Math.abs(pad.steer) > 0,
+    steer: clamp(((k('KeyD') || k('ArrowRight') || touch.right) ? 1 : 0) - ((k('KeyA') || k('ArrowLeft') || touch.left) ? 1 : 0) + touch.steer + touch.tilt + pad.steer, -1, 1),
+    analog: Math.abs(touch.steer) > 0 || Math.abs(touch.tilt) > 0 || Math.abs(pad.steer) > 0,
     hb: (k('Space') || touch.hb || pad.hb) ? 1 : 0,
     nitro: (k('ShiftLeft') || k('ShiftRight') || touch.nitro || pad.nitro) ? 1 : 0
   };
@@ -1517,20 +1851,20 @@ function physics(dt, inp) {
   car.steer += (target - car.steer) * (1 - Math.exp(-dt * (inp.analog ? 14 : target === 0 ? 9 : 5.5)));
   car.thr += (inp.thr - car.thr) * (1 - Math.exp(-dt * 8));
   const thr = car.thr;
-  if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * (1 - Math.min(1, (vF / VMAX) ** 2)) * (car.grass ? 0.65 : 1) * dt; else vF += inp.thr * BRAKE * dt; }
+  if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
-  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - 0.3 * dt); if (!car.boostShout) { car.boostShout = true; toast(pick(['טורבו נענע!', 'יאללה יאללה!', 'וואלה טס']), ''); } } else if (!inp.nitro) car.boostShout = false;
+  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; toast(pick(['טורבו נענע!', 'יאללה יאללה!', 'וואלה טס']), ''); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
-  const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? 0.11 * Math.abs(vF) : 0);
+  const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
   const speed = Math.hypot(vF, vR), slip = Math.atan2(vR, Math.max(Math.abs(vF), 1.0)), slipAbs = Math.abs(slip);
   const drifting = slipAbs > 0.2 && speed > 7;
-  let g = 8.5;
+  let g = 8.5 * STAT.grip;
   g *= 1 - 0.8 * thr * ss(speed, 9, 22) * ss(Math.abs(car.steer), 0.3, 0.95);
   if (drifting) g = Math.min(g, 1.25 + (1 - thr) * 4.2);
   if (inp.hb) g = Math.min(g, 0.7);
-  if (car.grass) g *= 0.6;
+  if (car.grass) g *= STAT.off ? 0.92 : 0.6;
   const lost = vR * (1 - Math.exp(-g * dt)); vR -= lost;
   if (vF > 0) vF += Math.abs(lost) * 0.24;
   const sf = clamp(vF / 6, -1, 1);
@@ -1572,7 +1906,18 @@ function toast(a, b, bad) { $('t1').textContent = a; $('t2').textContent = b || 
 const RATINGS = [[500, 'וואלה, נחמד'], [1100, 'סבבה אחי'], [2000, 'חלק כמו שמן זית'], [3200, 'יא חביבי!'], [4800, 'על הכיפאק!'], [7000, 'חבל על הזמן!'], [10000, 'כמו חומוס עם הכל'], [14000, 'מלך הכפר'], [20000, 'הדודה מחאה כפיים'], [1e12, 'אגדת השקיעה']];
 const rating = p => RATINGS.find(([m]) => p < m)[1];
 const pick = a => a[(Math.random() * a.length) | 0];
-function bankCombo() { const p = Math.round(combo.pts); total += p; if (total > best) { best = total; store.set('best', best); $('best').textContent = fmt(best); } if (p > 150) toast(rating(p), '+' + fmt(p)); combo.pts = 0; combo.time = 0; combo.mult = 1; }
+function bankCombo() {
+  const p = Math.round(combo.pts); total += p;
+  if (total > best) { best = total; store.set('best', best); $('best').textContent = fmt(best); }
+  const f = p < 700 ? 0 : p < 2500 ? 1 : p < 6000 ? 2 : p < 12000 ? 3 : 5;
+  if (p > 150) toast(rating(p), '+' + fmt(p) + (f ? `  ·  +${f} 🧆` : ''));
+  addFalafel(f); combo.pts = 0; combo.time = 0; combo.mult = 1;
+}
+function updFalafel(bump) {
+  $('fal').textContent = falafel; $('sfal').textContent = falafel; $('gfal').textContent = '🧆 ' + falafel;
+  if (bump) for (const id of ['hfal', 'gfal']) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+}
+function addFalafel(n) { if (!n) return; falafel += n; store.set('falafel', falafel); updFalafel(true); }
 function loseCombo(msg) { if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
 function scoring(dt) {
   const deg = Math.abs(car.slip) * 57.3;
@@ -1582,7 +1927,7 @@ function scoring(dt) {
     combo.prox = WALL - Math.abs(car.d) - 1.15 < 3.0;
     combo.tandem = !!nearRival && nearRival.d < 8;
     combo.pts += dt * Math.min(deg, 70) * car.speed * 0.32 * combo.mult * (combo.prox ? 1.6 : 1) * (combo.tandem ? 1.3 : 1);
-    car.nos = Math.min(1, car.nos + dt * (combo.prox ? 0.14 : 0.085));
+    car.nos = Math.min(1, car.nos + dt * (combo.prox ? 0.14 : 0.085) * (STAT.turbo ? 1.5 : 1));
   } else if (combo.pts > 0) {
     combo.prox = false; combo.tandem = false; combo.grace += dt;
     if (car.grass && combo.grace > 0.35) loseCombo(pick(['העיזים בהלם', 'יצאת לחול, חביבי', 'זה לא כביש, זה כרם זיתים'])); else if (combo.grace > 1.4) bankCombo();
@@ -1595,6 +1940,7 @@ function scoring(dt) {
   if (i > N * 0.45 && i < N * 0.55) half = true;
   if (prevIdx > N * 0.9 && i < N * 0.1 && half) {
     if (!bestLap || lapT < bestLap) { bestLap = lapT; store.set('bestLap', bestLap); $('bestlap').textContent = fmtT(bestLap); toast('הקפה מהירה! עוד הקפה, עוד פיתה', fmtT(lapT)); }
+    addFalafel(place === 1 ? 5 : 2); if (place === 1) setTimeout(() => toast('ראשון בכפר!', '+5 🧆'), 1200);
     if (lapT <= bestLap + 1e-6 && rec.length > 40) { ghostData = rec; store.set('ghost', ghostData); }
     rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = lapN;
   }
@@ -1639,6 +1985,13 @@ const sfx = (() => {
     },
     pop() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 1.2; const g = ctx.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.12); },
     beep(hi) { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = hi ? 880 : 440; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + (hi ? 0.5 : 0.22)); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.55); },
+    horn(type) {
+      if (!nodes || !on) return; const t = ctx.currentTime, g = ctx.createGain(); g.connect(nodes.comp);
+      const note = (f, t0, d, wave = 'square', f2) => { const o = ctx.createOscillator(); o.type = wave; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.linearRampToValueAtTime(f2, t0 + d); const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.linearRampToValueAtTime(0.16, t0 + 0.02); gg.gain.setValueAtTime(0.16, t0 + d - 0.03); gg.gain.linearRampToValueAtTime(0.0001, t0 + d); o.connect(gg).connect(g); o.start(t0); o.stop(t0 + d + 0.02); };
+      if (type === 'tune') [523, 659, 784, 659, 880, 784, 988].forEach((f, i) => note(f, t + i * 0.14, 0.13));
+      else if (type === 'donkey') [[900, 520], [420, 360], [900, 520], [420, 360]].forEach(([a, b2], i) => note(a, t + i * 0.28, 0.26, 'sawtooth', b2));
+      else { note(415, t, 0.4); note(520, t, 0.4); }
+    },
     thud(v) { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; const g = ctx.createGain(); g.gain.setValueAtTime(Math.min(1, v / 12), t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35); s.connect(f).connect(g).connect(nodes.comp); s.start(t); s.stop(t + 0.4); }
   };
 })();
@@ -1717,7 +2070,7 @@ function updateHUD(dt) {
   $('cprox').hidden = !combo.prox;
   $('ctan').hidden = !combo.tandem;
   if (combo.tandem && nearRival) $('ctan').textContent = `טנדם עם ${nearRival.r.name} ×1.3`;
-  setT2('pos', `${place}/4`);
+  setT2('pos', `${place}/${rivals.length + 1}`);
   const active = combo.pts > 0;
   $('combo').classList.toggle('off', !active);
   if (active) {
@@ -1742,15 +2095,17 @@ function syncVisuals(dt) {
   b.position.y = 0.02 + Math.abs(b.rotation.z) * 0.3;
   for (const w of CAR.wheels) {
     const extra = (!w.front && car.thr > 0.5 && (car.drifting || car.speed < 4)) ? 22 : 0;
-    w.spin.rotation.x += (car.vF / 0.36 + extra) * dt;
+    w.spin.rotation.x += (car.vF / CAR.wr + extra) * dt;
     if (w.front) w.pivot.rotation.y = car.steer * 0.52 + (car.drifting ? clamp(car.slip * 0.4, -0.25, 0.25) : 0);
   }
+  CAR.spinners.forEach(n => n.rotation.x += dt * 2.6);
+  if (CAR.eq.neon === 'rainbow' && CAR.neonMat) { const c = B.Color3.FromHSV((elapsed * 90) % 360, 0.8, 1); CAR.neonMat.emissiveColor.set(c.r * 2.4, c.g * 2.4, c.b * 2.4); }
   const inp = readInput();
-  carMats.tail.emissiveColor.set(2.2, 0.08, 0.1).scaleInPlace((inp.brk || inp.hb) && car.vF > 0.5 && state === 'drive' ? 3.5 : 1);
+  CAR.tailMat.emissiveColor.set(2.2, 0.08, 0.1).scaleInPlace((inp.brk || inp.hb) && car.vF > 0.5 && state === 'drive' ? 3.5 : 1);
   const sh = Math.sin(car.h), ch = Math.cos(car.h), rx = ch, rz = -sh;
   const lat = Math.abs(car.vx * rx + car.vz * rz);
   const burn = state === 'drive' && car.thr > 0.5 && car.speed < 6 && (inp.brk || inp.hb);
-  const intensity = clamp((lat - 2.2) / 7, 0, 1) + (burn ? 0.8 : 0);
+  const intensity = clamp((lat - (STAT.bald ? 1.4 : 2.2)) / 7, 0, 1) + (burn ? 0.8 : 0);
   const onRoad = Math.abs(car.d) < HW + CURB;
   [smokeL, smokeR].forEach((ps, wi) => {
     const s = wi ? 1 : -1, wx = car.x - sh * 1.42 + rx * s * 0.93, wz = car.z - ch * 1.42 + rz * s * 0.93;
@@ -1771,7 +2126,7 @@ function syncVisuals(dt) {
     sparks.manualEmitCount = Math.min(14, Math.floor(car.scrape * 0.35 * dt * 60) + 1);
     car.scrape = 0;
   }
-  if (car.thrPrev > 0.85 && car.thr < 0.4 && rpm > 5200 && Math.random() < 0.7) { car.pop = 0.09; sfx.pop(); }
+  if (car.thrPrev > 0.85 && car.thr < 0.4 && rpm > (EQ.exhaust === 'fire' ? 4000 : 5200) && Math.random() < (EQ.exhaust === 'fire' ? 1 : 0.7)) { car.pop = EQ.exhaust === 'fire' ? 0.18 : 0.09; sfx.pop(); }
   car.thrPrev = car.thr; car.pop = Math.max(0, car.pop - dt);
   const fl = car.boost || car.pop > 0; CAR.flame.setEnabled(fl);
   if (fl) { CAR.flameMat.emissiveColor.set(car.boost ? 1.2 : 6, car.boost ? 2.2 : 2.4, car.boost ? 7 : 0.4); CAR.flame.scaling.set(1, 1, (car.boost ? 1.1 : 0.7) * (0.75 + Math.random() * 0.5)); }
@@ -1823,17 +2178,63 @@ $('bTime').addEventListener('click', () => setTime(timeMode === 'dusk' ? 'night'
 
 /* ================= state / menus ================= */
 let state = 'menu', countT = 0, countStep = -1;
-const swWrap = $('sws');
-PAINTS.forEach((p, i) => {
-  const b = document.createElement('button'); b.type = 'button'; b.className = 'sw'; b.id = 'paint-' + i;
-  b.style.background = '#' + p.hex.toString(16).padStart(6, '0'); b.setAttribute('aria-label', p.name);
-  b.addEventListener('click', () => setPaint(i)); swWrap.appendChild(b);
-});
-function setPaint(i) { store.set('paint', i); paint.albedoColor = LC(PAINTS[i].hex); $('pname').textContent = PAINTS[i].name; swWrap.querySelectorAll('.sw').forEach((b, k) => b.setAttribute('aria-pressed', String(k === i))); }
 function segInit(id, cur, cb) { const el = $(id); const upd = v => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; upd(b.dataset.v); cb(b.dataset.v === '1'); }); upd(cur ? '1' : '0'); }
-document.querySelectorAll('#q1,#q2').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setQuality(b.dataset.q); }));
+document.querySelectorAll('#q1').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setQuality(b.dataset.q); }));
 segInit('assist', assist, v => { assist = v; store.set('assist', v); });
 segInit('sound', sfx.on, v => { sfx.init(); sfx.set(v); });
+/* settings */
+let fpsCap = +store.get('fps', COARSE ? 60 : 0), showFps = store.get('showfps', false);
+function setSeg(id, v) { $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+$('fps').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; fpsCap = +b.dataset.v; store.set('fps', fpsCap); setSeg('fps', fpsCap); });
+segInit('showfps', showFps, v => { showFps = v; store.set('showfps', v); $('fpsv').hidden = !v; });
+setSeg('fps', fpsCap); $('fpsv').hidden = !showFps;
+let modalFrom = null;
+function openModal(id) { modalFrom = state; if (state === 'drive' || state === 'count') togglePause(); $(id).hidden = false; if (id === 'garage') renderGarage(); }
+function closeModal(id) { $(id).hidden = true; }
+$('openSettings').addEventListener('click', () => openModal('settings'));
+$('pSettings').addEventListener('click', () => openModal('settings'));
+$('sclose').addEventListener('click', () => closeModal('settings'));
+$('openGarage').addEventListener('click', () => openModal('garage'));
+$('pGarage').addEventListener('click', () => openModal('garage'));
+$('gclose').addEventListener('click', () => closeModal('garage'));
+/* garage */
+let gTab = 'cars', askKey = null;
+$('gtabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; gTab = b.dataset.tab; askKey = null; renderGarage(); });
+const hexCss = h => '#' + h.toString(16).padStart(6, '0');
+function card(key, name, desc, price, equipped, extra = '') {
+  const own = OWNED.has(key), poor = !own && price > falafel, ask = askKey === key;
+  const pr = equipped ? 'בשימוש' : own ? 'שלך · לחץ להפעלה' : ask ? `לקנות ב-🧆 ${price}? לחץ שוב` : poor ? `🧆 ${price} · חסרים ${price - falafel}` : `🧆 ${price}`;
+  return `<button type="button" class="gi${own ? ' own' : ''}${equipped ? ' on' : ''}${poor ? ' poor' : ''}${ask ? ' ask' : ''}" data-key="${key}" data-price="${price}">${extra}<span class="nm">${name}</span>${desc ? `<span class="ds">${desc}</span>` : ''}<span class="pr">${pr}</span></button>`;
+}
+const bar = (lbl, v, lo, hi) => `<span class="stat">${lbl}<i><b style="width:${(clamp((v - lo) / (hi - lo), 0.05, 1) * 100).toFixed(0)}%"></b></i></span>`;
+function renderGarage() {
+  updFalafel();
+  $('gtabs').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === gTab)));
+  let h = '';
+  if (gTab === 'cars') {
+    h = `<div class="ggrid">${MODELS.map(M => card('car:' + M.id, M.name, M.desc, M.price, EQ.car === M.id, bar('תאוצה', M.acc, 0.8, 1.25) + bar('מהירות', M.vmax, 0.85, 1.15) + bar('אחיזה', M.grip, 0.9, 1.1))).join('')}</div>`;
+  } else if (gTab === 'paint') {
+    h = `<div class="ggrid">${PAINTCOLS.map(p => card('paint:' + p.id, p.name, '', p.price, EQ.paint === p.id, `<span class="sw2" style="background:${hexCss(p.hex ?? modelOf(EQ.car).grey)}"></span>`)).join('')}</div>`;
+  } else {
+    h = UPG.map(g => `<section class="gsec"><h3>${g.title}</h3><div class="ggrid">${g.items.map(([id, nm, pr, ds]) => card(g.cat + ':' + id, nm, ds, pr, EQ[g.cat] === id)).join('')}</div></section>`).join('');
+  }
+  $('glist').innerHTML = h;
+}
+$('glist').addEventListener('click', e => {
+  const b = e.target.closest('.gi'); if (!b) return;
+  const key = b.dataset.key, price = +b.dataset.price, [cat, id] = key.split(':');
+  if (!OWNED.has(key)) {
+    if (price > falafel) { toast('חסר פלאפל', `צריך עוד ${price - falafel} 🧆. לך תחליק.`, true); return; }
+    if (askKey !== key) { askKey = key; renderGarage(); return; }
+    falafel -= price; store.set('falafel', falafel); OWNED.add(key); store.set('owned', [...OWNED]); toast('קנית!', pick(['מבורך', 'שיהיה בכיף', 'תתחדש, אחי']));
+  }
+  askKey = null;
+  EQ[cat === 'car' ? 'car' : cat] = id; store.set('eq', EQ);
+  makePlayerCar(); renderGarage();
+});
+updFalafel();
+setCtrl(ctrl);
+
 function startGame() {
   if (state !== 'menu') return;
   sfx.init(); sfx.resume();
@@ -1868,14 +2269,15 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 addEventListener('resize', () => engine.resize());
 
 /* ================= boot ================= */
-setPaint(store.get('paint', 0) % PAINTS.length);
+makePlayerCar();
 setQuality(quality);
 setTime(store.get('time', 'dusk') === 'night' ? 'night' : 'dusk');
 resetCar(30); car.h += 0.5; resetRivals();
 camPos.set(car.x + 6, 2, car.z + 6);
-const STEP = 1 / 120; let acc = 0, elapsed = 0;
+const STEP = 1 / 120; let acc = 0, elapsed = 0, lastFrameT = performance.now(), fpsTick = 0;
 scene.onBeforeRenderObservable.add(() => {
-  const dt = Math.min(0.05, engine.getDeltaTime() / 1000); elapsed += dt;
+  const nowT = performance.now(), dt = Math.min(0.05, (nowT - lastFrameT) / 1000); lastFrameT = nowT; elapsed += dt;
+  if (showFps && (fpsTick += dt) > 0.5) { fpsTick = 0; $('fpsv').textContent = Math.round(engine.getFps()) + ' FPS'; }
   pollPad();
   if (state === 'count') countdown(dt);
   if (state === 'drive') {
@@ -1894,7 +2296,14 @@ let shown = false;
 const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') $('start').hidden = false; };
 scene.executeWhenReady(reveal);
 setTimeout(reveal, 15000);
-engine.runRenderLoop(() => scene.render());
+let lastRenderT = 0;
+function frameLoop(now) {
+  requestAnimationFrame(frameLoop);
+  if (fpsCap > 0 && now - lastRenderT < 1000 / fpsCap - 2) return;
+  lastRenderT = now;
+  engine.beginFrame(); scene.render(); engine.endFrame();
+}
+requestAnimationFrame(frameLoop);
 window.__dd = { car, combo, scene, setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
