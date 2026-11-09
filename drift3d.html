@@ -60,6 +60,10 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .tag{position:absolute;left:0;top:0;font:700 12px var(--body);color:var(--fg);background:rgba(14,13,20,.62);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;white-space:nowrap;will-change:transform}
 .tag b{color:var(--sodium);font-family:var(--num);margin-inline-start:6px}
 .prox{font-family:var(--num);font-weight:700;font-size:14px;color:var(--sky);letter-spacing:.04em;margin-top:4px}
+.ticker{position:absolute;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);max-width:min(92vw,620px);background:rgba(14,13,20,.72);border:1px solid var(--edge);border-radius:12px;padding:8px 14px;font:600 14px var(--body);color:var(--fg);text-align:center;animation:tk 6s ease-out forwards;pointer-events:none}
+.tk-l{color:var(--sodium);font-weight:800}
+@keyframes tk{0%{opacity:0;transform:translate(-50%,10px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
+@media (pointer:coarse){.ticker{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));font-size:13px}}
 .toast{position:absolute;top:27%;left:50%;transform:translate(-50%,0);text-align:center;font-family:var(--display);opacity:0;pointer-events:none;width:min(92vw,700px)}
 .toast .t1{font-size:clamp(28px,6vw,54px);color:#fff;text-shadow:0 0 24px rgba(255,179,65,.6),0 2px 10px rgba(0,0,0,.5)}
 .toast .t2{font-family:var(--num);font-size:22px;color:var(--sodium)}
@@ -253,6 +257,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   </div>
 
   <div id="tags"></div>
+  <div class="ticker" id="ticker" hidden><span class="tk-l">אבו דריפט מהשידור:</span> <span id="tickt"></span></div>
   <div class="toast" id="toast"><div class="t1" id="t1"></div><div class="t2" id="t2"></div></div>
   <div class="count" id="count"></div>
 
@@ -463,7 +468,7 @@ const asphaltC = mkCanvas(1024, 512, (x, w, h) => {
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(.3, 'rgba(0,0,0,.16)'); g.addColorStop(.5, 'rgba(0,0,0,.26)'); g.addColorStop(.7, 'rgba(0,0,0,.16)'); g.addColorStop(1, 'rgba(0,0,0,0)');
   x.fillStyle = g; x.fillRect(0, 0, w, h);
   for (let i = 0; i < 26; i++) { x.fillStyle = `rgba(18,18,20,${.05 + R0() * .09})`; x.beginPath(); x.ellipse(R0() * w, R0() * h, 30 + R0() * 120, 8 + R0() * 30, 0, 0, 7); x.fill(); }
-  for (let i = 0; i < 6; i++) { x.strokeStyle = 'rgba(15,15,15,.45)'; x.lineWidth = 1.5; x.beginPath(); let px = R0() * w, py = R0() * h; x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += (R0() - .3) * 40; py += (R0() - .5) * 30; x.lineTo(px, py); } x.stroke(); }
+  for (let i = 0; i < 16; i++) { x.strokeStyle = `rgba(12,12,12,${.3 + R0() * .3})`; x.lineWidth = 1.5 + R0() * 2.5; x.beginPath(); let px = R0() * w, py = R0() * h; x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += (R0() - .3) * 40; py += (R0() - .5) * 30; x.lineTo(px, py); } x.stroke(); }
   x.fillStyle = '#ebe5d9'; x.fillRect(0, h * 0.03, w, h * 0.014); x.fillRect(0, h * 0.956, w, h * 0.014);
   x.fillStyle = 'rgba(235,229,217,.8)'; for (let i = 0; i < 2; i++) x.fillRect(i * w / 2 + 40, h * 0.494, w / 4, h * 0.012);
 });
@@ -776,6 +781,102 @@ kit('bpole', cyl('bpole', 1, 1, 8), metalMat, { colors: false });
 }
 kit('rock', MB.CreateIcoSphere('rock', { radius: 1, subdivisions: 1, flat: true }, scene), slabMat);
 
+/* more village kit */
+const shutterMat = pbr('shutM', { rough: 0.6 });
+const crescentMat = pbr('crescM', { color: 0xd8a83a, metal: 1, rough: 0.25 });
+const bulbMat = unlit('bulbM', new B.Color3(3.5, 2.4, 1.2));
+const wireMat = pbr('wireM', { color: 0x121212, rough: 0.8 });
+const woodMat2 = pbr('wood2', { color: 0x6b4a2e, rough: 0.9 });
+{
+  const d = MB.CreateDisc('arch', { radius: 0.5, arc: 0.5, tessellation: 18, sideOrientation: B.Mesh.DOUBLESIDE }, scene);
+  kit('archTop', d, glassDark, { cast: false, colors: false });
+  kit('archLit', d.clone('archLit'), winLitMat, { cast: false, colors: false });
+}
+kit('shutter', box('shutter'), shutterMat, { cast: false });
+kit('rail', box('rail'), metalMat, { cast: false, colors: false });
+kit('roofDome', MB.CreateSphere('rdome', { diameter: 1, segments: 16, slice: 0.5 }, scene), slabMat);
+kit('pot', cyl('pot', 1, 0.7, 10), pbr('potM', { color: 0xa0522d, rough: 0.9 }), { cast: false, colors: false });
+kit('bush', MB.CreateIcoSphere('bush', { radius: 0.5, subdivisions: 1, flat: true }, scene), leafMat, { cast: false });
+kit('epole', cyl('epole', 0.7, 1, 7), woodMat2);
+kit('xbar', box('xbar'), woodMat2, { cast: false, colors: false });
+kit('wire', cyl('wire', 1, 1, 4), wireMat, { cast: false, colors: false });
+kit('bulb', MB.CreateSphere('bulb', { diameter: 1, segments: 6 }, scene), bulbMat, { cast: false, colors: false });
+{
+  const n = 22, path = [];
+  for (let i = 0; i < n; i++) { const a = 0.35 * Math.PI + i / (n - 1) * 1.55 * Math.PI; path.push(V3(Math.cos(a) * 0.45, Math.sin(a) * 0.45, 0)); }
+  const t = MB.CreateTube('cresc', { path, radiusFunction: (i) => 0.015 + 0.09 * Math.sin(Math.PI * i / (n - 1)), tessellation: 10, cap: B.Mesh.CAP_ALL }, scene);
+  kit('crescent', t, crescentMat, { cast: false, colors: false });
+}
+{
+  const parts = [], sp = (sx, sy, sz, x, y, z, rz) => { const m = MB.CreateSphere('pad', { diameter: 1, segments: 8 }, scene); m.scaling.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.z = rz; colorize(m, lin([0.3, 0.48, 0.2])); parts.push(m); };
+  sp(0.55, 0.7, 0.13, 0, 0.35, 0, 0); sp(0.45, 0.55, 0.12, 0.28, 0.85, 0.02, -0.5); sp(0.45, 0.55, 0.12, -0.25, 0.8, -0.03, 0.55); sp(0.4, 0.5, 0.11, 0.42, 1.28, 0, -0.2); sp(0.4, 0.5, 0.11, -0.4, 1.22, 0.02, 0.3); sp(0.36, 0.45, 0.1, 0.05, 1.3, 0.04, 0.1);
+  sp(0.5, 0.62, 0.12, 0.05, 0.4, 0.3, 0.2); parts[parts.length - 1].rotation.y = 1.4;
+  for (const [x, y] of [[0.45, 1.55], [-0.38, 1.48], [0.1, 1.55], [0.5, 1.05]]) { const fr = MB.CreateSphere('fr', { diameter: 0.09, segments: 5 }, scene); fr.position.set(x, y, 0.03); colorize(fr, lin([0.85, 0.25, 0.3])); parts.push(fr); }
+  kit('cactus', B.Mesh.MergeMeshes(parts, true, true), vcMat);
+}
+{
+  const parts = [], bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('c', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  const W2 = [0.97, 0.97, 0.95];
+  bx(0.46, 0.05, 0.44, 0, 0.44, 0, W2); bx(0.46, 0.45, 0.04, 0, 0.7, -0.21, W2);
+  for (const [x, z] of [[0.2, 0.19], [-0.2, 0.19], [0.2, -0.19], [-0.2, -0.19]]) bx(0.04, 0.44, 0.04, x, 0.22, z, W2);
+  kit('chair', B.Mesh.MergeMeshes(parts, true, true), vcMat, { cast: false, colors: false });
+}
+{
+  const parts = [], bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('t', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  bx(0.8, 0.04, 0.8, 0, 0.72, 0, [0.96, 0.96, 0.94]);
+  for (const [x, z] of [[0.35, 0.35], [-0.35, 0.35], [0.35, -0.35], [-0.35, -0.35]]) bx(0.04, 0.72, 0.04, x, 0.36, z, [0.96, 0.96, 0.94]);
+  bx(0.42, 0.03, 0.3, 0.05, 0.755, 0, [0.45, 0.28, 0.14]); bx(0.4, 0.004, 0.28, 0.05, 0.773, 0, [0.85, 0.72, 0.5]);
+  for (const [x, z] of [[-0.25, 0.25], [0.28, -0.26], [-0.28, -0.2]]) { const c = MB.CreateCylinder('cup', { height: 0.06, diameterTop: 0.06, diameterBottom: 0.045, tessellation: 8 }, scene); c.position.set(x, 0.77, z); colorize(c, lin([0.95, 0.95, 0.95])); parts.push(c); }
+  kit('table', B.Mesh.MergeMeshes(parts, true, true), vcMat, { cast: false, colors: false });
+}
+{
+  const parts = [], add2 = (m, c, x, y, z) => { m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  add2(MB.CreateSphere('nb', { diameter: 0.3, segments: 10 }, scene), [0.15, 0.45, 0.5], 0, 0.15, 0);
+  add2(MB.CreateCylinder('ns', { height: 0.55, diameterTop: 0.04, diameterBottom: 0.06, tessellation: 8 }, scene), [0.8, 0.65, 0.3], 0, 0.55, 0);
+  add2(MB.CreateCylinder('nbo', { height: 0.1, diameterTop: 0.12, diameterBottom: 0.06, tessellation: 10 }, scene), [0.55, 0.25, 0.12], 0, 0.87, 0);
+  add2(MB.CreateCylinder('ntr', { height: 0.03, diameter: 0.22, tessellation: 12 }, scene), [0.8, 0.65, 0.3], 0, 0.72, 0);
+  const hose = MB.CreateTube('nh', { path: [V3(0.05, 0.6, 0), V3(0.25, 0.45, 0.1), V3(0.35, 0.2, 0.15), V3(0.4, 0.5, 0.3)], radius: 0.015, tessellation: 6 }, scene); colorize(hose, lin([0.2, 0.2, 0.25])); parts.push(hose);
+  kit('nargila', B.Mesh.MergeMeshes(parts, true, true), vcMat, { cast: false, colors: false });
+}
+{
+  const parts = [], bx = (w, h, d, x, y, z, c, rx = 0) => { const m = MB.CreateBox('d', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); m.rotation.x = rx; colorize(m, lin(c)); parts.push(m); };
+  const G = [0.48, 0.44, 0.42], Dk = [0.25, 0.23, 0.22];
+  bx(0.42, 0.48, 1.05, 0, 0.95, 0, G); bx(0.24, 0.26, 0.5, 0, 1.25, 0.62, G, -0.6); bx(0.2, 0.22, 0.32, 0, 1.38, 0.88, G, 0.3);
+  bx(0.17, 0.12, 0.12, 0, 1.33, 1.02, [0.82, 0.8, 0.78]);
+  bx(0.05, 0.3, 0.07, 0.07, 1.62, 0.8, Dk, -0.2); bx(0.05, 0.3, 0.07, -0.07, 1.62, 0.8, Dk, -0.2);
+  for (const [x, z] of [[0.13, 0.4], [-0.13, 0.4], [0.13, -0.4], [-0.13, -0.4]]) bx(0.09, 0.72, 0.09, x, 0.36, z, G);
+  bx(0.05, 0.4, 0.05, 0, 0.95, -0.58, Dk, 0.4);
+  kit('donkey', B.Mesh.MergeMeshes(parts, true, true), vcMat, { colors: false });
+}
+{
+  const parts = [], bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('k', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  bx(1.4, 0.35, 1.9, 0, 0.75, 0, [0.5, 0.33, 0.18]); bx(0.06, 0.06, 1.6, 0.25, 0.6, 1.6, [0.4, 0.26, 0.14]); bx(0.06, 0.06, 1.6, -0.25, 0.6, 1.6, [0.4, 0.26, 0.14]);
+  for (const sx of [-0.78, 0.78]) { const w = MB.CreateCylinder('kw', { height: 0.08, diameter: 0.9, tessellation: 12 }, scene); w.rotation.z = Math.PI / 2; w.position.set(sx, 0.45, 0); colorize(w, lin([0.3, 0.2, 0.12])); parts.push(w); }
+  for (let k = 0; k < 7; k++) { const m = MB.CreateSphere('wm', { diameter: 0.36, segments: 8 }, scene); m.scaling.set(1, 0.85, 1.25); m.position.set(((k % 3) - 1) * 0.4, 1.05, (Math.floor(k / 3) - 1) * 0.5); colorize(m, lin([0.18, 0.42, 0.14])); parts.push(m); }
+  kit('cart', B.Mesh.MergeMeshes(parts, true, true), vcMat, { colors: false });
+}
+{
+  const parts = [], sp = (d, x, y, z, c, sx = 1, sy = 1, sz = 1) => { const m = MB.CreateSphere('ch', { diameter: d, segments: 6 }, scene); m.scaling.set(sx, sy, sz); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  sp(0.28, 0, 0.25, 0, [0.96, 0.94, 0.9], 1, 0.9, 1.3); sp(0.13, 0, 0.42, 0.14, [0.96, 0.94, 0.9]); sp(0.05, 0, 0.5, 0.15, [0.85, 0.12, 0.1], 0.5, 1, 1.6); sp(0.04, 0, 0.42, 0.22, [0.95, 0.65, 0.1]);
+  sp(0.14, 0, 0.32, -0.17, [0.9, 0.88, 0.84], 0.7, 1.1, 0.7);
+  for (const sx of [-0.05, 0.05]) { const l = MB.CreateCylinder('cl', { height: 0.14, diameter: 0.02, tessellation: 4 }, scene); l.position.set(sx, 0.07, 0); colorize(l, lin([0.95, 0.65, 0.1])); parts.push(l); }
+  kit('chicken', B.Mesh.MergeMeshes(parts, true, true), vcMat, { cast: false });
+}
+{
+  const mk = (name, right) => texFrom(name, mkCanvas(256, 128, (x, w, h) => {
+    x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#c4161f';
+    for (let k = 0; k < 3; k++) { const ox = 30 + k * 72; x.beginPath(); if (right) { x.moveTo(ox, 18); x.lineTo(ox + 42, 64); x.lineTo(ox, 110); x.lineTo(ox + 22, 110); x.lineTo(ox + 64, 64); x.lineTo(ox + 22, 18); } else { x.moveTo(ox + 64, 18); x.lineTo(ox + 22, 64); x.lineTo(ox + 64, 110); x.lineTo(ox + 42, 110); x.lineTo(ox, 64); x.lineTo(ox + 42, 18); } x.closePath(); x.fill(); }
+    x.strokeStyle = '#222'; x.lineWidth = 8; x.strokeRect(0, 0, w, h);
+  }), { clampUV: true });
+  for (const [k, r] of [['chevR', true], ['chevL', false]]) { const t = mk('tx' + k, r); t.update(true); const m = new B.StandardMaterial('m' + k, scene); m.diffuseTexture = t; m.emissiveColor = new B.Color3(0.35, 0.35, 0.35); m.specularColor = B.Color3.Black(); m.backFaceCulling = false; kit(k, MB.CreatePlane(k, { width: 1.4, height: 0.7 }, scene), m, { cast: false, colors: false }); }
+}
+{
+  const sk = new B.StandardMaterial('oldSkid', scene); sk.disableLighting = true; sk.emissiveColor = new B.Color3(0.01, 0.01, 0.01); sk.diffuseColor = B.Color3.Black(); sk.alpha = 0.32; sk.zOffset = -3; sk.backFaceCulling = false;
+  kit('oldskid', MB.CreateGround('osk', { width: 1, height: 1 }, scene), sk, { cast: false, colors: false });
+  const pt = new B.StandardMaterial('patch', scene); pt.disableLighting = true; pt.emissiveColor = new B.Color3(0.02, 0.02, 0.022); pt.diffuseColor = B.Color3.Black(); pt.alpha = 0.3; pt.zOffset = -2; pt.backFaceCulling = false;
+  kit('patch', MB.CreateGround('pch', { width: 1, height: 1 }, scene), pt, { cast: false, colors: false });
+}
+
 /* people: two thin-instance meshes per outfit (body, and arms pivoting at the shoulder) */
 const SKIN = [[0.8, 0.62, 0.48], [0.68, 0.5, 0.37], [0.57, 0.41, 0.3], [0.46, 0.32, 0.23]];
 function personMeshes(o, tag) {
@@ -784,9 +885,15 @@ function personMeshes(o, tag) {
   const C = (h, dt, db, y, x = 0, z = 0, tess = 12) => { const m = MB.CreateCylinder('pc', { height: h, diameterTop: dt, diameterBottom: db, tessellation: tess }, scene); m.position.set(x, y, z); return m; };
   const S = (d, y, x = 0, z = 0, slice = 1) => { const m = MB.CreateSphere('ps', { diameter: d, segments: 10, slice }, scene); m.position.set(x, y, z); return m; };
   const Bx = (w, h, d, x, y, z) => { const m = MB.CreateBox('pb', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); return m; };
-  if (o.robe) { P(C(1.3, 0.44, 0.64, 0.65), o.robe); P(C(0.34, 0.4, 0.44, 1.44), o.robe); }
+  const sd = o.seated ? -0.42 : 0;
+  if (o.seated) {
+    const lc = o.pants || o.robe;
+    for (const sx of [-0.1, 0.1]) { const th = C(0.46, 0.16, 0.17, 0.48, sx, 0.2); th.rotation.x = Math.PI / 2; P(th, lc); P(C(0.46, 0.14, 0.15, 0.23, sx, 0.42), lc); P(Bx(0.13, 0.08, 0.25, sx, 0.04, 0.47), [0.1, 0.09, 0.08]); }
+    if (o.robe) { P(C(0.5, 0.44, 0.5, 0.75), o.robe); P(C(0.34, 0.4, 0.44, 1.02), o.robe); } else P(C(0.6, 0.44, 0.38, 0.78), o.shirt);
+  } else if (o.robe) { P(C(1.3, 0.44, 0.64, 0.65), o.robe); P(C(0.34, 0.4, 0.44, 1.44), o.robe); }
   else { P(C(0.86, 0.15, 0.17, 0.43, 0.1), o.pants); P(C(0.86, 0.15, 0.17, 0.43, -0.1), o.pants); P(C(0.64, 0.44, 0.38, 1.18), o.shirt); }
-  P(Bx(0.13, 0.08, 0.25, 0.1, 0.04, 0.04), [0.1, 0.09, 0.08]); P(Bx(0.13, 0.08, 0.25, -0.1, 0.04, 0.04), [0.1, 0.09, 0.08]);
+  if (!o.seated) { P(Bx(0.13, 0.08, 0.25, 0.1, 0.04, 0.04), [0.1, 0.09, 0.08]); P(Bx(0.13, 0.08, 0.25, -0.1, 0.04, 0.04), [0.1, 0.09, 0.08]); }
+  const headStart = parts.length;
   P(C(0.1, 0.1, 0.11, 1.6), o.skin);
   P(S(0.25, 1.72), o.skin);
   P(Bx(0.035, 0.035, 0.02, 0.05, 1.75, 0.118), [0.05, 0.04, 0.04]); P(Bx(0.035, 0.035, 0.02, -0.05, 1.75, 0.118), [0.05, 0.04, 0.04]);
@@ -798,11 +905,12 @@ function personMeshes(o, tag) {
   else if (o.head === 'hijab') { P(S(0.3, 1.73), o.hc); P(C(0.34, 0.24, 0.52, 1.48), o.hc); }
   else if (o.head === 'cap') { P(S(0.272, 1.75, 0, 0, 0.5), o.hc); P(Bx(0.2, 0.02, 0.15, 0, 1.79, 0.17), o.hc); }
   else P(S(0.268, 1.745, 0, -0.01, 0.5), o.hair || [0.07, 0.05, 0.04]);
+  if (sd) for (let k = headStart; k < parts.length; k++) parts[k].position.y += sd;
   for (const sx of [-1, 1]) { P(C(0.62, 0.11, 0.09, -0.31, sx * 0.27), o.sleeve || o.shirt || o.robe, arms); P(S(0.11, -0.64, sx * 0.27), o.skin, arms); }
   const body = B.Mesh.MergeMeshes(parts, true, true), arm = B.Mesh.MergeMeshes(arms, true, true);
   body.name = 'person' + tag; arm.name = 'arms' + tag;
   [body, arm].forEach(m => { m.material = vcMat; m.isPickable = false; m.receiveShadows = true; m.alwaysSelectAsActiveMesh = true; });
-  return { body, arm, list: [] };
+  return { body, arm, list: [], sh: o.seated ? 1.03 : 1.45, seated: !!o.seated };
 }
 const OUTFITS = [
   { robe: [0.93, 0.92, 0.88], head: 'keffiyeh', hc: [0.82, 0.18, 0.18], skin: SKIN[1], mustache: [0.1, 0.08, 0.06] },
@@ -815,7 +923,9 @@ const OUTFITS = [
   { robe: [0.22, 0.34, 0.56], head: 'hijab', hc: [0.95, 0.9, 0.84], skin: SKIN[1] },
   { pants: [0.25, 0.25, 0.27], shirt: [0.75, 0.12, 0.15], head: 'kufi', hc: [0.95, 0.95, 0.95], skin: SKIN[3], beard: [0.1, 0.08, 0.07] }
 ];
-const PV = OUTFITS.map((o, i) => personMeshes(o, i));
+const SEATED = [0, 1, 2, 4, 5, 8].map(i => ({ ...OUTFITS[i], seated: true }));
+const PV = [...OUTFITS, ...SEATED].map((o, i) => personMeshes(o, i));
+const addSitter = (x, z, yaw) => addPerson(x, z, yaw, 'sitter', OUTFITS.length + ((R1() * SEATED.length) | 0));
 const PEOPLE = [];
 function addPerson(x, z, yaw, kind, vi = (R1() * OUTFITS.length) | 0, s = 0.94 + R1() * 0.14) {
   if (vi === 6) s *= 0.68;
@@ -830,6 +940,7 @@ const goat = (x, y, z) => put('goat', x, y, z, 1, 1, 1, R1() * 6.28, GOATC[(R1()
 const R1 = rng(1337);
 const HOUSES = [];
 const STONES = [[0.9, 0.84, 0.72], [0.96, 0.93, 0.86], [0.86, 0.74, 0.58], [0.92, 0.86, 0.76], [0.84, 0.82, 0.78], [0.93, 0.8, 0.64]].map(c => c.map(v => Math.pow(v, 2.2)));
+const SHUTTERS = [[0.08, 0.38, 0.42], [0.1, 0.2, 0.5], [0.14, 0.32, 0.12], [0.35, 0.18, 0.08], [0.6, 0.62, 0.6]];
 const DOORS = [[0.06, 0.32, 0.36], [0.08, 0.16, 0.42], [0.1, 0.28, 0.1], [0.25, 0.12, 0.05], [0.5, 0.48, 0.45]];
 const rot = (yaw, lx, lz) => [lx * Math.cos(yaw) + lz * Math.sin(yaw), -lx * Math.sin(yaw) + lz * Math.cos(yaw)];
 function freeSpot(x, z, r) { if (TRACK.sea && z < SEA_Z + 34) return false; for (const h of HOUSES) if ((h[0] - x) ** 2 + (h[1] - z) ** 2 < (r + h[2]) ** 2) return false; return true; }
@@ -854,7 +965,7 @@ function house(cx, cz, w, d, floors, yaw, tint) {
     const [wx, wz] = rot(yaw, w * 0.22, -d * 0.18 + rd / 2 + 0.05);
     put(R1() < 0.3 ? 'winLit' : 'win', cx + wx, roofY + 1.6, cz + wz, 0.9, 1.2, 0.14, yaw);
   }
-  const doorFace = (R1() * 4) | 0;
+  const doorFace = (R1() * 4) | 0, arched = R1() < 0.5, shut = R1() < 0.45 ? [...SHUTTERS[(R1() * SHUTTERS.length) | 0], 1] : null;
   for (let f = 0; f < 4; f++) {
     const along = f < 2 ? w : d, half = f < 2 ? d / 2 : w / 2, fy = yaw + (f < 2 ? 0 : Math.PI / 2);
     const n = Math.max(1, Math.floor((along - 1.2) / 3.1));
@@ -867,10 +978,25 @@ function house(cx, cz, w, d, floors, yaw, tint) {
         put('lintel', cx + ox, y + 2.45, cz + oz, 1.7, 0.22, 0.26, fy, sc);
         continue;
       }
-      put(R1() < 0.32 ? 'winLit' : 'win', cx + ox, y + 1.75, cz + oz, 1.0, 1.35, 0.14, fy);
-      put('lintel', cx + ox, y + 2.55, cz + oz, 1.35, 0.16, 0.24, fy, sc);
+      const lit = R1() < 0.32;
+      put(lit ? 'winLit' : 'win', cx + ox, y + 1.75, cz + oz, 1.0, 1.35, 0.14, fy);
+      const [nx2, nz2] = rot(yaw, f < 2 ? 0 : sgn, f < 2 ? sgn : 0), [ux, uz] = rot(fy, 1, 0);
+      if (arched) put(lit ? 'archLit' : 'archTop', cx + ox + nx2 * 0.075, y + 2.425, cz + oz + nz2 * 0.075, 1.0, 1.0, 1, fy);
+      else put('lintel', cx + ox, y + 2.55, cz + oz, 1.35, 0.16, 0.24, fy, sc);
+      if (shut) for (const q of [-1, 1]) put('shutter', cx + ox + ux * q * 0.68 + nx2 * 0.05, y + 1.75, cz + oz + uz * q * 0.68 + nz2 * 0.05, 0.34, 1.4, 0.05, fy + q * 0.35, shut);
     }
   }
+  if (floors >= 2 && R1() < 0.5) {
+    const f = doorFace, sgn = f % 2 ? -1 : 1, half = f < 2 ? d / 2 : w / 2, fy = yaw + (f < 2 ? 0 : Math.PI / 2);
+    const [nx2, nz2] = rot(yaw, f < 2 ? 0 : sgn, f < 2 ? sgn : 0), [ux, uz] = rot(fy, 1, 0), y = base + 3.3;
+    const bx2 = cx + nx2 * (half + 0.55), bz2 = cz + nz2 * (half + 0.55);
+    put('slab', bx2, y, bz2, 2.8, 0.16, 1.1, fy, sc);
+    put('rail', bx2 + nx2 * 0.52, y + 0.95, bz2 + nz2 * 0.52, 2.8, 0.05, 0.05, fy);
+    for (let q = 0; q < 7; q++) { const o2 = (q / 6 - 0.5) * 2.7; put('rail', bx2 + nx2 * 0.52 + ux * o2, y + 0.5, bz2 + nz2 * 0.52 + uz * o2, 0.03, 0.9, 0.03, fy); }
+    if (R1() < 0.5) put('cloth', bx2 + nx2 * 0.56, y + 0.6, bz2 + nz2 * 0.56, 1.2, 0.7, 1, fy, CLOTHES[(R1() * CLOTHES.length) | 0]);
+  }
+  if (R1() < 0.16) put('roofDome', cx, roofY - 0.25, cz, Math.min(w, d) * 0.45, Math.min(w, d) * 0.3, Math.min(w, d) * 0.45, 0, sc);
+  if (R1() < 0.55) { const [px, pz] = rot(yaw, (R1() - .5) * w, d / 2 + 0.5); for (let q = 0; q < 2; q++) { const xx = cx + px + q * 0.7, zz = cz + pz; put('pot', xx, base + 0.3, zz, 0.45, 0.5, 0.45); put('bush', xx, base + 0.75, zz, 0.7, 0.6, 0.7, R1() * 6, [0.2, 0.42, 0.15, 1]); } }
   const tanks = 1 + ((R1() * 3) | 0);
   for (let i = 0; i < tanks; i++) { const [ox, oz] = rot(yaw, (R1() - .5) * w * 0.6, (R1() - .5) * d * 0.6); put('tank', cx + ox, roofY + 0.6, cz + oz, 1.1, 1.2, 1.1); }
   if (R1() < 0.6) {
@@ -909,6 +1035,8 @@ function minaret(mx, mz, yaw, domeCol, ms) {
   put('mbal', mx, mb + 19.5 * ms + 5.6, mz, 2.2, 0.4, 2.2, yaw, WHITE);
   put('mcap', mx, mb + 19.5 * ms + 7.4, mz, 2.0, 3.2, 2.0, yaw, domeCol);
   put('spire', mx, mb + 19.5 * ms + 9.6, mz, 0.2, 1.4, 0.2, 0, GOLD);
+  put('crescent', mx, mb + 19.5 * ms + 10.75, mz, 1.1, 1.1, 1.1, yaw);
+  for (let q = 0; q < 8; q++) { const a = q / 8 * Math.PI * 2; put('bulb', mx + Math.sin(a) * 1.72, mb + 19.5 * ms + 0.95, mz + Math.cos(a) * 1.72, 0.16, 0.16, 0.16); }
   HOUSES.push([mx, mz, 3]);
 }
 function mosque(cx, cz, yaw, domeCol, s = 1, minarets = 1) {
@@ -918,6 +1046,8 @@ function mosque(cx, cz, yaw, domeCol, s = 1, minarets = 1) {
   put('drum', cx, base + h + 0.8 * s, cz, 9.2 * s, 1.6 * s, 9.2 * s, 0, WHITE);
   put('dome', cx, base + h + 1.6 * s, cz, 9 * s, 9 * s, 9 * s, 0, domeCol);
   put('spire', cx, base + h + 1.6 * s + 4.5 * s + 1.0, cz, 0.35, 2.4, 0.35, 0, GOLD);
+  put('crescent', cx, base + h + 1.6 * s + 4.5 * s + 2.75, cz, 1.6, 1.6, 1.6, yaw);
+  { const f = 0, fy = yaw, [nx2, nz2] = rot(yaw, 0, 1), [ux, uz] = rot(yaw, 1, 0), dep = w / 2 + 2.2; put('slab', cx + nx2 * dep, base + 4.1, cz + nz2 * dep, w * 0.9, 0.35, 4.4, yaw, WHITE); for (let q = 0; q < 6; q++) { const o2 = (q / 5 - 0.5) * w * 0.82; put('mshaft', cx + nx2 * (dep + 1.9) + ux * o2, base + 1.95, cz + nz2 * (dep + 1.9) + uz * o2, 0.45, 3.9, 0.45, yaw, WHITE); } }
   if (s > 1.3) for (const [a, b] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
     const [ox, oz] = rot(yaw, a * w * 0.33, b * w * 0.33);
     put('drum', cx + ox, base + h + 0.4, cz + oz, 3.4, 0.8, 3.4, 0, WHITE);
@@ -926,7 +1056,7 @@ function mosque(cx, cz, yaw, domeCol, s = 1, minarets = 1) {
   for (let f = 0; f < 4; f++) for (let k = -1; k <= 1; k++) {
     const fy = yaw + f * Math.PI / 2, [ox, oz] = rot(fy, k * 3.4 * s, w / 2 + 0.03);
     put('win', cx + ox, base + 3.6, cz + oz, 1.2, 2.6, 0.14, fy);
-    put('lintel', cx + ox, base + 5.05, cz + oz, 1.6, 0.3, 0.26, fy, WHITE);
+    put('archTop', cx + ox, base + 4.9, cz + oz, 1.2, 1.2, 1, fy);
   }
   const corners = [[1, 1], [-1, -1], [1, -1], [-1, 1]];
   for (let m = 0; m < minarets; m++) { const [a, b] = corners[m]; const [ox, oz] = rot(yaw, a * (w / 2 + 2.2), b * (w / 2 - (minarets > 1 ? -2.2 : 1.5))); minaret(cx + ox, cz + oz, yaw, domeCol, s > 1.3 ? 1.35 : 1); }
@@ -1088,6 +1218,104 @@ for (let i = 0; i < N; i += 30) {
 if (TRACK.sea) {
   for (let k = 0; k < 70; k++) { const x = TCX + (R1() - .5) * 700, z = SEA_Z + 36 + R1() * 22; if (trackDist(x, z) > WALL + 6) palm(x, z); }
 }
+// electricity poles with sagging wires along the road
+function wireSpan(ax, ay, az, bx2, by, bz, sag) {
+  const n = 8; let px = ax, py = ay, pz = az;
+  for (let j = 1; j <= n; j++) {
+    const t = j / n, x = lerp(ax, bx2, t), z = lerp(az, bz, t), y = lerp(ay, by, t) - sag * 4 * t * (1 - t);
+    const dx = x - px, dy = y - py, dz = z - pz, len = Math.hypot(dx, dy, dz), e = Math.atan2(dy, Math.hypot(dx, dz));
+    put('wire', (x + px) / 2, (y + py) / 2, (z + pz) / 2, 0.025, len, 0.025, Math.atan2(dx, dz), null, Math.PI / 2 - e);
+    px = x; py = y; pz = z;
+  }
+}
+{
+  let prev = null;
+  for (let i = 0; i < N; i += 36) {
+    const side = Math.sin(i / N * Math.PI * 6) > 0 ? 1 : -1, off = WALL + 8.5;
+    const x = PX[i] + RX[i] * side * off, z = PZ[i] + RZ[i] * side * off;
+    if (!freeSpot(x, z, 0.8)) { prev = null; continue; }
+    const y0 = terrainH(x, z);
+    put('epole', x, y0 + 4.3, z, 0.26, 8.6, 0.26);
+    put('xbar', x, y0 + 7.9, z, 0.12, 0.12, 1.8, Math.atan2(RX[i], RZ[i]));
+    const ends = [-0.75, 0.75].map(q => [x + RX[i] * q, y0 + 7.95, z + RZ[i] * q]);
+    if (prev && prev.side === side && Math.hypot(prev.x - x, prev.z - z) < 70) for (let q = 0; q < 2; q++) wireSpan(...prev.ends[q], ...ends[q], 0.7 + R1() * 0.5);
+    for (const hh of HOUSES) { const dd = Math.hypot(hh[0] - x, hh[1] - z); if (dd < 22 && dd > 5 && R1() < 0.5) { wireSpan(x, y0 + 7.6, z, hh[0], terrainH(hh[0], hh[1]) + 4.5, hh[1], 0.9); break; } }
+    prev = { x, z, side, ends };
+  }
+}
+// prickly pear cacti around villages and on the run-off fringe
+for (let k = 0; k < 260; k++) {
+  const v = VILLAGES.length && R1() < 0.6 ? VILLAGES[(R1() * VILLAGES.length) | 0] : null;
+  const x = v ? v[0] + (R1() - .5) * 180 : PX[(R1() * N) | 0] + (R1() - .5) * 70, z = v ? v[1] + (R1() - .5) * 180 : PZ[(R1() * N) | 0] + (R1() - .5) * 70;
+  if (trackDist(x, z) < WALL + 3 || !freeSpot(x, z, 1.2)) continue;
+  const sc = 0.9 + R1() * 0.9; put('cactus', x, terrainH(x, z), z, sc, sc, sc, R1() * 6.28);
+  if (R1() < 0.5) put('cactus', x + 0.8, terrainH(x, z), z + 0.5, sc * 0.8, sc * 0.8, sc * 0.8, R1() * 6.28);
+}
+// chevron boards on the outside of corners + old skid marks through them
+for (let i = 0; i < N; i += 7) {
+  const a = (i - 20 + N) % N, b = (i + 20) % N, turn = TX[a] * TZ[b] - TZ[a] * TX[b];
+  if (Math.abs(turn) < 0.5) continue;
+  const out = turn < 0 ? -1 : 1, x = PX[i] + RX[i] * out * (WALL - 0.15), z = PZ[i] + RZ[i] * out * (WALL - 0.15);
+  if (i % 14 === 0) { put(turn < 0 ? 'chevR' : 'chevL', x, 1.75, z, 1, 1, 1, Math.atan2(TX[i], TZ[i])); put('bpole', x, 1.0, z, 0.07, 1.4, 0.07); }
+}
+for (let i = 0; i < N; i++) {
+  const a = (i - 20 + N) % N, b = (i + 20) % N, turn = TX[a] * TZ[b] - TZ[a] * TX[b];
+  if (Math.abs(turn) < 0.42) continue;
+  const inside = turn < 0 ? 1 : -1, lat = inside * HW * 0.35 * Math.min(1, (Math.abs(turn) - 0.42) * 3) - inside * 1.5, yaw = Math.atan2(TX[i], TZ[i]) + inside * 0.25;
+  for (const q of [-0.78, 0.78]) put('oldskid', PX[i] + RX[i] * (lat + q), 0.046, PZ[i] + RZ[i] * (lat + q), 0.24, 1, 1.2, yaw);
+}
+for (let k = 0; k < 70; k++) { const i = (R1() * N) | 0, lat = (R1() - .5) * HW * 1.4; put('patch', PX[i] + RX[i] * lat, 0.044, PZ[i] + RZ[i] * lat, 1 + R1() * 2.5, 1, 1 + R1() * 3, Math.atan2(TX[i], TZ[i]) + (R1() - .5) * 0.3); }
+// cafés: plastic tables, coffee, tawla and a nargila
+function cafe(x, z, yaw) {
+  const y = terrainH(x, z);
+  put('table', x, y, z, 1, 1, 1, yaw);
+  const seats = 2 + ((R1() * 3) | 0);
+  for (let q = 0; q < 4; q++) {
+    const a = yaw + q * Math.PI / 2, cx2 = x + Math.sin(a) * 0.75, cz2 = z + Math.cos(a) * 0.75, face = a + Math.PI;
+    put('chair', cx2, y, cz2, 1, 1, 1, face);
+    if (q < seats) { const p = addSitter(cx2 - Math.sin(face) * 0.02, cz2 - Math.cos(face) * 0.02, face); p.y = y + 0.02; }
+  }
+  if (R1() < 0.7) put('nargila', x + Math.sin(yaw + 0.8) * 1.2, y, z + Math.cos(yaw + 0.8) * 1.2, 1, 1, 1, R1() * 6);
+  HOUSES.push([x, z, 1.6]);
+}
+VILLAGES.forEach(([cx, cz]) => {
+  for (let k = 0, t2 = 0; k < 2 && t2 < 30; t2++) { const a = R1() * 6.28, r = 14 + R1() * 40, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 8 || !freeSpot(x, z, 2)) continue; cafe(x, z, R1() * 6.28); k++; }
+  for (let k = 0, t2 = 0; k < 2 && t2 < 30; t2++) { const a = R1() * 6.28, r = 18 + R1() * 50, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 8 || !freeSpot(x, z, 2.5)) continue; const yw = R1() * 6.28; put('donkey', x, terrainH(x, z), z, 1, 1, 1, yw); if (R1() < 0.6) put('cart', x - Math.sin(yw) * 2.1, terrainH(x, z), z - Math.cos(yw) * 2.1, 1, 1, 1, yw); HOUSES.push([x, z, 2.5]); k++; }
+  for (let k = 0; k < 9; k++) { const a = R1() * 6.28, r = 8 + R1() * 45, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 5 || !freeSpot(x, z, 0.4)) continue; put('chicken', x, terrainH(x, z), z, 1, 1, 1, R1() * 6.28); }
+});
+for (let k = 0, t2 = 0; k < 7 && t2 < 120; t2++) {
+  const i = (R1() * N) | 0, side = R1() < 0.5 ? -1 : 1, off = WALL + 4.5;
+  const x = PX[i] + RX[i] * side * off, z = PZ[i] + RZ[i] * side * off;
+  if (!freeSpot(x, z, 2)) continue;
+  cafe(x, z, Math.atan2(TX[i], TZ[i])); k++;
+}
+// a village wedding near the track
+let WED = null;
+{
+  let bestV = null, bd = Infinity;
+  for (const v of VILLAGES) { const d = trackDist(v[0], v[1]); if (d < bd) { bd = d; bestV = v; } }
+  if (bestV) {
+    for (let t2 = 0; t2 < 60 && !WED; t2++) {
+      const i = (R1() * N) | 0, sideP = Math.sign((bestV[0] - PX[i]) * RX[i] + (bestV[1] - PZ[i]) * RZ[i]) || 1, off = WALL + 18;
+      const x = PX[i] + RX[i] * sideP * off, z = PZ[i] + RZ[i] * sideP * off;
+      if (Math.hypot(x - bestV[0], z - bestV[1]) > 260 || !freeSpot(x, z, 11)) continue;
+      WED = { x, z, yaw: Math.atan2(-RX[i] * sideP, -RZ[i] * sideP), y: terrainH(x, z) };
+    }
+  }
+  if (WED) {
+    const { x, z, yaw, y } = WED, [ux, uz] = rot(yaw, 1, 0), [fx, fz] = rot(yaw, 0, 1);
+    for (const [a, b] of [[-7, -5], [7, -5], [-7, 5], [7, 5]]) put('bpole', x + ux * a + fx * b, y + 2.3, z + uz * a + fz * b, 0.14, 4.6, 0.14);
+    for (const [a, b] of [[-11, 9], [11, 9], [-11, -9], [11, -9]]) {
+      put('bpole', x + ux * a + fx * b, y + 2.5, z + uz * a + fz * b, 0.1, 5, 0.1);
+      const sa = [x + ux * Math.sign(a) * 7 + fx * Math.sign(b) * 5, y + 4.6, z + uz * Math.sign(a) * 7 + fz * Math.sign(b) * 5], sb = [x + ux * a + fx * b, y + 5, z + uz * a + fz * b];
+      for (let q = 0; q <= 14; q++) { const t = q / 14; put('bulb', lerp(sa[0], sb[0], t), lerp(sa[1], sb[1], t) - 0.9 * 4 * t * (1 - t), lerp(sa[2], sb[2], t), 0.16, 0.16, 0.16); }
+    }
+    for (let q = 0; q <= 28; q++) { const t = q / 28, ex = lerp(-7, 7, t); for (const b of [-5, 5]) put('bulb', x + ux * ex + fx * b, y + 4.5 - 0.5 * 4 * t * (1 - t), z + uz * ex + fz * b, 0.15, 0.15, 0.15); }
+    for (let q = 0; q < 14; q++) { const a = Math.PI * (0.15 + 0.7 * q / 13), r = 4.2; addPerson(x + ux * Math.cos(a) * r + fx * (Math.sin(a) * r - 1.5), z + uz * Math.cos(a) * r + fz * (Math.sin(a) * r - 1.5), yaw + Math.PI / 2 - a, 'dancer'); }
+    for (let row = 0; row < 2; row++) for (let q = 0; q < 6; q++) { const cx2 = x + ux * ((q - 2.5) * 1.6) + fx * (-4 + row * 1.0), cz2 = z + uz * ((q - 2.5) * 1.6) + fz * (-4 + row * 1.0); put('chair', cx2, y, cz2, 1, 1, 1, yaw); if (R1() < 0.75) addSitter(cx2, cz2, yaw); }
+    HOUSES.push([x, z, 12]);
+  }
+}
 // dry grass, rocks, wandering goats
 for (let k = 0; k < 4200; k++) {
   const i = (R1() * N) | 0, side = R1() < 0.5 ? -1 : 1;
@@ -1233,6 +1461,60 @@ LATE.forEach(([x, z, yaw]) => { const p = addPerson(x, z, yaw, 'villager'); });
     document.fonts?.load('96px "Secular One"').then(() => { const t2 = signTex('bill' + k + 'b', lines, bg, fg); sm.diffuseTexture = t2; sm.emissiveTexture = t2; }).catch(() => {});
   }
 }
+// wedding tent roof, stage and sign
+let fireworks = null, fwT = 2;
+if (WED) {
+  const { x, z, yaw, y } = WED, root = new B.TransformNode('wed', scene); root.position.set(x, y, z); root.rotation.y = yaw;
+  const cloth = texFrom('tentT', mkCanvas(256, 64, (c, w, h) => { for (let k = 0; k < 8; k++) { c.fillStyle = k % 2 ? '#f4efe4' : '#b8242e'; c.fillRect(k * 32, 0, 32, h); } }));
+  const tm = pbr('tentM', { tex: cloth, rough: 0.9 }); tm.backFaceCulling = false;
+  for (const s2 of [-1, 1]) { const r = MB.CreateBox('tr', { width: 14.6, height: 0.06, depth: 5.8 }, scene); r.parent = root; r.position.set(0, 5.35, s2 * 2.6); r.rotation.x = s2 * 0.32; r.material = tm; GANTRY.push(r); }
+  const stage = MB.CreateBox('stg', { width: 5, height: 0.4, depth: 2.5 }, scene); stage.parent = root; stage.position.set(0, 0.2, 3.6); stage.material = pbr('stgM', { color: 0x5a2a1a, rough: 0.8 });
+  const blackM = pbr('spkM2', { color: 0x111111, rough: 0.6 });
+  for (const sx of [-2.2, 2.2]) { const sp = MB.CreateBox('spk', { width: 0.8, height: 1.6, depth: 0.7 }, scene); sp.parent = root; sp.position.set(sx, 1.2, 3.6); sp.material = blackM; GANTRY.push(sp); }
+  const pl = MB.CreatePlane('ws', { width: 8, height: 2 }, scene); pl.parent = root; pl.position.set(0, 6.6, -5.6); pl.rotation.y = Math.PI;
+  const sm = new B.StandardMaterial('wsM', scene); const st = signTex('wedSign', ['חתונה של אחמד ונור', 'כל הכפר מוזמן · כולל הנהגים'], '#f4efe4', '#b8242e'); sm.diffuseTexture = st; sm.emissiveTexture = st; sm.emissiveColor = new B.Color3(0.6, 0.6, 0.6); sm.specularColor = B.Color3.Black(); pl.material = sm;
+  fireworks = new B.ParticleSystem('fw', 900, scene);
+  fireworks.particleTexture = dotTex; fireworks.emitter = V3(x, y + 38, z); fireworks.createSphereEmitter(0.5);
+  fireworks.minLifeTime = 1.0; fireworks.maxLifeTime = 1.8; fireworks.minSize = 0.35; fireworks.maxSize = 0.7; fireworks.minEmitPower = 9; fireworks.maxEmitPower = 15;
+  fireworks.gravity = V3(0, -5, 0); fireworks.updateSpeed = 1 / 60; fireworks.emitRate = 0; fireworks.blendMode = B.ParticleSystem.BLENDMODE_ADD;
+  fireworks.addVelocityGradient(0, 1); fireworks.addVelocityGradient(1, 0.25);
+  fireworks.start();
+}
+const FW_COLS = [[6, 1.2, 1.4], [1.5, 5, 1.6], [1.6, 2.4, 6], [6, 4.5, 1.2], [5, 1.6, 5.5]];
+function updateWedding(dt) {
+  if (!WED || !fireworks) return;
+  const d = Math.hypot(camera.position.x - WED.x, camera.position.z - WED.z);
+  fwT -= dt;
+  if (fwT <= 0 && d < 650) {
+    fwT = 1.4 + Math.random() * 2.4;
+    const c = FW_COLS[(Math.random() * FW_COLS.length) | 0];
+    fireworks.color1 = new B.Color4(c[0], c[1], c[2], 1); fireworks.color2 = new B.Color4(c[0] * 0.7 + 1, c[1] * 0.7 + 1, c[2] * 0.7 + 1, 1); fireworks.colorDead = new B.Color4(c[0] * 0.2, c[1] * 0.2, c[2] * 0.2, 0);
+    fireworks.emitter.set(WED.x + (Math.random() - .5) * 20, WED.y + 34 + Math.random() * 14, WED.z + (Math.random() - .5) * 20);
+    fireworks.manualEmitCount = quality === 'turbo' ? 70 : 150;
+    sfx.boom(Math.max(0, 1 - d / 650));
+  }
+  sfx.drums(Math.max(0, 1 - d / 170));
+}
+// collectible falafel balls on the racing line
+const FB = { list: [], mesh: null };
+{
+  const ft = texFrom('falT', mkCanvas(128, 64, (x, w, h) => { noiseFill(x, w, h, [120, 72, 30], 50); for (let k = 0; k < 40; k++) { x.fillStyle = '#f1e4c0'; x.beginPath(); x.ellipse(Math.random() * w, Math.random() * h, 2, 1.2, Math.random() * 3, 0, 7); x.fill(); } }));
+  const m = MB.CreateSphere('fball', { diameter: 0.62, segments: 12 }, scene);
+  m.material = pbr('fallM', { tex: ft, rough: 0.7, emissive: new B.Color3(0.25, 0.12, 0.03) }); m.isPickable = false; m.alwaysSelectAsActiveMesh = true;
+  for (let i = 40; i < N; i += Math.round(70 / DS0())) { const lat = (Math.sin(i * 0.37) * 0.5) * HW * 1.1; FB.list.push({ x: PX[i] + RX[i] * lat, z: PZ[i] + RZ[i] * lat, got: false, ph: i }); }
+  FB.buf = new Float32Array(FB.list.length * 16); m.thinInstanceSetBuffer('matrix', FB.buf, 16, false); FB.mesh = m;
+}
+function DS0() { return CUM[N] / N; }
+function resetPickups() { FB.list.forEach(b => b.got = false); }
+function updatePickups(t) {
+  if (!FB.mesh) return;
+  FB.list.forEach((b, i) => {
+    if (!b.got && state === 'drive' && (b.x - car.x) ** 2 + (b.z - car.z) ** 2 < 2.4 * 2.4) { b.got = true; addFalafel(1); sfx.crunch(); }
+    writeM(FB.buf, i, b.got ? 0.0001 : 1, t * 2.4 + b.ph, 0.3, b.x, 0.9 + Math.sin(t * 3 + b.ph) * 0.15, b.z);
+  });
+  FB.mesh.thinInstanceBufferUpdated('matrix');
+}
+
 // the sea
 let water = null;
 if (TRACK.sea) {
@@ -1252,6 +1534,20 @@ if (TRACK.sea) {
   }
 }
 
+
+// distant ridge layers for depth on the horizon
+const mtnMats = [0, 1].map(k => { const m = new B.StandardMaterial('mtn' + k, scene); m.disableLighting = true; m.fogEnabled = false; m.emissiveColor = new B.Color3(0.5, 0.36, 0.4); m.diffuseColor = B.Color3.Black(); m.specularColor = B.Color3.Black(); return m; });
+mtnMats.forEach((mat, layer) => {
+  const g = MB.CreateCylinder('ridge' + layer, { height: 1, diameterTop: 0.22, diameterBottom: 1, tessellation: 7 }, scene); g.material = mat; g.isPickable = false; g.applyFog = false;
+  const mats = [], n = 34;
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2 + layer * 0.09, r = (layer ? 2350 : 1950) + Math.sin(i * 7.3) * 120;
+    if (TRACK.sea && Math.sin(a) < -0.35) continue;
+    const hgt = (layer ? 190 : 120) + Math.abs(Math.sin(i * 3.1 + layer)) * (layer ? 170 : 110), wdt = 700 + Math.abs(Math.sin(i * 1.7)) * 500;
+    mats.push(B.Matrix.Compose(V3(wdt, hgt, wdt * 0.7), B.Quaternion.RotationYawPitchRoll(a, 0, 0), V3(TCX + Math.cos(a) * r, hgt / 2 - 40, TCZ + Math.sin(a) * r)));
+  }
+  const buf = new Float32Array(mats.length * 16); mats.forEach((m, i) => m.copyToArray(buf, i * 16)); g.thinInstanceSetBuffer('matrix', buf, 16, true); g.thinInstanceRefreshBoundingInfo(false);
+});
 
 /* ================= lights / sky ================= */
 const sun = new B.DirectionalLight('sun', V3(0, -1, 0), scene);
@@ -1541,8 +1837,16 @@ function buildCar(ghost = false, pm = paint, o = {}) {
     glowMeshes.push(st === 'van' ? bx(0.14, 0.5, 0.07, s * W * 0.84, 0.8, -L - 0.005, tailMat) : bx(0.36, 0.14, 0.07, s * W * 0.66, H - 0.16 - trunk, -L + 0.0, tailMat));
     bx(0.04, 0.06, 2 * L * 0.55, s * W * 0.995, 0.5, 0, carMats.black);
     const mir = bx(0.14, 0.1, 0.2, s * (W + 0.06), H + 0.07, zf - 0.08, pm); mir.rotation.y = s * 0.15;
+    bx(0.03, 0.06, 0.12, s * (W - 0.02), H + 0.03, zf - 0.05, carMats.black);
+    const wp = bx(0.55, 0.02, 0.03, s * 0.3, H + 0.03, zf - 0.04, carMats.black); wp.rotation.z = s * 0.1; wp.rotation.y = s * 0.1;
+    bx(0.5, 0.2, 0.04, s * W * 0.64, fy, L - 0.095, carMats.black);
+    for (const az of [wzF0, wzR0]) bx(0.22, 0.24, 0.02, s * (W - 0.12), 0.22, az - aR - 0.03, carMats.black);
+    for (const zz of [lerp(zr, zf, 0.5), zf - 0.05]) bx(0.006, 0.42, 0.012, s * W * 0.995, 0.62, zz, carMats.black);
+    if (st === 'wagon' || st === 'van') bx(0.04, 0.04, (zf - zr) * 0.82, s * rw * 0.92, Rf + 0.05, (zf + zr) / 2, carMats.black);
+    if (!simple && (M.id === 'impreza' || M.id === 'lancer' || M.id === 'civic')) { const fl = add(MB.CreateCylinder('fog', { height: 0.04, diameter: 0.11, tessellation: 12 }, scene), carMats.head); fl.rotation.x = Math.PI / 2; fl.position.set(s * W * 0.7, 0.36, L + 0.075); }
     if (!simple) bx(0.02, 0.03, 0.14, s * W * 1.0, 0.7, (zf + zr) / 2 + 0.25, carMats.black);
   }
+  { const ant = add(MB.CreateCylinder('ant', { height: 0.75, diameter: 0.012, tessellation: 4 }, scene), carMats.black); ant.position.set(-W * 0.72, H + 0.36, -L + 0.55); ant.rotation.x = -0.28; }
   const plate = add(MB.CreatePlane('plate', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plate.position.set(0, 0.47, -L - 0.155);
   const plateF = add(MB.CreatePlane('plateF', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plateF.position.set(0, 0.34, L + 0.155); plateF.rotation.y = Math.PI;
   const badge = add(MB.CreatePlane('badge', { width: 0.17, height: 0.13 }, scene), badgeMat(M.badge)); badge.position.set(0, fy - 0.06, L + 0.015); badge.rotation.y = Math.PI;
@@ -1651,7 +1955,7 @@ const GHOST = buildCar(true); GHOST.root.setEnabled(false);
 /* ================= render pipeline ================= */
 const glow = new B.GlowLayer('glow', scene, { mainTextureRatio: 0.5, blurKernelSize: 48 });
 glow.intensity = 0.55;
-['lamp', 'winLit', 'mring'].forEach(k => glow.addIncludedOnlyMesh(TI[k].mesh));
+['lamp', 'winLit', 'mring', 'bulb', 'archLit'].forEach(k => TI[k] && glow.addIncludedOnlyMesh(TI[k].mesh));
 
 let ssao = null;
 const pipe = new B.DefaultRenderingPipeline('pipe', true, scene, [camera]);
@@ -1662,6 +1966,7 @@ pipe.imageProcessingEnabled = true;
 const IP = pipe.imageProcessing;
 IP.toneMappingEnabled = true; IP.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
 IP.contrast = 1.12; IP.exposure = 1.0;
+{ const cc = new B.ColorCurves(); cc.globalSaturation = 14; cc.highlightsHue = 35; cc.highlightsDensity = 22; cc.highlightsSaturation = 28; cc.shadowsHue = 215; cc.shadowsDensity = 28; cc.shadowsSaturation = 22; IP.colorCurves = cc; IP.colorCurvesEnabled = true; }
 IP.vignetteEnabled = true; IP.vignetteWeight = 2.2; IP.vignetteStretch = 0.4; IP.vignetteColor = new B.Color4(0.05, 0.02, 0.04, 0);
 pipe.chromaticAberrationEnabled = true; pipe.chromaticAberration.aberrationAmount = 0; pipe.chromaticAberration.radialIntensity = 1.4;
 pipe.grainEnabled = true; pipe.grain.intensity = 7; pipe.grain.animated = true;
@@ -1888,6 +2193,26 @@ function updateTags() {
   });
 }
 
+/* race commentary */
+const COMMENTS = [
+  'הדודה פאטמה מחליקה עם מזרן על הגג. כבוד.', 'אבו טסלה סעיד טוען את המכונית בגנרטור של השכנים', 'מחמוד הלא חמוד שכח את העז בפנייה הקודמת',
+  'השכנים מבקשים להנמיך את האגזוז, יש תינוק ישן', 'ריח של שווארמה בפנייה הבאה. להתרכז!', 'סמיר טורבו נשבע שהבמוו שלו מקורית. היא לא.',
+  'יוסוף התותח נתקע עם הכנף בכבל חשמל', 'מוסטפא גלגלי בזק: "הספינרים שלי מסתובבים גם כשאני ישן"', 'בחתונה בכפר כבר מזמינים אותך לרקוד דבקה',
+  'אבו עלי מספר לכולם שהוא לימד אותך לנהוג', 'העזים הקימו ועד נגד דריפטים', 'הקפה עם ההל מתקרר. תסיים כבר את ההקפה',
+  'מישהו מהקהל מצלם אותך לסטורי. תחייך', 'בבית הקפה מהמרים עליך בשש-בש', 'החמור בצד הדרך מתרשם. בקושי.',
+  'הדוד סמיר מבקש להזכיר: צמיגים ב-24/7', 'תרנגולת ברחה מהלול לראות את המרוץ', 'אמא של מוסטפא מתקשרת. הוא לא עונה, הוא בדריפט.'
+];
+let tickT = 9, tickI = (Math.random() * COMMENTS.length) | 0;
+function updateTicker(dt) {
+  if (state !== 'drive') return;
+  tickT -= dt; if (tickT > 0) return;
+  tickT = 20 + Math.random() * 14;
+  let line = COMMENTS[tickI++ % COMMENTS.length];
+  if (place > 1 && Math.random() < 0.35) { const lead = rivals.filter(r => r.active !== false).sort((a, b) => b.s - a.s)[0]; if (lead) line = `${lead.name} מוביל. הכפר לא מרוצה, תעשה משהו`; }
+  else if (place === 1 && Math.random() < 0.3) line = 'אתה ראשון! הדודות כבר מכינות לך מקלובה';
+  const el = $('ticker'); $('tickt').textContent = line; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+}
+
 /* people animation */
 const _pm = new B.Matrix(), _pq = new B.Quaternion(), _ps = new B.Vector3(), _pt = new B.Vector3();
 function writeM(buf, i, sc, yaw, pitch, x, y, z) { B.Quaternion.RotationYawPitchRollToRef(yaw, pitch, 0, _pq); _ps.setAll(sc); _pt.set(x, y, z); B.Matrix.ComposeToRef(_ps, _pq, _pt, _pm); _pm.copyToArray(buf, i * 16); }
@@ -1909,11 +2234,13 @@ function updatePeople(t, dt) {
       let yaw = p.yaw;
       if (dcar < 60 && state !== 'menu') { const ty = Math.atan2(car.x - p.x, car.z - p.z); p.ly = p.ly == null ? p.yaw : p.ly + Math.atan2(Math.sin(ty - p.ly), Math.cos(ty - p.ly)) * k; yaw = p.ly; }
       else if (p.ly != null) { p.ly = p.ly + Math.atan2(Math.sin(p.yaw - p.ly), Math.cos(p.yaw - p.ly)) * k; yaw = p.ly; }
-      const jump = p.ex * Math.abs(Math.sin(t * 7.5 + p.ph)) * (p.kind === 'fan' ? 0.3 : 0.12);
-      const arm = lerp(-0.06 + Math.sin(t * 1.4 + p.ph) * 0.05, -2.75 + Math.sin(t * 11 + p.ph) * 0.35, p.ex);
+      let jump = p.ex * Math.abs(Math.sin(t * 7.5 + p.ph)) * (p.kind === 'fan' ? 0.3 : 0.12);
+      let arm = lerp(-0.06 + Math.sin(t * 1.4 + p.ph) * 0.05, -2.75 + Math.sin(t * 11 + p.ph) * 0.35, p.ex);
+      if (p.kind === 'sitter') { jump = 0; arm = lerp(-0.5 - Math.max(0, Math.sin(t * 0.7 + p.ph)) * 0.9, -2.6 + Math.sin(t * 9 + p.ph) * 0.3, p.ex); }
+      else if (p.kind === 'dancer') { const b = t * 6.3 + p.ph * 0.15; jump = Math.abs(Math.sin(b)) * 0.14; arm = -0.5 + Math.sin(b) * 0.25 - p.ex * 1.8; yaw = p.yaw + Math.sin(t * 0.8) * 0.4; }
       const sway = Math.sin(t * 1.1 + p.ph) * 0.025 + p.ex * 0.06;
       writeM(v.bb, p.i, p.s, yaw, sway, p.x, p.y + jump, p.z);
-      writeM(v.ab, p.i, p.s, yaw, arm, p.x, p.y + jump + 1.45 * p.s, p.z);
+      writeM(v.ab, p.i, p.s, yaw, arm, p.x, p.y + jump + v.sh * p.s, p.z);
       p.init = true; dirty = true;
     }
     if (dirty) { v.body.thinInstanceBufferUpdated('matrix'); v.arm.thinInstanceBufferUpdated('matrix'); }
@@ -2126,7 +2453,7 @@ function scoring(dt) {
     if (car.grass && combo.grace > 0.35) loseCombo(pick(['העיזים בהלם', 'יצאת לחול, חביבי', 'זה לא כביש, זה כרם זיתים'])); else if (combo.grace > 1.4) bankCombo();
   }
   if (car.hit > 0) {
-    if (car.hit > 4 && combo.pts > 0) loseCombo(pick(['חאלס עם הקירות!', 'יא סאתר!', 'הדוד ראה הכל', 'מי ישלם על הצמיגים?']));
+    if (car.hit > 4 && combo.pts > 0) loseCombo(pick(['חאלס עם הקירות!', 'יא סאתר!', 'הדוד ראה הכל', 'מי ישלם על הצמיגים?', 'הקיר לא זז, אחי', 'הביטוח לא מכסה את זה', 'אמא שלך ראתה את זה בסטורי']));
     camShake = Math.min(1, camShake + car.hit * 0.06); sfx.thud(car.hit); if (car.hit > 4) buzz(Math.min(60, car.hit * 5)); car.hit = 0;
   }
   const i = car.idx;
@@ -2135,6 +2462,7 @@ function scoring(dt) {
     if (!bestLap || lapT < bestLap) { bestLap = lapT; store.set(TK('bestLap'), bestLap); $('bestlap').textContent = fmtT(bestLap); toast('הקפה מהירה! עוד הקפה, עוד פיתה', fmtT(lapT)); }
     addFalafel(place === 1 ? 5 : 2); if (place === 1) setTimeout(() => toast('ראשון בכפר!', '+5 🧆'), 1200);
     if (lapT <= bestLap + 1e-6 && rec.length > 40) { ghostData = rec; store.set(TK('ghost'), ghostData); }
+    resetPickups();
     rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = lapN;
   }
   prevIdx = i; lapT += dt; recAcc += dt;
@@ -2178,6 +2506,21 @@ const sfx = (() => {
     },
     pop() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 1.2; const g = ctx.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.12); },
     beep(hi) { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = hi ? 880 : 440; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + (hi ? 0.5 : 0.22)); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.55); },
+    crunch() { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(1320, t + 0.09); g.gain.setValueAtTime(0.13, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.16); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.18); },
+    boom(v) { if (!nodes || !on || v <= 0) return; const t = ctx.currentTime, s2 = ctx.createBufferSource(); s2.buffer = nodes.buf; const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 260; const g = ctx.createGain(); g.gain.setValueAtTime(0.5 * v, t + 0.25); g.gain.exponentialRampToValueAtTime(0.001, t + 1.1); g.gain.setValueAtTime(0.0001, t); s2.connect(f2).connect(g).connect(nodes.comp); s2.start(t + 0.25, Math.random()); s2.stop(t + 1.2); },
+    drums(v) {
+      if (!nodes || !on) return; const t = ctx.currentTime;
+      if (!this._dn) this._dn = t;
+      if (v <= 0.01) { this._dn = t; return; }
+      const PAT = [1, 0, 2, 2, 1, 0, 2, 0, 1, 1, 2, 0, 1, 0, 2, 2], stepT = 0.13;
+      while (this._dn < t + 0.2) {
+        const k = PAT[(this._step = ((this._step || 0) + 1) % PAT.length)], tt = this._dn; this._dn += stepT;
+        if (!k) continue;
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        if (k === 1) { o.type = 'sine'; o.frequency.setValueAtTime(140, tt); o.frequency.exponentialRampToValueAtTime(70, tt + 0.12); g.gain.setValueAtTime(0.35 * v, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.18); o.connect(g).connect(nodes.comp); o.start(tt); o.stop(tt + 0.2); }
+        else { const s2 = ctx.createBufferSource(); s2.buffer = nodes.buf; const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 2600; f2.Q.value = 2; g.gain.setValueAtTime(0.22 * v, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.06); s2.connect(f2).connect(g).connect(nodes.comp); s2.start(tt, Math.random()); s2.stop(tt + 0.08); }
+      }
+    },
     bleat() {
       if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(), f = ctx.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.setValueAtTime(560 + Math.random() * 160, t); o.frequency.linearRampToValueAtTime(470, t + 0.45);
@@ -2374,6 +2717,9 @@ function setTime(mode) {
   scene.environmentIntensity = T.env;
   probe.cubeTexture.resetRefreshCounter();
   $('bTimeL').textContent = T.label;
+  mtnMats[0].emissiveColor = night ? new B.Color3(0.035, 0.04, 0.065) : new B.Color3(0.52, 0.37, 0.4);
+  mtnMats[1].emissiveColor = night ? new B.Color3(0.05, 0.055, 0.09) : new B.Color3(0.62, 0.45, 0.47);
+  bulbMat.emissiveColor = new B.Color3(3.5, 2.4, 1.2).scale(night ? 1.2 : 0.6);
 }
 $('bTime').addEventListener('click', () => setTime(timeMode === 'dusk' ? 'night' : 'dusk'));
 
@@ -2508,6 +2854,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt);
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
