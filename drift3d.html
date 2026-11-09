@@ -142,6 +142,8 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
 .fal.bump{animation:bump .5s ease-out}
 @keyframes bump{0%{transform:scale(1)}30%{transform:scale(1.25)}100%{transform:scale(1)}}
 .btn.small{font-size:14px;padding:8px 14px;min-height:36px}
+.fin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fin-grid b{display:block;font-size:26px;color:var(--fg)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
 .tabs button{font:700 15px var(--body);color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:10px;padding:8px 16px;cursor:pointer}
 .tabs button[aria-pressed="true"]{background:var(--stone);color:#1b140c;border-color:var(--stone)}
@@ -238,7 +240,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
     </div>
     <div class="stack">
       <div class="plate lap">
-        <span class="lbl">הקפה <span class="num" id="lapn">1</span></span>
+        <span class="lbl">הקפה <span class="num" id="lapn">1</span>/3</span>
         <span class="big num" id="laptime">0:00.000</span>
         <span class="sub">מהירה: <b id="bestlap">—</b></span>
         <span class="sub">מקום: <b id="pos">1/8</b></span>
@@ -345,6 +347,19 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <button class="btn ghost" id="restart" type="button">התחלה מחדש</button>
         <button class="btn ghost" id="tomenu" type="button">לתפריט</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="finish" hidden>
+    <div class="mpanel plate">
+      <div class="mhead"><h2>סוף המרוץ</h2></div>
+      <div class="fin-grid">
+        <div><span class="lbl">מקום</span><b class="num" id="fin-pos">1/8</b></div>
+        <div><span class="lbl">זמן כולל</span><b class="num" id="fin-time">0:00.000</b></div>
+        <div><span class="lbl">ניקוד דריפט</span><b class="num" id="fin-score">0</b></div>
+      </div>
+      <p class="tip" id="fin-msg"></p>
+      <div class="row-btns"><button class="btn" id="fin-again" type="button">שוב</button><button class="btn ghost" id="fin-menu" type="button">לתפריט</button></div>
     </div>
   </div>
 
@@ -536,6 +551,7 @@ const TRACKS = [
   { id: 'wadi', name: 'ואדי הסחרחורת', desc: 'כביש מהיר בין צוקים, פניות ארוכות לדריפט ועדרי עיזים בכל מקום.', len: '1.5', ctrl: [[0,0],[160,-20],[300,30],[380,140],[330,250],[200,270],[120,200],[20,240],[-110,220],[-200,120],[-170,20],[-90,-30]], scale: 1.0, hw: 9, villages: 4, vOff: 95, street: 0.05, roadMosques: 3, fans: 240, herds: 24, hill: 1.7, canyon: true, sea: false },
   { id: 'coast', name: 'חוף הדייגים', desc: 'מסלול על שפת הים, עם דקלים, סירות דייגים ומסגד על החוף.', len: '1.3', ctrl: [[0,0],[140,0],[230,40],[260,120],[200,170],[120,150],[60,190],[-40,200],[-120,160],[-150,80],[-110,20],[-60,-10]], scale: 1.2, hw: 8.5, villages: 5, vOff: 55, street: 0.22, roadMosques: 4, fans: 320, herds: 7, hill: 0.9, canyon: false, sea: true }
 ];
+const TOTAL_LAPS = 3;
 const TRACK = TRACKS.find(t => t.id === store.get('track', 'olive')) || TRACKS[0];
 const S = TRACK.scale;
 const CTRL = TRACK.ctrl;
@@ -2074,7 +2090,7 @@ function setQuality(q) {
   const frac = { high: 1, med: 0.55, low: 0.28, turbo: 0 }[q];
   for (const k of ['grass', 'rock']) { const t = TI[k]; if (t && t.M.length) t.mesh.thinInstanceCount = Math.floor(t.M.length * frac); }
   peopleR = { high: 170, med: 130, low: 95, turbo: 65 }[q];
-  rivalsShown = q === 'turbo' ? 3 : 7;
+  rivalsShown = q === 'turbo' ? 3 : rivals.length;
   rivals.forEach((r, k) => { const on = k < rivalsShown; r.rc.root.setEnabled(on); r.active = on; if (!on) { r.tag.hidden = true; r.sm.emitRate = 0; } });
   const wantAO = q === 'high' && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
   if (wantAO && !ssao) {
@@ -2181,7 +2197,9 @@ const RIVAL_DEF = [
   { name: 'אבו טסלה סעיד', model: 'golf4', hex: 0xf3f3f0, skill: 0.95, start: 30, lane: 3, eq: { exhaust: 'none', neon: 'purple', polish: 'shine' } },
   { name: 'יוסוף התותח', model: 'lancer', hex: 0x2b2b30, skill: 0.96, start: -38, lane: -3, eq: { wing: 'plane', exhaust: 'fire', wheels: 'gold' } },
   { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x1f4fa8, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
-  { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } }
+  { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } },
+  { name: 'סעיד השניצל', model: 'octavia', hex: 0xd9a441, skill: 0.94, start: 58, lane: 2.5, eq: { wing: 'lip' } },
+  { name: 'חמדי הקולנוע', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } }
 ];
 const rivals = RIVAL_DEF.map((d, k) => {
   const M = modelOf(d.model), eq = Object.assign({}, DEFAULT_EQ, d.eq);
@@ -2571,7 +2589,7 @@ function scoring(dt) {
     addFalafel(place === 1 ? 5 : 2); if (place === 1) setTimeout(() => toast('ראשון בכפר!', '+5 🧆'), 1200);
     if (lapT <= bestLap + 1e-6 && rec.length > 40) { ghostData = rec; store.set(TK('ghost'), ghostData); }
     resetPickups();
-    rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = lapN;
+    rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = Math.min(lapN, TOTAL_LAPS);
   }
   prevIdx = i; lapT += dt; recAcc += dt;
   while (recAcc >= GHOST_DT) { recAcc -= GHOST_DT; rec.push(+car.x.toFixed(2), +car.z.toFixed(2), +car.h.toFixed(3)); }
@@ -2937,6 +2955,17 @@ function countdown(dt) {
     if (step >= 3) state = 'drive';
   }
 }
+function finishRace() {
+  state = 'finished';
+  $('fin-pos').textContent = `${place}/${rivalsShown + 1}`;
+  $('fin-time').textContent = fmtT(raceT);
+  $('fin-score').textContent = fmt(total);
+  $('fin-msg').textContent = place === 1 ? 'ניצחת! הכפר ידבר על זה שנים.' : place <= 3 ? 'מקום יפה. בשנה הבאה יותר.' : 'העיזים ניצחו הפעם.';
+  $('finish').hidden = false;
+  $('fin-again').focus();
+}
+$('fin-again').addEventListener('click', () => { $('finish').hidden = true; state = 'menu'; startGame(); });
+$('fin-menu').addEventListener('click', () => { $('finish').hidden = true; toMenu(); });
 function togglePause() {
   if (state === 'drive' || state === 'count') { state = 'pause'; $('pause').hidden = false; $('resume').focus(); }
   else if (state === 'pause') { state = 'drive'; $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
@@ -2984,6 +3013,7 @@ scene.onBeforeRenderObservable.add(() => {
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
   updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed);
+  if (state === 'drive' && lapN > TOTAL_LAPS) finishRace();
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
@@ -3002,6 +3032,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { car, combo, scene, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
