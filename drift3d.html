@@ -240,7 +240,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
     </div>
     <div class="stack">
       <div class="plate lap">
-        <span class="lbl">הקפה <span class="num" id="lapn">1</span>/3</span>
+        <span class="lbl">הקפה <span class="num" id="lapn">1</span>/<span id="lapTot">2</span></span>
         <span class="big num" id="laptime">0:00.000</span>
         <span class="sub">מהירה: <b id="bestlap">—</b></span>
         <span class="sub">מקום: <b id="pos">1/8</b></span>
@@ -405,6 +405,7 @@ const B = BABYLON;
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
+const smooth01 = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 const ss = (x, a, b) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 let COARSE = matchMedia('(pointer: coarse)').matches;
 const store = {
@@ -446,6 +447,20 @@ function unlit(name, color, alpha = 1, add = false) {
   if (add) m.alphaMode = B.Engine.ALPHA_ADD;
   m.fogEnabled = false;
   return m;
+}
+
+/* ================= wind sway for grass (material plugin, world-space so each tuft moves differently) ================= */
+let windTime = 0;
+class WindPlugin extends B.MaterialPluginBase {
+  constructor(mat) { super(mat, 'Wind', 200, { WIND: false }); this._enable(true); }
+  prepareDefines(defines) { defines.WIND = true; }
+  getClassName() { return 'WindPlugin'; }
+  getUniforms() { return { ubo: [{ name: 'windT', size: 1, type: 'float' }], vertex: '#ifdef WIND\nuniform float windT;\n#endif\n' }; }
+  bindForSubMesh(ubo) { ubo.updateFloat('windT', windTime); }
+  getCustomCode(type) {
+    if (type !== 'vertex') return null;
+    return { CUSTOM_VERTEX_UPDATE_WORLDPOS: '#ifdef WIND\n float wk = max(positionUpdated.y, 0.0);\n worldPos.x += (sin(windT * 1.9 + worldPos.x * 0.21 + worldPos.z * 0.17) * 0.09 + sin(windT * 4.3 + worldPos.z * 0.9) * 0.025) * wk;\n worldPos.z += cos(windT * 1.5 + worldPos.x * 0.13) * 0.06 * wk;\n#endif\n' };
+  }
 }
 
 /* ================= procedural textures ================= */
@@ -565,6 +580,17 @@ const asphaltC = mkCanvas(AW, AH, (x, w, h) => {
   }
   for (let i = 0; i < 30; i++) { x.strokeStyle = `rgba(10,10,10,${.3 + r() * .35})`; x.lineWidth = 1 + r() * 1.5; x.beginPath(); let px = r() * w, py = r() * h; x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (r() - .5) * 30; py += (r() - .5) * 30; x.lineTo(px, py); } x.stroke(); }
   for (let i = 0; i < 14; i++) { x.fillStyle = `rgba(8,8,10,${.08 + r() * .1})`; x.beginPath(); x.ellipse(r() * w, h * (0.42 + r() * 0.16), 40 + r() * 140, 10 + r() * 24, 0, 0, 7); x.fill(); }
+  // asphalt patches (darker fresh / lighter worn)
+  for (let i = 0; i < 6; i++) { x.save(); x.translate(r() * w, h * (0.15 + r() * 0.7)); x.rotate((r() - .5) * 0.08); const pw = 120 + r() * 260, ph = 60 + r() * 140, dark = r() < 0.6;
+    x.fillStyle = dark ? 'rgba(22,22,24,.42)' : 'rgba(110,108,104,.22)'; x.fillRect(-pw / 2, -ph / 2, pw, ph); x.strokeStyle = 'rgba(10,10,10,.5)'; x.lineWidth = 2.5; x.strokeRect(-pw / 2, -ph / 2, pw, ph); x.restore(); }
+  // drift tyre marks: pairs of sweeping arcs (85 px/m along, 60 px/m across)
+  x.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const x0 = r() * w, y0 = h * (0.2 + r() * 0.6), len = 500 + r() * 900, bend = (r() - .5) * h * 0.5, a = 0.12 + r() * 0.16;
+    for (const off of [-45, 45]) { x.strokeStyle = `rgba(6,6,7,${a})`; x.lineWidth = 11 + r() * 4; x.beginPath(); x.moveTo(x0, y0 + off); x.bezierCurveTo(x0 + len * 0.33, y0 + off + bend, x0 + len * 0.66, y0 + off + bend, x0 + len, y0 + off + bend * 0.2); x.stroke(); }
+  }
+  // sandy dust blown onto the road edges
+  for (const [y0, y1] of [[0, h * 0.09], [h, h * 0.91]]) { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, 'rgba(168,146,110,.42)'); g.addColorStop(1, 'rgba(168,146,110,0)'); x.fillStyle = g; x.fillRect(0, Math.min(y0, y1), w, Math.abs(y1 - y0)); }
   // paint: worn edge lines + dashed centre
   const paint = (y0, hh, x0, ww, a) => { const im = x.getImageData(x0, y0, ww, hh), p = im.data;
     for (let q = 0; q < p.length; q += 4) { const t = (0.75 + r() * 0.25) * a; p[q] = p[q] * (1 - t) + 236 * t; p[q + 1] = p[q + 1] * (1 - t) + 230 * t; p[q + 2] = p[q + 2] * (1 - t) + 218 * t; }
@@ -653,12 +679,12 @@ poolTex.hasAlpha = true;
 
 /* ================= track ================= */
 const TRACKS = [
-  { id: 'olive', name: 'כפר הזיתים', desc: 'מסלול זורם בין גבעות, כרמי זיתים ושמונה כפרים.', len: '1.6', ctrl: [[0,0],[120,0],[200,30],[232,100],[205,160],[135,172],[92,132],[42,140],[12,200],[-60,224],[-142,192],[-190,126],[-158,66],[-206,6],[-166,-64],[-84,-76]], scale: 1.25, hw: 8.5, villages: 8, vOff: 60, street: 0.14, roadMosques: 5, fans: 360, herds: 11, hill: 1, canyon: false, sea: false },
-  { id: 'souk', name: 'סמטאות השוק', desc: 'מסלול צפוף וטכני בתוך עיירה. בתים ומסגדים צמודים לקיר, ובכל פינה קהל.', len: '1.5', ctrl: [[0,0],[110,-5],[165,40],[165,110],[115,150],[60,140],[20,170],[-40,175],[-100,145],[-125,85],[-95,35],[-75,-25]], scale: 1.35, hw: 7.5, villages: 6, vOff: 34, street: 0.8, roadMosques: 8, fans: 440, herds: 5, hill: 0.55, canyon: false, sea: false },
-  { id: 'wadi', name: 'ואדי הסחרחורת', desc: 'כביש מהיר בין צוקים, פניות ארוכות לדריפט ועדרי עיזים בכל מקום.', len: '1.5', ctrl: [[0,0],[160,-20],[300,30],[380,140],[330,250],[200,270],[120,200],[20,240],[-110,220],[-200,120],[-170,20],[-90,-30]], scale: 1.0, hw: 9, villages: 4, vOff: 95, street: 0.05, roadMosques: 3, fans: 240, herds: 24, hill: 1.7, canyon: true, sea: false },
-  { id: 'coast', name: 'חוף הדייגים', desc: 'מסלול על שפת הים, עם דקלים, סירות דייגים ומסגד על החוף.', len: '1.3', ctrl: [[0,0],[140,0],[230,40],[260,120],[200,170],[120,150],[60,190],[-40,200],[-120,160],[-150,80],[-110,20],[-60,-10]], scale: 1.2, hw: 8.5, villages: 5, vOff: 55, street: 0.22, roadMosques: 4, fans: 320, herds: 7, hill: 0.9, canyon: false, sea: true }
+  { id: 'olive', name: 'כפר הזיתים', desc: 'מסלול זורם בין גבעות, כרמי זיתים ושמונה כפרים.', len: '1.6', ctrl: [[0,0],[120,0],[200,30],[232,100],[205,160],[135,172],[92,132],[42,140],[12,200],[-60,224],[-142,192],[-190,126],[-158,66],[-206,6],[-166,-64],[-84,-76]], scale: 1.25, hw: 8.5, villages: 8, vOff: 60, street: 0.14, roadMosques: 5, fans: 360, herds: 11, hill: 1, canyon: false, camels: 3, sea: false },
+  { id: 'souk', name: 'סמטאות השוק', desc: 'מסלול צפוף וטכני בתוך עיירה. בתים ומסגדים צמודים לקיר, ובכל פינה קהל.', len: '1.5', ctrl: [[0,0],[110,-5],[165,40],[165,110],[115,150],[60,140],[20,170],[-40,175],[-100,145],[-125,85],[-95,35],[-75,-25]], scale: 1.35, hw: 7.5, villages: 6, vOff: 34, street: 0.8, roadMosques: 8, fans: 440, herds: 5, hill: 0.55, canyon: false, camels: 1, sea: false },
+  { id: 'wadi', name: 'ואדי הסחרחורת', desc: 'כביש מהיר בין צוקים, פניות ארוכות לדריפט ועדרי עיזים בכל מקום.', len: '1.5', ctrl: [[0,0],[160,-20],[300,30],[380,140],[330,250],[200,270],[120,200],[20,240],[-110,220],[-200,120],[-170,20],[-90,-30]], scale: 1.0, hw: 9, villages: 4, vOff: 95, street: 0.05, roadMosques: 3, fans: 240, herds: 24, hill: 1.7, canyon: true, camels: 5, sea: false },
+  { id: 'coast', name: 'חוף הדייגים', desc: 'מסלול על שפת הים, עם דקלים, סירות דייגים ומסגד על החוף.', len: '1.3', ctrl: [[0,0],[140,0],[230,40],[260,120],[200,170],[120,150],[60,190],[-40,200],[-120,160],[-150,80],[-110,20],[-60,-10]], scale: 1.2, hw: 8.5, villages: 5, vOff: 55, street: 0.22, roadMosques: 4, fans: 320, herds: 7, hill: 0.9, canyon: false, camels: 2, sea: true }
 ];
-const TOTAL_LAPS = 3;
+const TOTAL_LAPS = 2;
 const TRACK = TRACKS.find(t => t.id === store.get('track', 'olive')) || TRACKS[0];
 const S = TRACK.scale;
 const CTRL = TRACK.ctrl;
@@ -852,6 +878,8 @@ kit('lamp', box('lampH'), lampMat, { cast: false, colors: false });
   kit('pool', MB.CreateGround('pool', { width: 1, height: 1 }, scene), pm, { cast: false, colors: false });
 }
 kit('cone', cyl('cone', 0.05, 1, 12), coneMat, { colors: false });
+const catEyeMat = unlit('catEyeM', new B.Color3(1.2, 0.9, 0.45));
+kit('cateye', box('cateye'), catEyeMat, { cast: false, colors: false });
 // volumetric-looking light cones under street lamps (night) — additive, no depth write
 const coneGradTex = texFrom('coneGrad', mkCanvas(8, 128, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(1, 'rgba(255,255,255,0.9)'); g.addColorStop(0.65, 'rgba(255,255,255,0.3)'); g.addColorStop(0, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }), { clampUV: true });
 coneGradTex.hasAlpha = true;
@@ -868,18 +896,72 @@ const rebarMat = pbr('rebarM', { color: 0x5a3020, rough: 0.7, metal: 0.6 });
 const ropeMat = pbr('ropeM', { color: 0x222222, rough: 0.9 });
 const clothMat = pbr('clothM', { rough: 0.9 }); clothMat.backFaceCulling = false;
 const speakerMat = pbr('spkM', { color: 0x9a9ea6, rough: 0.4, metal: 0.7 });
-{
+// ---- animals built from rounded primitives (vertex-coloured, merged) ----
+function animalKit() {
   const parts = [];
-  const bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('g', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
-  bx(0.34, 0.34, 0.78, 0, 0.62, 0, [1, 1, 1]);
-  bx(0.2, 0.24, 0.3, 0, 0.88, 0.46, [1, 1, 1]);
-  bx(0.05, 0.16, 0.05, 0.07, 1.06, 0.4, [0.3, 0.26, 0.22]); bx(0.05, 0.16, 0.05, -0.07, 1.06, 0.4, [0.3, 0.26, 0.22]);
-  bx(0.06, 0.1, 0.06, 0, 0.74, 0.6, [0.9, 0.9, 0.9]);
-  bx(0.24, 0.05, 0.1, 0, 0.95, 0.4, [0.95, 0.95, 0.95]);
-  for (const [x, z] of [[0.11, 0.28], [-0.11, 0.28], [0.11, -0.28], [-0.11, -0.28]]) bx(0.07, 0.46, 0.07, x, 0.23, z, [0.85, 0.85, 0.85]);
-  bx(0.06, 0.14, 0.06, 0, 0.78, -0.42, [1, 1, 1]);
-  kit('goat', B.Mesh.MergeMeshes(parts, true, true), vcMat);
+  const add = (m, c) => { colorize(m, lin(c)); parts.push(m); return m; };
+  const S = (sx, sy, sz, x, y, z, c, seg = 10, slice = 1) => { const m = MB.CreateSphere('as', { diameter: 1, segments: seg, slice }, scene); m.scaling.set(sx, sy, sz); m.position.set(x, y, z); m.bakeCurrentTransformIntoVertices(); return add(m, c); };
+  const C = (h, dt, db, x, y, z, c, rx = 0, rz = 0, tess = 8) => { const m = MB.CreateCylinder('ac', { height: h, diameterTop: dt, diameterBottom: db, tessellation: tess }, scene); m.rotation.set(rx, 0, rz); m.position.set(x, y, z); m.bakeCurrentTransformIntoVertices(); return add(m, c); };
+  const T = (path, r0, r1, c, tess = 7) => { const pts = path.map(p => V3(p[0], p[1], p[2])), n = pts.length; const m = MB.CreateTube('at', { path: pts, radiusFunction: (i) => r0 + (r1 - r0) * i / (n - 1), tessellation: tess, cap: B.Mesh.CAP_ALL }, scene); return add(m, c); };
+  const Bx = (w, h, d, x, y, z, c, rx = 0, ry = 0, rz = 0) => { const m = MB.CreateBox('ab', { width: w, height: h, depth: d }, scene); m.rotation.set(rx, ry, rz); m.position.set(x, y, z); m.bakeCurrentTransformIntoVertices(); return add(m, c); };
+  const merge = (list = parts) => { const m = B.Mesh.MergeMeshes(list.splice(0), true, true); return m; };
+  return { parts, S, C, T, Bx, merge };
 }
+// goat: rounded barrel body, neck, long head with beard, swept-back horns, droopy ears, jointed legs. White base so instance colours tint it.
+function goatMesh() {
+  const { S, C, T, Bx, merge } = animalKit(), W = [1, 1, 1], HORN = [0.3, 0.26, 0.21], HOOF = [0.12, 0.1, 0.09], NOSE = [0.55, 0.47, 0.44];
+  S(0.36, 0.4, 0.86, 0, 0.66, -0.02, W, 12); S(0.3, 0.32, 0.36, 0, 0.7, 0.3, W); S(0.32, 0.3, 0.3, 0, 0.66, -0.36, W);
+  T([[0, 0.76, 0.34], [0, 0.88, 0.45], [0, 0.98, 0.52]], 0.1, 0.075, W);
+  S(0.15, 0.16, 0.3, 0, 1.0, 0.62, W, 10); S(0.11, 0.11, 0.13, 0, 0.95, 0.76, NOSE, 8);
+  S(0.025, 0.025, 0.025, 0.07, 1.05, 0.68, [0.04, 0.03, 0.02], 6); S(0.025, 0.025, 0.025, -0.07, 1.05, 0.68, [0.04, 0.03, 0.02], 6);
+  C(0.16, 0.06, 0.012, 0, 0.84, 0.72, [0.9, 0.88, 0.84]);
+  for (const sx of [-1, 1]) {
+    T([[sx * 0.04, 1.08, 0.58], [sx * 0.06, 1.17, 0.52], [sx * 0.085, 1.22, 0.42], [sx * 0.11, 1.18, 0.33]], 0.028, 0.008, HORN, 6);
+    Bx(0.035, 0.05, 0.17, sx * 0.1, 1.0, 0.56, W, 0.2, sx * 0.4, sx * 1.15);
+  }
+  for (const [x, z] of [[0.11, 0.26], [-0.11, 0.26], [0.11, -0.3], [-0.11, -0.3]]) {
+    C(0.26, 0.09, 0.065, x, 0.4, z, W); S(0.065, 0.07, 0.065, x, 0.27, z, W, 6); C(0.24, 0.05, 0.045, x, 0.14, z, W); C(0.05, 0.05, 0.055, x, 0.025, z + 0.01, HOOF, 0, 0, 6);
+  }
+  T([[0, 0.78, -0.42], [0, 0.86, -0.47], [0, 0.92, -0.46]], 0.035, 0.015, W, 5);
+  return merge();
+}
+// dromedary camel. o.part: 'body' | 'legsL' | 'legsR' | 'all'; legs are built around a hip pivot at y = CAMEL_HIP so they can swing (camels pace: both legs of one side move together).
+const CAMEL_HIP = 1.3;
+function camelMesh(o = {}) {
+  const k = animalKit(), { S, C, T, Bx, merge } = k, sit = !!o.sit, dy = sit ? -0.78 : 0;
+  const FUR = [0.78, 0.6, 0.4], DARK = [0.55, 0.4, 0.27], PAD = [0.36, 0.3, 0.25], EYE = [0.03, 0.02, 0.02];
+  const out = {};
+  if (!o.part || o.part === 'body' || o.part === 'all') {
+    S(0.8, 0.86, 1.8, 0, 1.5 + dy, 0, FUR, 14); S(0.64, 0.8, 0.9, 0, 1.92 + dy, -0.08, FUR, 12); S(0.62, 0.62, 0.62, 0, 1.4 + dy, 0.62, FUR);
+    S(0.5, 0.5, 0.6, 0, 1.38 + dy, -0.62, FUR);
+    T([[0, 1.48 + dy, 0.72], [0, 1.32 + dy, 1.05], [0, 1.52 + dy, 1.4], [0, 1.92 + dy, 1.56], [0, 2.16 + dy, 1.6]], 0.22, 0.12, FUR, 9);
+    S(0.25, 0.27, 0.5, 0, 2.2 + dy, 1.76, FUR, 10); S(0.21, 0.21, 0.27, 0, 2.12 + dy, 1.98, FUR, 8); S(0.17, 0.09, 0.2, 0, 2.02 + dy, 2.0, DARK, 8);
+    for (const sx of [-1, 1]) { S(0.06, 0.11, 0.05, sx * 0.1, 2.35 + dy, 1.63, FUR, 6); S(0.05, 0.05, 0.05, sx * 0.115, 2.26 + dy, 1.84, EYE, 6); S(0.09, 0.035, 0.07, sx * 0.1, 2.3 + dy, 1.84, DARK, 6); S(0.03, 0.03, 0.03, sx * 0.05, 2.14 + dy, 2.11, EYE, 5); }
+    T([[0, 1.62 + dy, -0.88], [0, 1.35 + dy, -0.98], [0, 1.05 + dy, -0.94]], 0.045, 0.03, FUR, 5); S(0.1, 0.16, 0.1, 0, 0.98 + dy, -0.93, DARK, 6);
+    if (o.saddle) {
+      const red = [0.72, 0.1, 0.1], blue = [0.1, 0.28, 0.6], gold = [0.95, 0.7, 0.2], green = [0.1, 0.5, 0.25];
+      S(0.72, 0.66, 0.98, 0, 1.97 + dy, -0.08, red, 12, 0.5);
+      for (const sx of [-1, 1]) { Bx(0.04, 0.5, 0.78, sx * 0.4, 1.74 + dy, -0.08, blue); Bx(0.045, 0.08, 0.8, sx * 0.405, 1.74 + dy, -0.08, gold);
+        for (let q = 0; q < 6; q++) S(0.085, 0.085, 0.085, sx * 0.42, 1.47 + dy, -0.42 + q * 0.14, [red, gold, green][q % 3], 6); }
+      const br = MB.CreateTorus('br', { diameter: 0.3, thickness: 0.03, tessellation: 14 }, scene); br.rotation.x = Math.PI / 2 - 0.2; br.position.set(0, 2.1 + dy, 1.95); br.bakeCurrentTransformIntoVertices(); colorize(br, lin(red)); k.parts.push(br);
+    }
+    if (sit) for (const sx of [-1, 1]) { C(1.3, 0.16, 0.18, sx * 0.34, 0.16, 0.05, FUR, Math.PI / 2); S(0.2, 0.14, 0.24, sx * 0.34, 0.08, 0.72, PAD, 6); }
+    out.body = merge();
+  }
+  if (!sit && o.part !== 'body') {
+    const legs = (sx) => { for (const z of [0.55, -0.6]) {
+      const y0 = o.part === 'all' ? 0 : -CAMEL_HIP;
+      C(0.62, 0.27, 0.15, sx * 0.24, 0.99 + y0, z, FUR); S(0.17, 0.17, 0.17, sx * 0.24, 0.68 + y0, z, DARK, 7);
+      C(0.6, 0.12, 0.1, sx * 0.24, 0.38 + y0, z, FUR); S(0.12, 0.1, 0.12, sx * 0.24, 0.09 + y0, z, FUR, 6); C(0.07, 0.24, 0.27, sx * 0.24, 0.035 + y0, z + 0.03, PAD, 0, 0, 10);
+    } };
+    if (o.part === 'all') { legs(-1); legs(1); out.body = B.Mesh.MergeMeshes([out.body, merge()], true, true); }
+    else { if (o.part !== 'legsR') { legs(1); out.legsL = merge(); } if (o.part !== 'legsL') { legs(-1); out.legsR = merge(); } }
+  }
+  return out;
+}
+kit('goat', goatMesh(), vcMat);
+kit('camel', camelMesh({ part: 'all', saddle: true }).body, vcMat);
+kit('camelSit', camelMesh({ sit: true }).body, vcMat);
 {
   const dish = MB.CreateCylinder('dsh', { diameter: 0.85, height: 0.05, tessellation: 22 }, scene); dish.rotation.x = -1.0; dish.position.set(0, 0.8, 0);
   const pole = MB.CreateBox('dp', { width: 0.06, height: 0.8, depth: 0.06 }, scene); pole.position.y = 0.4;
@@ -914,6 +996,7 @@ kit('bpole', cyl('bpole', 1, 1, 8), metalMat, { colors: false });
   gm.backFaceCulling = false; gm.transparencyMode = B.PBRMaterial.PBRMATERIAL_ALPHATEST; gm.alphaCutOff = 0.4; gm.useAlphaFromAlbedoTexture = true;
   const p1 = MB.CreatePlane('g1', { width: 1.1, height: 0.7 }, scene); p1.position.y = 0.33;
   const p2 = MB.CreatePlane('g2', { width: 1.1, height: 0.7 }, scene); p2.position.y = 0.33; p2.rotation.y = Math.PI / 2;
+  try { new WindPlugin(gm); } catch (e) { console.warn('wind', e); }
   kit('grass', B.Mesh.MergeMeshes([p1, p2], true, true), gm, { cast: false });
 }
 kit('rock', MB.CreateIcoSphere('rock', { radius: 1, subdivisions: 1, flat: true }, scene), slabMat);
@@ -931,6 +1014,34 @@ const woodMat2 = pbr('wood2', { color: 0x6b4a2e, rough: 0.9 });
 }
 kit('shutter', box('shutter'), shutterMat, { cast: false });
 kit('rail', box('rail'), metalMat, { cast: false, colors: false });
+{ // bougainvillea climbing beside doors
+  const { S, merge } = animalKit(), r = rng(919), pinks = [[0.86, 0.12, 0.5], [0.93, 0.3, 0.62], [0.72, 0.08, 0.42], [0.95, 0.5, 0.7]];
+  for (let i = 0; i < 26; i++) { const y = r() * 2.4, x = (r() - 0.5) * (0.6 + y * 0.5), leaf = r() < 0.3; S(0.22 + r() * 0.25, 0.2 + r() * 0.22, 0.14 + r() * 0.12, x, y, r() * 0.12, leaf ? [0.16, 0.38, 0.12] : pinks[(r() * 4) | 0], 6); }
+  for (let i = 0; i < 4; i++) S(0.06, 2.4, 0.06, (r() - 0.5) * 0.3, 1.0, 0.0, [0.35, 0.25, 0.15], 4);
+  kit('bougain', merge(), vcMat, { cast: false, colors: false });
+}
+{ // ornamental window grille
+  const { Bx, merge } = animalKit(), c = [0.12, 0.13, 0.14];
+  Bx(1.04, 0.04, 0.04, 0, 0.68, 0, c); Bx(1.04, 0.04, 0.04, 0, -0.68, 0, c); Bx(1.04, 0.03, 0.03, 0, 0, 0, c);
+  for (let k = 0; k < 6; k++) Bx(0.025, 1.36, 0.025, -0.5 + k * 0.2, 0, 0, c);
+  for (const yy of [0.34, -0.34]) for (let k = 0; k < 5; k++) { const m = Bx(0.12, 0.12, 0.02, -0.4 + k * 0.2, yy, 0, c, 0, 0, Math.PI / 4); }
+  kit('grille', merge(), vcMat, { cast: false, colors: false });
+}
+{ // fruit stall with striped awning
+  const { S, Bx, merge } = animalKit(), r = rng(313), wood = [0.5, 0.35, 0.2];
+  Bx(2.4, 0.08, 1.1, 0, 0.9, 0, wood); for (const [x, z] of [[-1.1, -0.48], [1.1, -0.48], [-1.1, 0.48], [1.1, 0.48]]) Bx(0.07, 0.9, 0.07, x, 0.45, z, wood);
+  for (const [x, z] of [[-1.15, -0.5], [1.15, -0.5]]) Bx(0.06, 2.3, 0.06, x, 1.15, z, wood);
+  for (let k = 0; k < 8; k++) Bx(0.3, 0.03, 1.4, -1.05 + k * 0.3, 2.25, 0.1, k % 2 ? [0.95, 0.94, 0.9] : [0.15, 0.45, 0.25], -0.25);
+  const fruit = [[0.95, 0.5, 0.08], [0.85, 0.12, 0.1], [0.4, 0.65, 0.15], [0.95, 0.8, 0.2]];
+  for (let k = 0; k < 4; k++) { Bx(0.5, 0.15, 0.8, -0.85 + k * 0.57, 1.01, 0, [0.6, 0.45, 0.25]); for (let q = 0; q < 9; q++) S(0.13, 0.13, 0.13, -0.85 + k * 0.57 + (r() - .5) * 0.36, 1.13 + r() * 0.06, (r() - .5) * 0.6, fruit[k], 6); }
+  Bx(0.9, 0.3, 0.04, 0.3, 2.0, -0.55, [0.95, 0.85, 0.3]);
+  kit('stall', merge(), vcMat, { colors: false });
+}
+{ // wooden bench
+  const { Bx, merge } = animalKit(), w = [0.45, 0.3, 0.17], m = [0.15, 0.15, 0.16];
+  Bx(1.8, 0.06, 0.42, 0, 0.45, 0, w); Bx(1.8, 0.3, 0.05, 0, 0.75, -0.2, w); for (const x of [-0.8, 0.8]) { Bx(0.06, 0.45, 0.4, x, 0.22, 0, m); Bx(0.06, 0.5, 0.05, x, 0.68, -0.2, m); }
+  kit('bench', merge(), vcMat, { colors: false });
+}
 kit('roofDome', MB.CreateSphere('rdome', { diameter: 1, segments: 16, slice: 0.5 }, scene), slabMat);
 kit('pot', cyl('pot', 1, 0.7, 10), pbr('potM', { color: 0xa0522d, rough: 0.9 }), { cast: false, colors: false });
 kit('bush', MB.CreateIcoSphere('bush', { radius: 0.5, subdivisions: 1, flat: true }, scene), leafMat, { cast: false });
@@ -1035,19 +1146,31 @@ function personMeshes(o, tag) {
   P(S(0.25, 1.72), o.skin);
   P(Bx(0.035, 0.035, 0.02, 0.05, 1.75, 0.118), [0.05, 0.04, 0.04]); P(Bx(0.035, 0.035, 0.02, -0.05, 1.75, 0.118), [0.05, 0.04, 0.04]);
   P(Bx(0.04, 0.06, 0.05, 0, 1.71, 0.125), o.skin.map(v => v * 0.92));
+  const dk = o.skin.map(v => v * 0.55), brow = o.hair || o.mustache || o.beard || [0.08, 0.06, 0.05];
+  for (const sx of [-1, 1]) { P(S(0.05, 1.725, sx * 0.125, -0.005), o.skin.map(v => v * 0.95)); P(Bx(0.055, 0.016, 0.02, sx * 0.05, 1.79, 0.112), brow); }
+  P(Bx(0.06, 0.012, 0.02, 0, 1.655, 0.112), [dk[0] * 1.2, dk[1] * 0.8, dk[2] * 0.8]);
+  for (const sx of [-1, 1]) P(S(0.2, 1.43, sx * 0.19, 0), o.vest || o.sleeve || o.shirt || o.robe);
   if (o.mustache) P(Bx(0.11, 0.025, 0.03, 0, 1.675, 0.12), o.mustache);
   if (o.beard) P(Bx(0.19, 0.1, 0.12, 0, 1.63, 0.05), o.beard);
   if (o.head === 'keffiyeh') { P(S(0.29, 1.75), o.hc); P(Bx(0.34, 0.38, 0.06, 0, 1.58, -0.12), o.hc); const ag = MB.CreateTorus('ag', { diameter: 0.25, thickness: 0.035, tessellation: 18 }, scene); ag.position.y = 1.83; P(ag, [0.05, 0.05, 0.05]); }
   else if (o.head === 'kufi') P(S(0.262, 1.75, 0, -0.005, 0.5), o.hc);
   else if (o.head === 'hijab') { P(S(0.3, 1.73), o.hc); P(C(0.34, 0.24, 0.52, 1.48), o.hc); }
   else if (o.head === 'cap') { P(S(0.272, 1.75, 0, 0, 0.5), o.hc); P(Bx(0.2, 0.02, 0.15, 0, 1.79, 0.17), o.hc); }
+  else if (o.head === 'fez') { P(S(0.268, 1.745, 0, -0.01, 0.5), [0.07, 0.05, 0.04]); P(C(0.15, 0.19, 0.24, 1.9), o.hc); P(Bx(0.015, 0.14, 0.015, 0.09, 1.9, -0.04), [0.08, 0.06, 0.05]); }
   else P(S(0.268, 1.745, 0, -0.01, 0.5), o.hair || [0.07, 0.05, 0.04]);
+  if (o.shades) { P(Bx(0.22, 0.05, 0.02, 0, 1.755, 0.126), [0.02, 0.02, 0.025]); }
+  if (o.vest) { if (o.robe) P(C(0.5, 0.45, 0.5, 1.28), o.vest); else P(C(0.52, 0.46, 0.41, 1.22), o.vest); }
+  if (o.scarf) { const sc = MB.CreateTorus('sc', { diameter: 0.2, thickness: 0.07, tessellation: 14 }, scene); sc.position.y = 1.53; P(sc, o.scarf); P(Bx(0.08, 0.32, 0.03, 0.06, 1.36, 0.225), o.scarf); P(Bx(0.08, 0.06, 0.032, 0.06, 1.22, 0.226), [0.95, 0.95, 0.95]); }
+  if (o.embroid) { P(Bx(0.18, 0.34, 0.02, 0, 1.26, 0.235), o.embroid); P(Bx(0.5, 0.05, 0.02, 0, 0.18, 0.31), o.embroid); }
   if (sd) for (let k = headStart; k < parts.length; k++) parts[k].position.y += sd;
-  for (const sx of [-1, 1]) { P(C(0.62, 0.11, 0.09, -0.31, sx * 0.27), o.sleeve || o.shirt || o.robe, arms); P(S(0.11, -0.64, sx * 0.27), o.skin, arms); }
+  for (const sx of [-1, 1]) { P(C(0.62, 0.11, 0.09, -0.31, sx * 0.27), o.sleeve || o.shirt || o.robe, arms); P(S(0.11, -0.64, sx * 0.27), o.skin, arms); P(S(0.045, -0.6, sx * 0.25, 0.045), o.skin, arms); }
+  if (o.basket) { const bk = C(0.2, 0.32, 0.24, -0.82, 0.27, 0.05, 12); P(bk, [0.62, 0.45, 0.24], arms); const hd = MB.CreateTorus('bh', { diameter: 0.26, thickness: 0.02, tessellation: 12 }, scene); hd.rotation.z = Math.PI / 2; hd.position.set(0.27, -0.72, 0.05); P(hd, [0.5, 0.35, 0.18], arms); P(S(0.09, -0.7, 0.3, 0.08), [0.95, 0.45, 0.1], arms); P(S(0.08, -0.7, 0.22, 0.02), [0.3, 0.6, 0.2], arms); }
+  if (o.pot) { P(C(0.22, 0.08, 0.16, -0.8, -0.27, 0.06, 12), [0.85, 0.68, 0.3], arms); const sp = C(0.16, 0.02, 0.04, -0.74, -0.27, 0.16, 6); sp.rotation.x = 1.1; P(sp, [0.85, 0.68, 0.3], arms); }
+  if (o.staff) { const st = C(1.7, 0.035, 0.04, -0.3, -0.27, 0.08, 6); P(st, [0.42, 0.3, 0.18], arms); }
   const body = B.Mesh.MergeMeshes(parts, true, true), arm = B.Mesh.MergeMeshes(arms, true, true);
   body.name = 'person' + tag; arm.name = 'arms' + tag;
   [body, arm].forEach(m => { m.material = vcMat; m.isPickable = false; m.receiveShadows = true; m.alwaysSelectAsActiveMesh = true; });
-  return { body, arm, list: [], sh: o.seated ? 1.03 : 1.45, seated: !!o.seated };
+  return { body, arm, list: [], sh: o.seated ? 1.03 : 1.45, seated: !!o.seated, kid: !!o.kid };
 }
 const OUTFITS = [
   { robe: [0.93, 0.92, 0.88], head: 'keffiyeh', hc: [0.82, 0.18, 0.18], skin: SKIN[1], mustache: [0.1, 0.08, 0.06] },
@@ -1056,16 +1179,23 @@ const OUTFITS = [
   { robe: [0.1, 0.1, 0.12], head: 'hijab', hc: [0.48, 0.2, 0.42], skin: SKIN[0] },
   { pants: [0.08, 0.08, 0.1], shirt: [0.92, 0.92, 0.92], head: 'hair', skin: SKIN[2], mustache: [0.08, 0.06, 0.05] },
   { robe: [0.55, 0.5, 0.42], head: 'keffiyeh', hc: [0.94, 0.94, 0.94], skin: SKIN[3], mustache: [0.88, 0.88, 0.88] },
-  { pants: [0.2, 0.3, 0.52], shirt: [0.96, 0.55, 0.1], head: 'hair', skin: SKIN[1] },
+  { pants: [0.2, 0.3, 0.52], shirt: [0.96, 0.55, 0.1], head: 'hair', skin: SKIN[1], kid: true },
   { robe: [0.22, 0.34, 0.56], head: 'hijab', hc: [0.95, 0.9, 0.84], skin: SKIN[1] },
-  { pants: [0.25, 0.25, 0.27], shirt: [0.75, 0.12, 0.15], head: 'kufi', hc: [0.95, 0.95, 0.95], skin: SKIN[3], beard: [0.1, 0.08, 0.07] }
+  { pants: [0.25, 0.25, 0.27], shirt: [0.75, 0.12, 0.15], head: 'kufi', hc: [0.95, 0.95, 0.95], skin: SKIN[3], beard: [0.1, 0.08, 0.07] },
+  { pants: [0.95, 0.95, 0.95], shirt: [0.78, 0.08, 0.14], head: 'hair', skin: SKIN[2], kid: true, scarf: [0.78, 0.08, 0.14] },
+  { robe: [0.12, 0.26, 0.18], head: 'hijab', hc: [0.95, 0.94, 0.9], skin: SKIN[1], basket: true, embroid: [0.8, 0.15, 0.2] },
+  { robe: [0.95, 0.93, 0.88], head: 'fez', hc: [0.75, 0.08, 0.08], skin: SKIN[2], vest: [0.6, 0.12, 0.1], mustache: [0.12, 0.09, 0.07], pot: true },
+  { pants: [0.18, 0.28, 0.5], shirt: [0.08, 0.08, 0.09], head: 'hair', skin: SKIN[0], shades: true, scarf: [0.1, 0.55, 0.25] },
+  { robe: [0.5, 0.38, 0.24], head: 'keffiyeh', hc: [0.92, 0.92, 0.9], skin: SKIN[3], beard: [0.75, 0.73, 0.7], staff: true },
+  { robe: [0.08, 0.08, 0.1], head: 'hijab', hc: [0.78, 0.14, 0.2], skin: SKIN[1], embroid: [0.85, 0.2, 0.25] },
+  { pants: [0.3, 0.26, 0.2], shirt: [0.9, 0.9, 0.86], head: 'cap', hc: [0.1, 0.3, 0.6], skin: SKIN[2], vest: [0.2, 0.22, 0.25], shades: true, mustache: [0.08, 0.06, 0.05] }
 ];
 const SEATED = [0, 1, 2, 4, 5, 8].map(i => ({ ...OUTFITS[i], seated: true }));
 const PV = [...OUTFITS, ...SEATED].map((o, i) => personMeshes(o, i));
 const addSitter = (x, z, yaw) => addPerson(x, z, yaw, 'sitter', OUTFITS.length + ((R1() * SEATED.length) | 0));
 const PEOPLE = [];
 function addPerson(x, z, yaw, kind, vi = (R1() * OUTFITS.length) | 0, s = 0.94 + R1() * 0.14) {
-  if (vi === 6) s *= 0.68;
+  if (PV[vi].kid) s *= 0.68;
   const v = PV[vi], p = { v, i: v.list.length, x, z, y: terrainH(x, z) - 0.02, yaw, kind, s, ph: R1() * 10, ex: 0, ly: null, init: false };
   v.list.push(p); PEOPLE.push(p); return p;
 }
@@ -1102,7 +1232,7 @@ function house(cx, cz, w, d, floors, yaw, tint) {
     const [wx, wz] = rot(yaw, w * 0.22, -d * 0.18 + rd / 2 + 0.05);
     put(R1() < 0.3 ? 'winLit' : 'win', cx + wx, roofY + 1.6, cz + wz, 0.9, 1.2, 0.14, yaw);
   }
-  const doorFace = (R1() * 4) | 0, arched = R1() < 0.5, shut = R1() < 0.45 ? [...SHUTTERS[(R1() * SHUTTERS.length) | 0], 1] : null;
+  const grilled = R1() < 0.45, doorFace = (R1() * 4) | 0, arched = R1() < 0.5, shut = R1() < 0.45 ? [...SHUTTERS[(R1() * SHUTTERS.length) | 0], 1] : null;
   for (let f = 0; f < 4; f++) {
     const along = f < 2 ? w : d, half = f < 2 ? d / 2 : w / 2, fy = yaw + (f < 2 ? 0 : Math.PI / 2);
     const n = Math.max(1, Math.floor((along - 1.2) / 3.1));
@@ -1113,11 +1243,14 @@ function house(cx, cz, w, d, floors, yaw, tint) {
       if (fl === 0 && k === 0 && f === doorFace) {
         put('door', cx + ox, y + 1.15, cz + oz, 1.25, 2.3, 0.16, fy, [...DOORS[(R1() * DOORS.length) | 0], 1]);
         put('lintel', cx + ox, y + 2.45, cz + oz, 1.7, 0.22, 0.26, fy, sc);
+        if (R1() < 0.42) { const sg = f % 2 ? -1 : 1, [nx3, nz3] = rot(yaw, f < 2 ? 0 : sg, f < 2 ? sg : 0), [ux3, uz3] = rot(fy, 1, 0), q = R1() < 0.5 ? 1 : -1;
+          put('bougain', cx + ox + ux3 * q * 1.25 + nx3 * 0.15, y, cz + oz + uz3 * q * 1.25 + nz3 * 0.15, 1, 0.9 + R1() * 0.6 * floors, 1, fy); }
         continue;
       }
       const lit = R1() < 0.32;
       put(lit ? 'winLit' : 'win', cx + ox, y + 1.75, cz + oz, 1.0, 1.35, 0.14, fy);
       const [nx2, nz2] = rot(yaw, f < 2 ? 0 : sgn, f < 2 ? sgn : 0), [ux, uz] = rot(fy, 1, 0);
+      if (grilled && fl === 0) put('grille', cx + ox + nx2 * 0.1, y + 1.75, cz + oz + nz2 * 0.1, 1, 1, 1, fy);
       if (arched) put(lit ? 'archLit' : 'archTop', cx + ox + nx2 * 0.075, y + 2.425, cz + oz + nz2 * 0.075, 1.0, 1.0, 1, fy);
       else put('lintel', cx + ox, y + 2.55, cz + oz, 1.35, 0.16, 0.24, fy, sc);
       if (shut) for (const q of [-1, 1]) put('shutter', cx + ox + ux * q * 0.68 + nx2 * 0.05, y + 1.75, cz + oz + uz * q * 0.68 + nz2 * 0.05, 0.34, 1.4, 0.05, fy + q * 0.35, shut);
@@ -1267,6 +1400,7 @@ for (let k = 0; k < 260; k++) {
   if (trackDist(x, z) < WALL + 7 || !freeSpot(x, z, 2)) continue;
   R1() < 0.6 ? olive(x, z, 0.8 + R1() * 0.6) : cypress(x, z, 0.7 + R1() * 0.6);
 }
+for (let i = 0, next = 0; i < N; i++) if (CUM[i] >= next) { next = CUM[i] + 12; put('cateye', PX[i], 0.045, PZ[i], 0.14, 0.03, 0.09, Math.atan2(TX[i], TZ[i])); }
 const POLES = [];
 for (let i = 0, k = 0; i < N; i += 44, k++) {
   const side = k % 2 ? 1 : -1, x = PX[i] + RX[i] * side * (WALL + 2.2), z = PZ[i] + RZ[i] * side * (WALL + 2.2);
@@ -1416,9 +1550,22 @@ function cafe(x, z, yaw) {
   if (R1() < 0.7) put('nargila', x + Math.sin(yaw + 0.8) * 1.2, y, z + Math.cos(yaw + 0.8) * 1.2, 1, 1, 1, R1() * 6);
   HOUSES.push([x, z, 1.6]);
 }
+VILLAGES.forEach(([cx, cz, vy]) => { // village square: big old olive, benches, fruit stall
+  for (let t2 = 0; t2 < 30; t2++) {
+    const a = R1() * 6.28, r = 16 + R1() * 22, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    if (trackDist(x, z) < WALL + 10 || !freeSpot(x, z, 7)) continue;
+    const y = terrainH(x, z); olive(x, z, 1.9);
+    const face = b => Math.atan2(-Math.cos(b), -Math.sin(b));
+    for (let q = 0; q < 3; q++) { const b = q * 2.09 + vy; put('bench', x + Math.cos(b) * 3.6, y, z + Math.sin(b) * 3.6, 1, 1, 1, face(b)); if (R1() < 0.7) { const p = addSitter(x + Math.cos(b) * 3.62, z + Math.sin(b) * 3.62, face(b)); p.y = y + 0.02; } }
+    const sb = vy + 0.6; put('stall', x + Math.cos(sb) * 7.5, y, z + Math.sin(sb) * 7.5, 1, 1, 1, face(sb));
+    addPerson(x + Math.cos(sb) * 8.5, z + Math.sin(sb) * 8.5, face(sb), 'villager', 11);
+    HOUSES.push([x, z, 7]); break;
+  }
+});
 VILLAGES.forEach(([cx, cz]) => {
   for (let k = 0, t2 = 0; k < 2 && t2 < 30; t2++) { const a = R1() * 6.28, r = 14 + R1() * 40, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 8 || !freeSpot(x, z, 2)) continue; cafe(x, z, R1() * 6.28); k++; }
   for (let k = 0, t2 = 0; k < 2 && t2 < 30; t2++) { const a = R1() * 6.28, r = 18 + R1() * 50, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 8 || !freeSpot(x, z, 2.5)) continue; const yw = R1() * 6.28; put('donkey', x, terrainH(x, z), z, 1, 1, 1, yw); if (R1() < 0.6) put('cart', x - Math.sin(yw) * 2.1, terrainH(x, z), z - Math.cos(yw) * 2.1, 1, 1, 1, yw); HOUSES.push([x, z, 2.5]); k++; }
+  for (let k = 0, t2 = 0; k < 3 && t2 < 40; t2++) { const a = R1() * 6.28, r = 16 + R1() * 55, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 10 || !freeSpot(x, z, 3)) continue; const tint = [[1, 1, 1, 1], [1.08, 1.04, 0.98, 1], [0.82, 0.74, 0.68, 1]][(R1() * 3) | 0]; put(k === 1 ? 'camel' : 'camelSit', x, terrainH(x, z), z, 1, 1, 1, R1() * 6.28, tint); HOUSES.push([x, z, 3]); k++; }
   for (let k = 0; k < 9; k++) { const a = R1() * 6.28, r = 8 + R1() * 45, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (trackDist(x, z) < WALL + 5 || !freeSpot(x, z, 0.4)) continue; put('chicken', x, terrainH(x, z), z, 1, 1, 1, R1() * 6.28); }
 });
 for (let k = 0, t2 = 0; k < 7 && t2 < 120; t2++) {
@@ -1490,6 +1637,57 @@ const HERD = { list: [], mesh: null };
     m.thinInstanceSetBuffer('matrix', HERD.buf, 16, false); m.thinInstanceSetBuffer('color', cb, 4, true);
     HERD.mesh = m;
   }
+}
+// camel caravans walking slow loops in the desert beside the track, led by a herder
+const CARAVAN = { list: [], herders: [], meshes: [] };
+{
+  for (let c = 0, tries = 0; c < (TRACK.camels || 0) && tries < 200; tries++) {
+    const i = (R1() * N) | 0, side = R1() < 0.5 ? -1 : 1, R = 22 + R1() * 16, off = WALL + R + 12 + R1() * 30;
+    const cx = PX[i] + RX[i] * side * off, cz = PZ[i] + RZ[i] * side * off;
+    if (trackDist(cx, cz) < WALL + R + 8 || !freeSpot(cx, cz, R * 0.6)) continue;
+    const n = 3 + ((R1() * 3) | 0), th0 = R1() * 6.28, dir = R1() < 0.5 ? 1 : -1;
+    for (let q = 0; q < n; q++) CARAVAN.list.push({ cx, cz, R, th0: th0 - dir * q * 3.6 / R, dir, ph: R1() * 6, tint: [[1, 1, 1, 1], [1.08, 1.04, 0.98, 1], [0.84, 0.76, 0.7, 1]][(R1() * 3) | 0], saddle: q === 0 });
+    CARAVAN.herders.push({ cx, cz, R, th0: th0 + dir * 3.2 / R, dir });
+    c++;
+  }
+  if (CARAVAN.list.length) {
+    const mk = (m, cols) => { m.material = vcMat; m.isPickable = false; m.receiveShadows = true; m.alwaysSelectAsActiveMesh = true;
+      const buf = new Float32Array(CARAVAN.list.length * 16); m.thinInstanceSetBuffer('matrix', buf, 16, false);
+      if (cols) { const cb = new Float32Array(CARAVAN.list.length * 4); CARAVAN.list.forEach((g, k) => cb.set(g.tint, k * 4)); m.thinInstanceSetBuffer('color', cb, 4, true); }
+      CARAVAN.meshes.push(m); return { m, buf }; };
+    CARAVAN.body = mk(camelMesh({ part: 'body', saddle: true }).body, true);
+    const lg = camelMesh({ part: 'legs' }); CARAVAN.legsL = mk(lg.legsL, true); CARAVAN.legsR = mk(lg.legsR, true);
+    const hp = personMeshes(OUTFITS[13], 'herder');
+    const hb = new Float32Array(CARAVAN.herders.length * 16), ha = new Float32Array(CARAVAN.herders.length * 16);
+    hp.body.thinInstanceSetBuffer('matrix', hb, 16, false); hp.arm.thinInstanceSetBuffer('matrix', ha, 16, false);
+    CARAVAN.herd = { hp, hb, ha }; CARAVAN.meshes.push(hp.body, hp.arm);
+  }
+}
+const _cm = new B.Matrix(), _cm2 = new B.Matrix(), _cq = new B.Quaternion(), _cs = new B.Vector3(1, 1, 1), _ct = new B.Vector3();
+let camelShoutT = -99;
+function updateCaravans(t) {
+  if (!CARAVAN.body) return;
+  const cx0 = camera.position.x, cz0 = camera.position.z, far = quality === 'turbo' ? 90 : 170;
+  const walk = 1.05; let near = false;
+  CARAVAN.list.forEach((g, k) => {
+    const th = g.th0 + g.dir * walk * t / g.R, x = g.cx + Math.cos(th) * g.R, z = g.cz + Math.sin(th) * g.R;
+    if (g.init && (x - cx0) ** 2 + (z - cz0) ** 2 > far * far) return;
+    const yaw = Math.atan2(-Math.sin(th) * g.dir, Math.cos(th) * g.dir), ph = t * 2.3 + g.ph, sw = Math.sin(ph) * 0.3;
+    const y = terrainH(x, z) + Math.abs(Math.cos(ph)) * 0.05;
+    B.Quaternion.RotationYawPitchRollToRef(yaw, Math.sin(ph * 2) * 0.015, Math.sin(ph) * 0.03, _cq); _ct.set(x, y, z);
+    B.Matrix.ComposeToRef(_cs, _cq, _ct, _cm); _cm.copyToArray(CARAVAN.body.buf, k * 16);
+    for (const [L, s2] of [[CARAVAN.legsL, sw], [CARAVAN.legsR, -sw]]) { B.Matrix.RotationX(s2).multiplyToRef(B.Matrix.Translation(0, CAMEL_HIP, 0), _cm2); _cm2.multiplyToRef(_cm, _cm2); _cm2.copyToArray(L.buf, k * 16); }
+    g.init = true; g.x = x; g.z = z; g.y = y;
+    if (state === 'drive' && (car.x - x) ** 2 + (car.z - z) ** 2 < 18 * 18) near = true;
+  });
+  CARAVAN.herders.forEach((h, k) => {
+    const th = h.th0 + h.dir * walk * t / h.R, x = h.cx + Math.cos(th) * h.R, z = h.cz + Math.sin(th) * h.R, yaw = Math.atan2(-Math.sin(th) * h.dir, Math.cos(th) * h.dir);
+    B.Quaternion.RotationYawPitchRollToRef(yaw, 0, 0, _cq); _ct.set(x, terrainH(x, z) + Math.abs(Math.sin(t * 4.6 + k)) * 0.04, z); B.Matrix.ComposeToRef(_cs, _cq, _ct, _cm); _cm.copyToArray(CARAVAN.herd.hb, k * 16);
+    B.Matrix.RotationX(Math.sin(t * 4.6 + k) * 0.35).multiplyToRef(B.Matrix.Translation(0, CARAVAN.herd.hp.sh, 0), _cm2); _cm2.multiplyToRef(_cm, _cm2); _cm2.copyToArray(CARAVAN.herd.ha, k * 16);
+  });
+  CARAVAN.body.m.thinInstanceBufferUpdated('matrix'); CARAVAN.legsL.m.thinInstanceBufferUpdated('matrix'); CARAVAN.legsR.m.thinInstanceBufferUpdated('matrix');
+  CARAVAN.herd.hp.body.thinInstanceBufferUpdated('matrix'); CARAVAN.herd.hp.arm.thinInstanceBufferUpdated('matrix');
+  if (near && t - camelShoutT > 8) { camelShoutT = t; sfx.grumble(); toast(pick(['הגמל לא התרשם מהדריפט שלך', 'שיירה! תאט, יש זכות קדימה לגמלים', 'הגמל לועס ומסתכל עליך בבוז', 'כרים עבדול ג׳מאל שלח את הדודים שלו']), ''); }
 }
 let herdShoutT = -99;
 function updateHerd(t, dt) {
@@ -1673,19 +1871,39 @@ if (TRACK.sea) {
 }
 
 
-// distant ridge layers for depth on the horizon
-const mtnMats = [0, 1].map(k => { const m = new B.StandardMaterial('mtn' + k, scene); m.disableLighting = true; m.fogEnabled = false; m.emissiveColor = new B.Color3(0.5, 0.36, 0.4); m.diffuseColor = B.Color3.Black(); m.specularColor = B.Color3.Black(); return m; });
-mtnMats.forEach((mat, layer) => {
-  const g = MB.CreateCylinder('ridge' + layer, { height: 1, diameterTop: 0.22, diameterBottom: 1, tessellation: 7 }, scene); g.material = mat; g.isPickable = false; g.applyFog = false;
-  const mats = [], n = 34;
-  for (let i = 0; i < n; i++) {
-    const a = i / n * Math.PI * 2 + layer * 0.09, r = (layer ? 2350 : 1950) + Math.sin(i * 7.3) * 120;
-    if (TRACK.sea && Math.sin(a) < -0.35) continue;
-    const hgt = (layer ? 190 : 120) + Math.abs(Math.sin(i * 3.1 + layer)) * (layer ? 170 : 110), wdt = 700 + Math.abs(Math.sin(i * 1.7)) * 500;
-    mats.push(B.Matrix.Compose(V3(wdt, hgt, wdt * 0.7), B.Quaternion.RotationYawPitchRoll(a, 0, 0), V3(TCX + Math.cos(a) * r, hgt / 2 - 40, TCZ + Math.sin(a) * r)));
-  }
-  const buf = new Float32Array(mats.length * 16); mats.forEach((m, i) => m.copyToArray(buf, i * 16)); g.thinInstanceSetBuffer('matrix', buf, 16, true); g.thinInstanceRefreshBoundingInfo(false);
-});
+// distant mountain ranges: three continuous ridge rings with gullies, crest rim-light toward the sun and base haze
+const MTN_LAYERS = [{ r: 1500, base: 70, amp: 120, seed: 3 }, { r: 1950, base: 120, amp: 190, seed: 7 }, { r: 2450, base: 170, amp: 260, seed: 11 }];
+const mtnMats = MTN_LAYERS.map((_, k) => { const m = new B.StandardMaterial('mtn' + k, scene); m.disableLighting = true; m.fogEnabled = false; m.emissiveColor = new B.Color3(0.5, 0.36, 0.4); m.diffuseColor = B.Color3.Black(); m.specularColor = B.Color3.Black(); return m; });
+const MTN_DAY = [[0.44, 0.31, 0.35], [0.56, 0.41, 0.45], [0.68, 0.52, 0.56]], MTN_NIGHT = [[0.03, 0.035, 0.058], [0.045, 0.05, 0.082], [0.06, 0.068, 0.11]];
+{
+  const sunA = 205 * Math.PI / 180, sx = Math.sin(sunA), sz = Math.cos(sunA);
+  MTN_LAYERS.forEach((L, layer) => {
+    const r = rng(L.seed), ph = Array.from({ length: 8 }, () => r() * 6.283), fr = [3, 5, 8, 13, 21, 34, 55, 89];
+    const ridge = a => { let h = 0, amp = 1, tot = 0; for (let k = 0; k < 8; k++) { const v = 1 - Math.abs(Math.sin(a * fr[k] * 0.5 + ph[k])); h += v * v * amp; tot += amp; amp *= 0.55; } return h / tot; };
+    const n = 420, rows = 7, pos = [], col = [], idx = [];
+    for (let i = 0; i <= n; i++) {
+      const a = i / n * Math.PI * 2 + layer * 0.21, ca = Math.cos(a), sa = Math.sin(a);
+      let H = L.base + L.amp * Math.pow(ridge(a), 1.6) * (0.55 + 0.45 * Math.sin(a * 2 + L.seed) ** 2);
+      if (TRACK.sea && sa < -0.2) H *= clamp((sa + 0.45) / 0.25, 0, 1);
+      const rim = Math.pow(Math.max(0, ca * sx + sa * sz), 2);
+      for (let j = 0; j < rows; j++) {
+        const f = j / (rows - 1), gully = Math.sin(a * 140 + L.seed) * Math.sin(a * 57) * 22 * f * (1 - f);
+        const rad = L.r + f * 160 + gully, y = -45 + f * (H + 45);
+        pos.push(TCX + ca * rad, y, TCZ + sa * rad);
+        let c = 0.8 + 0.2 * Math.sin(a * 140 + L.seed) * f + (r() - 0.5) * 0.06;
+        const haze = (1 - smooth01(f / 0.45)) * (0.35 + layer * 0.1);
+        let R = c, G = c, Bc = c;
+        R += rim * smooth01((f - 0.7) / 0.3) * 0.9; G += rim * smooth01((f - 0.7) / 0.3) * 0.5; Bc += rim * smooth01((f - 0.7) / 0.3) * 0.25;
+        R = R * (1 - haze) + 1.2 * haze; G = G * (1 - haze) + 1.12 * haze; Bc = Bc * (1 - haze) + 1.22 * haze;
+        col.push(R, G, Bc, 1);
+        if (i < n && j < rows - 1) { const q = i * rows + j; idx.push(q, q + 1, q + rows, q + 1, q + rows + 1, q + rows); }
+      }
+    }
+    const vd = new B.VertexData(); vd.positions = pos; vd.colors = col; vd.indices = idx;
+    const m = new B.Mesh('ridge' + layer, scene); vd.applyToMesh(m); m.material = mtnMats[layer]; m.isPickable = false; m.applyFog = false;
+    m.material.backFaceCulling = false; m.freezeWorldMatrix(); m.alwaysSelectAsActiveMesh = true;
+  });
+}
 
 /* ================= lights / sky ================= */
 const sun = new B.DirectionalLight('sun', V3(0, -1, 0), scene);
@@ -1694,53 +1912,85 @@ const carFill = new B.PointLight('carFill', V3(0, 3, 0), scene); carFill.range =
 const lampLights = Array.from({ length: 4 }, (_, i) => { const l = new B.PointLight('lamp' + i, V3(0, -100, 0), scene); l.diffuse = new B.Color3(1, 0.66, 0.32); l.specular = new B.Color3(0.6, 0.4, 0.2); l.range = 46; return l; });
 const skyDay = MB.CreateBox('skyDay', { size: 6000 }, scene);
 B.Effect.ShadersStore.duskSkyVertexShader = `precision highp float; attribute vec3 position; uniform mat4 worldViewProjection; varying vec3 vDir; void main(){ vDir = position; gl_Position = worldViewProjection * vec4(position, 1.0); }`;
-B.Effect.ShadersStore.duskSkyFragmentShader = `precision highp float; varying vec3 vDir; uniform vec3 uSun;
+B.Effect.ShadersStore.duskSkyFragmentShader = `precision highp float; varying vec3 vDir; uniform vec3 uSun; uniform float uTime;
   float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
   float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h2(i),h2(i+vec2(1,0)),f.x), mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x), f.y); }
-  float fbm(vec2 p){ float s=0.0, a=0.5; for(int i=0;i<5;i++){ s+=a*n2(p); p*=2.03; a*=0.5; } return s; }
+  float fbm(vec2 p){ float s=0.0, a=0.5; for(int i=0;i<5;i++){ s+=a*n2(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s; }
   void main(){
     vec3 d = normalize(vDir); float y = d.y; vec3 s = normalize(uSun);
     float sd = max(dot(d, s), 0.0);
-    float az = max(dot(normalize(vec3(d.x,0.0,d.z) + 1e-5), normalize(vec3(s.x,0.0,s.z))), 0.0);
-    vec3 zen = vec3(0.06,0.10,0.26), mid = vec3(0.36,0.30,0.48), horA = vec3(0.62,0.42,0.46), horS = vec3(1.35,0.62,0.28);
-    vec3 hor = mix(horA, horS, pow(az, 2.5));
+    vec2 sh = normalize(vec2(s.x, s.z));
+    float az = max(dot(normalize(d.xz + 1e-5), sh), 0.0);
     float t = max(y, 0.0);
-    vec3 col = mix(hor, mid, smoothstep(0.0, 0.2, t));
-    col = mix(col, zen, smoothstep(0.16, 0.8, t));
-    col += vec3(1.0,0.5,0.22) * pow(sd, 6.0) * 0.55 + vec3(1.0,0.72,0.42) * pow(sd, 90.0) * 1.4;
+    // Rayleigh-like gradient: deep blue zenith -> violet -> warm horizon, hottest toward the sun
+    vec3 zen = vec3(0.045,0.085,0.24), mid = vec3(0.32,0.27,0.47), horA = vec3(0.66,0.43,0.47), horS = vec3(1.45,0.66,0.27);
+    vec3 hor = mix(horA, horS, pow(az, 2.2));
+    vec3 col = mix(hor, mid, smoothstep(0.0, 0.18, t));
+    col = mix(col, zen, smoothstep(0.14, 0.75, t));
+    col += vec3(0.9,0.38,0.2) * exp(-t * 9.0) * pow(az, 6.0) * 0.5;               // horizon band glow
+    // Mie forward-scatter halo + sun disc
+    col += vec3(1.0,0.5,0.22) * pow(sd, 6.0) * 0.5 + vec3(1.0,0.72,0.42) * pow(sd, 90.0) * 1.3 + vec3(1.0,0.8,0.55) * pow(sd, 900.0) * 3.0;
     col += vec3(9.0,6.0,3.2) * smoothstep(0.9992, 0.9996, sd);
     if (y > 0.0) {
-      vec2 uv = d.xz / (y + 0.12) * 1.6;
-      float c = fbm(uv * 0.9 + vec2(3.0, 1.0));
-      c = smoothstep(0.52, 0.85, c) * smoothstep(0.0, 0.08, y) * (1.0 - smoothstep(0.35, 0.9, y));
-      vec3 cc = mix(vec3(0.55,0.35,0.45), vec3(1.4,0.7,0.4), pow(az, 2.0) * 0.8 + pow(sd, 4.0) * 0.6);
-      col = mix(col, cc, c * 0.75);
+      vec2 uv = d.xz / (y + 0.1) * 1.6;
+      vec2 wind = vec2(uTime * 0.012, uTime * 0.004);
+      // cumulus layer with sun-facing silver lining (2-tap light march)
+      vec2 p = uv * 0.85 + vec2(3.0, 1.0) + wind;
+      float c = fbm(p), cl = fbm(p + sh * 0.18);
+      float dens = smoothstep(0.5, 0.82, c) * smoothstep(0.0, 0.07, y) * (1.0 - smoothstep(0.38, 0.9, y));
+      float lit = clamp((c - cl) * 4.0 + 0.45, 0.0, 1.0);
+      vec3 shadowC = vec3(0.36,0.26,0.38), litC = mix(vec3(1.25,0.62,0.42), vec3(1.7,0.95,0.55), pow(az, 3.0));
+      vec3 cc = mix(shadowC, litC, lit * (0.45 + 0.55 * pow(az, 1.5)));
+      cc += vec3(1.6,0.8,0.4) * pow(sd, 10.0) * (1.0 - dens) * 0.8;
+      col = mix(col, cc, dens * 0.85);
+      // high cirrus streaks
+      float ci = fbm(vec2(uv.x * 0.35, uv.y * 2.4) + wind * 2.0 + vec2(11.0, 4.0));
+      ci = smoothstep(0.55, 0.85, ci) * smoothstep(0.05, 0.25, y) * (1.0 - dens);
+      col += mix(vec3(0.5,0.3,0.45), vec3(1.3,0.7,0.45), pow(az, 2.0)) * ci * 0.35;
     }
     if (y < 0.0) col = mix(hor * 0.85, vec3(0.32,0.25,0.24), smoothstep(0.0, -0.12, y));
     gl_FragColor = vec4(col, 1.0);
   }`;
-const skyMat = new B.ShaderMaterial('duskM', scene, { vertex: 'duskSky', fragment: 'duskSky' }, { attributes: ['position'], uniforms: ['worldViewProjection', 'uSun'] });
+const skyMat = new B.ShaderMaterial('duskM', scene, { vertex: 'duskSky', fragment: 'duskSky' }, { attributes: ['position'], uniforms: ['worldViewProjection', 'uSun', 'uTime'] });
 skyMat.backFaceCulling = false;
 skyDay.material = skyMat; skyDay.infiniteDistance = true; skyDay.applyFog = false; skyDay.isPickable = false;
 B.Effect.ShadersStore.nightSkyVertexShader = `precision highp float; attribute vec3 position; uniform mat4 worldViewProjection; varying vec3 vDir; void main(){ vDir = position; gl_Position = worldViewProjection * vec4(position, 1.0); }`;
-B.Effect.ShadersStore.nightSkyFragmentShader = `precision highp float; varying vec3 vDir; uniform vec3 uMoon;
+B.Effect.ShadersStore.nightSkyFragmentShader = `precision highp float; varying vec3 vDir; uniform vec3 uMoon; uniform float uTime;
   float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1,311.7,74.7)))*43758.5453); }
+  float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+  float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h2(i),h2(i+vec2(1,0)),f.x), mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x), f.y); }
+  float fbm(vec2 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*n2(p); p*=2.05; a*=0.5; } return s; }
   void main(){
     vec3 d = normalize(vDir); float y = d.y;
-    vec3 zen = vec3(0.004,0.006,0.02), hor = vec3(0.05,0.055,0.095);
+    vec3 zen = vec3(0.004,0.007,0.024), hor = vec3(0.05,0.058,0.1);
     vec3 col = mix(hor, zen, smoothstep(-0.02, 0.55, y));
-    float az = max(0.0, dot(normalize(vec3(d.x,0.0,d.z) + 1e-5), normalize(vec3(-0.6,0.0,-0.8))));
-    col += vec3(0.22,0.1,0.035) * pow(az, 3.0) * exp(-max(y,0.0)*14.0) * 0.7;
+    // orange sky-glow over the villages on several bearings
+    for (int k = 0; k < 3; k++) { float a = float(k) * 2.1 + 0.6; float az = max(0.0, dot(normalize(d.xz + 1e-5), vec2(cos(a), sin(a))));
+      col += vec3(0.24,0.11,0.04) * pow(az, 6.0) * exp(-max(y,0.0) * 12.0) * 0.6; }
+    // milky way band along a tilted great circle
+    vec3 bandN = normalize(vec3(0.35, 0.55, 0.76)); float bd = dot(d, bandN);
+    vec2 bp = vec2(atan(d.z, d.x) * 3.0, bd * 8.0);
+    float mw = exp(-bd * bd * 18.0) * (0.35 + 0.65 * fbm(bp * 1.6)) * smoothstep(0.02, 0.3, y);
+    float dust = smoothstep(0.45, 0.75, fbm(bp * 3.1 + 5.0)) * exp(-bd * bd * 60.0);
+    col += vec3(0.11,0.11,0.16) * mw * (1.0 - dust * 0.8);
+    // stars with twinkle, denser inside the band
     vec3 p = d * 380.0; vec3 id = floor(p); float r = h3(id);
-    float star = step(0.9965, r) * smoothstep(0.42, 0.0, length(fract(p) - 0.5)) * (0.6 + 2.4*h3(id+7.0));
-    col += vec3(0.9,0.93,1.0) * star * smoothstep(0.02, 0.25, y);
-    float m = dot(d, normalize(uMoon));
-    col += vec3(1.0,0.97,0.9) * smoothstep(0.99955, 0.99975, m) * 5.0;
-    col += vec3(0.25,0.3,0.45) * pow(max(m,0.0), 180.0) * 0.6;
+    float thr = 0.9965 - mw * 0.004;
+    float tw = 0.65 + 0.35 * sin(uTime * (2.0 + h3(id + 3.0) * 5.0) + r * 40.0);
+    float star = step(thr, r) * smoothstep(0.42, 0.0, length(fract(p) - 0.5)) * (0.6 + 2.4*h3(id+7.0)) * tw;
+    vec3 sc = mix(vec3(1.0,0.85,0.7), vec3(0.75,0.85,1.0), h3(id + 11.0));
+    col += sc * star * smoothstep(0.02, 0.25, y);
+    // moon with maria + halo
+    vec3 mn = normalize(uMoon); float m = dot(d, mn);
+    vec3 mt = normalize(cross(mn, vec3(0.0,1.0,0.0))), mb = cross(mt, mn);
+    vec2 mp = vec2(dot(d, mt), dot(d, mb)) * 1800.0;
+    float disc = smoothstep(0.99955, 0.99975, m), maria = fbm(mp * 0.18 + 3.0);
+    col += vec3(1.0,0.97,0.9) * disc * (4.2 - smoothstep(0.45, 0.7, maria) * 1.8);
+    col += vec3(0.25,0.3,0.45) * pow(max(m,0.0), 180.0) * 0.6 + vec3(0.12,0.14,0.22) * pow(max(m,0.0), 20.0) * 0.25;
     gl_FragColor = vec4(col, 1.0);
   }`;
 const MOON = (() => { const e = 34 * Math.PI / 180, a = 40 * Math.PI / 180; return V3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)); })();
-const nightMat = new B.ShaderMaterial('nightM', scene, { vertex: 'nightSky', fragment: 'nightSky' }, { attributes: ['position'], uniforms: ['worldViewProjection', 'uMoon'] });
+const nightMat = new B.ShaderMaterial('nightM', scene, { vertex: 'nightSky', fragment: 'nightSky' }, { attributes: ['position'], uniforms: ['worldViewProjection', 'uMoon', 'uTime'] });
 nightMat.backFaceCulling = false; nightMat.setVector3('uMoon', MOON);
 const skyNight = MB.CreateBox('skyNight', { size: 6000 }, scene);
 skyNight.material = nightMat; skyNight.infiniteDistance = true; skyNight.applyFog = false; skyNight.isPickable = false; skyNight.setEnabled(false);
@@ -1758,7 +2008,7 @@ const STATIC_CASTERS = [];
 for (const k in TI) if (TI[k].cast && TI[k].M.length) { caster(TI[k].mesh); STATIC_CASTERS.push(TI[k].mesh); }
 let staticShadows = true;
 function setStaticShadows(on) { if (!csm || on === staticShadows) return; staticShadows = on; STATIC_CASTERS.forEach(m => on ? csm.addShadowCaster(m, false) : csm.removeShadowCaster(m, false)); }
-walls.forEach(caster); GANTRY.forEach(caster);
+walls.forEach(caster); GANTRY.forEach(caster); CARAVAN.meshes.forEach(caster);
 PV.forEach(v => {
   const n = v.list.length;
   if (!n) { v.body.setEnabled(false); v.arm.setEnabled(false); return; }
@@ -1808,11 +2058,11 @@ const UPG = [
   { cat: 'exhaust', title: 'אגזוז', items: [['std', 'מקורי חלוד', 0, 'עושה רעש של מייבש שיער'], ['dual', 'אגזוז כפול', 25, 'פי שתיים רעש'], ['cannon', 'אגזוז תותח', 60, 'קוטר של צינור ביוב'], ['fire', 'יורק אש', 90, 'פיצוצים ולהבות כשעוזבים גז']] },
   { cat: 'wing', title: 'כנף', items: [['none', 'בלי', 0, 'נקי'], ['lip', 'שפתון קטן', 20, 'צנוע'], ['gt', 'כנף GT', 50, 'נראה מהיר עומד'], ['plane', 'כנף של מטוס', 110, 'אפשר לתלות עליה כביסה']] },
   { cat: 'wheels', title: 'גלגלים', items: [['steel', 'פח שחור', 0, 'מקורי מהמפעל'], ['chrome', 'כרום', 30, 'נוצץ בשמש'], ['gold', 'זהב', 70, 'כמו שן של דוד'], ['spinner', 'ספינרים', 90, 'ממשיכים להסתובב גם בחניה']] },
-  { cat: 'roof', title: 'על הגג', items: [['none', 'כלום', 0, ''], ['mattress', 'מזרן קשור בחבל', 20, 'מעבר דירה תוך כדי דריפט'], ['melons', 'ארגז אבטיחים', 35, 'משלוח לשוק'], ['speaker', 'רמקול חתונות', 45, 'מכריז על כל דריפט'], ['goat', 'עז בטרמפ', 60, 'היא לא ביקשה, אבל נהנית']] },
+  { cat: 'roof', title: 'על הגג', items: [['none', 'כלום', 0, ''], ['mattress', 'מזרן קשור בחבל', 20, 'מעבר דירה תוך כדי דריפט'], ['melons', 'ארגז אבטיחים', 35, 'משלוח לשוק'], ['speaker', 'רמקול חתונות', 45, 'מכריז על כל דריפט'], ['goat', 'עז בטרמפ', 60, 'היא לא ביקשה, אבל נהנית'], ['camel', 'גמל קטן על הגג', 90, 'מתנה מכרים עבדול ג׳מאל']] },
   { cat: 'neon', title: 'ניאון מתחת לרכב', items: [['none', 'בלי', 0, ''], ['green', 'ירוק', 30, ''], ['purple', 'סגול', 30, ''], ['rainbow', 'דיסקו', 60, 'מחליף צבעים כמו אולם אירועים']] },
   { cat: 'engine', title: 'מנוע', items: [['stock', 'מקורי (בקושי)', 0, ''], ['swap', 'מנוע מושתל', 80, '+12% תאוצה, מאיפה? לא שואלים'], ['turbo', 'טורבו מהמוסך של סמיר', 100, 'ניטרו מתמלא מהר יותר ונגמר לאט']] },
   { cat: 'tires', title: 'צמיגים', items: [['std', 'רגילים', 0, ''], ['bald', 'קירחים', 40, 'פחות אחיזה, יותר עשן, יותר דריפט'], ['offroad', 'צמיגי שטח', 35, 'חצץ? איזה חצץ']] },
-  { cat: 'horn', title: 'צופר', items: [['beep', 'ביפ עצוב', 0, ''], ['tune', 'צופר מנגינה', 25, 'כמו בחתונה'], ['donkey', 'צופר חמור', 30, 'אי-אה!']] },
+  { cat: 'horn', title: 'צופר', items: [['beep', 'ביפ עצוב', 0, ''], ['tune', 'צופר מנגינה', 25, 'כמו בחתונה'], ['donkey', 'צופר חמור', 30, 'אי-אה!'], ['camel', 'צופר גמל', 35, 'גרררר-בלבלבל']] },
   { cat: 'door', title: 'דלת', items: [['same', 'באותו צבע', 0, ''], ['odd', 'דלת מפירוק', 10, 'בצבע אחר, כמו שצריך']] },
   { cat: 'polish', title: 'גימור', items: [['dusty', 'מאובק', 0, 'אבק של שלוש שנים'], ['shine', 'פוליש מבריק', 25, 'שטיפה בתחנה ליד המסגד']] }
 ];
@@ -1931,15 +2181,36 @@ function plateMat(M) {
   const m = new B.StandardMaterial('plM' + M.id, scene); m.diffuseTexture = t; m.emissiveColor = new B.Color3(0.3, 0.3, 0.3); m.specularColor = B.Color3.Black();
   return PLATE_MAT[M.id] = m;
 }
-function goatMesh() {
-  const parts = [], bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('gg', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
-  bx(0.34, 0.34, 0.78, 0, 0.62, 0, [0.95, 0.94, 0.9]); bx(0.2, 0.24, 0.3, 0, 0.88, 0.46, [0.95, 0.94, 0.9]);
-  bx(0.05, 0.16, 0.05, 0.07, 1.06, 0.4, [0.3, 0.26, 0.22]); bx(0.05, 0.16, 0.05, -0.07, 1.06, 0.4, [0.3, 0.26, 0.22]);
-  bx(0.06, 0.1, 0.06, 0, 0.74, 0.6, [0.9, 0.9, 0.9]); bx(0.24, 0.05, 0.1, 0, 0.95, 0.4, [0.95, 0.95, 0.95]);
-  for (const [x, z] of [[0.11, 0.28], [-0.11, 0.28], [0.11, -0.28], [-0.11, -0.28]]) bx(0.07, 0.46, 0.07, x, 0.23, z, [0.85, 0.85, 0.85]);
-  return B.Mesh.MergeMeshes(parts, true, true);
-}
 let carUid = 0;
+// funny decals: bumper stickers, "for sale" sign, rust patches, tape
+const STICKERS = ['בעזרת השם ובעזרת הדבק', 'אל תצפור, ממילא לא שומע', 'נהג חדש מ-1987', 'סע לאט, יש חומוס בבגאז׳', 'הבלמים בחופשה. בהצלחה', 'המכונית של אבא, הדריפט שלי', 'מבחן רישוי? ניסיון שביעי', 'אם אתה קורא את זה – העז בורחת', 'אין מזגן. יש חלון', 'דריפט זה לא פשע, זה סגנון'];
+const DECAL_MAT = {};
+function textDecal(key, w, h, draw) {
+  if (DECAL_MAT[key]) return DECAL_MAT[key];
+  const t = new B.DynamicTexture('dc' + key, mkCanvas(w, h, draw), scene, true); t.update(true); t.hasAlpha = true;
+  const m = new B.StandardMaterial('dcM' + key, scene); m.diffuseTexture = t; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new B.Color3(0.22, 0.22, 0.22); m.specularColor = new B.Color3(0.15, 0.15, 0.15); m.zOffset = -2;
+  return DECAL_MAT[key] = m;
+}
+const stickerMat = txt => textDecal('st' + txt, 512, 112, (x, w, h) => {
+  x.fillStyle = '#f3efe4'; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 14); x.fill(); x.strokeStyle = '#c4261f'; x.lineWidth = 6; x.stroke();
+  x.fillStyle = '#16181d'; x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let fs = 46; do { x.font = `800 ${fs}px Heebo, Rubik, Arial, sans-serif`; fs -= 2; } while (x.measureText(txt).width > w - 40 && fs > 18);
+  x.fillText(txt, w / 2, h / 2 + 2);
+});
+const saleMat = () => textDecal('sale', 256, 200, (x, w, h) => {
+  x.fillStyle = '#fff6d8'; x.fillRect(6, 6, w - 12, h - 12); x.strokeStyle = '#d8241c'; x.lineWidth = 8; x.strokeRect(10, 10, w - 20, h - 20);
+  x.direction = 'rtl'; x.textAlign = 'center'; x.fillStyle = '#d8241c'; x.font = '900 54px Heebo, Arial, sans-serif'; x.fillText('למכירה', w / 2, 74);
+  x.fillStyle = '#1a1a1a'; x.font = '700 28px Heebo, Arial, sans-serif'; x.fillText('מחיר: 3 פלאפל', w / 2, 120); x.fillText('לא רציניים גם', w / 2, 160);
+});
+const rustMat = () => textDecal('rust', 256, 256, (x, w, h) => {
+  const r = rng(808);
+  for (let i = 0; i < 70; i++) { const cx = w / 2 + (r() - .5) * w * 0.6, cy = h / 2 + (r() - .5) * h * 0.6, rr = 8 + r() * 40; const g = x.createRadialGradient(cx, cy, 0, cx, cy, rr);
+    const c = r() < 0.5 ? '120,52,20' : '86,38,16'; g.addColorStop(0, `rgba(${c},.85)`); g.addColorStop(0.7, `rgba(${c},.5)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, rr, 0, 7); x.fill(); }
+  for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(${150 + r() * 60},${70 + r() * 30},20,${0.4 + r() * 0.4})`; x.fillRect(w / 2 + (r() - .5) * w * 0.7, h / 2 + (r() - .5) * h * 0.7, 2, 2); }
+});
+const tapeMat = pbr('tape', { color: 0xb9b2a0, rough: 0.55 });
+const carRopeMat = pbr('carRope', { color: 0xa98250, rough: 0.95 });
+function carHash(id) { let h = 0; for (const ch of id) h = (h * 131 + ch.charCodeAt(0)) >>> 0; return h; }
 function buildCar(ghost = false, pm = paint, o = {}) {
   const M = o.M || MODELS[0], eq = Object.assign({}, DEFAULT_EQ, o.eq || {}), simple = !!o.simple, uid = ++carUid;
   const root = new B.TransformNode(ghost ? 'ghost' : 'car', scene), body = new B.TransformNode('body', scene); body.parent = root;
@@ -2004,6 +2275,30 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   const badge = add(MB.CreatePlane('badge', { width: 0.17, height: 0.13 }, scene), badgeMat(M.badge)); badge.position.set(0, fy - 0.06, L + 0.015); badge.rotation.y = Math.PI;
   const badgeR = add(MB.CreatePlane('badgeR', { width: 0.15, height: 0.11 }, scene), badgeMat(M.badge)); badgeR.position.set(0, H - 0.08 - trunk, -L - 0.02);
   if (eq.door === 'odd') bx(0.02, 0.42, Math.min(1.1, (zf - zr) * 0.5), -(W + 0.004), 0.62, (zf + zr) / 2 - 0.05, eq.paint === 'grey' || eq.paint === 'silver' ? carMats.primer : (() => { const m2 = pm.clone('door' + uid); m2.albedoColor = LC(M.grey); m2.albedoTexture = grimeTex; ownMats.push(m2); return m2; })());
+  // beater details: door handles, grille slats, mirror glass, and per-model jank (rust, tape, rope, stickers, for-sale sign)
+  if (!simple) {
+    const hs = carHash(M.id), shine = eq.polish === 'shine', jank = shine ? 0 : 1 + hs % 3;
+    for (const s of [-1, 1]) {
+      for (const zz of [lerp(zr, zf, 0.5) + 0.12, st === 'van' ? lerp(zr, zf, 0.2) : zr + 0.15]) bx(0.025, 0.035, 0.14, s * (W * 0.995 + 0.012), H - 0.2, zz, carMats.chrome);
+      bx(0.012, 0.075, 0.15, s * (W + 0.13), H + 0.07, zf - 0.08 - 0.06, carMats.chrome).rotation.y = s * 0.15;
+    }
+    for (let k = 0; k < 4; k++) bx(2 * W * 0.44, 0.012, 0.012, 0, fy - 0.11 + k * 0.032, L + 0.012, carMats.chrome);
+    if (jank >= 1) {
+      const rs = (x, y, z, sc, ry) => { const p = add(MB.CreatePlane('rust', { size: sc }, scene), rustMat()); p.position.set(x, y, z); p.rotation.y = ry; return p; };
+      rs(W * 0.995 + 0.01, 0.48, wzR0 + aR + 0.18, 0.34, -Math.PI / 2); rs(-(W * 0.995 + 0.01), 0.46, wzF0 - aR - 0.12, 0.3, Math.PI / 2);
+      if (jank >= 2) rs(W * 0.995 + 0.01, 0.42, (zf + zr) / 2 - 0.4, 0.26, -Math.PI / 2);
+      const st1 = add(MB.CreatePlane('stk', { width: 0.46, height: 0.1 }, scene), stickerMat(STICKERS[hs % STICKERS.length])); st1.position.set(W * 0.58, 0.39, -L - 0.072);
+    }
+    if (jank >= 2) { // taped headlight
+      for (const r2 of [0.6, -0.6]) { const tp = bx(0.42, 0.035, 0.012, -W * 0.64, fy, L - 0.005, tapeMat); tp.rotation.z = r2; }
+      const sale = add(MB.CreatePlane('sale', { width: 0.36, height: 0.28 }, scene), saleMat());
+      const sz = st === 'sedan' ? lerp(zr, zf, 0.2) : lerp(zr, zf, 0.26), sy = gBase + (topAt(st === 'sedan' ? 0.2 : 0.26) - gBase) * 0.45;
+      sale.position.set(gW * 0.98 + 0.012, sy, sz); sale.rotation.y = -Math.PI / 2; sale.rotation.x = 0; sale.rotation.z = -0.2;
+    }
+    if (jank >= 3) { // bumper held on with rope
+      for (const s of [-1, 1]) { const rp = add(MB.CreateTorus('rope', { diameter: 0.2, thickness: 0.022, tessellation: 12 }, scene), carRopeMat); rp.position.set(s * W * 0.82, 0.42, L - 0.02); rp.rotation.x = Math.PI / 2; rp.rotation.z = 0.3 * s; }
+    }
+  }
   // exhaust
   const exX = eq.exhaust === 'none' ? [] : eq.exhaust === 'dual' || eq.exhaust === 'fire' ? [-0.4, -0.58] : [-0.5];
   const exD = eq.exhaust === 'cannon' ? 0.24 : eq.exhaust === 'std' ? 0.07 : 0.1, exLen = eq.exhaust === 'cannon' ? 0.5 : 0.24;
@@ -2023,6 +2318,8 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   if (eq.roof === 'melons') { bx(1.1, 0.24, 1.25, 0, rY + 0.18, rZ, carMats.wood); for (let k = 0; k < 6; k++) { const m = add(MB.CreateSphere('mel', { diameter: 0.36, segments: 10 }, scene), carMats.melon); m.scaling.set(1, 0.85, 1.2); m.position.set(((k % 2) - 0.5) * 0.42, rY + 0.38, rZ + (Math.floor(k / 2) - 1) * 0.38); } }
   if (eq.roof === 'speaker') { bx(0.5, 0.12, 0.4, 0, rY + 0.1, rZ, carMats.black); for (const s of [-1, 1]) { const c = add(MB.CreateCylinder('hornS', { height: 0.5, diameterTop: 0.36, diameterBottom: 0.08, tessellation: 14 }, scene), carMats.rim); c.rotation.x = Math.PI / 2; c.rotation.y = s * 0.35; c.position.set(s * 0.22, rY + 0.3, rZ + 0.1); } }
   if (eq.roof === 'goat') { const g = goatMesh(); add(g, vcMat); g.position.set(0, rY + 0.06, rZ); g.rotation.y = Math.PI / 2 + 0.3; }
+  if (eq.roof === 'camel') { const g = camelMesh({ part: 'all', saddle: true }).body; add(g, vcMat); g.scaling.setAll(0.42); g.position.set(0, rY + 0.06, rZ); g.rotation.y = 0.25;
+    for (const dz of [-0.3, 0.3]) { const st2 = add(MB.CreateTorus('strap', { diameter: 0.9, thickness: 0.02, tessellation: 16 }, scene), carRopeMat); st2.position.set(0, rY + 0.25, rZ + dz); st2.rotation.z = Math.PI / 2; st2.scaling.set(1, 0.55, 1); } }
   // neon underglow
   let neonMat = null;
   if (eq.neon !== 'none' && !ghost) {
@@ -2184,7 +2481,7 @@ pipe.imageProcessingEnabled = true;
 const IP = pipe.imageProcessing;
 IP.toneMappingEnabled = true; IP.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
 IP.contrast = 1.12; IP.exposure = 1.0;
-{ const cc = new B.ColorCurves(); cc.globalSaturation = 14; cc.highlightsHue = 35; cc.highlightsDensity = 22; cc.highlightsSaturation = 28; cc.shadowsHue = 215; cc.shadowsDensity = 28; cc.shadowsSaturation = 22; IP.colorCurves = cc; IP.colorCurvesEnabled = true; }
+{ const cc = new B.ColorCurves(); cc.globalSaturation = 16; cc.highlightsHue = 32; cc.highlightsDensity = 30; cc.highlightsSaturation = 34; cc.midtonesHue = 25; cc.midtonesDensity = 8; cc.midtonesSaturation = 10; cc.shadowsHue = 218; cc.shadowsDensity = 36; cc.shadowsSaturation = 30; IP.colorCurves = cc; IP.colorCurvesEnabled = true; }
 IP.vignetteEnabled = true; IP.vignetteWeight = 1.1; IP.vignetteStretch = 0.4; IP.vignetteColor = new B.Color4(0.05, 0.02, 0.04, 0);
 pipe.chromaticAberrationEnabled = true; pipe.chromaticAberration.aberrationAmount = 0; pipe.chromaticAberration.radialIntensity = 1.4;
 pipe.grainEnabled = false; pipe.grain.intensity = 3; pipe.grain.animated = true;
@@ -2249,6 +2546,20 @@ function setDOF(on) {
 
 /* ================= atmosphere: sun lens flare, headlight beam, dust motes ================= */
 const flareSys = new B.LensFlareSystem('sunFlare', sunDisc, scene);
+flareSys.meshesSelectionPredicate = () => false; // no per-frame ray picking: visibility is decided by sunVisible()
+const SUN_EL = 8 * Math.PI / 180, SUN_AZ = 205 * Math.PI / 180, SUN_TAN = Math.tan(SUN_EL);
+const ridgeTan = (() => { // highest horizon angle of the mountain rings toward the sun, seen from the track centre
+  let best = -1; const ca = Math.sin(SUN_AZ), sa = Math.cos(SUN_AZ), a = Math.atan2(sa, ca);
+  scene.meshes.filter(m => /^ridge\d/.test(m.name)).forEach(m => { const p = m.getVerticesData(B.VertexBuffer.PositionKind); for (let i = 0; i < p.length; i += 3) { const dx = p[i] - TCX, dz = p[i + 2] - TCZ, d = Math.hypot(dx, dz); if (Math.abs(Math.atan2(dz, dx) - a) < 0.012) best = Math.max(best, p[i + 1] / d); } });
+  return best;
+})();
+let sunVisT = 0;
+function sunVisible() {
+  const c = camera.position, dx = Math.sin(SUN_AZ), dz = Math.cos(SUN_AZ);
+  if (ridgeTan > SUN_TAN) return false;
+  for (let d = 6; d < 900; d *= 1.18) if (terrainH(c.x + dx * d, c.z + dz * d) > c.y + d * SUN_TAN) return false;
+  return true;
+}
 [[0.22, 0, [1, 0.85, 0.6]], [0.06, 0.3, [1, 0.6, 0.3]], [0.1, 0.5, [0.6, 0.8, 1]], [0.04, 0.68, [1, 0.9, 0.5]], [0.15, 0.85, [0.9, 0.5, 0.3]], [0.26, 1.15, [0.5, 0.7, 1]]].forEach(([sz, pos, c]) => {
   const lf = new B.LensFlare(sz, pos, new B.Color3(c[0], c[1], c[2]).scale(0.35), '', flareSys); lf.texture = dotTex;
 });
@@ -2272,7 +2583,7 @@ function applyAtmos() {
   const night = typeof timeMode !== 'undefined' && timeMode === 'night', rich = quality === 'high' || quality === 'med';
   if (TI.lampCone) TI.lampCone.mesh.setEnabled(night && quality !== 'turbo' && TI.lampCone.M.length > 0);
   headBeam.setEnabled(night && quality !== 'turbo');
-  flareSys.isEnabled = !night && rich;
+  flareSys.isEnabled = !night && rich && sunVisible();
   motes.emitRate = quality === 'turbo' ? 0 : quality === 'low' ? 15 : 40;
   const c = night ? [0.7, 0.8, 1] : [1, 0.8, 0.55];
   motes.getColorGradients().length = 0;
@@ -2358,7 +2669,8 @@ const RIVAL_DEF = [
   { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x1f4fa8, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
   { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } },
   { name: 'סעיד השניצל', model: 'octavia', hex: 0xd9a441, skill: 0.94, start: 58, lane: 2.5, eq: { wing: 'lip' } },
-  { name: 'חמדי הקולנוע', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } }
+  { name: 'חמדי הקולנוע', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } },
+  { name: 'כרים עבדול ג׳מאל', model: 'merc', hex: 0xc8a165, skill: 0.955, start: 66, lane: -3, eq: { roof: 'camel', wheels: 'gold', horn: 'camel' } }
 ];
 const rivals = RIVAL_DEF.map((d, k) => {
   const M = modelOf(d.model), eq = Object.assign({}, DEFAULT_EQ, d.eq);
@@ -2825,6 +3137,14 @@ const sfx = (() => {
         else { const s2 = ctx.createBufferSource(); s2.buffer = nodes.buf; const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 2600; f2.Q.value = 2; g.gain.setValueAtTime(0.22 * v, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.06); s2.connect(f2).connect(g).connect(nodes.comp); s2.start(tt, Math.random()); s2.stop(tt + 0.08); }
       }
     },
+    grumble() {
+      if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(70, t + 0.9);
+      lfo.type = 'square'; lfo.frequency.value = 17; lg.gain.value = 22; lfo.connect(lg).connect(o.frequency);
+      f.type = 'lowpass'; f.frequency.setValueAtTime(700, t); f.frequency.linearRampToValueAtTime(380, t + 0.9); f.Q.value = 6;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.22, t + 0.08); g.gain.setValueAtTime(0.2, t + 0.7); g.gain.linearRampToValueAtTime(0.0001, t + 1.0);
+      o.connect(f).connect(g).connect(nodes.comp); o.start(t); lfo.start(t); o.stop(t + 1.05); lfo.stop(t + 1.05);
+    },
     bleat() {
       if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(), f = ctx.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.setValueAtTime(560 + Math.random() * 160, t); o.frequency.linearRampToValueAtTime(470, t + 0.45);
@@ -2837,6 +3157,7 @@ const sfx = (() => {
       if (!nodes || !on) return; const t = ctx.currentTime, g = ctx.createGain(); g.connect(nodes.comp);
       const note = (f, t0, d, wave = 'square', f2) => { const o = ctx.createOscillator(); o.type = wave; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.linearRampToValueAtTime(f2, t0 + d); const gg = ctx.createGain(); gg.gain.setValueAtTime(0.0001, t0); gg.gain.linearRampToValueAtTime(0.16, t0 + 0.02); gg.gain.setValueAtTime(0.16, t0 + d - 0.03); gg.gain.linearRampToValueAtTime(0.0001, t0 + d); o.connect(gg).connect(g); o.start(t0); o.stop(t0 + d + 0.02); };
       if (type === 'tune') [523, 659, 784, 659, 880, 784, 988].forEach((f, i) => note(f, t + i * 0.14, 0.13));
+      else if (type === 'camel') { [[110, 80, 0.55], [95, 70, 0.6]].forEach(([a, b2], i) => note(a, t + i * 0.6, 0.55, 'sawtooth', b2)); this.grumble(); }
       else if (type === 'donkey') [[900, 520], [420, 360], [900, 520], [420, 360]].forEach(([a, b2], i) => note(a, t + i * 0.28, 0.26, 'sawtooth', b2));
       else { note(415, t, 0.4); note(520, t, 0.4); }
     },
@@ -2945,9 +3266,13 @@ function syncVisuals(dt) {
   CAR.root.position.set(car.x, 0, car.z); CAR.root.rotation.y = car.h;
   { const fch = Math.cos(car.h), fsh = Math.sin(car.h); carFill.position.set(car.x + 2.6 * fch + 1.0 * fsh, 2.6, car.z - 2.6 * fsh + 1.0 * fch); }
   const b = CAR.body;
-  b.rotation.z = lerp(b.rotation.z, clamp(car.ay * 0.0042, -0.07, 0.07), 1 - Math.exp(-dt * 8));
-  b.rotation.x = lerp(b.rotation.x, clamp(-car.ax * 0.0028, -0.045, 0.045), 1 - Math.exp(-dt * 8));
-  b.position.y = 0.02 + Math.abs(b.rotation.z) * 0.3;
+  // soft, bouncy old-car suspension: damped springs that overshoot
+  CAR._rv = (CAR._rv || 0) + ((clamp(car.ay * 0.005, -0.085, 0.085) - b.rotation.z) * 110 - CAR._rv * 9) * dt;
+  CAR._pv = (CAR._pv || 0) + ((clamp(-car.ax * 0.0034, -0.055, 0.055) - b.rotation.x) * 120 - CAR._pv * 10) * dt;
+  b.rotation.z += CAR._rv * dt; b.rotation.x += CAR._pv * dt;
+  if (!isFinite(b.rotation.z + b.rotation.x)) { b.rotation.z = b.rotation.x = 0; CAR._rv = CAR._pv = 0; }
+  const rough = car.onCurb ? 0.012 : car.grass ? 0.008 : 0.0015, sp = Math.min(1, (car.speed || 0) / 15);
+  b.position.y = 0.02 + Math.abs(b.rotation.z) * 0.3 + (Math.sin(elapsed * 31) + Math.sin(elapsed * 17.3) * 0.6) * rough * sp;
   for (const w of CAR.wheels) {
     const extra = (!w.front && car.thr > 0.5 && (car.drifting || car.speed < 4)) ? 22 : 0;
     w.spin.rotation.x += (car.vF / CAR.wr + extra) * dt;
@@ -3029,9 +3354,9 @@ function setTime(mode) {
   scene.environmentIntensity = T.env;
   probe.cubeTexture.resetRefreshCounter();
   $('bTimeL').textContent = T.label;
-  mtnMats[0].emissiveColor = night ? new B.Color3(0.035, 0.04, 0.065) : new B.Color3(0.52, 0.37, 0.4);
-  mtnMats[1].emissiveColor = night ? new B.Color3(0.05, 0.055, 0.09) : new B.Color3(0.62, 0.45, 0.47);
+  mtnMats.forEach((m, k) => { const c = (night ? MTN_NIGHT : MTN_DAY)[k]; m.emissiveColor = new B.Color3(c[0], c[1], c[2]); });
   bulbMat.emissiveColor = new B.Color3(3.5, 2.4, 1.2).scale(night ? 1.2 : 0.6);
+  catEyeMat.emissiveColor = new B.Color3(1.2, 0.9, 0.45).scale(night ? 2.2 : 0.35);
   applyAtmos();
 }
 $('bTime').addEventListener('click', () => setTime(timeMode === 'dusk' ? 'night' : 'dusk'));
@@ -3210,7 +3535,9 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed);
+  if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
+  skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
   motes.emitter.copyFrom(camera.position);
   if (state === 'drive' && lapN > TOTAL_LAPS) finishRace();
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
@@ -3231,6 +3558,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
