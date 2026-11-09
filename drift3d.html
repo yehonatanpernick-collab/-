@@ -1966,7 +1966,15 @@ function makePlayerCar() {
 const GLB_LEN = 4.6;
 async function loadGLBCar(M, token) {
   let res = null;
-  try { res = await B.SceneLoader.ImportMeshAsync('', 'models/', M.glb, scene); }
+  try {
+    // the artifact host only serves text, so the model travels as base64 text; the repo falls back to the .glb file
+    let file = null;
+    try {
+      const r = await fetch('models/' + M.glb.replace('.glb', '.txt'));
+      if (r.ok) { const bin = atob((await r.text()).trim()), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); file = new File([u8], M.glb, { type: 'model/gltf-binary' }); }
+    } catch (e2) { file = null; }
+    res = file ? await B.SceneLoader.ImportMeshAsync('', '', file, scene) : await B.SceneLoader.ImportMeshAsync('', 'models/', M.glb, scene);
+  }
   catch (e) { if (token === carToken) toast('המכונית לא נטענה, נשארים עם הקודמת', '', true); return; }
   if (token !== carToken) { res.meshes.forEach(m => m.dispose()); return; }
   installCar(buildGLBCar(res, M), M);
