@@ -1611,7 +1611,7 @@ skyNight.material = nightMat; skyNight.infiniteDistance = true; skyNight.applyFo
 
 let csm = null;
 if (WEBGL2 && B.CascadedShadowGenerator) {
-  csm = new B.CascadedShadowGenerator(COARSE ? 1024 : 2048, sun);
+  csm = new B.CascadedShadowGenerator(2048, sun);
   csm.numCascades = COARSE ? 2 : 4; csm.lambda = 0.9; csm.shadowMaxZ = 240; csm.stabilizeCascades = true;
   csm.autoCalcDepthBounds = false; csm.cascadeBlendPercentage = 0.12; csm.depthClamp = true;
   csm.usePercentageCloserFiltering = true; csm.filteringQuality = COARSE ? B.ShadowGenerator.QUALITY_LOW : B.ShadowGenerator.QUALITY_HIGH;
@@ -2043,10 +2043,10 @@ pipe.chromaticAberrationEnabled = true; pipe.chromaticAberration.aberrationAmoun
 pipe.grainEnabled = false; pipe.grain.intensity = 3; pipe.grain.animated = true;
 pipe.sharpenEnabled = true; pipe.sharpen.edgeAmount = 0.18;
 
-let quality = store.get('quality', COARSE ? 'low' : 'high');
+let quality = store.get('quality', 'high');
 let baseScale = 1, resMul = 1, pipeOn = true, peopleR = 170, rivalsShown = 7;
 function applyScale() { engine.setHardwareScalingLevel(baseScale * resMul); }
-const DPR_TARGET = { high: 2, med: 1.5, low: 1.25, turbo: 1 };
+const DPR_TARGET = { high: 3, med: 2, low: 1.5, turbo: 1 };
 function setPipe(on) {
   if (on === pipeOn) return; pipeOn = on;
   const mgr = scene.postProcessRenderPipelineManager;
@@ -2071,7 +2071,7 @@ function setQuality(q) {
   peopleR = { high: 170, med: 130, low: 95, turbo: 65 }[q];
   rivalsShown = q === 'turbo' ? 3 : 7;
   rivals.forEach((r, k) => { const on = k < rivalsShown; r.rc.root.setEnabled(on); r.active = on; if (!on) { r.tag.hidden = true; r.sm.emitRate = 0; } });
-  const wantAO = q === 'high' && !COARSE && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
+  const wantAO = q === 'high' && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
   if (wantAO && !ssao) {
     try {
       ssao = new B.SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.5, blurRatio: 0.5 }, [camera], false);
@@ -2087,7 +2087,7 @@ sunDisc.billboardMode = B.Mesh.BILLBOARDMODE_ALL; sunDisc.infiniteDistance = tru
 sunDisc.material = unlit('sunDiscM', new B.Color3(7, 4.6, 2.4)); sunDisc.material.opacityTexture = dotTex;
 let vls = null;
 function setRays() {
-  const on = (quality === 'high' || quality === 'med') && !COARSE && (typeof timeMode === 'undefined' || timeMode === 'dusk');
+  const on = (quality === 'high' || quality === 'med') && (typeof timeMode === 'undefined' || timeMode === 'dusk');
   sunDisc.setEnabled(typeof timeMode === 'undefined' || timeMode === 'dusk');
   if (on && !vls) {
     try { vls = new B.VolumetricLightScatteringPostProcess('vls', 1.0, camera, sunDisc, 70, B.Texture.BILINEAR_SAMPLINGMODE, engine, false); vls.exposure = 0.2; vls.decay = 0.965; vls.weight = 0.6; vls.density = 0.93; }
@@ -2095,7 +2095,7 @@ function setRays() {
   } else if (!on && vls) { vls.dispose(camera); vls = null; }
 }
 function setDOF(on) {
-  const want = on && (quality === 'high' || quality === 'med') && !COARSE;
+  const want = on && (quality === 'high' || quality === 'med');
   if (pipe.depthOfFieldEnabled !== want) { pipe.depthOfFieldEnabled = want; if (want) { pipe.depthOfFieldBlurLevel = B.DepthOfFieldEffectBlurLevel.Medium; pipe.depthOfField.focalLength = 60; pipe.depthOfField.fStop = 1.6; pipe.depthOfField.focusDistance = 8500; } }
 }
 
