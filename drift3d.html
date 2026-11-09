@@ -63,7 +63,7 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .ticker{position:absolute;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);max-width:min(92vw,620px);background:rgba(14,13,20,.72);border:1px solid var(--edge);border-radius:12px;padding:8px 14px;font:600 14px var(--body);color:var(--fg);text-align:center;animation:tk 6s ease-out forwards;pointer-events:none}
 .tk-l{color:var(--sodium);font-weight:800}
 @keyframes tk{0%{opacity:0;transform:translate(-50%,10px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
-@media (pointer:coarse){.ticker{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));font-size:13px}}
+@media (pointer:coarse){.ticker{bottom:auto;top:30%;font-size:13px}}
 .toast{position:absolute;top:27%;left:50%;transform:translate(-50%,0);text-align:center;font-family:var(--display);opacity:0;pointer-events:none;width:min(92vw,700px)}
 .toast .t1{font-size:clamp(28px,6vw,54px);color:#fff;text-shadow:0 0 24px rgba(255,179,65,.6),0 2px 10px rgba(0,0,0,.5)}
 .toast .t2{font-family:var(--num);font-size:22px;color:var(--sodium)}
@@ -188,7 +188,9 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
 .pb.horn{grid-area:hn;width:84px;height:46px;border-radius:14px;font-size:13px}
 .fpsv{font:700 12px var(--num);color:#b6f5c4}
 @media (pointer:coarse){
-  .speedo{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:6px 12px 8px;gap:10px}
+  .speedo{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto;padding:6px 12px 8px;gap:10px}
+  .combo{top:calc(84px + env(safe-area-inset-top,0px))}
+  .speedo .bars{display:none}
   .speedo .v{font-size:30px}
   .meter{width:80px}
   .fine-only{display:none}
@@ -397,7 +399,7 @@ const V3 = (x, y, z) => new B.Vector3(x, y, z);
 
 /* ================= engine / scene ================= */
 const canvas = $('c');
-const engine = new B.Engine(canvas, true, { stencil: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }, false);
+const engine = new B.Engine(canvas, true, { stencil: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }, true);
 const WEBGL2 = engine.webGLVersion >= 2;
 const scene = new B.Scene(engine);
 scene.clearColor = new B.Color4(0.05, 0.05, 0.08, 1);
@@ -2036,14 +2038,15 @@ const IP = pipe.imageProcessing;
 IP.toneMappingEnabled = true; IP.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
 IP.contrast = 1.12; IP.exposure = 1.0;
 { const cc = new B.ColorCurves(); cc.globalSaturation = 14; cc.highlightsHue = 35; cc.highlightsDensity = 22; cc.highlightsSaturation = 28; cc.shadowsHue = 215; cc.shadowsDensity = 28; cc.shadowsSaturation = 22; IP.colorCurves = cc; IP.colorCurvesEnabled = true; }
-IP.vignetteEnabled = true; IP.vignetteWeight = 2.2; IP.vignetteStretch = 0.4; IP.vignetteColor = new B.Color4(0.05, 0.02, 0.04, 0);
+IP.vignetteEnabled = true; IP.vignetteWeight = 1.1; IP.vignetteStretch = 0.4; IP.vignetteColor = new B.Color4(0.05, 0.02, 0.04, 0);
 pipe.chromaticAberrationEnabled = true; pipe.chromaticAberration.aberrationAmount = 0; pipe.chromaticAberration.radialIntensity = 1.4;
-pipe.grainEnabled = true; pipe.grain.intensity = 7; pipe.grain.animated = true;
+pipe.grainEnabled = false; pipe.grain.intensity = 3; pipe.grain.animated = true;
 pipe.sharpenEnabled = true; pipe.sharpen.edgeAmount = 0.18;
 
 let quality = store.get('quality', COARSE ? 'low' : 'high');
 let baseScale = 1, resMul = 1, pipeOn = true, peopleR = 170, rivalsShown = 7;
 function applyScale() { engine.setHardwareScalingLevel(baseScale * resMul); }
+const DPR_TARGET = { high: 2, med: 1.5, low: 1.25, turbo: 1 };
 function setPipe(on) {
   if (on === pipeOn) return; pipeOn = on;
   const mgr = scene.postProcessRenderPipelineManager;
@@ -2054,11 +2057,11 @@ function setPipe(on) {
 function setQuality(q) {
   quality = q; store.set('quality', q);
   const dpr = devicePixelRatio || 1;
-  baseScale = q === 'high' ? 1 / Math.min(dpr, 1.5) : q === 'med' ? 1 / Math.min(dpr, 1.2) : q === 'low' ? Math.max(1, 1.1 / Math.min(dpr, 1.5)) : 1.55;
+  baseScale = 1 / Math.min(dpr, DPR_TARGET[q] || 1);  // engine buffer = CSS size / level, so level = 1 / wanted pixel density
   resMul = 1; applyScale();
   setPipe(q === 'high' || q === 'med');
   pipe.samples = q === 'high' ? 4 : 2;
-  pipe.bloomEnabled = true; pipe.grainEnabled = q === 'high'; pipe.sharpenEnabled = q === 'high';
+  pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = q === 'high';
   glow.isEnabled = q === 'high' || q === 'med';
   sun.shadowEnabled = !!csm && (q === 'high' || q === 'med');
   if (csm) { csm.numCascades = q === 'high' ? 4 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110; }
@@ -2904,7 +2907,7 @@ function autoRes(dt) {
   if (arT < 1.6) return;
   const fps = arFrames / arT, target = (fpsCap || 60) * 0.82; arT = 0; arFrames = 0;
   if (state !== 'drive' && state !== 'menu') return;
-  if (fps < target && resMul < 2.2) { resMul = Math.min(2.2, resMul + 0.18); applyScale(); }
+  if (fps < target && resMul < 1.5) { resMul = Math.min(1.5, resMul + 0.1); applyScale(); }
   else if (fps > (fpsCap || 60) * 0.97 && resMul > 1) { resMul = Math.max(1, resMul - 0.08); applyScale(); }
 }
 const STEP = 1 / 120; let acc = 0, elapsed = 0, lastFrameT = performance.now(), fpsTick = 0;
@@ -2928,7 +2931,7 @@ scene.onBeforeRenderObservable.add(() => {
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
   if (pipe.depthOfFieldEnabled) pipe.depthOfField.focusDistance = 8500;
-  pipe.chromaticAberration.aberrationAmount = state === 'drive' ? clamp((car.speed - 15) / 40, 0, 1) * 18 + (car.boost ? 22 : 0) : 0;
+  pipe.chromaticAberration.aberrationAmount = state === 'drive' ? clamp((car.speed - 25) / 60, 0, 1) * 3 + (car.boost ? 4 : 0) : 0;
 });
 let shown = false;
 const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') $('start').hidden = false; };
