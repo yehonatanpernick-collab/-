@@ -2980,8 +2980,21 @@ $('bCam').addEventListener('click', cycleCam);
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); });
 addEventListener('resize', () => engine.resize());
 
+/* real environment light: a CC0 HDRI (drei assets, sunset) instead of the render-once probe */
+async function loadEnvironment() {
+  try {
+    let url = 'models/sunset.hdr';
+    try {
+      const r = await fetch('models/sunset.txt');
+      if (r.ok) { const bin = atob((await r.text()).trim()), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); url = URL.createObjectURL(new Blob([u8], { type: 'application/octet-stream' })); }
+    } catch (e) { url = 'models/sunset.hdr'; }
+    const tex = new B.HDRCubeTexture(url, scene, 128, false, true, false, true, () => { scene.environmentTexture = tex; });
+  } catch (e) { /* keep the probe */ }
+}
+
 /* ================= boot ================= */
 makePlayerCar();
+loadEnvironment();
 setQuality(quality);
 setTime(store.get('time', 'dusk') === 'night' ? 'night' : 'dusk');
 resetCar(30); car.h += 0.5; resetRivals();
