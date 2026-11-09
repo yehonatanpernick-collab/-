@@ -57,6 +57,8 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .combo .ang{color:var(--sodium);font-family:var(--num);font-weight:500}
 .combo .bar{width:180px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:6px}
 .combo .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sodium),var(--ember))}
+.tag{position:absolute;left:0;top:0;font:700 12px var(--body);color:var(--fg);background:rgba(14,13,20,.62);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;white-space:nowrap;will-change:transform}
+.tag b{color:var(--sodium);font-family:var(--num);margin-inline-start:6px}
 .prox{font-family:var(--num);font-weight:700;font-size:14px;color:var(--sky);letter-spacing:.04em;margin-top:4px}
 .toast{position:absolute;top:27%;left:50%;transform:translate(-50%,0);text-align:center;font-family:var(--display);opacity:0;pointer-events:none;width:min(92vw,700px)}
 .toast .t1{font-size:clamp(28px,6vw,54px);color:#fff;text-shadow:0 0 24px rgba(255,179,65,.6),0 2px 10px rgba(0,0,0,.5)}
@@ -171,6 +173,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <span class="lbl">הקפה <span class="num" id="lapn">1</span></span>
         <span class="big num" id="laptime">0:00.000</span>
         <span class="sub">מהירה: <b id="bestlap">—</b></span>
+        <span class="sub">מקום: <b id="pos">1/4</b></span>
       </div>
       <div class="plate minibox"><canvas id="mini" width="300" height="300" aria-label="מפת המסלול"></canvas></div>
       <div class="chips">
@@ -186,8 +189,10 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
     <span class="row"><span id="clabel">דריפט</span><span class="mult" id="cmult">×1</span><span class="ang" id="cang">0°</span></span>
     <span class="bar"><i id="cbar"></i></span>
     <span class="prox" id="cprox" hidden>צמוד לקיר ×1.6</span>
+    <span class="prox" id="ctan" hidden>טנדם ×1.3</span>
   </div>
 
+  <div id="tags"></div>
   <div class="toast" id="toast"><div class="t1" id="t1"></div><div class="t2" id="t2"></div></div>
   <div class="count" id="count"></div>
 
@@ -217,7 +222,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
     <div class="card">
       <span class="eyebrow">מסלול הכפרים · 1.8 ק״מ · 18:47</span>
       <h1>דריפט בין ערבים</h1>
-      <p class="lead">מסלול שמתפתל בין כפרי אבן על הגבעות, כרמי זיתים, מסגדים וצריחים. השמש שוקעת, הפנסים נדלקים, ואתה מחליק.</p>
+      <p class="lead">מסלול שמתפתל בין כפרי אבן על הגבעות, מסגדים וצריחים, כרמי זיתים ועיזים על הגגות. כל הכפר יצא לראות, ושלושה נהגים מקומיים רוצים לעקוף אותך.</p>
       <div class="group">
         <span class="lbl">צבע המכונית</span>
         <div class="sws" id="sws"></div>
@@ -237,7 +242,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <dt><kbd>R</kbd><kbd>P</kbd></dt><dd>חזרה למסלול · השהיה</dd>
       </dl>
       <p class="tip coarse-only">אגודל שמאל גורר את ההגה, אגודל ימין על הדוושות. בלם יד לרגע בכניסה לסיבוב, ואז גז מלא.</p>
-      <p class="tip fine-only">בלם יד לרגע בכניסה לסיבוב, ואז גז מלא והיגוי נגדי כדי להחזיק את הזווית. דריפט צמוד לקיר שווה ×1.6, וההקפה המהירה שלך נוסעת איתך כרוח כחולה.</p>
+      <p class="tip fine-only">בלם יד לרגע בכניסה לסיבוב, ואז גז מלא והיגוי נגדי כדי להחזיק את הזווית. דריפט צמוד לקיר שווה ×1.6, דריפט צמוד ליריב (טנדם) ×1.3, והקהל קופץ כשאתה עובר לידו.</p>
       <button class="btn" id="go" type="button">יאללה, לנסוע</button>
     </div>
   </div>
@@ -594,6 +599,115 @@ kit('lamp', box('lampH'), lampMat, { cast: false, colors: false });
 }
 kit('cone', cyl('cone', 0.05, 1, 12), coneMat, { colors: false });
 
+/* ================= village life kits ================= */
+const lin = c => c.map(v => Math.pow(v, 2.2));
+function colorize(m, c) { const n = m.getTotalVertices(), a = new Float32Array(n * 4); for (let i = 0; i < n; i++) { a[i * 4] = c[0]; a[i * 4 + 1] = c[1]; a[i * 4 + 2] = c[2]; a[i * 4 + 3] = 1; } m.setVerticesData(B.VertexBuffer.ColorKind, a); return m; }
+const vcMat = pbr('vcM', { rough: 0.85 });
+const concreteMat = pbr('concM', { color: 0x8d8a84, rough: 0.95 });
+const rebarMat = pbr('rebarM', { color: 0x5a3020, rough: 0.7, metal: 0.6 });
+const ropeMat = pbr('ropeM', { color: 0x222222, rough: 0.9 });
+const clothMat = pbr('clothM', { rough: 0.9 }); clothMat.backFaceCulling = false;
+const speakerMat = pbr('spkM', { color: 0x9a9ea6, rough: 0.4, metal: 0.7 });
+{
+  const parts = [];
+  const bx = (w, h, d, x, y, z, c) => { const m = MB.CreateBox('g', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); colorize(m, lin(c)); parts.push(m); };
+  bx(0.34, 0.34, 0.78, 0, 0.62, 0, [1, 1, 1]);
+  bx(0.2, 0.24, 0.3, 0, 0.88, 0.46, [1, 1, 1]);
+  bx(0.05, 0.16, 0.05, 0.07, 1.06, 0.4, [0.3, 0.26, 0.22]); bx(0.05, 0.16, 0.05, -0.07, 1.06, 0.4, [0.3, 0.26, 0.22]);
+  bx(0.06, 0.1, 0.06, 0, 0.74, 0.6, [0.9, 0.9, 0.9]);
+  bx(0.24, 0.05, 0.1, 0, 0.95, 0.4, [0.95, 0.95, 0.95]);
+  for (const [x, z] of [[0.11, 0.28], [-0.11, 0.28], [0.11, -0.28], [-0.11, -0.28]]) bx(0.07, 0.46, 0.07, x, 0.23, z, [0.85, 0.85, 0.85]);
+  bx(0.06, 0.14, 0.06, 0, 0.78, -0.42, [1, 1, 1]);
+  kit('goat', B.Mesh.MergeMeshes(parts, true, true), vcMat);
+}
+{
+  const dish = MB.CreateCylinder('dsh', { diameter: 0.85, height: 0.05, tessellation: 22 }, scene); dish.rotation.x = -1.0; dish.position.set(0, 0.8, 0);
+  const pole = MB.CreateBox('dp', { width: 0.06, height: 0.8, depth: 0.06 }, scene); pole.position.y = 0.4;
+  const arm = MB.CreateBox('da', { width: 0.03, height: 0.03, depth: 0.5 }, scene); arm.position.set(0, 1.0, 0.2); arm.rotation.x = 0.55;
+  const lnb = MB.CreateBox('dl', { width: 0.08, height: 0.08, depth: 0.1 }, scene); lnb.position.set(0, 1.12, 0.42);
+  [dish, pole, arm, lnb].forEach((m, i) => colorize(m, lin(i === 3 ? [0.2, 0.2, 0.2] : [0.92, 0.92, 0.9])));
+  kit('dish', B.Mesh.MergeMeshes([dish, pole, arm, lnb], true, true), vcMat, { colors: false });
+}
+kit('column', box('column'), concreteMat);
+kit('rebar', cyl('rebar', 1, 1, 5), rebarMat, { cast: false, colors: false });
+kit('rope', cyl('rope', 1, 1, 5), ropeMat, { cast: false, colors: false });
+kit('cloth', MB.CreatePlane('cloth', { size: 1 }, scene), clothMat, { cast: false });
+kit('speaker', cyl('speaker', 0.55, 1, 10), speakerMat, { colors: false });
+{
+  const tri = new B.Mesh('pennant', scene), vd = new B.VertexData();
+  vd.positions = [-0.2, 0, 0, 0.2, 0, 0, 0, -0.38, 0]; vd.indices = [0, 1, 2]; vd.normals = [0, 0, 1, 0, 0, 1, 0, 0, 1]; vd.uvs = [0, 1, 1, 1, 0.5, 0];
+  vd.applyToMesh(tri);
+  const pm = pbr('pennM', { rough: 0.7 }); pm.backFaceCulling = false;
+  kit('pennant', tri, pm, { cast: false });
+}
+kit('bpole', cyl('bpole', 1, 1, 8), metalMat, { colors: false });
+{
+  const grassTex = texFrom('grassT', mkCanvas(128, 128, (x, w, h) => {
+    for (let i = 0; i < 46; i++) {
+      const bx = 10 + R0() * 108, hgt = 50 + R0() * 75, lean = (R0() - .5) * 34;
+      x.strokeStyle = `rgb(${190 + R0() * 50 | 0},${172 + R0() * 50 | 0},${105 + R0() * 40 | 0})`; x.lineWidth = 1.5 + R0() * 2;
+      x.beginPath(); x.moveTo(bx, h); x.quadraticCurveTo(bx + lean * 0.3, h - hgt * 0.6, bx + lean, h - hgt); x.stroke();
+    }
+  }), { clampUV: true });
+  grassTex.hasAlpha = true;
+  const gm = pbr('grassM', { tex: grassTex, rough: 1 });
+  gm.backFaceCulling = false; gm.transparencyMode = B.PBRMaterial.PBRMATERIAL_ALPHATEST; gm.alphaCutOff = 0.4; gm.useAlphaFromAlbedoTexture = true;
+  const p1 = MB.CreatePlane('g1', { width: 1.1, height: 0.7 }, scene); p1.position.y = 0.33;
+  const p2 = MB.CreatePlane('g2', { width: 1.1, height: 0.7 }, scene); p2.position.y = 0.33; p2.rotation.y = Math.PI / 2;
+  kit('grass', B.Mesh.MergeMeshes([p1, p2], true, true), gm, { cast: false });
+}
+kit('rock', MB.CreateIcoSphere('rock', { radius: 1, subdivisions: 1, flat: true }, scene), slabMat);
+
+/* people: two thin-instance meshes per outfit (body, and arms pivoting at the shoulder) */
+const SKIN = [[0.8, 0.62, 0.48], [0.68, 0.5, 0.37], [0.57, 0.41, 0.3], [0.46, 0.32, 0.23]];
+function personMeshes(o, tag) {
+  const parts = [], arms = [];
+  const P = (m, c, list = parts) => { colorize(m, lin(c)); list.push(m); return m; };
+  const C = (h, dt, db, y, x = 0, z = 0, tess = 12) => { const m = MB.CreateCylinder('pc', { height: h, diameterTop: dt, diameterBottom: db, tessellation: tess }, scene); m.position.set(x, y, z); return m; };
+  const S = (d, y, x = 0, z = 0, slice = 1) => { const m = MB.CreateSphere('ps', { diameter: d, segments: 10, slice }, scene); m.position.set(x, y, z); return m; };
+  const Bx = (w, h, d, x, y, z) => { const m = MB.CreateBox('pb', { width: w, height: h, depth: d }, scene); m.position.set(x, y, z); return m; };
+  if (o.robe) { P(C(1.3, 0.44, 0.64, 0.65), o.robe); P(C(0.34, 0.4, 0.44, 1.44), o.robe); }
+  else { P(C(0.86, 0.15, 0.17, 0.43, 0.1), o.pants); P(C(0.86, 0.15, 0.17, 0.43, -0.1), o.pants); P(C(0.64, 0.44, 0.38, 1.18), o.shirt); }
+  P(Bx(0.13, 0.08, 0.25, 0.1, 0.04, 0.04), [0.1, 0.09, 0.08]); P(Bx(0.13, 0.08, 0.25, -0.1, 0.04, 0.04), [0.1, 0.09, 0.08]);
+  P(C(0.1, 0.1, 0.11, 1.6), o.skin);
+  P(S(0.25, 1.72), o.skin);
+  P(Bx(0.035, 0.035, 0.02, 0.05, 1.75, 0.118), [0.05, 0.04, 0.04]); P(Bx(0.035, 0.035, 0.02, -0.05, 1.75, 0.118), [0.05, 0.04, 0.04]);
+  P(Bx(0.04, 0.06, 0.05, 0, 1.71, 0.125), o.skin.map(v => v * 0.92));
+  if (o.mustache) P(Bx(0.11, 0.025, 0.03, 0, 1.675, 0.12), o.mustache);
+  if (o.beard) P(Bx(0.19, 0.1, 0.12, 0, 1.63, 0.05), o.beard);
+  if (o.head === 'keffiyeh') { P(S(0.29, 1.75), o.hc); P(Bx(0.34, 0.38, 0.06, 0, 1.58, -0.12), o.hc); const ag = MB.CreateTorus('ag', { diameter: 0.25, thickness: 0.035, tessellation: 18 }, scene); ag.position.y = 1.83; P(ag, [0.05, 0.05, 0.05]); }
+  else if (o.head === 'kufi') P(S(0.262, 1.75, 0, -0.005, 0.5), o.hc);
+  else if (o.head === 'hijab') { P(S(0.3, 1.73), o.hc); P(C(0.34, 0.24, 0.52, 1.48), o.hc); }
+  else if (o.head === 'cap') { P(S(0.272, 1.75, 0, 0, 0.5), o.hc); P(Bx(0.2, 0.02, 0.15, 0, 1.79, 0.17), o.hc); }
+  else P(S(0.268, 1.745, 0, -0.01, 0.5), o.hair || [0.07, 0.05, 0.04]);
+  for (const sx of [-1, 1]) { P(C(0.62, 0.11, 0.09, -0.31, sx * 0.27), o.sleeve || o.shirt || o.robe, arms); P(S(0.11, -0.64, sx * 0.27), o.skin, arms); }
+  const body = B.Mesh.MergeMeshes(parts, true, true), arm = B.Mesh.MergeMeshes(arms, true, true);
+  body.name = 'person' + tag; arm.name = 'arms' + tag;
+  [body, arm].forEach(m => { m.material = vcMat; m.isPickable = false; m.receiveShadows = true; m.alwaysSelectAsActiveMesh = true; });
+  return { body, arm, list: [] };
+}
+const OUTFITS = [
+  { robe: [0.93, 0.92, 0.88], head: 'keffiyeh', hc: [0.82, 0.18, 0.18], skin: SKIN[1], mustache: [0.1, 0.08, 0.06] },
+  { robe: [0.95, 0.95, 0.93], head: 'kufi', hc: [0.97, 0.97, 0.95], skin: SKIN[2], beard: [0.14, 0.11, 0.09] },
+  { pants: [0.15, 0.22, 0.42], shirt: [0.08, 0.5, 0.25], head: 'cap', hc: [0.8, 0.1, 0.1], skin: SKIN[0] },
+  { robe: [0.1, 0.1, 0.12], head: 'hijab', hc: [0.48, 0.2, 0.42], skin: SKIN[0] },
+  { pants: [0.08, 0.08, 0.1], shirt: [0.92, 0.92, 0.92], head: 'hair', skin: SKIN[2], mustache: [0.08, 0.06, 0.05] },
+  { robe: [0.55, 0.5, 0.42], head: 'keffiyeh', hc: [0.94, 0.94, 0.94], skin: SKIN[3], mustache: [0.88, 0.88, 0.88] },
+  { pants: [0.2, 0.3, 0.52], shirt: [0.96, 0.55, 0.1], head: 'hair', skin: SKIN[1] },
+  { robe: [0.22, 0.34, 0.56], head: 'hijab', hc: [0.95, 0.9, 0.84], skin: SKIN[1] },
+  { pants: [0.25, 0.25, 0.27], shirt: [0.75, 0.12, 0.15], head: 'kufi', hc: [0.95, 0.95, 0.95], skin: SKIN[3], beard: [0.1, 0.08, 0.07] }
+];
+const PV = OUTFITS.map((o, i) => personMeshes(o, i));
+const PEOPLE = [];
+function addPerson(x, z, yaw, kind, vi = (R1() * OUTFITS.length) | 0, s = 0.94 + R1() * 0.14) {
+  if (vi === 6) s *= 0.68;
+  const v = PV[vi], p = { v, i: v.list.length, x, z, y: terrainH(x, z) - 0.02, yaw, kind, s, ph: R1() * 10, ex: 0, ly: null, init: false };
+  v.list.push(p); PEOPLE.push(p); return p;
+}
+const CLOTHES = [[0.85, 0.2, 0.2], [0.15, 0.35, 0.75], [0.95, 0.85, 0.2], [0.95, 0.95, 0.95], [0.2, 0.6, 0.3], [0.9, 0.45, 0.65], [0.3, 0.3, 0.32]].map(c => [...lin(c), 1]);
+const GOATC = [[0.95, 0.94, 0.9, 1], [0.35, 0.22, 0.14, 1], [0.12, 0.1, 0.09, 1], [0.7, 0.55, 0.38, 1]];
+const goat = (x, y, z) => put('goat', x, y, z, 1, 1, 1, R1() * 6.28, GOATC[(R1() * GOATC.length) | 0]);
+
 /* ================= scenery ================= */
 const R1 = rng(1337);
 const HOUSES = [];
@@ -613,7 +727,9 @@ function house(cx, cz, w, d, floors, yaw, tint) {
   put('slab', cx, base + h + 0.14, cz, w + 0.4, 0.28, d + 0.4, yaw, sc);
   put('slab', cx, base + h + 0.5, cz, w + 0.1, 0.5, d + 0.1, yaw, sc);
   const roofY = base + h + 0.75;
+  let topRoom = false;
   if (floors === 1 && R1() < 0.55) {
+    topRoom = true;
     const rw = w * 0.5, rd = d * 0.55, [ox, oz] = rot(yaw, w * 0.22, -d * 0.18);
     put('house', cx + ox, roofY + 1.5, cz + oz, rw, 3.0, rd, yaw, tc);
     put('slab', cx + ox, roofY + 3.12, cz + oz, rw + 0.3, 0.24, rd + 0.3, yaw, sc);
@@ -645,28 +761,58 @@ function house(cx, cz, w, d, floors, yaw, tint) {
     const [bx, bz] = rot(yaw, -w * 0.25, d * 0.15 + 0.6);
     put('boiler', cx + bx, roofY + 1.25, cz + bz, 0.55, 1.6, 0.55, yaw, null, 0, Math.PI / 2);
   }
+  const dishes = (R1() * 3.2) | 0;
+  for (let i = 0; i < dishes; i++) { const [ox, oz] = rot(yaw, (R1() - .5) * w * 0.7, (R1() - .5) * d * 0.7); put('dish', cx + ox, roofY - 0.2, cz + oz, 1, 1, 1, R1() * 6.28); }
+  if (!topRoom && R1() < 0.34) {
+    for (const [a, b2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const [ox, oz] = rot(yaw, a * (w / 2 - 0.3), b2 * (d / 2 - 0.3));
+      put('column', cx + ox, roofY + 1.15, cz + oz, 0.32, 2.3, 0.32, yaw);
+      for (let r = 0; r < 4; r++) put('rebar', cx + ox + ((r & 1) - .5) * 0.14, roofY + 2.75, cz + oz + ((r >> 1) - .5) * 0.14, 0.03, 0.95, 0.03, 0, null, (R1() - .5) * 0.35, (R1() - .5) * 0.35);
+    }
+    if (R1() < 0.35) goat(cx, roofY - 0.2, cz);
+  } else if (R1() < 0.45) {
+    const lw = Math.min(w, d) * 0.6, [p1x, p1z] = rot(yaw, -lw / 2, d * 0.18), [p2x, p2z] = rot(yaw, lw / 2, d * 0.18);
+    put('column', cx + p1x, roofY + 0.75, cz + p1z, 0.07, 1.7, 0.07, yaw, [0.25, 0.25, 0.25, 1]);
+    put('column', cx + p2x, roofY + 0.75, cz + p2z, 0.07, 1.7, 0.07, yaw, [0.25, 0.25, 0.25, 1]);
+    put('rope', cx + (p1x + p2x) / 2, roofY + 1.55, cz + (p1z + p2z) / 2, 0.02, lw, 0.02, yaw, null, 0, Math.PI / 2);
+    for (let i = 0; i < 5; i++) { const t = (i + 0.5) / 5 - 0.5, [ox, oz] = rot(yaw, t * lw * 0.92, d * 0.18); const hh = 0.55 + R1() * 0.3; put('cloth', cx + ox, roofY + 1.55 - hh / 2, cz + oz, 0.42 + R1() * 0.2, hh, 1, yaw + (R1() - .5) * 0.25, CLOTHES[(R1() * CLOTHES.length) | 0]); }
+  }
+  if (R1() < 0.08) goat(cx + (R1() - .5) * w * 0.5, roofY - 0.2, cz + (R1() - .5) * d * 0.5);
   HOUSES.push([cx, cz, Math.max(w, d) * 0.62]);
 }
-function mosque(cx, cz, yaw, domeCol) {
-  const w = 13, h = 7.5, base = groundMin(cx, cz, w, w, yaw) - 0.1, white = [0.86, 0.84, 0.8, 1];
-  put('house', cx, base + (h - 5) / 2, cz, w, h + 5, w, yaw, white);
-  put('slab', cx, base + h + 0.2, cz, w + 0.5, 0.4, w + 0.5, yaw, white);
-  put('drum', cx, base + h + 1.1, cz, 9.2, 1.6, 9.2, 0, white);
-  put('dome', cx, base + h + 1.85, cz, 9.0, 9.0, 9.0, 0, domeCol);
-  put('spire', cx, base + h + 7.4, cz, 0.35, 2.4, 0.35, 0, [0.9, 0.7, 0.25, 1]);
-  for (let f = 0; f < 4; f++) for (let k = -1; k <= 1; k++) {
-    const fy = yaw + f * Math.PI / 2, [ox, oz] = rot(fy, k * 3.4, w / 2 + 0.03);
-    put('win', cx + ox, base + 3.6, cz + oz, 1.2, 2.6, 0.14, fy);
+const GOLD = [0.95, 0.72, 0.25, 1], WHITE = [0.86, 0.84, 0.8, 1];
+function minaret(mx, mz, yaw, domeCol, ms) {
+  const mb = terrainH(mx, mz) - 0.2;
+  put('mshaft', mx, mb + 10.5 * ms, mz, 2.4, 21 * ms, 2.4, yaw, WHITE);
+  put('mbal', mx, mb + 19.5 * ms, mz, 3.6, 0.7, 3.6, yaw, WHITE);
+  put('mring', mx, mb + 19.5 * ms + 0.7, mz, 3.2, 0.22, 3.2, yaw);
+  put('mshaft', mx, mb + 19.5 * ms + 3, mz, 1.7, 5.2, 1.7, yaw, WHITE);
+  for (let q = 0; q < 4; q++) { const a = yaw + q * Math.PI / 2; put('speaker', mx + Math.sin(a) * 1.0, mb + 19.5 * ms + 4.2, mz + Math.cos(a) * 1.0, 0.42, 0.45, 0.42, a, null, 1.25); }
+  put('mbal', mx, mb + 19.5 * ms + 5.6, mz, 2.2, 0.4, 2.2, yaw, WHITE);
+  put('mcap', mx, mb + 19.5 * ms + 7.4, mz, 2.0, 3.2, 2.0, yaw, domeCol);
+  put('spire', mx, mb + 19.5 * ms + 9.6, mz, 0.2, 1.4, 0.2, 0, GOLD);
+  HOUSES.push([mx, mz, 3]);
+}
+function mosque(cx, cz, yaw, domeCol, s = 1, minarets = 1) {
+  const w = 13 * s, h = 7.5 * Math.min(s, 1.4), base = groundMin(cx, cz, w, w, yaw) - 0.1;
+  put('house', cx, base + (h - 5) / 2, cz, w, h + 5, w, yaw, WHITE);
+  put('slab', cx, base + h + 0.2, cz, w + 0.5, 0.4, w + 0.5, yaw, WHITE);
+  put('drum', cx, base + h + 0.8 * s, cz, 9.2 * s, 1.6 * s, 9.2 * s, 0, WHITE);
+  put('dome', cx, base + h + 1.6 * s, cz, 9 * s, 9 * s, 9 * s, 0, domeCol);
+  put('spire', cx, base + h + 1.6 * s + 4.5 * s + 1.0, cz, 0.35, 2.4, 0.35, 0, GOLD);
+  if (s > 1.3) for (const [a, b] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const [ox, oz] = rot(yaw, a * w * 0.33, b * w * 0.33);
+    put('drum', cx + ox, base + h + 0.4, cz + oz, 3.4, 0.8, 3.4, 0, WHITE);
+    put('dome', cx + ox, base + h + 0.8, cz + oz, 3.2, 3.2, 3.2, 0, domeCol);
   }
-  const [mx0, mz0] = rot(yaw, w / 2 + 2.6, w / 2 - 1.5), mx = cx + mx0, mz = cz + mz0, mb = terrainH(mx, mz) - 0.2;
-  put('mshaft', mx, mb + 10.5, mz, 2.4, 21, 2.4, yaw, white);
-  put('mbal', mx, mb + 19.5, mz, 3.6, 0.7, 3.6, yaw, white);
-  put('mring', mx, mb + 20.2, mz, 3.2, 0.22, 3.2, yaw);
-  put('mshaft', mx, mb + 22.5, mz, 1.7, 5, 1.7, yaw, white);
-  put('mbal', mx, mb + 25.1, mz, 2.2, 0.4, 2.2, yaw, white);
-  put('mcap', mx, mb + 26.8, mz, 2.0, 3.2, 2.0, yaw, domeCol);
-  put('spire', mx, mb + 29.0, mz, 0.2, 1.4, 0.2, 0, [0.9, 0.7, 0.25, 1]);
-  HOUSES.push([cx, cz, 10], [mx, mz, 3]);
+  for (let f = 0; f < 4; f++) for (let k = -1; k <= 1; k++) {
+    const fy = yaw + f * Math.PI / 2, [ox, oz] = rot(fy, k * 3.4 * s, w / 2 + 0.03);
+    put('win', cx + ox, base + 3.6, cz + oz, 1.2, 2.6, 0.14, fy);
+    put('lintel', cx + ox, base + 5.05, cz + oz, 1.6, 0.3, 0.26, fy, WHITE);
+  }
+  const corners = [[1, 1], [-1, -1], [1, -1], [-1, 1]];
+  for (let m = 0; m < minarets; m++) { const [a, b] = corners[m]; const [ox, oz] = rot(yaw, a * (w / 2 + 2.2), b * (w / 2 - (minarets > 1 ? -2.2 : 1.5))); minaret(cx + ox, cz + oz, yaw, domeCol, s > 1.3 ? 1.35 : 1); }
+  HOUSES.push([cx, cz, w * 0.78]);
 }
 function olive(x, z, s = 1) {
   const y = terrainH(x, z), g = 0.75 + R1() * 0.3;
@@ -692,6 +838,12 @@ for (let v = 0; v < 8; v++) {
 const DOME_COLS = [[0.12, 0.42, 0.24, 1], [0.78, 0.8, 0.84, 1], [1.0, 0.72, 0.28, 1], [0.15, 0.3, 0.55, 1]];
 VILLAGES.forEach(([cx, cz, vy], vi) => {
   mosque(cx, cz, vy, DOME_COLS[vi % DOME_COLS.length]);
+  for (let k = 0; k < 7; k++) { const a = R1() * 6.28, r = 9 + R1() * 6; addPerson(cx + Math.cos(a) * r, cz + Math.sin(a) * r, R1() * 6.28, 'villager'); }
+  for (let t2 = 0; t2 < 30; t2++) {
+    const a = R1() * 6.28, r = 45 + R1() * 40, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    if (trackDist(x, z) < WALL + 30 || !freeSpot(x, z, 14)) continue;
+    mosque(x, z, vy + (R1() - .5) * 0.3, DOME_COLS[(vi + 1 + ((R1() * 3) | 0)) % DOME_COLS.length], 0.65 + R1() * 0.2, 1); break;
+  }
   const count = 18 + ((R1() * 16) | 0);
   for (let k = 0, tries = 0; k < count && tries < 400; tries++) {
     const a = R1() * Math.PI * 2, r = 12 + Math.sqrt(R1()) * 70;
@@ -701,6 +853,11 @@ VILLAGES.forEach(([cx, cz, vy], vi) => {
     const floors = R1() < 0.5 ? 1 : R1() < 0.8 ? 2 : 3;
     house(x, z, w, d, floors, vy + (R1() < 0.5 ? 0 : Math.PI / 2) + (R1() - .5) * 0.15, STONES[(R1() * STONES.length) | 0]);
     k++;
+  }
+  for (let k = 0; k < 22; k++) {
+    const a = R1() * 6.28, r = 14 + R1() * 80, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    if (trackDist(x, z) < WALL + 8 || !freeSpot(x, z, 1.2)) continue;
+    if (k % 3 === 0) goat(x, terrainH(x, z), z); else addPerson(x, z, R1() * 6.28, 'villager');
   }
   for (let k = 0; k < 26; k++) {
     const a = R1() * Math.PI * 2, r = 10 + R1() * 85, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
@@ -739,6 +896,69 @@ for (let i = 0; i < N; i += 6) {
   const a = (i - 20 + N) % N, b = (i + 20) % N, turn = TX[a] * TZ[b] - TZ[a] * TX[b];
   if (Math.abs(turn) > 0.55) { const side = turn > 0 ? -1 : 1; put('cone', PX[i] + RX[i] * side * (HW + 3.4), 0.36, PZ[i] + RZ[i] * side * (HW + 3.4), 0.45, 0.72, 0.45); }
 }
+// grand mosque on the highest open hill
+{
+  let bestP = null, bestH = -1;
+  for (let k = 0; k < 260; k++) {
+    const a = R1() * 6.28, r = 260 + R1() * 330, x = TCX + Math.cos(a) * r, z = TCZ + Math.sin(a) * r;
+    if (trackDist(x, z) < WALL + 70 || !freeSpot(x, z, 34)) continue;
+    const hh = terrainH(x, z); if (hh > bestH) { bestH = hh; bestP = [x, z]; }
+  }
+  if (bestP) { mosque(bestP[0], bestP[1], R1() * Math.PI, [0.98, 0.76, 0.3, 1], 1.9, 4); for (let k = 0; k < 14; k++) { const a = R1() * 6.28, r = 22 + R1() * 10; addPerson(bestP[0] + Math.cos(a) * r, bestP[1] + Math.sin(a) * r, R1() * 6.28, 'villager'); } }
+}
+// crowds at the corners, behind the tyre wall
+for (let i = 0, made = 0; i < N && made < 300; i += 9) {
+  const a = (i - 20 + N) % N, b = (i + 20) % N, turn = TX[a] * TZ[b] - TZ[a] * TX[b];
+  if (Math.abs(turn) < 0.38 || R1() < 0.3) continue;
+  const side = turn > 0 ? -1 : 1, faceYaw = Math.atan2(-RX[i] * side, -RZ[i] * side);
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 5; k++) {
+    if (R1() < 0.2) continue;
+    const off = WALL + 1.5 + r * 1.15 + R1() * 0.25, along = (k - 2) * 1.15 + (R1() - .5) * 0.4;
+    const x = PX[i] + RX[i] * side * off + TX[i] * along, z = PZ[i] + RZ[i] * side * off + TZ[i] * along;
+    if (!freeSpot(x, z, 0.6)) continue;
+    addPerson(x, z, faceYaw + (R1() - .5) * 0.5, 'fan'); made++;
+  }
+}
+for (const side of [-1, 1]) for (let k = 0; k < 16; k++) {
+  const i = (N - 12 + k * 2) % N, off = WALL + 1.6 + (k % 2) * 1.2;
+  addPerson(PX[i] + RX[i] * side * off, PZ[i] + RZ[i] * side * off, Math.atan2(-RX[i] * side, -RZ[i] * side), 'fan');
+}
+// pennant strings across the track
+const PENN = [[0.85, 0.12, 0.15], [0.98, 0.8, 0.15], [0.1, 0.55, 0.25], [0.15, 0.35, 0.8], [0.96, 0.96, 0.96], [0.96, 0.5, 0.1]].map(c => [...lin(c), 1]);
+for (let k = 0; k < 10; k++) {
+  const i = ((k / 10 * N + 70) | 0) % N, e = WALL + 0.7;
+  const ax = PX[i] - RX[i] * e, az = PZ[i] - RZ[i] * e, bx2 = PX[i] + RX[i] * e, bz2 = PZ[i] + RZ[i] * e;
+  put('bpole', ax, 3.8, az, 0.13, 7.6, 0.13); put('bpole', bx2, 3.8, bz2, 0.13, 7.6, 0.13);
+  const yaw = Math.atan2(-RZ[i], RX[i]), n = 32;
+  for (let j = 0; j < n; j++) {
+    const t = (j + 0.5) / n, x = lerp(ax, bx2, t), z = lerp(az, bz2, t), y = 7.4 - 1.7 * (1 - (2 * t - 1) ** 2);
+    put('pennant', x, y, z, 1, 1, 1, yaw, PENN[j % PENN.length]);
+  }
+  for (let j = 0; j < 12; j++) {
+    const t = (j + 0.5) / 12, x = lerp(ax, bx2, t), z = lerp(az, bz2, t), y = 7.4 - 1.7 * (1 - (2 * t - 1) ** 2);
+    put('rope', x, y, z, 0.02, 2 * e / 12 + 0.05, 0.02, yaw, null, 0, Math.PI / 2);
+  }
+}
+// dry grass, rocks, wandering goats
+for (let k = 0; k < 4200; k++) {
+  const i = (R1() * N) | 0, side = R1() < 0.5 ? -1 : 1;
+  const off = R1() < 0.25 ? HW + CURB + 0.6 + R1() * (WALL - HW - CURB - 1.2) : WALL + 1 + Math.pow(R1(), 1.6) * 160;
+  const x = PX[i] + RX[i] * side * off + (R1() - .5) * 4, z = PZ[i] + RZ[i] * side * off + (R1() - .5) * 4;
+  if (off > WALL && !freeSpot(x, z, 0.8)) continue;
+  const g = 0.75 + R1() * 0.4, green = R1() < 0.3;
+  put('grass', x, (off > WALL ? terrainH(x, z) : 0.02) - 0.05, z, 0.8 + R1() * 0.9, 0.7 + R1() * 0.8, 0.8 + R1() * 0.9, R1() * 6.28, green ? [0.42 * g, 0.48 * g, 0.22 * g, 1] : [0.85 * g, 0.75 * g, 0.5 * g, 1]);
+}
+for (let k = 0; k < 420; k++) {
+  const a = R1() * 6.28, r = 60 + R1() * 600, x = TCX + Math.cos(a) * r, z = TCZ + Math.sin(a) * r;
+  if (trackDist(x, z) < WALL + 6 || !freeSpot(x, z, 2)) continue;
+  const sc = 0.4 + Math.pow(R1(), 3) * 2.6, g = 0.6 + R1() * 0.35;
+  put('rock', x, terrainH(x, z) + sc * 0.1, z, sc * (1 + R1()), sc * (0.5 + R1() * 0.5), sc * (1 + R1()), R1() * 6.28, [g, g * 0.95, g * 0.88, 1], (R1() - .5) * 0.4);
+}
+for (let k = 0; k < 90; k++) {
+  const a = R1() * 6.28, r = 40 + R1() * 500, x = TCX + Math.cos(a) * r, z = TCZ + Math.sin(a) * r;
+  if (trackDist(x, z) < WALL + 6 || !freeSpot(x, z, 1)) continue;
+  for (let q = 0; q < 1 + ((R1() * 4) | 0); q++) goat(x + (R1() - .5) * 6, terrainH(x, z), z + (R1() - .5) * 6);
+}
 finalizeKits();
 
 // start gantry with banner
@@ -764,6 +984,41 @@ const GANTRY = [];
   const line = MB.CreateGround('sl', { width: HW * 2, height: 1.2 }, scene); line.parent = root; line.position.y = 0.045;
   line.material = pbr('slM', { tex: cl, rough: 0.8 }); line.receiveShadows = true;
 }
+
+function signTex(name, lines, bg, fg) {
+  const c = mkCanvas(1024, 256, (x, w, h) => {
+    x.fillStyle = bg; x.fillRect(0, 0, w, h); x.strokeStyle = fg; x.lineWidth = 10; x.strokeRect(14, 14, w - 28, h - 28);
+    x.fillStyle = fg; x.textAlign = 'center'; x.direction = 'rtl'; x.textBaseline = 'middle';
+    x.font = '96px "Secular One","Assistant",sans-serif'; x.fillText(lines[0], w / 2, h * 0.4);
+    x.font = '44px "Assistant",sans-serif'; x.fillText(lines[1], w / 2, h * 0.78);
+  });
+  return texFrom(name, c, { clampUV: true });
+}
+function shop(i, side, text, colors, withChairs) {
+  const off = WALL + 7, x = PX[i] + RX[i] * side * off, z = PZ[i] + RZ[i] * side * off, yaw = Math.atan2(-RX[i] * side, -RZ[i] * side);
+  const root = new B.TransformNode('shop', scene); root.position.set(x, terrainH(x, z), z); root.rotation.y = yaw;
+  const mk = (w, h, d, px, py, pz, mat) => { const m = MB.CreateBox('sh', { width: w, height: h, depth: d }, scene); m.parent = root; m.position.set(px, py, pz); m.material = mat; GANTRY.push(m); return m; };
+  const body = pbr('shopB' + i, { color: colors[0], rough: 0.8 }), counter = pbr('shopC' + i, { color: 0xe8e2d4, rough: 0.6 });
+  mk(6.4, 3.2, 3.2, 0, 1.6, -0.6, stoneMat); mk(6.4, 1.1, 0.6, 0, 0.55, 1.2, counter);
+  const aw = texFrom('aw' + i, mkCanvas(256, 64, (x2, w, h) => { for (let k = 0; k < 8; k++) { x2.fillStyle = k % 2 ? '#f3efe6' : colors[1]; x2.fillRect(k * 32, 0, 32, h); } }));
+  const awning = MB.CreateBox('aw', { width: 6.8, height: 0.08, depth: 2.2 }, scene); awning.parent = root; awning.position.set(0, 3.0, 1.2); awning.rotation.x = 0.28;
+  awning.material = pbr('awM' + i, { tex: aw, rough: 0.8 }); GANTRY.push(awning);
+  const sign = MB.CreatePlane('sign', { width: 6.2, height: 1.55 }, scene); sign.parent = root; sign.position.set(0, 4.2, 1.02); sign.rotation.y = Math.PI;
+  const sm = new B.StandardMaterial('signM' + i, scene); const st = signTex('sign' + i, text, colors[2], colors[3]); sm.diffuseTexture = st; sm.emissiveTexture = st; sm.emissiveColor = new B.Color3(0.55, 0.55, 0.55); sm.specularColor = B.Color3.Black(); sign.material = sm;
+  document.fonts?.load('96px "Secular One"').then(() => { const t2 = signTex('sign' + i + 'b', text, colors[2], colors[3]); sm.diffuseTexture = t2; sm.emissiveTexture = t2; }).catch(() => {});
+  if (withChairs) {
+    const chair = pbr('chairM', { color: 0xf2f2ee, rough: 0.35 });
+    for (let k = 0; k < 4; k++) { const cx2 = -2.4 + k * 1.6; mk(0.5, 0.45, 0.5, cx2, 0.225, 3.4, chair); mk(0.5, 0.55, 0.06, cx2, 0.7, 3.62, chair); }
+    mk(1.2, 0.06, 0.8, -0.8, 0.75, 4.3, chair); mk(0.08, 0.72, 0.08, -0.8, 0.36, 4.3, chair);
+  }
+  for (let k = 0; k < 5; k++) { const lx = (R1() - .5) * 6, lz = 2.4 + R1() * 2.6, [ox, oz] = rot(yaw, lx, lz); addPersonLate(x + ox, z + oz, yaw + Math.PI + (R1() - .5) * 1.2); }
+}
+const LATE = [];
+function addPersonLate(x, z, yaw) { LATE.push([x, z, yaw]); }
+shop(30, 1, ['פלאפל אבו דריפט', 'שווארמה · חומוס חם · קפה עם הל'], [0xd9cbb0, '#1f7a3a', '#1f7a3a', '#ffffff'], true);
+shop((N * 0.42) | 0, -1, ['מוסך הדוד סמיר', 'מחליפים צמיגים 24/7 · שאל על המחיר'], [0xcfc2a8, '#c4261f', '#f2c230', '#1a1a1a'], false);
+shop((N * 0.73) | 0, 1, ['מאפיית אום ג׳מיל', 'כעכים · מנאקיש זעתר · פיתות טריות'], [0xe0d2b6, '#d07a1a', '#3b2416', '#ffd38a'], true);
+LATE.forEach(([x, z, yaw]) => { const p = addPerson(x, z, yaw, 'villager'); });
 
 /* ================= lights / sky ================= */
 const sun = new B.DirectionalLight('sun', V3(0, -1, 0), scene);
@@ -833,6 +1088,13 @@ if (WEBGL2 && B.CascadedShadowGenerator) {
 const caster = m => csm?.addShadowCaster(m, false);
 for (const k in TI) if (TI[k].cast && TI[k].M.length) caster(TI[k].mesh);
 walls.forEach(caster); GANTRY.forEach(caster);
+PV.forEach(v => {
+  const n = v.list.length;
+  if (!n) { v.body.setEnabled(false); v.arm.setEnabled(false); return; }
+  v.bb = new Float32Array(n * 16); v.ab = new Float32Array(n * 16);
+  v.body.thinInstanceSetBuffer('matrix', v.bb, 16, false); v.arm.thinInstanceSetBuffer('matrix', v.ab, 16, false);
+  caster(v.body); caster(v.arm);
+});
 
 /* ================= car ================= */
 const PAINTS = [
@@ -865,20 +1127,20 @@ function sectionPath(z, w, yb, yt, taper, n, segs = 32) {
   }
   return pts;
 }
-function buildCar(ghost = false) {
+function buildCar(ghost = false, pm = paint) {
   const root = new B.TransformNode(ghost ? 'ghost' : 'car', scene), body = new B.TransformNode('body', scene); body.parent = root;
   const meshes = [];
   const add = (m, mat, parent = body) => { m.parent = parent; m.material = mat; m.isPickable = false; m.receiveShadows = !ghost; meshes.push(m); return m; };
   const BODY = [[-2.36, 0.04, 0.56, 0.6], [-2.33, 0.62, 0.34, 0.8], [-2.26, 0.82, 0.3, 0.86], [-2.1, 0.9, 0.28, 0.88], [-1.6, 0.94, 0.28, 0.89], [-1.2, 0.95, 0.28, 0.91],
     [-0.4, 0.95, 0.28, 0.93], [0.4, 0.95, 0.28, 0.93], [1.0, 0.94, 0.28, 0.9], [1.5, 0.92, 0.28, 0.84], [1.9, 0.88, 0.29, 0.77], [2.15, 0.81, 0.31, 0.7], [2.28, 0.68, 0.35, 0.62], [2.34, 0.34, 0.42, 0.53], [2.36, 0.03, 0.47, 0.48]];
-  add(MB.CreateRibbon('shell', { pathArray: BODY.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.07, 5)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), paint);
+  add(MB.CreateRibbon('shell', { pathArray: BODY.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.07, 5)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
   const GH = [[-1.44, 0.82, 0.86, 0.87], [-1.32, 0.84, 0.86, 1.0], [-1.02, 0.85, 0.86, 1.25], [-0.7, 0.85, 0.86, 1.32], [0.0, 0.85, 0.86, 1.35], [0.3, 0.85, 0.86, 1.33], [0.6, 0.85, 0.86, 1.18], [0.9, 0.85, 0.86, 0.99], [1.08, 0.83, 0.86, 0.87]];
   add(MB.CreateRibbon('glass', { pathArray: GH.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.22, 6)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), carMats.glass);
   const RF = [[-0.86, 0.6, 1.27, 1.28], [-0.78, 0.66, 1.26, 1.31], [-0.4, 0.67, 1.29, 1.345], [0.2, 0.67, 1.3, 1.355], [0.4, 0.66, 1.29, 1.34], [0.48, 0.6, 1.28, 1.29]];
-  add(MB.CreateRibbon('roof', { pathArray: RF.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.02, 8)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), paint);
+  add(MB.CreateRibbon('roof', { pathArray: RF.map(([z, w, yb, yt]) => sectionPath(z, w, yb, yt, 0.02, 8)), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
   for (const [x, z] of [[0.93, 1.38], [-0.93, 1.38], [0.93, -1.38], [-0.93, -1.38]]) {
     const path = []; for (let k = 0; k <= 16; k++) { const a = 0.12 * Math.PI + k / 16 * 0.76 * Math.PI; path.push(V3(x + Math.sign(x) * 0.04, 0.36 + 0.47 * Math.sin(a), z + 0.47 * Math.cos(a))); }
-    add(MB.CreateTube('flare', { path, radius: 0.075, tessellation: 10, cap: B.Mesh.CAP_ALL }, scene), paint);
+    add(MB.CreateTube('flare', { path, radius: 0.075, tessellation: 10, cap: B.Mesh.CAP_ALL }, scene), pm);
   }
   const bx = (w, h, d, x, y, z, mat, rx = 0) => { const m = add(MB.CreateBox('p', { width: w, height: h, depth: d }, scene), mat); m.position.set(x, y, z); m.rotation.x = rx; return m; };
   bx(1.86, 0.06, 0.42, 0, 0.27, 2.2, carMats.black);
@@ -887,7 +1149,7 @@ function buildCar(ghost = false) {
     bx(0.42, 0.08, 0.06, s * 0.6, 0.62, 2.29, carMats.head, 0.3);
     bx(0.3, 0.025, 0.04, s * 0.55, 0.56, 2.33, carMats.head);
     bx(0.07, 0.11, 2.3, s * 0.97, 0.33, 0, carMats.black);
-    const mir = bx(0.16, 0.1, 0.22, s * 0.98, 1.02, 0.78, paint); mir.rotation.y = s * 0.15;
+    const mir = bx(0.16, 0.1, 0.22, s * 0.98, 1.02, 0.78, pm); mir.rotation.y = s * 0.15;
     bx(0.42, 0.11, 0.05, s * 0.6, 0.75, -2.32, carMats.tail);
   }
   bx(1.5, 0.035, 0.03, 0, 0.8, -2.31, carMats.tail);
@@ -965,6 +1227,24 @@ function setQuality(q) {
     } catch (e) { ssao = null; }
   } else if (!wantAO && ssao) { ssao.dispose(); ssao = null; }
   document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
+  setRays(); setDOF(state === 'menu');
+}
+
+const sunDisc = MB.CreatePlane('sunDisc', { size: 240 }, scene);
+sunDisc.billboardMode = B.Mesh.BILLBOARDMODE_ALL; sunDisc.infiniteDistance = true; sunDisc.applyFog = false; sunDisc.isPickable = false;
+sunDisc.material = unlit('sunDiscM', new B.Color3(7, 4.6, 2.4)); sunDisc.material.opacityTexture = dotTex;
+let vls = null;
+function setRays() {
+  const on = quality !== 'low' && (typeof timeMode === 'undefined' || timeMode === 'dusk');
+  sunDisc.setEnabled(typeof timeMode === 'undefined' || timeMode === 'dusk');
+  if (on && !vls) {
+    try { vls = new B.VolumetricLightScatteringPostProcess('vls', 1.0, camera, sunDisc, 70, B.Texture.BILINEAR_SAMPLINGMODE, engine, false); vls.exposure = 0.2; vls.decay = 0.965; vls.weight = 0.6; vls.density = 0.93; }
+    catch (e) { vls = null; }
+  } else if (!on && vls) { vls.dispose(camera); vls = null; }
+}
+function setDOF(on) {
+  const want = on && quality !== 'low';
+  if (pipe.depthOfFieldEnabled !== want) { pipe.depthOfFieldEnabled = want; if (want) { pipe.depthOfFieldBlurLevel = B.DepthOfFieldEffectBlurLevel.Medium; pipe.depthOfField.focalLength = 60; pipe.depthOfField.fStop = 1.6; pipe.depthOfField.focusDistance = 8500; } }
 }
 
 /* ================= reflections ================= */
@@ -1027,6 +1307,130 @@ const skids = (() => {
     flush() { if (dirty) { m.updateVerticesData(B.VertexBuffer.PositionKind, pos); m.updateVerticesData(B.VertexBuffer.ColorKind, col); dirty = false; } }
   };
 })();
+
+/* ================= rivals ================= */
+const DS = LEN / N;
+const VT = new Float32Array(N), TURN = new Float32Array(N);
+for (let i = 0; i < N; i++) {
+  const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
+  VT[i] = clamp(Math.sqrt(17 / Math.max(ang / (16 * DS), 1e-4)), 15, 50);
+  const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
+}
+for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
+const RIVAL_DEF = [
+  { name: 'אבו עלי', hex: 0xf0efe9, skill: 0.96, start: 16, lane: -3 },
+  { name: 'סמיר טורבו', hex: 0x169b48, skill: 0.93, start: -11, lane: 3 },
+  { name: 'הדודה פאטמה', hex: 0xe0559a, skill: 0.95, start: -24, lane: -2.5 }
+];
+const rivals = RIVAL_DEF.map((d, k) => {
+  const pm = paint.clone('paintR' + k); pm.albedoColor = LC(d.hex);
+  const rc = buildCar(false, pm);
+  rc.spot.dispose(); rc.flame.dispose(false, true);
+  rc.meshes.forEach(m => { if (!rc.flames.includes(m)) caster(m); if (m.material === carMats.head || m.material === carMats.tail) glow.addIncludedOnlyMesh(m); });
+  const sm = makeSmoke('rsmoke' + k, 320, [0.85, 0.8, 0.78]);
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.hidden = true; tag.innerHTML = `${d.name}<b></b>`; $('tags').appendChild(tag);
+  return { ...d, rc, sm, tag, s: 0, v: 0, laneT: d.lane, ang: 0, x: 0, z: 0, h: 0, ahead: null, hitT: 0 };
+});
+function placeRival(r) {
+  const fi = (((r.s % LEN) + LEN) % LEN) / DS, i0 = Math.floor(fi) % N, i1 = (i0 + 1) % N, f = fi - Math.floor(fi);
+  r.i = i0;
+  r.x = lerp(PX[i0], PX[i1], f) + RX[i0] * r.lane; r.z = lerp(PZ[i0], PZ[i1], f) + RZ[i0] * r.lane;
+  r.h = Math.atan2(TX[i0], TZ[i0]) + r.ang;
+}
+function resetRivals() { rivals.forEach(r => { r.s = CUM[8] + r.start; r.v = 0; r.lane = r.laneT = RIVAL_DEF[rivals.indexOf(r)].lane; r.ang = 0; r.ahead = null; placeRival(r); }); }
+const playerProg = () => (lapN - 1) * LEN + CUM[car.idx];
+let place = 1, raceT = 0, nearRival = null;
+function updateRivals(dt) {
+  raceT += dt;
+  const pp = playerProg();
+  nearRival = null;
+  for (const r of rivals) {
+    const i = r.i ?? 0, look = (i + 18) % N;
+    const rb = clamp(1 - (r.s - pp) / 900, 0.82, 1.1);
+    const vt = Math.min(VT[i], VT[look]) * r.skill * rb;
+    r.v += clamp(vt - r.v, -20 * dt, 10.5 * dt);
+    r.s += r.v * dt;
+    if (Math.random() < dt * 0.25) r.laneT = (Math.random() - .5) * 9;
+    r.lane = lerp(r.lane, r.laneT, 1 - Math.exp(-dt * 0.7));
+    const t = TURN[i], want = clamp(Math.abs(t) * 0.95 * clamp((r.v - 11) / 14, 0, 1), 0, 0.6) * (t < 0 ? 1 : -1);
+    r.ang = lerp(r.ang, want, 1 - Math.exp(-dt * 2.5));
+    placeRival(r);
+    const dx = car.x - r.x, dz = car.z - r.z, d2 = dx * dx + dz * dz;
+    if (d2 < 2.7 * 2.7) {
+      const d = Math.sqrt(d2) || 1, nx = dx / d, nz = dz / d, pen = 2.7 - d;
+      car.x += nx * pen * 0.75; car.z += nz * pen * 0.75; r.lane -= (nx * RX[i] + nz * RZ[i]) * pen * 0.4; r.laneT = r.lane;
+      const vn = (car.vx - Math.sin(r.h) * r.v) * nx + (car.vz - Math.cos(r.h) * r.v) * nz;
+      if (vn < 0) { car.vx -= 1.2 * vn * nx; car.vz -= 1.2 * vn * nz; r.v *= 0.96; }
+      if (raceT - r.hitT > 0.7 && Math.abs(vn) > 2) { r.hitT = raceT; sfx.thud(5); camShake = Math.min(1, camShake + 0.25); buzz(25); }
+    }
+    const dist = Math.sqrt(d2);
+    if (dist < 9 && (!nearRival || dist < nearRival.d)) nearRival = { r, d: dist };
+    const ahead = r.s > pp;
+    if (r.ahead !== null && ahead !== r.ahead && raceT > 4) {
+      if (!ahead) toast(`עקפת את ${r.name}!`, 'יאללה ביי'); else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
+    }
+    r.ahead = ahead;
+  }
+  place = 1 + rivals.filter(r => r.s > pp).length;
+}
+function syncRivals(dt) {
+  for (const r of rivals) {
+    r.rc.root.position.set(r.x, 0, r.z); r.rc.root.rotation.y = r.h;
+    r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.08, -0.05, 0.05), 0.1);
+    for (const w of r.rc.wheels) { w.spin.rotation.x += r.v / 0.36 * dt; if (w.front) w.pivot.rotation.y = -r.ang * 0.7; }
+    const sh = Math.sin(r.h), ch = Math.cos(r.h);
+    r.sm.emitter.set(r.x - sh * 1.45, 0.25, r.z - ch * 1.45);
+    r.sm.minEmitBox.set(-0.9, 0, -0.9); r.sm.maxEmitBox.set(0.9, 0.1, 0.9);
+    const vx = Math.sin(r.h - r.ang) * r.v, vz = Math.cos(r.h - r.ang) * r.v;
+    r.sm.direction1.set(vx * 0.25 - 1, 0.5, vz * 0.25 - 1); r.sm.direction2.set(vx * 0.25 + 1, 1.4, vz * 0.25 + 1);
+    r.sm.emitRate = state === 'drive' && Math.abs(r.ang) > 0.18 ? 70 * Math.abs(r.ang) : 0;
+  }
+}
+const _tm = new B.Vector3();
+function updateTags() {
+  const rw = engine.getRenderWidth(), rh = engine.getRenderHeight(), k = innerWidth / rw;
+  const vp = camera.viewport.toGlobal(rw, rh), tm = scene.getTransformMatrix();
+  rivals.forEach((r, n) => {
+    const d = Math.hypot(r.x - camera.position.x, r.z - camera.position.z);
+    let vis = state !== 'menu' && d < 95;
+    if (vis) {
+      _tm.set(r.x, 2.25, r.z);
+      const p = B.Vector3.Project(_tm, B.Matrix.IdentityReadOnly, tm, vp);
+      vis = p.z > 0 && p.z < 1 && p.x > -50 && p.x < rw + 50;
+      if (vis) r.tag.style.transform = `translate(${(p.x * k).toFixed(1)}px,${(p.y * k).toFixed(1)}px) translate(-50%,-100%)`;
+    }
+    if (r.tag.hidden === vis) r.tag.hidden = !vis;
+    if (vis) { const pos = 1 + rivals.filter(o => o.s > r.s).length + (playerProg() > r.s ? 1 : 0); r.tag.lastChild.textContent = String(pos); }
+  });
+}
+
+/* people animation */
+const _pm = new B.Matrix(), _pq = new B.Quaternion(), _ps = new B.Vector3(), _pt = new B.Vector3();
+function writeM(buf, i, sc, yaw, pitch, x, y, z) { B.Quaternion.RotationYawPitchRollToRef(yaw, pitch, 0, _pq); _ps.setAll(sc); _pt.set(x, y, z); B.Matrix.ComposeToRef(_ps, _pq, _pt, _pm); _pm.copyToArray(buf, i * 16); }
+function updatePeople(t, dt) {
+  const cx = camera.position.x, cz = camera.position.z;
+  const hype = state === 'drive' && (combo.pts > 0 || car.speed > 20);
+  const k = 1 - Math.exp(-dt * 5);
+  for (const v of PV) {
+    if (!v.bb) continue;
+    let dirty = false;
+    for (const p of v.list) {
+      if (p.init && (p.x - cx) ** 2 + (p.z - cz) ** 2 > 170 * 170) continue;
+      const dcar = Math.hypot(p.x - car.x, p.z - car.z);
+      p.ex = lerp(p.ex, hype && dcar < (p.kind === 'fan' ? 48 : 30) ? 1 : 0, k);
+      let yaw = p.yaw;
+      if (dcar < 60 && state !== 'menu') { const ty = Math.atan2(car.x - p.x, car.z - p.z); p.ly = p.ly == null ? p.yaw : p.ly + Math.atan2(Math.sin(ty - p.ly), Math.cos(ty - p.ly)) * k; yaw = p.ly; }
+      else if (p.ly != null) { p.ly = p.ly + Math.atan2(Math.sin(p.yaw - p.ly), Math.cos(p.yaw - p.ly)) * k; yaw = p.ly; }
+      const jump = p.ex * Math.abs(Math.sin(t * 7.5 + p.ph)) * (p.kind === 'fan' ? 0.3 : 0.12);
+      const arm = lerp(-0.06 + Math.sin(t * 1.4 + p.ph) * 0.05, -2.75 + Math.sin(t * 11 + p.ph) * 0.35, p.ex);
+      const sway = Math.sin(t * 1.1 + p.ph) * 0.025 + p.ex * 0.06;
+      writeM(v.bb, p.i, p.s, yaw, sway, p.x, p.y + jump, p.z);
+      writeM(v.ab, p.i, p.s, yaw, arm, p.x, p.y + jump + 1.45 * p.s, p.z);
+      p.init = true; dirty = true;
+    }
+    if (dirty) { v.body.thinInstanceBufferUpdated('matrix'); v.arm.thinInstanceBufferUpdated('matrix'); }
+  }
+}
 
 /* ================= input ================= */
 const keys = new Set();
@@ -1116,7 +1520,7 @@ function physics(dt, inp) {
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * (1 - Math.min(1, (vF / VMAX) ** 2)) * (car.grass ? 0.65 : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
-  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - 0.3 * dt); }
+  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - 0.3 * dt); if (!car.boostShout) { car.boostShout = true; toast(pick(['טורבו נענע!', 'יאללה יאללה!', 'וואלה טס']), ''); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
   const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? 0.11 * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
@@ -1165,7 +1569,9 @@ const fmtT = t => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:$
 $('best').textContent = fmt(best); $('bestlap').textContent = bestLap ? fmtT(bestLap) : '—';
 const toastEl = $('toast');
 function toast(a, b, bad) { $('t1').textContent = a; $('t2').textContent = b || ''; toastEl.classList.toggle('bad', !!bad); toastEl.classList.remove('show'); void toastEl.offsetWidth; toastEl.classList.add('show'); }
-const rating = p => p < 1200 ? 'דריפט נקי' : p < 3500 ? 'חלק כמו שמן זית' : p < 8000 ? 'מטורף!' : p < 16000 ? 'מלך הכפר' : 'אגדת השקיעה';
+const RATINGS = [[500, 'וואלה, נחמד'], [1100, 'סבבה אחי'], [2000, 'חלק כמו שמן זית'], [3200, 'יא חביבי!'], [4800, 'על הכיפאק!'], [7000, 'חבל על הזמן!'], [10000, 'כמו חומוס עם הכל'], [14000, 'מלך הכפר'], [20000, 'הדודה מחאה כפיים'], [1e12, 'אגדת השקיעה']];
+const rating = p => RATINGS.find(([m]) => p < m)[1];
+const pick = a => a[(Math.random() * a.length) | 0];
 function bankCombo() { const p = Math.round(combo.pts); total += p; if (total > best) { best = total; store.set('best', best); $('best').textContent = fmt(best); } if (p > 150) toast(rating(p), '+' + fmt(p)); combo.pts = 0; combo.time = 0; combo.mult = 1; }
 function loseCombo(msg) { if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
 function scoring(dt) {
@@ -1174,20 +1580,21 @@ function scoring(dt) {
   if (valid) {
     combo.time += dt; combo.grace = 0; combo.mult = Math.min(6, 1 + Math.floor(combo.time / 2.5));
     combo.prox = WALL - Math.abs(car.d) - 1.15 < 3.0;
-    combo.pts += dt * Math.min(deg, 70) * car.speed * 0.32 * combo.mult * (combo.prox ? 1.6 : 1);
+    combo.tandem = !!nearRival && nearRival.d < 8;
+    combo.pts += dt * Math.min(deg, 70) * car.speed * 0.32 * combo.mult * (combo.prox ? 1.6 : 1) * (combo.tandem ? 1.3 : 1);
     car.nos = Math.min(1, car.nos + dt * (combo.prox ? 0.14 : 0.085));
   } else if (combo.pts > 0) {
-    combo.prox = false; combo.grace += dt;
-    if (car.grass && combo.grace > 0.35) loseCombo('יצאת לחצץ, הקומבו נמחק'); else if (combo.grace > 1.4) bankCombo();
+    combo.prox = false; combo.tandem = false; combo.grace += dt;
+    if (car.grass && combo.grace > 0.35) loseCombo(pick(['העיזים בהלם', 'יצאת לחול, חביבי', 'זה לא כביש, זה כרם זיתים'])); else if (combo.grace > 1.4) bankCombo();
   }
   if (car.hit > 0) {
-    if (car.hit > 4 && combo.pts > 0) loseCombo('נגעת בקיר, הקומבו נמחק');
+    if (car.hit > 4 && combo.pts > 0) loseCombo(pick(['חאלס עם הקירות!', 'יא סאתר!', 'הדוד ראה הכל', 'מי ישלם על הצמיגים?']));
     camShake = Math.min(1, camShake + car.hit * 0.06); sfx.thud(car.hit); if (car.hit > 4) buzz(Math.min(60, car.hit * 5)); car.hit = 0;
   }
   const i = car.idx;
   if (i > N * 0.45 && i < N * 0.55) half = true;
   if (prevIdx > N * 0.9 && i < N * 0.1 && half) {
-    if (!bestLap || lapT < bestLap) { bestLap = lapT; store.set('bestLap', bestLap); $('bestlap').textContent = fmtT(bestLap); toast('הקפה מהירה!', fmtT(lapT)); }
+    if (!bestLap || lapT < bestLap) { bestLap = lapT; store.set('bestLap', bestLap); $('bestlap').textContent = fmtT(bestLap); toast('הקפה מהירה! עוד הקפה, עוד פיתה', fmtT(lapT)); }
     if (lapT <= bestLap + 1e-6 && rec.length > 40) { ghostData = rec; store.set('ghost', ghostData); }
     rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = lapN;
   }
@@ -1292,6 +1699,7 @@ function drawMini() {
 const H = { total: $('total'), spd: $('spd'), gear: $('gear'), lap: $('laptime'), cpts: $('cpts'), cmult: $('cmult'), cang: $('cang'), clabel: $('clabel') };
 const last = {};
 const setT = (k, v) => { if (last[k] !== v) { last[k] = v; H[k].textContent = v; } };
+const setT2 = (id, v) => { if (last[id] !== v) { last[id] = v; $(id).textContent = v; } };
 const GEARS = [0, 12, 21, 30, 40, 51, 70];
 let rpm = 900, miniTick = 0;
 function updateHUD(dt) {
@@ -1307,6 +1715,9 @@ function updateHUD(dt) {
   $('nos').style.width = (car.nos * 100).toFixed(1) + '%';
   $('nosm').classList.toggle('burn', car.boost);
   $('cprox').hidden = !combo.prox;
+  $('ctan').hidden = !combo.tandem;
+  if (combo.tandem && nearRival) $('ctan').textContent = `טנדם עם ${nearRival.r.name} ×1.3`;
+  setT2('pos', `${place}/4`);
   const active = combo.pts > 0;
   $('combo').classList.toggle('off', !active);
   if (active) {
@@ -1374,6 +1785,7 @@ function syncVisuals(dt) {
   }
   if (GHOST.root.isEnabled() !== gOn) GHOST.root.setEnabled(gOn);
   lampTimer -= dt; if (lampTimer <= 0) { lampTimer = 0.25; placeLampLights(); }
+  syncRivals(dt);
 }
 
 /* ================= time of day ================= */
@@ -1381,7 +1793,7 @@ const TIMES = {
   dusk: { label: 'שקיעה', exp: 1.35, fog: [0.74, 0.55, 0.5], fs: 170, fe: 1500, sunCol: [1, 0.74, 0.5], sunI: 4.2, hs: [0.7, 0.72, 0.95], hg: [0.42, 0.32, 0.24], hI: 1.35, pool: 0.18, lamp: 160, head: 260, lit: 0, ring: 0, smoke: [0.85, 0.8, 0.78], dust: [0.62, 0.52, 0.4], env: 1 },
   night: { label: 'לילה', exp: 1.55, fog: [0.05, 0.055, 0.09], fs: 60, fe: 900, sunCol: [0.6, 0.72, 1], sunI: 0.35, hs: [0.2, 0.26, 0.45], hg: [0.05, 0.045, 0.04], hI: 0.45, pool: 0.7, lamp: 1100, head: 1800, lit: 3.2, ring: 2.4, smoke: [0.38, 0.38, 0.44], dust: [0.3, 0.27, 0.24], env: 0.6 }
 };
-let timeMode = 'dusk';
+var timeMode = 'dusk';
 const SUN_DUSK = (() => { const e = 8 * Math.PI / 180, a = 205 * Math.PI / 180; return V3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)); })();
 function setTime(mode) {
   const T = TIMES[mode], night = mode === 'night'; timeMode = mode; store.set('time', mode);
@@ -1397,6 +1809,9 @@ function setTime(mode) {
   TI.pool.mesh.material.alpha = T.pool;
   lampLights.forEach(l => l.intensity = T.lamp);
   CAR.spot.intensity = T.head;
+  rivals.forEach(r => r.sm.setTint(T.smoke));
+  sunDisc.position = SUN_DUSK.scale(2600);
+  setRays();
   winLitMat.emissiveColor = new B.Color3(1.0, 0.62, 0.3).scale(T.lit);
   ringMat.emissiveColor = new B.Color3(0.2, 1.0, 0.45).scale(T.ring);
   smokeL.setTint(T.smoke); smokeR.setTint(T.smoke); dust.setTint(T.dust);
@@ -1423,7 +1838,7 @@ function startGame() {
   if (state !== 'menu') return;
   sfx.init(); sfx.resume();
   $('start').hidden = true; showTouch(COARSE);
-  resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1';
+  resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1'; resetRivals(); raceT = 0; setDOF(false);
   camPos.set(car.x - Math.sin(car.h) * 9, 3.2, car.z - Math.cos(car.h) * 9);
   state = 'count'; countT = 0; countStep = -1;
   canvas.focus({ preventScroll: true });
@@ -1442,7 +1857,7 @@ function togglePause() {
   if (state === 'drive' || state === 'count') { state = 'pause'; $('pause').hidden = false; $('resume').focus(); }
   else if (state === 'pause') { state = 'drive'; $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
 }
-function toMenu() { state = 'menu'; $('pause').hidden = true; $('start').hidden = false; showTouch(false); combo.pts = 0; resetCar(30); car.h += 0.5; }
+function toMenu() { setDOF(true); resetRivals(); state = 'menu'; $('pause').hidden = true; $('start').hidden = false; showTouch(false); combo.pts = 0; resetCar(30); car.h += 0.5; }
 $('go').addEventListener('click', startGame);
 $('resume').addEventListener('click', togglePause);
 $('restart').addEventListener('click', () => { $('pause').hidden = true; state = 'menu'; startGame(); });
@@ -1456,7 +1871,7 @@ addEventListener('resize', () => engine.resize());
 setPaint(store.get('paint', 0) % PAINTS.length);
 setQuality(quality);
 setTime(store.get('time', 'dusk') === 'night' ? 'night' : 'dusk');
-resetCar(30); car.h += 0.5;
+resetCar(30); car.h += 0.5; resetRivals();
 camPos.set(car.x + 6, 2, car.z + 6);
 const STEP = 1 / 120; let acc = 0, elapsed = 0;
 scene.onBeforeRenderObservable.add(() => {
@@ -1466,11 +1881,13 @@ scene.onBeforeRenderObservable.add(() => {
   if (state === 'drive') {
     const inp = readInput(); acc += dt; let n = 0;
     while (acc >= STEP && n < 8) { physics(STEP, inp); acc -= STEP; n++; }
+    updateRivals(dt);
     scoring(dt);
     sfx.update(rpm, car.thr, clamp((Math.abs(car.vx * Math.cos(car.h) - car.vz * Math.sin(car.h)) - 2) / 8, 0, 1), true);
   } else sfx.update(state === 'count' ? 1400 : 900, 0, 0, state === 'count');
   if (state !== 'pause') syncVisuals(dt);
-  updateHUD(dt); updateCamera(dt, elapsed);
+  updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateTags();
+  if (pipe.depthOfFieldEnabled) pipe.depthOfField.focusDistance = 8500;
   pipe.chromaticAberration.aberrationAmount = state === 'drive' ? clamp((car.speed - 15) / 40, 0, 1) * 18 + (car.boost ? 22 : 0) : 0;
 });
 let shown = false;
