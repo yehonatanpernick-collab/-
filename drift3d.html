@@ -357,7 +357,9 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <div><span class="lbl">מקום</span><b class="num" id="fin-pos">1/8</b></div>
         <div><span class="lbl">זמן כולל</span><b class="num" id="fin-time">0:00.000</b></div>
         <div><span class="lbl">ניקוד דריפט</span><b class="num" id="fin-score">0</b></div>
+        <div><span class="lbl">פרס</span><b class="num" id="fin-prize">+0 🧆</b></div>
       </div>
+      <p class="tip" id="fin-prize-note"></p>
       <p class="tip" id="fin-msg"></p>
       <div class="row-btns"><button class="btn" id="fin-again" type="button">שוב</button><button class="btn ghost" id="fin-menu" type="button">לתפריט</button></div>
     </div>
@@ -389,6 +391,8 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <div class="toggle"><span>רזולוציה אוטומטית</span><div class="seg" id="autores"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>סיוע היגוי (מונע הסתחררות)</span><div class="seg" id="assist"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>צליל</span><div class="seg" id="sound"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
+        <div class="toggle"><span>מוזיקה ערבית</span><div class="seg" id="music"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
+        <div class="toggle"><span>קריאות בערבית (קול)</span><div class="seg" id="voice"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
       </div>
     </div>
   </div>
@@ -1151,6 +1155,7 @@ function personMeshes(o, tag) {
   P(Bx(0.06, 0.012, 0.02, 0, 1.655, 0.112), [dk[0] * 1.2, dk[1] * 0.8, dk[2] * 0.8]);
   for (const sx of [-1, 1]) P(S(0.2, 1.43, sx * 0.19, 0), o.vest || o.sleeve || o.shirt || o.robe);
   if (o.mustache) P(Bx(0.11, 0.025, 0.03, 0, 1.675, 0.12), o.mustache);
+  if (o.bigMoustache) { P(Bx(0.24, 0.045, 0.045, 0, 1.672, 0.125), o.mustache); for (const sx of [-1, 1]) P(S(0.06, 1.69, sx * 0.13, 0.11), o.mustache); }
   if (o.beard) P(Bx(0.19, 0.1, 0.12, 0, 1.63, 0.05), o.beard);
   if (o.head === 'keffiyeh') { P(S(0.29, 1.75), o.hc); P(Bx(0.34, 0.38, 0.06, 0, 1.58, -0.12), o.hc); const ag = MB.CreateTorus('ag', { diameter: 0.25, thickness: 0.035, tessellation: 18 }, scene); ag.position.y = 1.83; P(ag, [0.05, 0.05, 0.05]); }
   else if (o.head === 'kufi') P(S(0.262, 1.75, 0, -0.005, 0.5), o.hc);
@@ -1166,6 +1171,7 @@ function personMeshes(o, tag) {
   for (const sx of [-1, 1]) { P(C(0.62, 0.11, 0.09, -0.31, sx * 0.27), o.sleeve || o.shirt || o.robe, arms); P(S(0.11, -0.64, sx * 0.27), o.skin, arms); P(S(0.045, -0.6, sx * 0.25, 0.045), o.skin, arms); }
   if (o.basket) { const bk = C(0.2, 0.32, 0.24, -0.82, 0.27, 0.05, 12); P(bk, [0.62, 0.45, 0.24], arms); const hd = MB.CreateTorus('bh', { diameter: 0.26, thickness: 0.02, tessellation: 12 }, scene); hd.rotation.z = Math.PI / 2; hd.position.set(0.27, -0.72, 0.05); P(hd, [0.5, 0.35, 0.18], arms); P(S(0.09, -0.7, 0.3, 0.08), [0.95, 0.45, 0.1], arms); P(S(0.08, -0.7, 0.22, 0.02), [0.3, 0.6, 0.2], arms); }
   if (o.pot) { P(C(0.22, 0.08, 0.16, -0.8, -0.27, 0.06, 12), [0.85, 0.68, 0.3], arms); const sp = C(0.16, 0.02, 0.04, -0.74, -0.27, 0.16, 6); sp.rotation.x = 1.1; P(sp, [0.85, 0.68, 0.3], arms); }
+  if (o.tray) { P(C(0.03, 0.56, 0.56, -0.7, 0.27, 0.16, 20), [0.95, 0.75, 0.3], arms); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { P(Bx(0.1, 0.045, 0.1, 0.27 + i * 0.13, -0.665, 0.16 + j * 0.13), [0.8, 0.52, 0.2], arms); P(S(0.03, -0.64, 0.27 + i * 0.13, 0.16 + j * 0.13), [0.45, 0.62, 0.2], arms); } }
   if (o.staff) { const st = C(1.7, 0.035, 0.04, -0.3, -0.27, 0.08, 6); P(st, [0.42, 0.3, 0.18], arms); }
   const body = B.Mesh.MergeMeshes(parts, true, true), arm = B.Mesh.MergeMeshes(arms, true, true);
   body.name = 'person' + tag; arm.name = 'arms' + tag;
@@ -2210,7 +2216,14 @@ const rustMat = () => textDecal('rust', 256, 256, (x, w, h) => {
 });
 const tapeMat = pbr('tape', { color: 0xb9b2a0, rough: 0.55 });
 const carRopeMat = pbr('carRope', { color: 0xa98250, rough: 0.95 });
+const seatMat = pbr('seat', { color: 0x4a2f22, rough: 0.92 }), dashMat = pbr('dash', { color: 0x1b1b1e, rough: 0.7 }), diceMat = pbr('dice', { color: 0xff3d9a, rough: 1 }), beadMat = pbr('beads', { color: 0x2f8f5a, rough: 0.3, metal: 0.2 });
+const flagMat = (() => { const m = textDecal('flag', 256, 160, (x, w, h) => {
+  x.fillStyle = '#ffcf33'; x.fillRect(0, 0, w, h); x.fillStyle = '#c4261f'; x.fillRect(0, 0, w, 18); x.fillRect(0, h - 18, w, 18);
+  for (const [cx, cy] of [[60, 70], [92, 92], [70, 106]]) { x.fillStyle = '#8a5a1e'; x.beginPath(); x.arc(cx, cy, 18, 0, 7); x.fill(); x.fillStyle = '#b07a2e'; x.beginPath(); x.arc(cx - 4, cy - 4, 8, 0, 7); x.fill(); }
+  x.direction = 'rtl'; x.textAlign = 'center'; x.fillStyle = '#7a2d12'; x.font = '900 40px Heebo, Arial, sans-serif'; x.fillText('פלאפל!', 180, 95);
+}); m.backFaceCulling = false; return m; })();
 function carHash(id) { let h = 0; for (const ch of id) h = (h * 131 + ch.charCodeAt(0)) >>> 0; return h; }
+carMats.glass.alpha = 0.62; carMats.glass.transparencyMode = B.PBRMaterial.PBRMATERIAL_ALPHABLEND;
 function buildCar(ghost = false, pm = paint, o = {}) {
   const M = o.M || MODELS[0], eq = Object.assign({}, DEFAULT_EQ, o.eq || {}), simple = !!o.simple, uid = ++carUid;
   const root = new B.TransformNode(ghost ? 'ghost' : 'car', scene), body = new B.TransformNode('body', scene); body.parent = root;
@@ -2270,6 +2283,9 @@ function buildCar(ghost = false, pm = paint, o = {}) {
     if (!simple) bx(0.02, 0.03, 0.14, s * W * 1.0, 0.7, (zf + zr) / 2 + 0.25, carMats.black);
   }
   { const ant = add(MB.CreateCylinder('ant', { height: 0.75, diameter: 0.012, tessellation: 4 }, scene), carMats.black); ant.position.set(-W * 0.72, H + 0.36, -L + 0.55); ant.rotation.x = -0.28; }
+  let flag = null;
+  if (o.flag && !simple) { flag = new B.TransformNode('flagP', scene); flag.parent = body; flag.position.set(-W * 0.72, H + 0.72, -L + 0.45);
+    const fl = add(MB.CreatePlane('flag', { width: 0.3, height: 0.19 }, scene), flagMat, flag); fl.rotation.y = Math.PI / 2; fl.position.set(0, -0.08, -0.15); }
   const plate = add(MB.CreatePlane('plate', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plate.position.set(0, 0.47, -L - 0.155);
   const plateF = add(MB.CreatePlane('plateF', { width: 0.52, height: 0.12 }, scene), plateMat(M)); plateF.position.set(0, 0.34, L + 0.155); plateF.rotation.y = Math.PI;
   const badge = add(MB.CreatePlane('badge', { width: 0.17, height: 0.13 }, scene), badgeMat(M.badge)); badge.position.set(0, fy - 0.06, L + 0.015); badge.rotation.y = Math.PI;
@@ -2295,6 +2311,16 @@ function buildCar(ghost = false, pm = paint, o = {}) {
       const sz = st === 'sedan' ? lerp(zr, zf, 0.2) : lerp(zr, zf, 0.26), sy = gBase + (topAt(st === 'sedan' ? 0.2 : 0.26) - gBase) * 0.45;
       sale.position.set(gW * 0.98 + 0.012, sy, sz); sale.rotation.y = -Math.PI / 2; sale.rotation.x = 0; sale.rotation.z = -0.2;
     }
+    // cabin: seats, dashboard, steering wheel, fuzzy dice and prayer beads on the mirror (visible through the tinted glass)
+    const zFs = zf - 0.95, zRs = zf - 1.75, cabY = 0.5;
+    for (const sx of [-1, 1]) { bx(0.5, 0.14, 0.5, sx * 0.36, cabY, zFs, seatMat); const bk = bx(0.48, 0.62, 0.12, sx * 0.36, cabY + 0.36, zFs - 0.28, seatMat, -0.16); bx(0.26, 0.16, 0.1, sx * 0.36, cabY + 0.74, zFs - 0.33, seatMat, -0.16); }
+    if (zRs > zr + 0.1) { bx(2 * gW * 0.82, 0.14, 0.5, 0, cabY, zRs, seatMat); bx(2 * gW * 0.82, 0.55, 0.12, 0, cabY + 0.33, zRs - 0.27, seatMat, -0.18); }
+    bx(2 * gW * 0.92, 0.2, 0.42, 0, H - 0.12, zf - 0.12, dashMat);
+    { const sw = add(MB.CreateTorus('steer', { diameter: 0.36, thickness: 0.035, tessellation: 18 }, scene), dashMat); sw.position.set(-0.36, H + 0.03, zf - 0.42); sw.rotation.x = Math.PI / 2 - 0.5; }
+    const mirZ = zf - 0.22, mirY = topAt(0.82) - 0.12;
+    bx(0.22, 0.06, 0.03, 0, mirY, mirZ, dashMat);
+    for (const sx of [-1, 1]) { bx(0.006, 0.12, 0.006, sx * 0.04, mirY - 0.09, mirZ, dashMat); const d = bx(0.07, 0.07, 0.07, sx * 0.04, mirY - 0.18, mirZ, diceMat); d.rotation.y = sx * 0.5; d.rotation.x = 0.4; }
+    for (let k = 0; k < 7; k++) { const a = (k / 6 - 0.5) * 1.6; const bd = add(MB.CreateSphere('bead', { diameter: 0.025, segments: 4 }, scene), beadMat); bd.position.set(0.09 + Math.sin(a) * 0.05, mirY - 0.05 - Math.cos(a) * 0.12, mirZ); }
     if (jank >= 3) { // bumper held on with rope
       for (const s of [-1, 1]) { const rp = add(MB.CreateTorus('rope', { diameter: 0.2, thickness: 0.022, tessellation: 12 }, scene), carRopeMat); rp.position.set(s * W * 0.82, 0.42, L - 0.02); rp.rotation.x = Math.PI / 2; rp.rotation.z = 0.3 * s; }
     }
@@ -2379,7 +2405,7 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   flame.setEnabled(false);
   const gmats = [carMats.head, tailMat, neonMat];
   const glowList = meshes.filter(m => gmats.includes(m.material)).concat(flames);
-  return { root, body, wheels, meshes, spot, flame, flameMat, flames, tailMat, neonMat, spinners, glowMeshes: glowList, ownMats, M, eq, wr };
+  return { root, body, wheels, meshes, spot, flame, flameMat, flames, tailMat, neonMat, spinners, glowMeshes: glowList, ownMats, M, eq, wr, flag };
 }
 let CAR = null, carToken = 0;
 const STAT = { acc: 1, vmax: 1, grip: 1, off: false, turbo: false, bald: false };
@@ -2405,7 +2431,7 @@ function makePlayerCar() {
   const M = modelOf(EQ.car), token = ++carToken;
   if (M.glb) { if (!CAR) { applyPaint(paint, MODELS[0], EQ); installCar(buildCar(false, paint, { M: MODELS[0], eq: EQ }), MODELS[0]); } loadGLBCar(M, token); return; }
   applyPaint(paint, M, EQ);
-  installCar(buildCar(false, paint, { M, eq: EQ }), M);
+  installCar(buildCar(false, paint, { M, eq: EQ, flag: true }), M);
 }
 // real car models (glTF). Normalised to a 4.6 m long car, centred, sitting on y=0.
 const GLB_LEN = 4.6;
@@ -2617,6 +2643,17 @@ function makeSmoke(name, cap, color) {
 }
 const smokeL = makeSmoke('smokeL', 700, [0.85, 0.8, 0.78]), smokeR = makeSmoke('smokeR', 700, [0.85, 0.8, 0.78]);
 const dust = makeSmoke('dust', 500, [0.62, 0.52, 0.4]);
+const curbSparks = new B.ParticleSystem('curbSparks', 300, scene);
+curbSparks.particleTexture = dotTex; curbSparks.emitter = V3(0, -50, 0); curbSparks.minEmitBox = V3(-0.7, 0, -1.6); curbSparks.maxEmitBox = V3(0.7, 0.05, -1.2);
+curbSparks.direction1 = V3(-2, 1.5, -3); curbSparks.direction2 = V3(2, 3.5, 1); curbSparks.minEmitPower = 1.5; curbSparks.maxEmitPower = 4; curbSparks.gravity = V3(0, -9.8, 0);
+curbSparks.minSize = 0.03; curbSparks.maxSize = 0.07; curbSparks.minLifeTime = 0.15; curbSparks.maxLifeTime = 0.45; curbSparks.emitRate = 0; curbSparks.updateSpeed = 1 / 60;
+curbSparks.color1 = new B.Color4(1, 0.8, 0.35, 1); curbSparks.color2 = new B.Color4(1, 0.5, 0.1, 1); curbSparks.colorDead = new B.Color4(1, 0.2, 0, 0); curbSparks.blendMode = B.ParticleSystem.BLENDMODE_ADD; curbSparks.start();
+const confetti = new B.ParticleSystem('confetti', 900, scene);
+confetti.particleTexture = texFrom('confettiT', mkCanvas(8, 8, (x) => { x.fillStyle = '#fff'; x.fillRect(0, 0, 8, 8); }));
+confetti.emitter = V3(0, -50, 0); confetti.minEmitBox = V3(-2, 0, -2); confetti.maxEmitBox = V3(2, 0.5, 2); confetti.direction1 = V3(-3, 8, -3); confetti.direction2 = V3(3, 12, 3);
+confetti.minEmitPower = 0.8; confetti.maxEmitPower = 1.4; confetti.gravity = V3(0, -5, 0); confetti.minSize = 0.08; confetti.maxSize = 0.16; confetti.minLifeTime = 2.5; confetti.maxLifeTime = 4;
+confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6; confetti.emitRate = 0; confetti.color1 = new B.Color4(1, 0.2, 0.3, 1); confetti.color2 = new B.Color4(0.2, 0.8, 0.4, 1); confetti.colorDead = new B.Color4(1, 0.85, 0.2, 0.6); confetti.start();
+function confettiBurst() { confetti.emitter = V3(car.x, 1.5, car.z); confetti.manualEmitCount = 700; }
 const sparks = new B.ParticleSystem('sparks', 600, scene);
 sparks.particleTexture = dotTex; sparks.emitter = V3(0, -50, 0); sparks.updateSpeed = 1 / 60; sparks.emitRate = 0;
 sparks.minLifeTime = 0.18; sparks.maxLifeTime = 0.55; sparks.minSize = 0.05; sparks.maxSize = 0.11;
@@ -2751,7 +2788,7 @@ function updateRivals(dt) {
     if (dist < 9 && (!nearRival || dist < nearRival.d)) nearRival = { r, d: dist };
     const ahead = r.s > pp;
     if (r.ahead !== null && ahead !== r.ahead && raceT > 4) {
-      if (!ahead) { const pay = raceT - r.passT > 10; toast(`עקפת את ${r.name}!`, pay ? 'יאללה ביי · +1 🧆' : 'יאללה ביי'); if (pay) addFalafel(1); r.passT = raceT; } else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
+      if (!ahead) { const pay = raceT - r.passT > 10; toast(`עקפת את ${r.name}!`, pay ? 'יאללה ביי · +1 🧆' : 'יאללה ביי'); speak(pick(['yalla', 'salam', 'zay'])); if (pay) addFalafel(1); r.passT = raceT; } else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
     }
     r.ahead = ahead;
   }
@@ -2788,6 +2825,82 @@ function updateTags() {
     if (r.tag.hidden === vis) r.tag.hidden = !vis;
     if (vis) { const pos = 1 + rivals.filter(o => o.s > r.s).length + (playerProg() > r.s ? 1 : 0); r.tag.lastChild.textContent = String(pos); }
   });
+}
+
+// ---- Mohammed Khaled, the baklava seller who plants himself on the road now and then ----
+const KH = { st: 'off', timer: 25 + Math.random() * 15, built: false, tt: 0 };
+const KH_LINES = [['באקלאווה! באקלאווה טרייה!', 'baklava'], ['חביבי, רק פלאפל אחד!', 'onefal'], ['עצור, עצור! יש גם כנאפה!', 'kunafa'], ['אני מחכה לך פה מהבוקר!', 'sabah'], ['באקלאווה של אמא שלי, וואלה!', 'ummi'], ['מתוקה כמו הדריפט שלך!', 'helu'], ['אהלן וסהלן! תטעם, תטעם!', 'ahlan']];
+const KH_DODGE = [['יא מג׳נון! כמעט דרסת את הבאקלאווה!', 'yamajnoon'], ['עייב עליך! אני עם מגש!', 'aib'], ['וואי וואי, הסירופ נשפך!', 'yaba'], ['יא אללה! מי לימד אותך לנהוג?', 'yaallah']];
+function buildKhaled() {
+  KH.built = true;
+  const o = { robe: [0.96, 0.95, 0.92], head: 'fez', hc: [0.78, 0.07, 0.08], skin: SKIN[1], mustache: [0.06, 0.05, 0.04], bigMoustache: true, vest: [0.95, 0.95, 0.93], tray: true, embroid: [0.85, 0.65, 0.2] };
+  const pm = personMeshes(o, 'khaled');
+  KH.root = new B.TransformNode('khaled', scene); pm.body.parent = KH.root; pm.arm.parent = KH.root; pm.arm.position.y = pm.sh; KH.body = pm.body; KH.arm = pm.arm;
+  const { S, C, Bx, merge } = animalKit(), teal = [0.08, 0.52, 0.58], gold = [0.95, 0.75, 0.3], bak = [0.8, 0.52, 0.2], pist = [0.45, 0.62, 0.2];
+  Bx(1.5, 0.7, 0.8, 0, 0.82, 0, teal); Bx(1.42, 0.06, 0.74, 0, 1.2, 0, gold); Bx(1.36, 0.36, 0.7, 0, 1.4, 0, [0.85, 0.92, 0.95]);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) { Bx(0.28, 0.06, 0.26, -0.48 + i * 0.32, 1.27, -0.15 + j * 0.3, bak); S(0.05, 0.03, 0.05, -0.48 + i * 0.32, 1.31, -0.15 + j * 0.3, pist, 5); }
+  for (const z of [-0.43, 0.43]) C(0.08, 0.55, 0.55, -0.35, 0.28, z, [0.15, 0.15, 0.16], Math.PI / 2, 0, 14);
+  Bx(0.06, 0.6, 0.06, 0.8, 0.5, 0, [0.4, 0.3, 0.2]); Bx(0.6, 0.05, 0.05, 1.05, 0.95, 0, [0.4, 0.3, 0.2]);
+  C(2.3, 0.045, 0.045, 0.55, 1.75, 0, [0.85, 0.85, 0.85]); C(0.45, 0.06, 2.4, 0.55, 2.95, 0, [0.85, 0.12, 0.12], 0, 0, 12); C(0.46, 0.06, 2.42, 0.55, 2.951, 0, [0.95, 0.94, 0.9], 0, 0, 6);
+  KH.cart = merge(); KH.cart.material = vcMat; KH.cart.isPickable = false; KH.cart.receiveShadows = true;
+  const sign = MB.CreatePlane('khSign', { width: 1.4, height: 0.42 }, scene); sign.parent = KH.cart; sign.position.set(0, 0.82, -0.405);
+  sign.material = textDecal('khaled', 512, 154, (x, w, h) => {
+    x.fillStyle = '#ffd34d'; x.fillRect(0, 0, w, h); x.strokeStyle = '#7a2d12'; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8);
+    x.direction = 'rtl'; x.textAlign = 'center'; x.fillStyle = '#7a2d12'; x.font = '900 50px Heebo, Arial, sans-serif'; x.fillText('באקלאווה מוחמד חאלד', w / 2, 66);
+    x.fillStyle = '#1a1a1a'; x.font = '700 34px Heebo, Arial, sans-serif'; x.fillText('רק 1 🧆 · סוכר = ניטרו!', w / 2, 120);
+  });
+  sign.material.backFaceCulling = false;
+  [KH.body, KH.arm, KH.cart].forEach(m => caster(m));
+  KH.tag = document.createElement('span'); KH.tag.className = 'tag'; KH.tag.hidden = true; KH.tag.innerHTML = 'מוחמד חאלד<b>🍯</b>'; $('tags').appendChild(KH.tag);
+  khShow(false);
+}
+function khShow(on) { KH.root.setEnabled(on); KH.cart.setEnabled(on); if (!on) KH.tag.hidden = true; }
+function khOff() { if (!KH.built) return; KH.st = 'off'; KH.timer = 40 + Math.random() * 30; khShow(false); }
+function khSpawn(i) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  Object.assign(KH, { st: 'wait', i, lat: 0, side, y: 0, vy: 0, tt: 0, shouted: 0, nextShout: 0, sold: false });
+  const ci = (i + 3) % N, cx = PX[ci] + RX[ci] * side * (HW + CURB + 2.4), cz = PZ[ci] + RZ[ci] * side * (HW + CURB + 2.4);
+  KH.cart.position.set(cx, 0, cz); KH.cart.rotation.y = Math.atan2(TX[ci], TZ[ci]) + (side > 0 ? Math.PI : 0);
+  khShow(true);
+}
+function updateKhaled(t, dt) {
+  if (state !== 'drive') { if (state === 'menu' && KH.st !== 'off') khOff(); if (KH.tag) KH.tag.hidden = true; return; }
+  if (!KH.built) buildKhaled();
+  if (KH.st === 'off') {
+    if ((KH.timer -= dt) > 0) return;
+    for (let ahead = 140; ahead < 320; ahead += 15) {
+      const i = (car.idx + Math.round(ahead / DS)) % N, j = (i + Math.round(25 / DS)) % N, k2 = (i - Math.round(25 / DS) + N) % N;
+      if (TX[j] * TX[k2] + TZ[j] * TZ[k2] > 0.985) { khSpawn(i); return; }
+    }
+    KH.timer = 4; return;
+  }
+  KH.tt += dt;
+  const sp = car.speed || 0, i = KH.i;
+  let x = PX[i] + RX[i] * KH.lat, z = PZ[i] + RZ[i] * KH.lat;
+  const dcar = Math.hypot(car.x - x, car.z - z), ahead = ((i - car.idx + N) % N) * DS, passed = ahead > LEN * 0.6;
+  if (KH.st === 'wait') {
+    if (dcar < 140 && t > KH.nextShout) { KH.nextShout = t + 5.5; const [h, a] = pick(KH_LINES); toast('מוחמד חאלד: ' + h, KH.shouted++ ? 'עצור לידו · 1 🧆 = ניטרו מלא' : 'הוא עומד באמצע הכביש!'); speak(a, true); }
+    if (sp < 2.2 && dcar < 7) {
+      KH.st = 'leave'; KH.tt = 0; const paid = falafel >= 1; if (paid) addFalafel(-1); car.nos = 1;
+      toast(paid ? 'מבורך! סוכר = ניטרו' : 'אין לך פלאפל? על חשבון הבית!', (paid ? '−1 🧆 · ' : '') + 'ניטרו מלא'); speak('mabrouk', true); sfx.crunch();
+    } else if (sp > 3 && dcar < 24 && !passed) { KH.st = 'dodge'; KH.tt = 0; KH.vy = 4.8; KH.side = (car.d || 0) > 0 ? -1 : 1; const [h, a] = pick(KH_DODGE); toast(h, 'מוחמד חאלד קפץ בזמן'); speak(a, true); }
+    else if (passed) { KH.st = 'leave'; KH.tt = 0; }
+  } else if (KH.st === 'dodge') {
+    KH.lat = lerp(KH.lat, KH.side * (HW + 1.4), 1 - Math.exp(-dt * 8));
+    if (KH.tt > 2) KH.st = 'leave';
+  }
+  KH.vy -= 16 * dt; KH.y = Math.max(0, KH.y + KH.vy * dt); if (KH.y === 0) KH.vy = 0;
+  if (KH.st === 'leave' && (passed || KH.tt > 6) && dcar > 70) { khOff(); return; }
+  x = PX[i] + RX[i] * KH.lat; z = PZ[i] + RZ[i] * KH.lat;
+  const hop = KH.st === 'wait' ? Math.abs(Math.sin(t * 6)) * 0.06 : 0;
+  KH.root.position.set(x, KH.y + hop, z); KH.root.rotation.y = Math.atan2(car.x - x, car.z - z);
+  KH.arm.rotation.x = KH.st === 'dodge' ? -3.0 + Math.sin(t * 20) * 0.2 : KH.st === 'wait' ? -2.5 + Math.sin(t * 9) * 0.45 : -1.4 + Math.sin(t * 5) * 0.5;
+  // name tag above his fez
+  const rw = engine.getRenderWidth(), rh = engine.getRenderHeight(), kk = innerWidth / rw;
+  _tm.set(x, KH.y + 2.5, z);
+  const p = B.Vector3.Project(_tm, B.Matrix.IdentityReadOnly, scene.getTransformMatrix(), camera.viewport.toGlobal(rw, rh));
+  const vis = dcar < 110 && p.z > 0 && p.z < 1 && p.x > -50 && p.x < rw + 50;
+  KH.tag.hidden = !vis; if (vis) KH.tag.style.transform = `translate(${(p.x * kk).toFixed(1)}px,${(p.y * kk).toFixed(1)}px) translate(-50%,-100%)`;
 }
 
 /* race commentary */
@@ -2972,7 +3085,7 @@ function physics(dt, inp) {
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
-  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; toast(pick(['טורבו נענע!', 'יאללה יאללה!', 'וואלה טס']), ''); } } else if (!inp.nitro) car.boostShout = false;
+  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
   const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
@@ -3024,11 +3137,46 @@ function toast(a, b, bad) { $('t1').textContent = a; $('t2').textContent = b || 
 const RATINGS = [[500, 'וואלה, נחמד'], [1100, 'סבבה אחי'], [2000, 'חלק כמו שמן זית'], [3200, 'יא חביבי!'], [4800, 'על הכיפאק!'], [7000, 'חבל על הזמן!'], [10000, 'כמו חומוס עם הכל'], [14000, 'מלך הכפר'], [20000, 'הדודה מחאה כפיים'], [1e12, 'אגדת השקיעה']];
 const rating = p => RATINGS.find(([m]) => p < m)[1];
 const pick = a => a[(Math.random() * a.length) | 0];
+// ---- shouts (Hebrew on screen) + Arabic voice lines (device speech synthesis, if an Arabic voice exists) ----
+const AR = {
+  yalla: 'يلا يا حبيبي!', walla: 'والله يا حبيبي، دريفت حلو يا عيني!', insha: 'إن شاء الله!', masha: 'ما شاء الله!', salam: 'يا سلام!',
+  shway: 'شوي شوي!', mabrouk: 'مبروك! مبروك يا بطل!', yamajnoon: 'يا مجنون!', baklava: 'بقلاوة! بقلاوة طازة!', onefal: 'حبيبي، بس فلافل وحدة!',
+  yaba: 'يابا! شو هذا؟', bism: 'بسم الله!', khalas: 'خلاص!', yaallah: 'يا الله!', ahlan: 'أهلا وسهلا!', aib: 'عيب عليك!', zay: 'زي الصاروخ!',
+  kunafa: 'استنى استنى! في كنافة كمان!', sabah: 'من الصبح وأنا مستنيك!', ummi: 'بقلاوة إمي، والله!', helu: 'حلوة زي الدريفت تبعك!', habibi: 'حبيبي، تعال!', uff: 'أوووف!'
+};
+const SHOUT = {
+  drift: [['וואלה יחביבי, אחלה של דריפט יאומי!', 'walla'], ['מאשאללה, איזה עשן!', 'masha'], ['יא סלאם על ההחלקה!', 'salam'], ['עשן כמו בטאבון של סבתא', 'uff'], ['הדריפט הזה יגיע לחתונה של הבן דוד', 'masha'], ['אחלה סבבה יא זלמה', 'yalla'], ['תכף מגיעה הדודה לראות', 'yaba'], ['זי א-צארוח! כמו טיל!', 'zay'], ['הצמיגים ביקשו חופש מחלה', 'uff'], ['השכנים חושבים שיש מנגל', 'salam']],
+  combo2: [['יאללה שבאב!', 'yalla'], ['בסמאללה, זה מתחיל!', 'bism'], ['אהלן וסהלן לדריפט!', 'ahlan']],
+  combo4: [['וואלה יחביבי, אחלה של דריפט יאומי!', 'walla'], ['מאשאללה מאשאללה!', 'masha'], ['כל הכפר עומד על הגג!', 'salam']],
+  combo6: [['יא אללה! דריפט של אגדות!', 'yaallah'], ['המוכתר בעצמו מוחא כפיים', 'masha'], ['הדריפט הזה ייכנס לסיפורים של סבא', 'salam']],
+  nitro: [['טורבו נענע!', 'yalla'], ['יאללה יאללה!', 'yalla'], ['וואלה טס', 'zay'], ['זי א-צארוח! כמו טיל!', 'zay'], ['שוואיה שוואיה… לא, דווקא מהר!', 'shway']],
+  sand: [['העיזים בהלם', 'yaba'], ['יצאת לחול, חביבי', 'aib'], ['זה לא כביש, זה כרם זיתים', 'yaba'], ['אינשאללה הצמיגים יחזיקו', 'insha']],
+  crash: [['חאלס עם הקירות!', 'khalas'], ['יא סאתר!', 'yaallah'], ['הדוד ראה הכל', 'aib'], ['מי ישלם על הצמיגים?', 'yaba'], ['הקיר לא זז, אחי', 'khalas'], ['הביטוח לא מכסה את זה', 'insha'], ['אמא שלך ראתה את זה בסטורי', 'aib'], ['עייב עליך! הקיר חדש!', 'aib']],
+  lap: [['יאללה, הקפה אחרונה! אינשאללה!', 'insha'], ['הקפה אחרונה, תן בראש!', 'yalla']]
+};
+let musicOn = store.get('music', true);
+const voice = { on: store.get('voice', true), last: -99, v: null };
+function arVoice() {
+  if (voice.v) return voice.v;
+  try { const vs = speechSynthesis.getVoices(); voice.v = vs.find(v => /^ar[-_]SA/i.test(v.lang)) || vs.find(v => /^ar/i.test(v.lang)) || null; } catch (e) { voice.v = null; }
+  return voice.v;
+}
+try { speechSynthesis.onvoiceschanged = () => { voice.v = null; }; } catch (e) {}
+function speak(key, force) {
+  const text = AR[key] || key;
+  if (!text || !voice.on || !sfx.on || !('speechSynthesis' in window)) return false;
+  const now = performance.now() / 1000; if (!force && now - voice.last < 4.5) return false;
+  const v = arVoice(); if (!v) return false;
+  try { const u = new SpeechSynthesisUtterance(text); u.voice = v; u.lang = v.lang; u.rate = 1.02 + Math.random() * 0.18; u.pitch = 0.85 + Math.random() * 0.55; u.volume = 1; speechSynthesis.cancel(); speechSynthesis.speak(u); voice.last = now; return true; } catch (e) { return false; }
+}
+function sayPick(list) { const [heb, ar] = pick(list); if (ar) speak(ar); return heb; }
+function shout(list, sub, bad) { toast(sayPick(list), sub || '', bad); }
 function bankCombo() {
   const p = Math.round(combo.pts); total += p;
   if (total > best) { best = total; store.set(TK('best'), best); $('best').textContent = fmt(best); }
   const f = p < 700 ? 0 : p < 2500 ? 1 : p < 6000 ? 2 : p < 12000 ? 3 : 5;
   if (p > 150) toast(rating(p), '+' + fmt(p) + (f ? `  ·  +${f} 🧆` : ''));
+  if (p > 2500 && Math.random() < 0.7) { const [h, a] = pick(SHOUT.drift); setTimeout(() => toast(h, ''), 1500); if (a) speak(a); }
   addFalafel(f); combo.pts = 0; combo.time = 0; combo.mult = 1;
 }
 function updFalafel(bump) {
@@ -3042,16 +3190,17 @@ function scoring(dt) {
   const valid = car.drifting && car.vF > 4 && deg > 12 && deg < 115 && !car.grass;
   if (valid) {
     combo.time += dt; combo.grace = 0; combo.mult = Math.min(6, 1 + Math.floor(combo.time / 2.5));
+    if (combo.mult !== combo.lastM) { if (combo.mult === 2 || combo.mult === 4 || combo.mult === 6) shout(SHOUT['combo' + combo.mult], '×' + combo.mult + ' קומבו'); combo.lastM = combo.mult; }
     combo.prox = WALL - Math.abs(car.d) - 1.15 < 3.0;
     combo.tandem = !!nearRival && nearRival.d < 8;
     combo.pts += dt * Math.min(deg, 70) * car.speed * 0.32 * combo.mult * (combo.prox ? 1.6 : 1) * (combo.tandem ? 1.3 : 1);
     car.nos = Math.min(1, car.nos + dt * (combo.prox ? 0.14 : 0.085) * (STAT.turbo ? 1.5 : 1));
   } else if (combo.pts > 0) {
     combo.prox = false; combo.tandem = false; combo.grace += dt;
-    if (car.grass && combo.grace > 0.35) loseCombo(pick(['העיזים בהלם', 'יצאת לחול, חביבי', 'זה לא כביש, זה כרם זיתים'])); else if (combo.grace > 1.4) bankCombo();
+    if (car.grass && combo.grace > 0.35) loseCombo(sayPick(SHOUT.sand)); else if (combo.grace > 1.4) bankCombo();
   }
   if (car.hit > 0) {
-    if (car.hit > 4 && combo.pts > 0) loseCombo(pick(['חאלס עם הקירות!', 'יא סאתר!', 'הדוד ראה הכל', 'מי ישלם על הצמיגים?', 'הקיר לא זז, אחי', 'הביטוח לא מכסה את זה', 'אמא שלך ראתה את זה בסטורי']));
+    if (car.hit > 4 && combo.pts > 0) loseCombo(sayPick(SHOUT.crash));
     camShake = Math.min(1, camShake + car.hit * 0.06); sfx.thud(car.hit); if (car.hit > 4) buzz(Math.min(60, car.hit * 5)); car.hit = 0;
   }
   const i = car.idx;
@@ -3062,6 +3211,7 @@ function scoring(dt) {
     if (lapT <= bestLap + 1e-6 && rec.length > 40) { ghostData = rec; store.set(TK('ghost'), ghostData); }
     resetPickups();
     rec = []; recAcc = 0; lapN++; lapT = 0; half = false; $('lapn').textContent = Math.min(lapN, TOTAL_LAPS);
+    if (lapN === TOTAL_LAPS) setTimeout(() => shout(SHOUT.lap, 'הקפה ' + TOTAL_LAPS + '/' + TOTAL_LAPS), 2600);
   }
   prevIdx = i; lapT += dt; recAcc += dt;
   while (recAcc >= GHOST_DT) { recAcc -= GHOST_DT; rec.push(+car.x.toFixed(2), +car.z.toFixed(2), +car.h.toFixed(3)); }
@@ -3116,6 +3266,64 @@ const sfx = (() => {
       nodes.sg.gain.setTargetAtTime(active ? slip * 0.22 : 0, t, 0.06);
       nodes.bp.frequency.setTargetAtTime(1300 + slip * 600, t, 0.1);
       nodes.ng.gain.setTargetAtTime(active && car.boost ? 0.09 : 0, t, 0.08);
+    },
+    // ---- Arabic-style music: hijaz maqam on D, oud plucks, ney phrases, bass and darbuka in maqsum rhythm ----
+    music(level) {
+      if (!nodes) return; const t = ctx.currentTime;
+      if (!this._mg) { this._mg = ctx.createGain(); this._mg.gain.value = 0; this._mg.connect(nodes.master); this._mt = t + 0.1; this._mstep = 0; this._bar = 0; }
+      this._mg.gain.setTargetAtTime(musicOn ? level : 0, t, 0.5);
+      if (!musicOn || level <= 0.001) { this._mt = t + 0.1; this._mstep = 0; return; }
+      const e8 = 60 / 108 / 2, root = 146.83, HJ = [-5, -4, 0, 1, 4, 5, 7, 8, 10, 12, 13, 16];
+      const f = d => d == null ? 0 : root * 2 * Math.pow(2, HJ[Math.min(HJ.length - 1, Math.max(0, d + 2))] / 12);
+      const MAQSUM = [1, 2, 0, 2, 1, 0, 2, 0];
+      const MOTIFS = [
+        [[0, 2], [1, 1], [2, 1], [3, 2], [4, 2], [3, 1], [2, 1], [1, 2], [0, 4]],
+        [[4, 1], [5, 1], [4, 1], [3, 1], [2, 2], [1, 2], [2, 1], [3, 1], [2, 2], [0, 4]],
+        [[7, 2], [6, 1], [5, 1], [4, 2], [5, 1], [4, 1], [3, 2], [2, 2], [1, 2], [0, 2]],
+        [[0, 1], [0, 1], [2, 1], [1, 1], [2, 2], [4, 2], [3, 1], [2, 1], [3, 1], [2, 1], [1, 2], [0, 2]],
+        [[4, 3], [3, 1], [2, 2], [1, 1], [2, 1], [3, 2], [4, 2], [null, 2], [0, 2]],
+        [[2, 1], [4, 1], [5, 1], [7, 1], [6, 2], [5, 1], [4, 1], [5, 2], [4, 1], [2, 1], [1, 2], [0, 2]]
+      ];
+      while (this._mt < t + 0.3) {
+        const s = this._mstep % 16, tt = this._mt;
+        if (s === 0) { this._bar++; this._motif = MOTIFS[(Math.random() * MOTIFS.length) | 0]; this._mi = 0; this._mnext = 0;
+          if (this._bar % 8 === 4 && Math.random() < 0.6) setTimeout(() => speak(pick(['yalla', 'habibi', 'salam', 'masha', 'uff'])), 200); }
+        const k = MAQSUM[s % 8]; if (k) this._darb(tt, k, 1); else if (Math.random() < 0.35) this._darb(tt, 2, 0.4);
+        if (s % 8 === 0) this._bass(tt, s === 0 ? root / 2 : root / 2 * 1.4983);
+        if (s === this._mnext && this._mi < this._motif.length) { const [deg, len] = this._motif[this._mi++]; if (deg != null) this._oud(tt, f(deg), e8 * len); this._mnext = s + len; }
+        if (s === 0 && this._bar % 4 === 2) this._ney(tt, f(pick([4, 6, 5])) * 2, e8 * 12);
+        this._mstep++; this._mt += e8;
+      }
+    },
+    _darb(tt, k, v) {
+      const g = ctx.createGain(); g.connect(this._mg);
+      if (k === 1) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(130, tt); o.frequency.exponentialRampToValueAtTime(58, tt + 0.16); g.gain.setValueAtTime(0.55 * v, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.22); o.connect(g); o.start(tt); o.stop(tt + 0.24); }
+      else { const s2 = ctx.createBufferSource(); s2.buffer = nodes.buf; const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 3300; f2.Q.value = 1.6; g.gain.setValueAtTime(0.32 * v, tt); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.055); s2.connect(f2).connect(g); s2.start(tt, Math.random()); s2.stop(tt + 0.07); }
+    },
+    _bass(tt, fr) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = fr; g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.3, tt + 0.02); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.6); o.connect(g).connect(this._mg); o.start(tt); o.stop(tt + 0.65); },
+    _oud(tt, fr, dur) { // plucked: detuned saws through a closing lowpass; long notes get the oud tremolo (repeated plucks)
+      const n = dur > 0.5 ? Math.floor(dur / 0.085) : 1, step = dur / n;
+      for (let i = 0; i < n; i++) { const t0 = tt + i * step, a = i ? 0.13 : 0.24;
+        const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+        o1.type = 'sawtooth'; o2.type = 'triangle'; o1.frequency.value = fr; o2.frequency.value = fr * 2.003;
+        lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(3200, t0); lp.frequency.exponentialRampToValueAtTime(700, t0 + 0.3);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(a, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t0 + Math.min(0.55, step + 0.25));
+        o1.connect(lp); o2.connect(lp); lp.connect(g).connect(this._mg); o1.start(t0); o2.start(t0); o1.stop(t0 + 0.6); o2.stop(t0 + 0.6); }
+    },
+    _ney(tt, fr, dur) { // breathy flute with slow vibrato
+      const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(fr * 0.97, tt); o.frequency.linearRampToValueAtTime(fr, tt + 0.15);
+      lfo.frequency.value = 5.2; lg.gain.value = fr * 0.012; lfo.connect(lg).connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.09, tt + 0.35); g.gain.setValueAtTime(0.09, tt + dur - 0.4); g.gain.linearRampToValueAtTime(0.0001, tt + dur);
+      const s = ctx.createBufferSource(); s.buffer = nodes.buf; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fr * 2; bp.Q.value = 6; const ng = ctx.createGain(); ng.gain.value = 0.25;
+      s.connect(bp).connect(ng).connect(g); o.connect(g).connect(this._mg); o.start(tt); lfo.start(tt); s.start(tt, Math.random()); o.stop(tt + dur + 0.05); lfo.stop(tt + dur + 0.05); s.stop(tt + dur + 0.05);
+    },
+    zaghrouta() { // celebratory trill
+      if (!nodes || !on) return; const t = ctx.currentTime;
+      for (const [f0, d0] of [[1250, 0], [1480, 0.12]]) { const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f0; lfo.type = 'triangle'; lfo.frequency.value = 11 + d0 * 8; lg.gain.value = 170; lfo.connect(lg).connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t + d0); g.gain.linearRampToValueAtTime(0.09, t + d0 + 0.15); g.gain.setValueAtTime(0.09, t + d0 + 1.9); g.gain.linearRampToValueAtTime(0.0001, t + d0 + 2.3);
+        o.connect(g).connect(nodes.comp); o.start(t + d0); lfo.start(t + d0); o.stop(t + d0 + 2.4); lfo.stop(t + d0 + 2.4); }
     },
     shift() { if (!nodes || !on) return; const t = ctx.currentTime; this._shiftUntil = t + 0.11;
       const s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 3; const g = ctx.createGain(); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.06); },
@@ -3279,6 +3487,9 @@ function syncVisuals(dt) {
     if (w.front) w.pivot.rotation.y = car.steer * 0.52 + (car.drifting ? clamp(car.slip * 0.4, -0.25, 0.25) : 0);
   }
   CAR.spinners.forEach(n => n.rotation.x += dt * 2.6);
+  if (CAR.flag) { const v = car.speed || 0; CAR.flag.rotation.y = Math.sin(elapsed * (5 + v * 0.35)) * (0.35 - Math.min(0.25, v * 0.006)); CAR.flag.rotation.x = -Math.min(0.45, v * 0.012) + Math.sin(elapsed * 13) * 0.03 * Math.min(1, v / 10); }
+  curbSparks.emitRate = state === 'drive' && car.onCurb && (car.speed || 0) > 12 && quality !== 'turbo' ? 180 : 0;
+  if (curbSparks.emitRate) curbSparks.emitter = CAR.root.position;
   if (CAR.eq.neon === 'rainbow' && CAR.neonMat) { const c = B.Color3.FromHSV((elapsed * 90) % 360, 0.8, 1); CAR.neonMat.emissiveColor.set(c.r * 2.4, c.g * 2.4, c.b * 2.4); }
   const inp = readInput();
   CAR.tailMat.emissiveColor.set(2.2, 0.08, 0.1).scaleInPlace((inp.brk || inp.hb) && car.vF > 0.5 && state === 'drive' ? 3.5 : 1);
@@ -3386,6 +3597,9 @@ function segInit(id, cur, cb) { const el = $(id); const upd = v => el.querySelec
 document.querySelectorAll('#q1').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setQuality(b.dataset.q); }));
 segInit('assist', assist, v => { assist = v; store.set('assist', v); });
 segInit('sound', sfx.on, v => { sfx.init(); sfx.set(v); });
+segInit('music', musicOn, v => { musicOn = v; store.set('music', v); sfx.init(); sfx.resume(); });
+segInit('voice', voice.on, v => { voice.on = v; store.set('voice', v); if (v) speak('yalla', true); });
+addEventListener('pointerdown', () => { sfx.init(); sfx.resume(); }, { once: true });
 /* track picker */
 $('eyebrow').textContent = `${TRACK.name} · ${TRACK.len} ק״מ`;
 $('tracks').innerHTML = TRACKS.map(t => `<button type="button" class="trk" data-t="${t.id}" aria-pressed="${t.id === TRACK.id}"><b>${t.name}</b><span>${t.desc}</span></button>`).join('');
@@ -3450,7 +3664,7 @@ function startGame() {
   if (state !== 'menu') return;
   sfx.init(); sfx.resume();
   $('start').hidden = true; showTouch(COARSE);
-  resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1'; resetRivals(); raceT = 0; setDOF(false);
+  finishPaid = false; khOff(); resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1'; resetRivals(); raceT = 0; setDOF(false);
   camPos.set(car.x - Math.sin(car.h) * 9, 3.2, car.z - Math.cos(car.h) * 9);
   state = 'count'; countT = 0; countStep = -1;
   canvas.focus({ preventScroll: true });
@@ -3465,8 +3679,18 @@ function countdown(dt) {
     if (step >= 3) state = 'drive';
   }
 }
+let finishPaid = false;
+const PRIZE = p => p === 1 ? 30 : p === 2 ? 20 : p === 3 ? 15 : p <= 5 ? 10 : p <= 8 ? 6 : 3;
 function finishRace() {
   state = 'finished';
+  if (!finishPaid) {
+    finishPaid = true;
+    const base = PRIZE(place), bonus = Math.min(10, Math.floor(total / 1000)), prize = base + bonus, el = $('fin-prize');
+    addFalafel(prize); let c = 0; el.textContent = '+0 🧆';
+    const iv = setInterval(() => { c = Math.min(prize, c + Math.max(1, Math.ceil(prize / 24))); el.textContent = `+${c} 🧆`; if (c >= prize) clearInterval(iv); }, 45);
+    $('fin-prize-note').textContent = `${base} פלאפלים על מקום ${place}` + (bonus ? ` + ${bonus} בונוס דריפט` : '') + ' · הדודה כבר מטגנת';
+    if (place === 1) { sfx.zaghrouta(); speak('mabrouk', true); confettiBurst(); } else speak(place <= 3 ? 'masha' : 'insha', true);
+  }
   $('fin-pos').textContent = `${place}/${rivalsShown + 1}`;
   $('fin-time').textContent = fmtT(raceT);
   $('fin-score').textContent = fmt(total);
@@ -3535,7 +3759,8 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt);
+  sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
   motes.emitter.copyFrom(camera.position);
@@ -3558,6 +3783,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
