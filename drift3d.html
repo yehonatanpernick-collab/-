@@ -482,20 +482,101 @@ function normalFrom(src, strength) {
     x.putImageData(out, 0, 0);
   });
 }
-// asphalt: u along, v across
-const asphaltC = mkCanvas(1024, 512, (x, w, h) => {
-  noiseFill(x, w, h, [78, 75, 76], 30, 0.005);
-  const g = x.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(.3, 'rgba(0,0,0,.16)'); g.addColorStop(.5, 'rgba(0,0,0,.26)'); g.addColorStop(.7, 'rgba(0,0,0,.16)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-  x.fillStyle = g; x.fillRect(0, 0, w, h);
-  for (let i = 0; i < 26; i++) { x.fillStyle = `rgba(18,18,20,${.05 + R0() * .09})`; x.beginPath(); x.ellipse(R0() * w, R0() * h, 30 + R0() * 120, 8 + R0() * 30, 0, 0, 7); x.fill(); }
-  for (let i = 0; i < 16; i++) { x.strokeStyle = `rgba(12,12,12,${.3 + R0() * .3})`; x.lineWidth = 1.5 + R0() * 2.5; x.beginPath(); let px = R0() * w, py = R0() * h; x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += (R0() - .3) * 40; py += (R0() - .5) * 30; x.lineTo(px, py); } x.stroke(); }
-  x.fillStyle = '#ebe5d9'; x.fillRect(0, h * 0.03, w, h * 0.014); x.fillRect(0, h * 0.956, w, h * 0.014);
-  x.fillStyle = 'rgba(235,229,217,.8)'; for (let i = 0; i < 2; i++) x.fillRect(i * w / 2 + 40, h * 0.494, w / 4, h * 0.012);
+// ---- tileable noise helpers (wrap-around so textures tile seamlessly) ----
+function tileNoise(w, h, cx, cy, seed) {
+  const r = rng(seed), L = new Float32Array(cx * cy); for (let i = 0; i < L.length; i++) L[i] = r();
+  const out = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) {
+    const fy = j / h * cy, y0 = Math.floor(fy), ty = fy - y0, sy = ty * ty * (3 - 2 * ty), y1 = (y0 + 1) % cy;
+    for (let i = 0; i < w; i++) {
+      const fx = i / w * cx, x0 = Math.floor(fx), tx = fx - x0, sx = tx * tx * (3 - 2 * tx), x1 = (x0 + 1) % cx;
+      const a = L[y0 * cx + x0], b = L[y0 * cx + x1], c = L[y1 * cx + x0], d = L[y1 * cx + x1];
+      out[j * w + i] = (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    }
+  }
+  return out;
+}
+function fbmTile(w, h, base, oct, seed) {
+  const out = new Float32Array(w * h); let amp = 0.5, tot = 0;
+  for (let o = 0; o < oct; o++) {
+    const cx = base << o, cy = Math.max(1, Math.round(cx * h / w)), n = tileNoise(w, h, cx, cy, seed + o * 31);
+    for (let i = 0; i < out.length; i++) out[i] += n[i] * amp;
+    tot += amp; amp *= 0.5;
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= tot;
+  return out;
+}
+function normalCanvasFromH(H, w, h, strength) {
+  return mkCanvas(w, h, (x) => {
+    const img = x.createImageData(w, h), o = img.data;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const l = H[j * w + (i + w - 1) % w], r = H[j * w + (i + 1) % w], u = H[((j + h - 1) % h) * w + i], d = H[((j + 1) % h) * w + i];
+      const dx = (r - l) * strength, dy = (d - u) * strength, n = Math.hypot(dx, dy, 1), k = (j * w + i) * 4;
+      o[k] = (-dx / n * 0.5 + 0.5) * 255; o[k + 1] = (-dy / n * 0.5 + 0.5) * 255; o[k + 2] = (1 / n * 0.5 + 0.5) * 255; o[k + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+  });
+}
+function rmCanvas(w, h, AO, RO) { // R = ambient occlusion, G = roughness, B = metallic (0)
+  return mkCanvas(w, h, (x) => {
+    const img = x.createImageData(w, h), o = img.data;
+    for (let i = 0; i < w * h; i++) { o[i * 4] = clamp(AO[i], 0, 1) * 255; o[i * 4 + 1] = clamp(RO[i], 0.02, 1) * 255; o[i * 4 + 2] = 0; o[i * 4 + 3] = 255; }
+    x.putImageData(img, 0, 0);
+  });
+}
+function bindRM(mat, tex) {
+  mat.metallicTexture = tex; mat.useRoughnessFromMetallicTextureGreen = true; mat.useMetallnessFromMetallicTextureBlue = true;
+  mat.useAmbientOcclusionFromMetallicTextureRed = true; mat.useRoughnessFromMetallicTextureAlpha = false; mat.metallic = 1; mat.roughness = 1;
+}
+// asphalt: u along (24 m), v across. Stone aggregate + binder, worn tire lanes, oil, tar seams, paint lines.
+const AW = 2048, AH = 1024;
+const asphaltHt = (() => {
+  const H = fbmTile(AW, AH, 8, 6, 101), g = tileNoise(AW, AH, 512, 256, 77);
+  for (let i = 0; i < H.length; i++) H[i] = H[i] * 0.45 + g[i] * 0.25;
+  const r = rng(55);
+  for (let s = 0; s < 26000; s++) { // aggregate stones
+    const cx = r() * AW | 0, cy = r() * AH | 0, rad = 1 + r() * 2.6, hgt = 0.25 + r() * 0.35, R = Math.ceil(rad);
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const q = 1 - (dx * dx + dy * dy) / (rad * rad); if (q <= 0) continue;
+      const k = ((cy + dy + AH) % AH) * AW + (cx + dx + AW) % AW; H[k] = Math.max(H[k], H[k] * 0.5 + hgt * Math.sqrt(q));
+    }
+  }
+  return H;
+})();
+const asphaltLanes = new Float32Array(AH); // 0..1 tire wear across the road
+for (let j = 0; j < AH; j++) { const v = j / AH; asphaltLanes[j] = Math.exp(-((v - 0.32) ** 2) / 0.004) + Math.exp(-((v - 0.68) ** 2) / 0.004); }
+const asphaltBig = fbmTile(AW, AH, 4, 3, 303);
+const asphaltC = mkCanvas(AW, AH, (x, w, h) => {
+  const img = x.createImageData(w, h), d = img.data, H = asphaltHt;
+  for (let j = 0; j < h; j++) {
+    const v = j / h, lane = asphaltLanes[j], oil = Math.exp(-((v - 0.5) ** 2) / 0.0025);
+    for (let i = 0; i < w; i++) {
+      const k = j * w + i, hh = H[k], big = asphaltBig[k];
+      let c = 46 + hh * 70 + (big - 0.5) * 26 - lane * 10 - oil * (big > 0.5 ? 14 : 6);
+      const stone = hh > 0.42 ? (hh - 0.42) * 120 : 0;
+      d[k * 4] = clamp(c + stone * 1.05, 0, 255); d[k * 4 + 1] = clamp(c + stone, 0, 255); d[k * 4 + 2] = clamp(c + 2 + stone * 0.9, 0, 255); d[k * 4 + 3] = 255;
+    }
+  }
+  x.putImageData(img, 0, 0);
+  const r = rng(91);
+  for (let i = 0; i < 9; i++) { // tar crack sealant
+    x.strokeStyle = `rgba(14,14,15,${.55 + r() * .3})`; x.lineWidth = 3 + r() * 4; x.lineCap = 'round'; x.beginPath();
+    let px = r() * w, py = r() * h; x.moveTo(px, py); for (let k = 0; k < 14; k++) { px += (r() - .3) * 70; py += (r() - .5) * 50; x.lineTo(px, py); } x.stroke();
+  }
+  for (let i = 0; i < 30; i++) { x.strokeStyle = `rgba(10,10,10,${.3 + r() * .35})`; x.lineWidth = 1 + r() * 1.5; x.beginPath(); let px = r() * w, py = r() * h; x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (r() - .5) * 30; py += (r() - .5) * 30; x.lineTo(px, py); } x.stroke(); }
+  for (let i = 0; i < 14; i++) { x.fillStyle = `rgba(8,8,10,${.08 + r() * .1})`; x.beginPath(); x.ellipse(r() * w, h * (0.42 + r() * 0.16), 40 + r() * 140, 10 + r() * 24, 0, 0, 7); x.fill(); }
+  // paint: worn edge lines + dashed centre
+  const paint = (y0, hh, x0, ww, a) => { const im = x.getImageData(x0, y0, ww, hh), p = im.data;
+    for (let q = 0; q < p.length; q += 4) { const t = (0.75 + r() * 0.25) * a; p[q] = p[q] * (1 - t) + 236 * t; p[q + 1] = p[q + 1] * (1 - t) + 230 * t; p[q + 2] = p[q + 2] * (1 - t) + 218 * t; }
+    x.putImageData(im, x0, y0); };
+  paint(Math.round(h * 0.03), Math.round(h * 0.014), 0, w, 0.92); paint(Math.round(h * 0.956), Math.round(h * 0.014), 0, w, 0.92);
+  for (let i = 0; i < 2; i++) paint(Math.round(h * 0.494), Math.round(h * 0.012), Math.round(i * w / 2 + 80), Math.round(w / 4), 0.8);
 });
-const asphaltH = blurCanvas(mkCanvas(512, 256, (x, w, h) => noiseFill(x, w, h, [128, 128, 128], 120)), 0.6);
 const asphaltTex = texFrom('asphalt', asphaltC);
-const asphaltN = texFrom('asphaltN', normalFrom(asphaltH, 2.2), { linear: true });
+const asphaltN = texFrom('asphaltN', normalCanvasFromH(asphaltHt, AW, AH, 5.5), { linear: true });
+const asphaltRM = texFrom('asphaltRM', rmCanvas(AW, AH, (() => { const a = new Float32Array(AW * AH); for (let i = 0; i < a.length; i++) a[i] = 0.55 + asphaltHt[i] * 0.6; return a; })(),
+  (() => { const a = new Float32Array(AW * AH); for (let j = 0; j < AH; j++) { const v = j / AH, oil = Math.exp(-((v - 0.5) ** 2) / 0.0025), lane = asphaltLanes[j];
+    for (let i = 0; i < AW; i++) { const k = j * AW + i; a[k] = 0.86 - lane * 0.2 - oil * (asphaltBig[k] > 0.5 ? 0.45 : 0.15) - (asphaltHt[k] > 0.42 ? 0.12 : 0); } } return a; })()), { linear: true });
 const curbTex = texFrom('curb', mkCanvas(256, 64, (x, w, h) => { x.fillStyle = '#c51f2b'; x.fillRect(0, 0, w / 2, h); x.fillStyle = '#efe9df'; x.fillRect(w / 2, 0, w / 2, h); x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(0, h - 6, w, 6); }));
 const gravelC = mkCanvas(512, 256, (x, w, h) => noiseFill(x, w, h, [150, 128, 100], 70, 0.03));
 const gravelTex = texFrom('gravel', gravelC);
@@ -504,33 +585,59 @@ const tireWallTex = texFrom('tirewall', mkCanvas(256, 64, (x, w, h) => {
   for (let i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#d2cabd' : '#a8202a'; x.fillRect(i * 64, 0, 64, h); }
   x.fillStyle = 'rgba(0,0,0,.55)'; for (let i = 0; i < 4; i++) x.fillRect(0, i * 16 + 13, w, 3);
 }));
-// limestone block masonry
-const stoneH = mkCanvas(512, 512, (x, w, h) => {
-  x.fillStyle = '#3a3a3a'; x.fillRect(0, 0, w, h);
-  const rowH = 32;
-  for (let y = 0; y < h; y += rowH) {
-    let px = -(R0() * 60);
-    while (px < w) {
-      const bw = 44 + R0() * 50, v = 150 + R0() * 80;
-      x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(px + 2, y + 2, bw - 4, rowH - 4);
-      for (let k = 0; k < 14; k++) { const s = 120 + R0() * 110; x.fillStyle = `rgba(${s},${s},${s},.35)`; x.fillRect(px + 2 + R0() * (bw - 8), y + 2 + R0() * (rowH - 8), 2 + R0() * 6, 2 + R0() * 4); }
+var stoneHt_tone;
+// limestone block masonry: bevelled blocks, chips, weather streaks, recessed mortar
+const SW = 1024;
+const stoneHt = (() => {
+  const H = new Float32Array(SW * SW), ID = new Float32Array(SW * SW), n = fbmTile(SW, SW, 16, 5, 211), r = rng(17), rowH = 64;
+  for (let i = 0; i < H.length; i++) H[i] = 0.08 + n[i] * 0.1;
+  for (let y = 0; y < SW; y += rowH) {
+    let px = -(r() * 120) | 0;
+    while (px < SW) {
+      const bw = (88 + r() * 100) | 0, tone = r(), bev = 7;
+      for (let j = 2; j < rowH - 2; j++) for (let i = 2; i < bw - 2; i++) {
+        const xx = (px + i + SW) % SW, k = (y + j) * SW + xx, e = Math.min(i - 2, bw - 3 - i, j - 2, rowH - 3 - j);
+        const b = e >= bev ? 1 : Math.sqrt(e / bev);
+        H[k] = 0.35 + b * 0.5 + (n[k] - 0.5) * 0.35; ID[k] = tone;
+      }
+      for (let c = 0; c < 4; c++) { // chipped corners/edges
+        const cx = px + (r() < .5 ? 4 : bw - 4) + (r() - .5) * 30, cy = y + (r() < .5 ? 4 : rowH - 4), cr = 4 + r() * 9;
+        for (let dy = -cr; dy <= cr; dy++) for (let dx = -cr; dx <= cr; dx++) { if (dx * dx + dy * dy > cr * cr) continue; const yy = Math.round(cy + dy); if (yy < 0 || yy >= SW) continue; const k = yy * SW + (Math.round(cx + dx) + SW) % SW; H[k] = Math.min(H[k], 0.3 + r() * 0.15); }
+      }
       px += bw;
     }
   }
-});
-const stoneTex = texFrom('stone', mkCanvas(512, 512, (x, w, h) => {
-  x.drawImage(stoneH, 0, 0);
-  const img = x.getImageData(0, 0, w, h), d = img.data;
-  for (let i = 0; i < d.length; i += 4) { const v = (R0() - .5) * 16, s = d[i] / 255; d[i] = clamp(120 + s * 125 + v, 0, 255); d[i + 1] = clamp(112 + s * 118 + v, 0, 255); d[i + 2] = clamp(98 + s * 104 + v, 0, 255); }
+  stoneHt_tone = ID;
+  return H;
+})();
+const stoneTex = texFrom('stone', mkCanvas(SW, SW, (x, w, h) => {
+  const img = x.createImageData(w, h), d = img.data, streak = tileNoise(w, h, 96, 3, 5), fine = tileNoise(w, h, 256, 256, 9);
+  for (let k = 0; k < w * h; k++) {
+    const hh = stoneHt[k], t = stoneHt_tone[k], mortar = hh < 0.3, s = (streak[k] - 0.5) * 30, f = (fine[k] - 0.5) * 22;
+    let R, G, Bc;
+    if (mortar) { R = 150 + f; G = 140 + f; Bc = 124 + f; }
+    else { const base = 196 + (t - 0.5) * 36 + (hh - 0.8) * 60 + f - Math.max(0, s); R = base + 6 + t * 8; G = base - 2; Bc = base - 22 - t * 10; }
+    d[k * 4] = clamp(R, 0, 255); d[k * 4 + 1] = clamp(G, 0, 255); d[k * 4 + 2] = clamp(Bc, 0, 255); d[k * 4 + 3] = 255;
+  }
   x.putImageData(img, 0, 0);
 }));
-const stoneN = texFrom('stoneN', normalFrom(blurCanvas(stoneH, 0.7), 3.2), { linear: true });
-const groundC = mkCanvas(512, 512, (x, w, h) => {
-  noiseFill(x, w, h, [190, 182, 160], 46, 0.01);
-  for (let i = 0; i < 120; i++) { x.fillStyle = `rgba(${R0() < .5 ? '80,90,50' : '150,130,100'},${.05 + R0() * .12})`; x.beginPath(); x.arc(R0() * w, R0() * h, 4 + R0() * 26, 0, 7); x.fill(); }
+const stoneN = texFrom('stoneN', normalCanvasFromH(stoneHt, SW, SW, 9), { linear: true });
+const stoneRM = texFrom('stoneRM', rmCanvas(SW, SW, (() => { const a = new Float32Array(SW * SW); for (let i = 0; i < a.length; i++) a[i] = stoneHt[i] < 0.3 ? 0.45 : 0.7 + stoneHt[i] * 0.35; return a; })(),
+  (() => { const a = new Float32Array(SW * SW); for (let i = 0; i < a.length; i++) a[i] = stoneHt[i] < 0.3 ? 0.98 : 0.8 + (1 - stoneHt[i]) * 0.25; return a; })()), { linear: true });
+// desert ground: dusty soil, pebbles, dry scrub patches
+const GW = 1024;
+const groundHt = fbmTile(GW, GW, 8, 6, 404);
+const groundC = mkCanvas(GW, GW, (x, w, h) => {
+  const img = x.createImageData(w, h), d = img.data, patch = fbmTile(w, h, 4, 3, 505), r = rng(66);
+  for (let k = 0; k < w * h; k++) {
+    const hh = groundHt[k], p = patch[k], v = (r() - 0.5) * 18, gr = clamp((p - 0.58) * 4, 0, 1);
+    d[k * 4] = clamp(178 + hh * 40 - gr * 70 + v, 0, 255); d[k * 4 + 1] = clamp(166 + hh * 36 - gr * 44 + v, 0, 255); d[k * 4 + 2] = clamp(138 + hh * 30 - gr * 70 + v, 0, 255); d[k * 4 + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  for (let i = 0; i < 1800; i++) { const s = 90 + r() * 110, px = r() * w, py = r() * h, rr = 1 + r() * 3; x.fillStyle = `rgba(40,34,26,.25)`; x.beginPath(); x.arc(px + 1, py + 1, rr, 0, 7); x.fill(); x.fillStyle = `rgb(${s + 10},${s},${s - 14})`; x.beginPath(); x.arc(px, py, rr, 0, 7); x.fill(); }
 });
-const groundTex = texFrom('ground', groundC, { uScale: 240, vScale: 240 });
-const groundN = texFrom('groundN', normalFrom(blurCanvas(groundC, 1), 2), { linear: true, uScale: 240, vScale: 240 });
+const groundTex = texFrom('ground', groundC, { uScale: 120, vScale: 120 });
+const groundN = texFrom('groundN', normalCanvasFromH(groundHt, GW, GW, 4), { linear: true, uScale: 120, vScale: 120 });
 const puffTex = texFrom('puff', mkCanvas(128, 128, (x, w, h) => {
   for (let i = 0; i < 26; i++) {
     const cx = w / 2 + (R0() - .5) * 46, cy = h / 2 + (R0() - .5) * 46, r = 18 + R0() * 30;
@@ -605,7 +712,8 @@ function strip(name, offA, yA, offB, yB, along, mat, wallSign = 0) {
   m.isPickable = false; m.freezeWorldMatrix();
   return m;
 }
-const roadMat = pbr('road', { tex: asphaltTex, bump: asphaltN, bumpLevel: 0.7, rough: 0.6, twoSided: true });
+const roadMat = pbr('road', { tex: asphaltTex, bump: asphaltN, bumpLevel: 0.85, rough: 0.6, twoSided: true });
+bindRM(roadMat, asphaltRM);
 const curbMat = pbr('curb', { tex: curbTex, rough: 0.55, twoSided: true });
 const gravelMat = pbr('gravel', { tex: gravelTex, bump: gravelN, rough: 1, twoSided: true });
 const wallMat = pbr('wall', { tex: tireWallTex, rough: 0.8, twoSided: true });
@@ -684,7 +792,8 @@ const MB = B.MeshBuilder;
 const box = n => MB.CreateBox(n, { size: 1 }, scene);
 const cyl = (n, top = 1, bot = 1, tess = 16) => MB.CreateCylinder(n, { height: 1, diameterTop: top, diameterBottom: bot, tessellation: tess }, scene);
 
-const stoneMat = pbr('stoneM', { tex: stoneTex, bump: stoneN, bumpLevel: 0.9, rough: 0.92 });
+const stoneMat = pbr('stoneM', { tex: stoneTex, bump: stoneN, bumpLevel: 1, rough: 0.92 });
+bindRM(stoneMat, stoneRM);
 const slabMat = pbr('slabM', { tex: stoneTex, rough: 0.95 });
 const glassDark = pbr('winM', { color: 0x0d0f12, rough: 0.18, metal: 0.2 });
 const winLitMat = pbr('winLitM', { color: 0x1a120a, rough: 0.4, emissive: new B.Color3(0, 0, 0) });
@@ -743,6 +852,12 @@ kit('lamp', box('lampH'), lampMat, { cast: false, colors: false });
   kit('pool', MB.CreateGround('pool', { width: 1, height: 1 }, scene), pm, { cast: false, colors: false });
 }
 kit('cone', cyl('cone', 0.05, 1, 12), coneMat, { colors: false });
+// volumetric-looking light cones under street lamps (night) — additive, no depth write
+const coneGradTex = texFrom('coneGrad', mkCanvas(8, 128, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(1, 'rgba(255,255,255,0.9)'); g.addColorStop(0.65, 'rgba(255,255,255,0.3)'); g.addColorStop(0, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }), { clampUV: true });
+coneGradTex.hasAlpha = true;
+const beamMat = unlit('beamM', new B.Color3(1, 0.72, 0.4).scale(0.35), 1, true);
+beamMat.opacityTexture = coneGradTex; beamMat.backFaceCulling = false; beamMat.disableDepthWrite = true;
+kit('lampCone', MB.CreateCylinder('lampCone', { height: 1, diameterTop: 0.12, diameterBottom: 1, tessellation: 20, cap: B.Mesh.NO_CAP }, scene), beamMat, { cast: false, colors: false });
 
 /* ================= village life kits ================= */
 const lin = c => c.map(v => Math.pow(v, 2.2));
@@ -1160,6 +1275,7 @@ for (let i = 0, k = 0; i < N; i += 44, k++) {
   put('arm', x + ax * 1.2, 9.9, z + az * 1.2, 0.14, 0.14, 2.6, yaw);
   put('lamp', x + ax * 2.4, 9.8, z + az * 2.4, 0.7, 0.18, 1.1, yaw);
   put('pool', x + ax * 4, 0.07, z + az * 4, 18, 1, 18);
+  put('lampCone', x + ax * 2.4, 4.85, z + az * 2.4, 6.5, 9.6, 6.5);
   POLES.push([x + ax * 2.4, z + az * 2.4]);
 }
 for (let i = 0; i < N; i += 6) {
@@ -1717,6 +1833,13 @@ const grimeTex = texFrom('grime', mkCanvas(512, 512, (x, w, h) => {
   for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(${90 + R0() * 40 | 0},${80 + R0() * 30 | 0},${70 + R0() * 20 | 0},${.04 + R0() * .09})`; x.beginPath(); x.ellipse(R0() * w, R0() * h, 4 + R0() * 40, 3 + R0() * 18, R0() * 3, 0, 7); x.fill(); }
   for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(${120 + R0() * 40 | 0},${60 + R0() * 20 | 0},${30},${.12 + R0() * .2})`; x.beginPath(); x.arc(R0() * w, R0() * h, 1 + R0() * 5, 0, 7); x.fill(); }
 }));
+// metallic flake normal map: random micro-facets under the clear coat
+const flakeN = texFrom('flakeN', mkCanvas(256, 256, (x, w, h) => {
+  const img = x.createImageData(w, h), d = img.data, r = rng(321);
+  for (let i = 0; i < w * h; i++) { const a = r() * 6.283, t = r() * 0.5; d[i * 4] = (Math.cos(a) * t * 0.5 + 0.5) * 255; d[i * 4 + 1] = (Math.sin(a) * t * 0.5 + 0.5) * 255; d[i * 4 + 2] = 255; d[i * 4 + 3] = 255; }
+  x.putImageData(img, 0, 0);
+}), { linear: true, uScale: 40, vScale: 40 });
+flakeN.updateSamplingMode(B.Texture.NEAREST_LINEAR_MIPLINEAR);
 function applyPaint(pm, M, eq, hexOverride) {
   const pc = PAINTCOLS.find(p => p.id === eq.paint) || PAINTCOLS[0];
   const shine = eq.polish === 'shine';
@@ -1725,6 +1848,8 @@ function applyPaint(pm, M, eq, hexOverride) {
   pm.roughness = pc.rough ?? (shine ? 0.28 : 0.58);
   pm.clearCoat.intensity = shine || pc.metal ? 1 : 0.15; pm.clearCoat.roughness = shine ? 0.04 : 0.4;
   pm.albedoTexture = shine ? null : grimeTex;
+  const flaky = shine || (pc.metal ?? 0) > 0.3;
+  pm.bumpTexture = flaky ? flakeN : null; if (flaky) pm.bumpTexture.level = 0.22;
 }
 const carMats = {
   glass: pbr('glass', { color: 0x07090c, metal: 0.1, rough: 0.05, env: 1.4 }),
@@ -1970,12 +2095,13 @@ function applyStats(M) {
   const cn = $('carname'); if (cn) cn.textContent = M.name;
 }
 function installCar(newCar, M) {
-  if (CAR) disposeCar(CAR);
+  if (CAR) { if (headBeam.parent === CAR.root) headBeam.parent = null; disposeCar(CAR); }
   CAR = newCar;
   CAR.meshes.forEach(m => { if (!CAR.flames.includes(m)) caster(m); });
   CAR.glowMeshes.forEach(m => glow.addIncludedOnlyMesh(m));
   CAR.root.position.set(car.x, 0, car.z); CAR.root.rotation.y = car.h;
   CAR.spot.intensity = (typeof timeMode !== 'undefined' && TIMES[timeMode]) ? TIMES[timeMode].head : 260;
+  attachHeadBeam();
   applyStats(M);
 }
 function makePlayerCar() {
@@ -2085,7 +2211,8 @@ function setQuality(q) {
   pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = q === 'high';
   glow.isEnabled = q === 'high' || q === 'med';
   sun.shadowEnabled = !!csm && (q === 'high' || q === 'med');
-  if (csm) { csm.numCascades = q === 'high' ? 4 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110; }
+  if (csm) { csm.numCascades = q === 'high' ? 4 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110;
+    try { if (q === 'high') { csm.useContactHardeningShadow = true; csm.contactHardeningLightSizeUVRatio = 0.035; } else { csm.useContactHardeningShadow = false; csm.usePercentageCloserFiltering = true; } } catch (e) {} }
   setStaticShadows(q === 'high');
   const frac = { high: 1, med: 0.55, low: 0.28, turbo: 0 }[q];
   for (const k of ['grass', 'rock']) { const t = TI[k]; if (t && t.M.length) t.mesh.thinInstanceCount = Math.floor(t.M.length * frac); }
@@ -2100,7 +2227,7 @@ function setQuality(q) {
     } catch (e) { ssao = null; }
   } else if (!wantAO && ssao) { ssao.dispose(); ssao = null; }
   document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
-  setRays(); setDOF(state === 'menu');
+  setRays(); setDOF(state === 'menu'); applyAtmos();
 }
 
 const sunDisc = MB.CreatePlane('sunDisc', { size: 240 }, scene);
@@ -2118,6 +2245,38 @@ function setRays() {
 function setDOF(on) {
   const want = on && (quality === 'high' || quality === 'med');
   if (pipe.depthOfFieldEnabled !== want) { pipe.depthOfFieldEnabled = want; if (want) { pipe.depthOfFieldBlurLevel = B.DepthOfFieldEffectBlurLevel.Medium; pipe.depthOfField.focalLength = 60; pipe.depthOfField.fStop = 1.6; pipe.depthOfField.focusDistance = 8500; } }
+}
+
+/* ================= atmosphere: sun lens flare, headlight beam, dust motes ================= */
+const flareSys = new B.LensFlareSystem('sunFlare', sunDisc, scene);
+[[0.22, 0, [1, 0.85, 0.6]], [0.06, 0.3, [1, 0.6, 0.3]], [0.1, 0.5, [0.6, 0.8, 1]], [0.04, 0.68, [1, 0.9, 0.5]], [0.15, 0.85, [0.9, 0.5, 0.3]], [0.26, 1.15, [0.5, 0.7, 1]]].forEach(([sz, pos, c]) => {
+  const lf = new B.LensFlare(sz, pos, new B.Color3(c[0], c[1], c[2]).scale(0.35), '', flareSys); lf.texture = dotTex;
+});
+const headBeamMat = unlit('headBeamM', new B.Color3(0.75, 0.82, 1).scale(0.22), 1, true);
+headBeamMat.opacityTexture = coneGradTex; headBeamMat.backFaceCulling = false; headBeamMat.disableDepthWrite = true;
+const headBeam = MB.CreateCylinder('headBeam', { height: 14, diameterTop: 0.6, diameterBottom: 7, tessellation: 20, cap: B.Mesh.NO_CAP }, scene);
+headBeam.material = headBeamMat; headBeam.isPickable = false; headBeam.setEnabled(false);
+const motes = new B.ParticleSystem('motes', 400, scene);
+motes.particleTexture = dotTex; motes.emitter = V3(0, -50, 0);
+motes.minEmitBox = V3(-14, -1, -14); motes.maxEmitBox = V3(14, 6, 14);
+motes.minSize = 0.03; motes.maxSize = 0.08; motes.minLifeTime = 5; motes.maxLifeTime = 9;
+motes.minEmitPower = 0.05; motes.maxEmitPower = 0.25; motes.direction1 = V3(-1, 0.3, -1); motes.direction2 = V3(1, 0.6, 1); motes.gravity = V3(0.05, -0.02, 0);
+motes.blendMode = B.ParticleSystem.BLENDMODE_ADD; motes.updateSpeed = 1 / 60; motes.emitRate = 40;
+motes.addColorGradient(0, new B.Color4(1, 0.8, 0.55, 0)); motes.addColorGradient(0.3, new B.Color4(1, 0.8, 0.55, 0.55)); motes.addColorGradient(1, new B.Color4(1, 0.8, 0.55, 0));
+motes.start();
+function attachHeadBeam() {
+  if (!CAR) return;
+  headBeam.parent = CAR.root; headBeam.position.set(0, CAR.spot.position.y, CAR.spot.position.z + 7); headBeam.rotation.set(-Math.PI / 2 + 0.06, 0, 0);
+}
+function applyAtmos() {
+  const night = typeof timeMode !== 'undefined' && timeMode === 'night', rich = quality === 'high' || quality === 'med';
+  if (TI.lampCone) TI.lampCone.mesh.setEnabled(night && quality !== 'turbo' && TI.lampCone.M.length > 0);
+  headBeam.setEnabled(night && quality !== 'turbo');
+  flareSys.isEnabled = !night && rich;
+  motes.emitRate = quality === 'turbo' ? 0 : quality === 'low' ? 15 : 40;
+  const c = night ? [0.7, 0.8, 1] : [1, 0.8, 0.55];
+  motes.getColorGradients().length = 0;
+  motes.addColorGradient(0, new B.Color4(c[0], c[1], c[2], 0)); motes.addColorGradient(0.3, new B.Color4(c[0], c[1], c[2], night ? 0.35 : 0.55)); motes.addColorGradient(1, new B.Color4(c[0], c[1], c[2], 0));
 }
 
 /* ================= reflections ================= */
@@ -2493,6 +2652,7 @@ function physics(dt, inp) {
   let vF = car.vx * fx + car.vz * fz, vR = car.vx * rx + car.vz * rz; const vF0 = vF;
   locate(false);
   car.grass = Math.abs(car.d) > HW + CURB;
+  car.onCurb = Math.abs(car.d) > HW && Math.abs(car.d) < HW + CURB + 0.3;
   const target = inp.steer;
   car.steer += (target - car.steer) * (1 - Math.exp(-dt * (inp.analog ? 14 : target === 0 ? 9 : 5.5)));
   car.thr += (inp.thr - car.thr) * (1 - Math.exp(-dt * 8));
@@ -2607,7 +2767,10 @@ const sfx = (() => {
     const eg = ctx.createGain(); eg.gain.value = 0;
     const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; const o2 = ctx.createOscillator(); o2.type = 'square'; const o3 = ctx.createOscillator(); o3.type = 'sawtooth';
     const g2 = ctx.createGain(); g2.gain.value = 0.4; const g3 = ctx.createGain(); g3.gain.value = 0.25;
-    o1.connect(lp); o2.connect(g2).connect(lp); o3.connect(g3).connect(lp); lp.connect(eg).connect(comp); o1.start(); o2.start(); o3.start();
+    // waveshaper adds the gritty combustion harmonics of a real engine
+    const ws = ctx.createWaveShaper(), cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; cv[i] = Math.tanh(x * 2.6); } ws.curve = cv; ws.oversample = '2x';
+    const o4 = ctx.createOscillator(); o4.type = 'triangle'; const g4 = ctx.createGain(); g4.gain.value = 0.18;
+    o1.connect(ws); o2.connect(g2).connect(ws); o3.connect(g3).connect(ws); o4.connect(g4).connect(ws); ws.connect(lp); lp.connect(eg).connect(comp); o1.start(); o2.start(); o3.start(); o4.start();
     const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const ns = ctx.createBufferSource(); ns.buffer = buf; ns.loop = true;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 5;
@@ -2615,7 +2778,13 @@ const sfx = (() => {
     const sg = ctx.createGain(); sg.gain.value = 0; ns.connect(bp).connect(bp2).connect(sg).connect(comp); ns.start();
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2400; const ng = ctx.createGain(); ng.gain.value = 0;
     const ns2 = ctx.createBufferSource(); ns2.buffer = buf; ns2.loop = true; ns2.connect(hp).connect(ng).connect(comp); ns2.start();
-    nodes = { master, lp, eg, o1, o2, o3, sg, bp, buf, comp, ng };
+    const mkNoise = () => { const n = ctx.createBufferSource(); n.buffer = buf; n.loop = true; n.start(0, Math.random() * 1.5); return n; };
+    // intake roar, turbo whistle, wind, curb rumble
+    const ib = ctx.createBiquadFilter(); ib.type = 'bandpass'; ib.frequency.value = 400; ib.Q.value = 1.4; const ig = ctx.createGain(); ig.gain.value = 0; mkNoise().connect(ib).connect(ig).connect(comp);
+    const tw = ctx.createOscillator(); tw.type = 'sine'; tw.frequency.value = 2200; const twg = ctx.createGain(); twg.gain.value = 0; tw.connect(twg).connect(comp); tw.start();
+    const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 700; const wg = ctx.createGain(); wg.gain.value = 0; mkNoise().connect(wf).connect(wg).connect(comp);
+    const rb = ctx.createOscillator(); rb.type = 'square'; rb.frequency.value = 28; const rbf = ctx.createBiquadFilter(); rbf.type = 'lowpass'; rbf.frequency.value = 160; const rbg = ctx.createGain(); rbg.gain.value = 0; rb.connect(rbf).connect(rbg).connect(comp); rb.start();
+    nodes = { master, lp, eg, o1, o2, o3, o4, sg, bp, buf, comp, ng, ib, ig, tw, twg, wf, wg, rb, rbg };
   }
   return {
     init, get on() { return on; },
@@ -2623,13 +2792,22 @@ const sfx = (() => {
     resume() { ctx?.resume?.(); },
     update(rpm, thr, slip, active) {
       if (!nodes) return; const t = ctx.currentTime, f = rpm / 60 * 2;
-      nodes.o1.frequency.setTargetAtTime(f, t, 0.04); nodes.o2.frequency.setTargetAtTime(f * 0.5, t, 0.04); nodes.o3.frequency.setTargetAtTime(f * 2.02, t, 0.04);
+      const shifting = t < (this._shiftUntil || 0);
+      nodes.o1.frequency.setTargetAtTime(f, t, 0.04); nodes.o2.frequency.setTargetAtTime(f * 0.5, t, 0.04); nodes.o3.frequency.setTargetAtTime(f * 2.02, t, 0.04); nodes.o4.frequency.setTargetAtTime(f * 3, t, 0.04);
       nodes.lp.frequency.setTargetAtTime(300 + rpm * 0.28 * (0.45 + thr * 0.75), t, 0.05);
-      nodes.eg.gain.setTargetAtTime(active ? 0.07 + thr * 0.1 : 0.02, t, 0.08);
+      nodes.eg.gain.setTargetAtTime(active ? (shifting ? 0.03 : 0.07 + thr * 0.1) : 0.02, t, shifting ? 0.02 : 0.08);
+      const spd = Math.hypot(car.vx, car.vz), r01 = clamp((rpm - 900) / 6500, 0, 1);
+      nodes.ig.gain.setTargetAtTime(active ? thr * (0.02 + r01 * 0.06) : 0, t, 0.06); nodes.ib.frequency.setTargetAtTime(250 + r01 * 900, t, 0.06);
+      nodes.twg.gain.setTargetAtTime(active && !shifting ? thr * r01 * r01 * 0.012 : 0, t, 0.15); nodes.tw.frequency.setTargetAtTime(1800 + r01 * 3200, t, 0.1);
+      nodes.wg.gain.setTargetAtTime(active ? Math.min(0.12, (spd / 60) ** 2 * 0.12) : 0, t, 0.2); nodes.wf.frequency.setTargetAtTime(300 + spd * 18, t, 0.2);
+      nodes.rbg.gain.setTargetAtTime(active && car.onCurb ? 0.12 : 0, t, 0.03); nodes.rb.frequency.setTargetAtTime(14 + spd * 0.9, t, 0.05);
       nodes.sg.gain.setTargetAtTime(active ? slip * 0.22 : 0, t, 0.06);
       nodes.bp.frequency.setTargetAtTime(1300 + slip * 600, t, 0.1);
       nodes.ng.gain.setTargetAtTime(active && car.boost ? 0.09 : 0, t, 0.08);
     },
+    shift() { if (!nodes || !on) return; const t = ctx.currentTime; this._shiftUntil = t + 0.11;
+      const s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 3; const g = ctx.createGain(); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.06); },
+    blowoff() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.setValueAtTime(5200, t); f.frequency.exponentialRampToValueAtTime(1400, t + 0.35); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.13, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.42); },
     pop() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 1.2; const g = ctx.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.12); },
     beep(hi) { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = hi ? 880 : 440; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + (hi ? 0.5 : 0.22)); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.55); },
     crunch() { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(1320, t + 0.09); g.gain.setValueAtTime(0.13, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.16); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.18); },
@@ -2668,7 +2846,7 @@ const sfx = (() => {
 
 /* ================= camera ================= */
 const CAMS = [{ dist: 7.2, h: 2.4, look: 1.0, lead: 0.5 }, { dist: 11.5, h: 4.2, look: 0.9, lead: 0.35 }, { dist: 4.6, h: 1.55, look: 1.15, lead: 0.6 }];
-let camMode = store.get('cam', 0) % CAMS.length, camShake = 0;
+let camMode = store.get('cam', 0) % CAMS.length, camShake = 0, camRoll = 0;
 const camPos = V3(0, 3, 0), camLook = V3(0, 1, 0);
 function cycleCam() { camMode = (camMode + 1) % CAMS.length; store.set('cam', camMode); }
 let fovDeg = 58;
@@ -2688,11 +2866,15 @@ function updateCamera(dt, t) {
     camLook.x = lerp(camLook.x, car.x + fx * 2.4, k2); camLook.z = lerp(camLook.z, car.z + fz * 2.4, k2); camLook.y = c.look;
     fovDeg = lerp(fovDeg, 58 + Math.min(20, car.speed * 0.32) + (car.boost ? 9 : 0), 1 - Math.exp(-dt * 3));
     if (car.boost) camShake = Math.max(camShake, 0.08);
+    if (car.onCurb && car.speed > 8) camShake = Math.max(camShake, 0.05);
+    const lat = car.vx * Math.cos(car.h) - car.vz * Math.sin(car.h);
+    camRoll = lerp(camRoll, clamp(-lat * 0.006, -0.06, 0.06), 1 - Math.exp(-dt * 3));
   }
   camShake *= Math.exp(-dt * 5);
   const sh = camShake * 0.35;
   camera.position.set(camPos.x + (Math.random() - .5) * sh, camPos.y + (Math.random() - .5) * sh, camPos.z + (Math.random() - .5) * sh);
   camera.setTarget(camLook);
+  camera.rotation.z = state === 'menu' ? 0 : camRoll;
   camera.fov = (state === 'menu' ? 42 : fovDeg) * Math.PI / 180 * (innerWidth < innerHeight ? 1.3 : 1);
 }
 
@@ -2719,6 +2901,7 @@ function drawMini() {
 }
 
 /* ================= HUD ================= */
+let lastGear = 0;
 const H = { total: $('total'), spd: $('spd'), gear: $('gear'), lap: $('laptime'), cpts: $('cpts'), cmult: $('cmult'), cang: $('cang'), clabel: $('clabel') };
 const last = {};
 const setT = (k, v) => { if (last[k] !== v) { last[k] = v; H[k].textContent = v; } };
@@ -2734,6 +2917,7 @@ function updateHUD(dt) {
   if (car.speed < 1 && car.thr > 0.5) target = 6800;
   rpm += (Math.min(target, 7800) - rpm) * (1 - Math.exp(-dt * 7));
   setT('gear', car.vF < -0.5 ? 'R' : String(gi));
+  if (state === 'drive' && gi !== lastGear) { if (gi > lastGear && lastGear > 0) sfx.shift(); lastGear = gi; }
   $('rpm').style.width = (rpm / 7800 * 100).toFixed(1) + '%';
   $('nos').style.width = (car.nos * 100).toFixed(1) + '%';
   $('nosm').classList.toggle('burn', car.boost);
@@ -2797,7 +2981,7 @@ function syncVisuals(dt) {
     sparks.manualEmitCount = Math.min(14, Math.floor(car.scrape * 0.35 * dt * 60) + 1);
     car.scrape = 0;
   }
-  if (car.thrPrev > 0.85 && car.thr < 0.4 && rpm > (EQ.exhaust === 'fire' ? 4000 : 5200) && Math.random() < (EQ.exhaust === 'fire' ? 1 : 0.7)) { car.pop = EQ.exhaust === 'fire' ? 0.18 : 0.09; sfx.pop(); }
+  if (car.thrPrev > 0.85 && car.thr < 0.4 && rpm > (EQ.exhaust === 'fire' ? 4000 : 5200) && Math.random() < (EQ.exhaust === 'fire' ? 1 : 0.7)) { car.pop = EQ.exhaust === 'fire' ? 0.18 : 0.09; sfx.pop(); if (STAT.turbo || car.boost) sfx.blowoff(); }
   car.thrPrev = car.thr; car.pop = Math.max(0, car.pop - dt);
   const fl = car.boost || car.pop > 0; CAR.flame.setEnabled(fl);
   if (fl) { CAR.flameMat.emissiveColor.set(car.boost ? 1.2 : 6, car.boost ? 2.2 : 2.4, car.boost ? 7 : 0.4); CAR.flame.scaling.set(1, 1, (car.boost ? 1.1 : 0.7) * (0.75 + Math.random() * 0.5)); }
@@ -2848,6 +3032,7 @@ function setTime(mode) {
   mtnMats[0].emissiveColor = night ? new B.Color3(0.035, 0.04, 0.065) : new B.Color3(0.52, 0.37, 0.4);
   mtnMats[1].emissiveColor = night ? new B.Color3(0.05, 0.055, 0.09) : new B.Color3(0.62, 0.45, 0.47);
   bulbMat.emissiveColor = new B.Color3(3.5, 2.4, 1.2).scale(night ? 1.2 : 0.6);
+  applyAtmos();
 }
 $('bTime').addEventListener('click', () => setTime(timeMode === 'dusk' ? 'night' : 'dusk'));
 
@@ -3026,6 +3211,7 @@ scene.onBeforeRenderObservable.add(() => {
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
   updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed);
+  motes.emitter.copyFrom(camera.position);
   if (state === 'drive' && lapN > TOTAL_LAPS) finishRace();
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
