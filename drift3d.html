@@ -2065,16 +2065,16 @@ skyNight.material = nightMat; skyNight.infiniteDistance = true; skyNight.applyFo
 
 let csm = null;
 if (WEBGL2 && B.CascadedShadowGenerator) {
-  csm = new B.CascadedShadowGenerator(2048, sun);
+  csm = new B.CascadedShadowGenerator(WEBGL2 ? 2560 : 2048, sun); // 3 cascades x 2560 = more texels per cascade than 4 x 2048, ~same memory
   csm.numCascades = COARSE ? 2 : 4; csm.lambda = 0.9; csm.shadowMaxZ = 240; csm.stabilizeCascades = true;
   csm.autoCalcDepthBounds = false; csm.cascadeBlendPercentage = 0.12; csm.depthClamp = true;
   csm.usePercentageCloserFiltering = true; csm.filteringQuality = COARSE ? B.ShadowGenerator.QUALITY_LOW : B.ShadowGenerator.QUALITY_HIGH;
   csm.bias = 0.0035; csm.normalBias = 0.02;
 }
 const caster = m => { if (m && !m._small && !m._noShadow) csm?.addShadowCaster(m, false); };
-if (csm) { // per-cascade culling: a cascade only draws casters up to its far distance (+ margin for long dusk shadows)
-  const sm = csm.getShadowMap();
-  const layerLists = [];
+const layerLists = [];
+function hookShadowMap() { // per-cascade culling: a cascade only draws casters up to its far distance (+ margin for long dusk shadows)
+  if (!csm) return; const sm = csm.getShadowMap(); if (!sm || sm._ddHooked) return; sm._ddHooked = true;
   sm.getCustomRenderList = (layer, list, len) => {
     const far = (csm._viewSpaceFrustumsZ && csm._viewSpaceFrustumsZ[layer]) || csm.shadowMaxZ, lim = far * 1.35 + 80;
     for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = kitCountWithin(t, lim);
@@ -2090,6 +2090,7 @@ if (csm) { // per-cascade culling: a cascade only draws casters up to its far di
   };
   sm.onAfterRenderObservable.add(() => { for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = t.k; });
 }
+hookShadowMap();
 const STATIC_CASTERS = [];
 for (const k in TI) if (TI[k].cast && TI[k].M.length) { caster(TI[k].mesh); STATIC_CASTERS.push(TI[k].mesh); }
 let staticShadows = true;
@@ -2332,6 +2333,39 @@ const hubcapMat = kind => { const m = textDecal('cap' + kind, 128, 128, (x, w, h
 const washMat = textDecal('wash', 256, 96, (x, w, h) => { x.fillStyle = 'rgba(0,0,0,0)'; x.fillRect(0, 0, w, h); x.direction = 'rtl'; x.textAlign = 'center'; x.fillStyle = 'rgba(214,196,160,.85)'; x.font = '700 40px "Comic Sans MS", Heebo, sans-serif'; x.fillText('שטוף אותי 🙏', w / 2, 50); x.font = '600 20px Heebo, sans-serif'; x.fillText('(גם אני רוצה לנצוץ)', w / 2, 82); });
 const bagMat = (() => { const m = textDecal('bag', 128, 96, (x, w, h) => { x.fillStyle = 'rgba(225,228,232,.75)'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(160,165,170,.8)'; x.lineWidth = 2; for (let i = 0; i < 9; i++) { x.beginPath(); x.moveTo(Math.random() * w, 0); x.quadraticCurveTo(Math.random() * w, h / 2, Math.random() * w, h); x.stroke(); } x.fillStyle = '#b9b2a0'; x.fillRect(0, 0, w, 10); x.fillRect(0, h - 10, w, 10); x.fillRect(0, 0, 10, h); x.fillRect(w - 10, 0, 10, h); }); m.backFaceCulling = false; return m; })();
 const tailBandMat = pbr('tailBand', { color: 0x5a0b10, rough: 0.15 }), amberMat = pbr('amberL', { color: 0xc96a10, rough: 0.2 });
+// ---- car material atlas (exact roughness/metalness per part, one shared material) ----
+let _carAtlas = null; const ATLAS_CELLS = new Map(), ATLAS_N = 8;
+function atlasEligible(mat) {
+  return mat instanceof B.PBRMaterial && mat !== paint && !mat.albedoTexture && !mat.bumpTexture && !mat.metallicTexture && !mat.emissiveTexture
+    && mat.alpha >= 1 && !mat.clearCoat.isEnabled && (!mat.emissiveColor || mat.emissiveColor.r + mat.emissiveColor.g + mat.emissiveColor.b === 0) && mat.backFaceCulling !== false && !/^paint/.test(mat.name);
+}
+function atlasCell(mat) {
+  if (ATLAS_CELLS.has(mat)) return ATLAS_CELLS.get(mat);
+  const i = ATLAS_CELLS.size % (ATLAS_N * ATLAS_N); ATLAS_CELLS.set(mat, i); carAtlasMat(); _carAtlas._dirty = true; return i;
+}
+function carAtlasMat() {
+  if (!_carAtlas) {
+    const c = document.createElement('canvas'); c.width = c.height = ATLAS_N;
+    const t = new B.DynamicTexture('carAtlasT', c, scene, false, B.Texture.NEAREST_SAMPLINGMODE); t.gammaSpace = false; t.coordinatesIndex = 1; t.wrapU = t.wrapV = B.Texture.CLAMP_ADDRESSMODE;
+    const m = pbr('carAtlas', { rough: 1 }); m.metallic = 1; m.roughness = 1; m.metallicTexture = t;
+    m.useRoughnessFromMetallicTextureGreen = true; m.useMetallnessFromMetallicTextureBlue = true; m.useRoughnessFromMetallicTextureAlpha = false; m.useAmbientOcclusionFromMetallicTextureRed = false;
+    _carAtlas = m; _carAtlas._canvas = c; _carAtlas._tex = t;
+  }
+  if (_carAtlas._dirty) {
+    const x = _carAtlas._canvas.getContext('2d'), img = x.createImageData(ATLAS_N, ATLAS_N);
+    for (const [mat, i] of ATLAS_CELLS) { const k = i * 4; img.data[k] = 255; img.data[k + 1] = Math.round(clamp(mat.roughness ?? 0.8, 0.02, 1) * 255); img.data[k + 2] = Math.round(clamp(mat.metallic ?? 0, 0, 1) * 255); img.data[k + 3] = 255; }
+    x.putImageData(img, 0, 0); _carAtlas._tex.update(false); _carAtlas._dirty = false;
+  }
+  return _carAtlas;
+}
+function atlasPrep(m) { // bake the part's colour into vertex colours and point uv2 at its roughness/metal cell
+  const mat = m.material, n = m.getTotalVertices(), i = atlasCell(mat), u = (i % ATLAS_N + 0.5) / ATLAS_N, v = (Math.floor(i / ATLAS_N) + 0.5) / ATLAS_N;
+  const ac = mat.albedoColor || new B.Color3(1, 1, 1), col = new Float32Array(n * 4), uv2 = new Float32Array(n * 2);
+  const vc = m.getVerticesData(B.VertexBuffer.ColorKind);
+  for (let k = 0; k < n; k++) { const s2 = vc ? [vc[k * 4], vc[k * 4 + 1], vc[k * 4 + 2]] : [1, 1, 1]; col[k * 4] = ac.r * s2[0]; col[k * 4 + 1] = ac.g * s2[1]; col[k * 4 + 2] = ac.b * s2[2]; col[k * 4 + 3] = 1; uv2[k * 2] = u; uv2[k * 2 + 1] = v; }
+  m.setVerticesData(B.VertexBuffer.ColorKind, col); m.setVerticesData(B.VertexBuffer.UV2Kind, uv2);
+  if (!m.getVerticesData(B.VertexBuffer.UVKind)) m.setVerticesData(B.VertexBuffer.UVKind, new Float32Array(n * 2));
+}
 carMats.glass.alpha = 0.62; carMats.glass.transparencyMode = B.PBRMaterial.PBRMATERIAL_ALPHABLEND;
 function buildCar(ghost = false, pm = paint, o = {}) {
   const M = o.M || MODELS[0], eq = Object.assign({}, DEFAULT_EQ, o.eq || {}), simple = !!o.simple, uid = ++carUid;
@@ -2519,33 +2553,45 @@ function buildCar(ghost = false, pm = paint, o = {}) {
     if (!simple) { const cal = add(MB.CreateBox('cal', { width: 0.06, height: 0.14, depth: 0.18 }, scene), carMats.caliper, pivot); cal.position.set(side * 0.06, wr * 0.35, 0.07); }
     wheels.push({ pivot, spin, front });
   }
-  // collapse the many small parts into one mesh per material per moving part (big draw-call saving)
-  const mergeNode = node => {
+  // collapse parts into as few meshes as possible. Plain opaque PBR parts (trim, bumpers, chrome, tyres, rims, interior...) share one
+  // atlas material: their exact colour goes into vertex colours and their roughness/metalness into a tiny atlas texture read via uv2,
+  // so they look exactly the same but cost one draw call instead of one per material.
+  const INTERIOR = [seatMat, dashMat, diceMat, beadMat, steerMat, handMat, needleMat, carRopeMat, tapeMat];
+  const SIL = [pm, carMats.glass, carMats.tire, carMats.black, carMats.bumper, carMats.mattress, carMats.wood, carMats.melon, vcMat, carMats.primer];
+  const classOf = (m, wheelNode) => {
+    const mat = m.material, nm = (mat && mat.name) || '';
+    if (INTERIOR.includes(mat) || (nm.startsWith('dcM') && !nm.startsWith('dcMcap'))) return 'int';
+    if (mat === carMats.amber || mat === carMats.caliper || nm.startsWith('bdgM') || nm.startsWith('plM') || nm.startsWith('dcMcap')) return 'tiny';
+    if (wheelNode) return 'sil';
+    return SIL.includes(mat) || nm.startsWith('door') ? 'sil' : 'inner';
+  };
+  const mergeNode = (node, wheelNode) => {
     node.computeWorldMatrix(true);
     const inv = node.getWorldMatrix().clone().invert(), groups = new Map();
-    for (const m of meshes) if (m.parent === node) { m.computeWorldMatrix(true); if (!groups.has(m.material)) groups.set(m.material, []); groups.get(m.material).push(m); }
-    for (const [mat, list] of groups) {
-      if (list.length < 2) continue;
-      const merged = B.Mesh.MergeMeshes(list, true, true);
+    for (const m of meshes) if (m.parent === node) {
+      m.computeWorldMatrix(true);
+      let cls = classOf(m, wheelNode); if (!wheelNode && cls === 'inner') cls = 'sil';
+      const key = !ghost && atlasEligible(m.material) && cls !== 'tiny' ? 'A:' + cls : m.material;
+      if (typeof key === 'string') atlasPrep(m);
+      if (!groups.has(key)) groups.set(key, []); groups.get(key).push(m);
+      m._cls = cls;
+    }
+    for (const [key, list] of groups) {
+      const atlas = typeof key === 'string';
+      if (list.length < 2 && !atlas) continue;
+      const merged = list.length > 1 ? B.Mesh.MergeMeshes(list, true, true) : list[0];
       if (!merged) continue;
-      merged.bakeTransformIntoVertices(inv); merged.parent = node; merged.material = mat; merged.isPickable = false; merged.receiveShadows = !ghost;
-      for (const m of list) meshes.splice(meshes.indexOf(m), 1);
-      meshes.push(merged);
+      if (merged !== list[0]) { merged.bakeTransformIntoVertices(inv); merged.parent = node; for (const m of list) meshes.splice(meshes.indexOf(m), 1); meshes.push(merged); }
+      merged.material = atlas ? carAtlasMat() : list[0].material; merged.isPickable = false; merged.receiveShadows = !ghost; merged._cls = atlas ? key.slice(2) : list[0]._cls;
     }
   };
-  mergeNode(body); wheels.forEach(w => { mergeNode(w.spin); mergeNode(w.pivot); }); spinners.forEach(mergeNode);
+  mergeNode(body); wheels.forEach(w => { mergeNode(w.spin, true); mergeNode(w.pivot, true); }); spinners.forEach(n => mergeNode(n, true));
   // tiny details: no shadow casting (hidden inside the body's shadow) and, on rival cars, not drawn once they are sub-pixel far away
-  const INTERIOR = [seatMat, dashMat, diceMat, beadMat, steerMat, handMat, needleMat, carRopeMat, tapeMat];
   for (const m of meshes) {
-    const mat = m.material; if (!mat) continue; const nm = mat.name || '';
-    const interior = INTERIOR.includes(mat) || (nm.startsWith('dcM') && !nm.startsWith('dcMcap'));
-    const tiny = mat === carMats.amber || mat === carMats.caliper || nm.startsWith('bdgM') || nm.startsWith('plM') || nm.startsWith('dcMcap');
-    if (interior || tiny) { m._small = true; if (!o.flag && !ghost && m.addLODLevel) m.addLODLevel(interior ? 45 : 80, null); continue; }
-    // only silhouette-forming parts cast shadows; rims, hubs, calipers, lamps and chrome trim sit inside the silhouette
-    const silhouette = mat === pm || mat === carMats.glass || mat === carMats.tire || mat === carMats.black || mat === carMats.bumper || mat === carMats.mattress || mat === carMats.wood || mat === carMats.melon || mat === vcMat || nm.startsWith('door') || mat === carMats.primer;
-    if (!silhouette) m._noShadow = true;
-    const pn = m.parent && m.parent.name;
-    if (!o.flag && !ghost && (pn === 'ws' || pn === 'wp' || pn === 'spn') && mat !== carMats.tire && m.addLODLevel) m.addLODLevel(60, null); // wheel internals of far rivals
+    const cls = m._cls || classOf(m, false), pn = m.parent && m.parent.name;
+    if (cls === 'int' || cls === 'tiny') { m._small = true; if (!o.flag && !ghost && m.addLODLevel) m.addLODLevel(cls === 'int' ? 45 : 80, null); continue; }
+    if (cls === 'inner') m._noShadow = true;
+    if (!o.flag && !ghost && (pn === 'ws' || pn === 'wp' || pn === 'spn') && m.material !== carMats.tire && m.material !== _carAtlas && m.addLODLevel) m.addLODLevel(60, null);
   }
   if (ghost) {
     const gm = unlit('ghostM', new B.Color3(0.35, 0.7, 1.0), 0.22); gm.fogEnabled = true;
@@ -2675,7 +2721,7 @@ pipe.sharpenEnabled = true; pipe.sharpen.edgeAmount = 0.18;
 let quality = store.get('quality', 'high');
 let baseScale = 1, resMul = 1, pipeOn = true, peopleR = 170, rivalsShown = 7;
 function applyScale() { engine.setHardwareScalingLevel(baseScale * resMul); }
-const DPR_TARGET = { high: 2, med: 1.75, low: 1.5, turbo: 1 }; // 3D render density; the HTML HUD stays at the screen's native sharpness
+const DPR_TARGET = { high: 3, med: 2, low: 1.5, turbo: 1 }; // 3D render density; the HTML HUD stays at the screen's native sharpness
 function setPipe(on) {
   if (on === pipeOn) return; pipeOn = on;
   const mgr = scene.postProcessRenderPipelineManager;
@@ -2693,7 +2739,7 @@ function setQuality(q) {
   pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = false;
   glow.isEnabled = q === 'high' || q === 'med';
   sun.shadowEnabled = !!csm && (q === 'high' || q === 'med');
-  if (csm) { csm.numCascades = q === 'high' ? 4 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110;
+  if (csm) { csm.numCascades = q === 'high' ? 3 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110;
     try { csm.useContactHardeningShadow = false; csm.usePercentageCloserFiltering = true; } catch (e) {} }
   setStaticShadows(q === 'high');
   const frac = { high: 1, med: 0.55, low: 0.28, turbo: 0 }[q];
@@ -2751,6 +2797,8 @@ function updateShafts() {
 function setDOF(on) {
   const want = on && (quality === 'high' || quality === 'med');
   if (pipe.depthOfFieldEnabled !== want) { pipe.depthOfFieldEnabled = want; if (want) { pipe.depthOfFieldBlurLevel = B.DepthOfFieldEffectBlurLevel.Medium; pipe.depthOfField.focalLength = 60; pipe.depthOfField.fStop = 1.6; pipe.depthOfField.focusDistance = 8500; } }
+  // the DOF effect creates a depth renderer that redraws the whole scene every frame; switch it off whenever DOF is off
+  for (const k in scene._depthRenderer || {}) scene._depthRenderer[k].enabled = want;
 }
 
 /* ================= atmosphere: sun lens flare, headlight beam, dust motes ================= */
@@ -2876,7 +2924,7 @@ const DS = LEN / N;
 const VT = new Float32Array(N), TURN = new Float32Array(N);
 for (let i = 0; i < N; i++) {
   const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
-  VT[i] = clamp(Math.sqrt(13 / Math.max(ang / (16 * DS), 1e-4)), 12, 39);
+  VT[i] = clamp(Math.sqrt(11 / Math.max(ang / (16 * DS), 1e-4)), 11, 33);
   const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
@@ -2952,11 +3000,11 @@ function updateRivals(dt) {
     const i = r.i ?? 0, look = (i + 18) % N;
     const rb = clamp(1 - (r.s - pp) / 700, 0.9, 1.16);
     const vt = Math.min(VT[i], VT[look]) * r.skill * rb;
-    r.v += clamp(vt - r.v, -16 * dt, 6.5 * dt);
+    r.v += clamp(vt - r.v, -14 * dt, 5 * dt);
     r.s += r.v * dt;
     if (Math.random() < dt * 0.25) r.laneT = (Math.random() - .5) * 9;
     r.lane = lerp(r.lane, r.laneT, 1 - Math.exp(-dt * 0.7));
-    const t = TURN[i], want = clamp(Math.abs(t) * 0.95 * clamp((r.v - 11) / 14, 0, 1), 0, 0.6) * (t < 0 ? 1 : -1);
+    const t = TURN[i], want = clamp(Math.abs(t) * 1.25 * clamp((r.v - 8) / 10, 0, 1), 0, 0.75) * (t < 0 ? 1 : -1);
     r.ang = lerp(r.ang, want, 1 - Math.exp(-dt * 2.5));
     placeRival(r);
     const dx = car.x - r.x, dz = car.z - r.z, d2 = dx * dx + dz * dz;
@@ -2981,7 +3029,7 @@ function syncRivals(dt) {
   for (const r of rivals) {
     if (r.active === false) continue;
     r.rc.root.position.set(r.x, 0, r.z); r.rc.root.rotation.y = r.h;
-    r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.08, -0.05, 0.05), 0.1);
+    r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.11, -0.07, 0.07), 0.1);
     r.rc.spinners.forEach(n => n.rotation.x += dt * 2.6);
     for (const w of r.rc.wheels) { w.spin.rotation.x += r.v / r.rc.wr * dt; if (w.front) w.pivot.rotation.y = -r.ang * 0.7; }
     const sh = Math.sin(r.h), ch = Math.cos(r.h);
@@ -2989,7 +3037,7 @@ function syncRivals(dt) {
     r.sm.minEmitBox.set(-0.9, 0, -0.9); r.sm.maxEmitBox.set(0.9, 0.1, 0.9);
     const vx = Math.sin(r.h - r.ang) * r.v, vz = Math.cos(r.h - r.ang) * r.v;
     r.sm.direction1.set(vx * 0.25 - 1, 0.5, vz * 0.25 - 1); r.sm.direction2.set(vx * 0.25 + 1, 1.4, vz * 0.25 + 1);
-    r.sm.emitRate = state === 'drive' && Math.abs(r.ang) > 0.18 ? 70 * Math.abs(r.ang) : 0;
+    r.sm.emitRate = state === 'drive' && Math.abs(r.ang) > 0.15 ? 60 * Math.abs(r.ang) : 0;
   }
 }
 const _tm = new B.Vector3();
@@ -3247,7 +3295,7 @@ function readInput() {
 }
 
 /* ================= vehicle model ================= */
-const VMAX = 38, ACC = 8.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
+const VMAX = 32, ACC = 6.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
 const car = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, steer: 0, idx: 0, d: 0, thr: 0, slip: 0, speed: 0, vF: 0, ax: 0, ay: 0, grass: false, hit: 0, nos: 0.35, boost: false, scrape: 0, sn: [0, 0], pop: 0, thrPrev: 0, drifting: false };
 let assist = store.get('assist', true);
 function locate(full) {
@@ -3274,16 +3322,16 @@ function physics(dt, inp) {
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
-  if (car.boost) { vF += 13 * (1 - Math.min(1, (vF / 78) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
+  if (car.boost) { vF += 9 * (1 - Math.min(1, (vF / 42) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
   const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
   const speed = Math.hypot(vF, vR), slip = Math.atan2(vR, Math.max(Math.abs(vF), 1.0)), slipAbs = Math.abs(slip);
-  const drifting = slipAbs > 0.17 && speed > 6;
+  const drifting = slipAbs > 0.17 && speed > 5;
   let g = 8.5 * STAT.grip;
-  g *= 1 - 0.8 * thr * ss(speed, 9, 22) * ss(Math.abs(car.steer), 0.3, 0.95);
+  g *= 1 - 0.8 * thr * ss(speed, 7, 17) * ss(Math.abs(car.steer), 0.3, 0.95);
   if (drifting) g = Math.min(g, 1.7 + (1 - thr) * 3.0);
-  if (inp.hb) g = Math.min(g, 0.7);
+  if (inp.hb) g = Math.min(g, 1.1);
   if (car.grass) g *= STAT.off ? 0.92 : 0.6;
   const lost = vR * (1 - Math.exp(-g * dt)); vR -= lost;
   if (vF > 0) vF += Math.abs(lost) * 0.34;
@@ -4008,9 +4056,11 @@ function autoRes(dt) {
   else if (fps > (fpsCap || 60) * 0.97 && resMul > 1) { resMul = Math.max(1, resMul - 0.08); applyScale(); }
 }
 const STEP = 1 / 120; let acc = 0, elapsed = 0, lastFrameT = performance.now(), fpsTick = 0;
+let jsMs = 0;
 scene.onBeforeRenderObservable.add(() => {
+  const jsT0 = performance.now();
   const nowT = performance.now(), dt = Math.min(0.1, (nowT - lastFrameT) / 1000); lastFrameT = nowT; elapsed += dt;
-  if (showFps && (fpsTick += dt) > 0.5) { fpsTick = 0; let tri = 0; const am = scene.getActiveMeshes(); for (let i = 0; i < am.length; i++) { const m = am.data[i]; if (m.getTotalIndices) tri += m.getTotalIndices() / 3 * (m.hasThinInstances ? m.thinInstanceCount : 1); } $('fpsv').textContent = `${Math.round(engine.getFps())} FPS · ${engine.getRenderWidth()}×${engine.getRenderHeight()} · ${(tri / 1e6).toFixed(1)}M`; }
+  if (showFps && (fpsTick += dt) > 0.5) { fpsTick = 0; let tri = 0; const am = scene.getActiveMeshes(); for (let i = 0; i < am.length; i++) { const m = am.data[i]; if (m.getTotalIndices) tri += m.getTotalIndices() / 3 * (m.hasThinInstances ? m.thinInstanceCount : 1); } if (!window._si) { window._si = new B.SceneInstrumentation(scene); _si.captureRenderTime = true; _si.captureFrameTime = true; } $('fpsv').textContent = `${Math.round(engine.getFps())} FPS · ${engine.getRenderWidth()}×${engine.getRenderHeight()} · ${(tri / 1e6).toFixed(1)}M · ${_si.drawCallsCounter.current} dc · JS ${jsMs.toFixed(1)} · R ${_si.renderTimeCounter.average.toFixed(1)}ms`; }
   pollPad();
   if (state === 'count') countdown(dt);
   if (state === 'drive') {
@@ -4027,13 +4077,14 @@ scene.onBeforeRenderObservable.add(() => {
   sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
-  motes.emitter.copyFrom(camera.position); cullKits(camera.position.x, camera.position.z); updateShafts();
+  motes.emitter.copyFrom(camera.position); cullKits(camera.position.x, camera.position.z); updateShafts(); hookShadowMap();
   if (state === 'drive' && lapN > TOTAL_LAPS) finishRace();
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
   if (pipe.depthOfFieldEnabled) pipe.depthOfField.focusDistance = 8500;
   pipe.chromaticAberration.aberrationAmount = state === 'drive' && car.boost ? 1.2 : 0;
+  jsMs = jsMs * 0.9 + (performance.now() - jsT0) * 0.1;
 });
 let shown = false;
 const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') $('start').hidden = false; };
