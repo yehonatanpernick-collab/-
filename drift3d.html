@@ -2675,7 +2675,7 @@ pipe.sharpenEnabled = true; pipe.sharpen.edgeAmount = 0.18;
 let quality = store.get('quality', 'high');
 let baseScale = 1, resMul = 1, pipeOn = true, peopleR = 170, rivalsShown = 7;
 function applyScale() { engine.setHardwareScalingLevel(baseScale * resMul); }
-const DPR_TARGET = { high: 3, med: 2, low: 1.5, turbo: 1 };
+const DPR_TARGET = { high: 2, med: 1.75, low: 1.5, turbo: 1 }; // 3D render density; the HTML HUD stays at the screen's native sharpness
 function setPipe(on) {
   if (on === pipeOn) return; pipeOn = on;
   const mgr = scene.postProcessRenderPipelineManager;
@@ -2876,7 +2876,7 @@ const DS = LEN / N;
 const VT = new Float32Array(N), TURN = new Float32Array(N);
 for (let i = 0; i < N; i++) {
   const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
-  VT[i] = clamp(Math.sqrt(15 / Math.max(ang / (16 * DS), 1e-4)), 14, 45);
+  VT[i] = clamp(Math.sqrt(13 / Math.max(ang / (16 * DS), 1e-4)), 12, 39);
   const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
@@ -2952,7 +2952,7 @@ function updateRivals(dt) {
     const i = r.i ?? 0, look = (i + 18) % N;
     const rb = clamp(1 - (r.s - pp) / 700, 0.9, 1.16);
     const vt = Math.min(VT[i], VT[look]) * r.skill * rb;
-    r.v += clamp(vt - r.v, -20 * dt, 10.5 * dt);
+    r.v += clamp(vt - r.v, -16 * dt, 6.5 * dt);
     r.s += r.v * dt;
     if (Math.random() < dt * 0.25) r.laneT = (Math.random() - .5) * 9;
     r.lane = lerp(r.lane, r.laneT, 1 - Math.exp(-dt * 0.7));
@@ -3247,7 +3247,7 @@ function readInput() {
 }
 
 /* ================= vehicle model ================= */
-const VMAX = 44, ACC = 11, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
+const VMAX = 38, ACC = 8.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
 const car = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, steer: 0, idx: 0, d: 0, thr: 0, slip: 0, speed: 0, vF: 0, ax: 0, ay: 0, grass: false, hit: 0, nos: 0.35, boost: false, scrape: 0, sn: [0, 0], pop: 0, thrPrev: 0, drifting: false };
 let assist = store.get('assist', true);
 function locate(full) {
@@ -3268,7 +3268,7 @@ function physics(dt, inp) {
   car.grass = Math.abs(car.d) > HW + CURB;
   car.onCurb = Math.abs(car.d) > HW && Math.abs(car.d) < HW + CURB + 0.3;
   const target = inp.steer;
-  car.steer += (target - car.steer) * (1 - Math.exp(-dt * (inp.analog ? 14 : target === 0 ? 9 : 5.5)));
+  car.steer += (target - car.steer) * (1 - Math.exp(-dt * (inp.analog ? 14 : target === 0 ? 10 : 7)));
   car.thr += (inp.thr - car.thr) * (1 - Math.exp(-dt * 8));
   const thr = car.thr;
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
@@ -3279,20 +3279,20 @@ function physics(dt, inp) {
   const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
   const speed = Math.hypot(vF, vR), slip = Math.atan2(vR, Math.max(Math.abs(vF), 1.0)), slipAbs = Math.abs(slip);
-  const drifting = slipAbs > 0.2 && speed > 7;
+  const drifting = slipAbs > 0.17 && speed > 6;
   let g = 8.5 * STAT.grip;
   g *= 1 - 0.8 * thr * ss(speed, 9, 22) * ss(Math.abs(car.steer), 0.3, 0.95);
-  if (drifting) g = Math.min(g, 1.25 + (1 - thr) * 4.2);
+  if (drifting) g = Math.min(g, 1.7 + (1 - thr) * 3.0);
   if (inp.hb) g = Math.min(g, 0.7);
   if (car.grass) g *= STAT.off ? 0.92 : 0.6;
   const lost = vR * (1 - Math.exp(-g * dt)); vR -= lost;
-  if (vF > 0) vF += Math.abs(lost) * 0.24;
+  if (vF > 0) vF += Math.abs(lost) * 0.34;
   const sf = clamp(vF / 6, -1, 1);
-  let wT = car.steer * (drifting ? 2.7 : 2.15) * sf / (1 + Math.max(0, vF) / (drifting ? 80 : 34));
+  let wT = car.steer * (drifting ? 2.35 : 2.15) * sf / (1 + Math.max(0, vF) / (drifting ? 80 : 34));
   if (inp.hb && speed > 5) wT += car.steer * 1.5;
   const sp = Math.min(1, speed / 10) * (vF > 0 ? 1 : 0.15);
-  const align = drifting ? 0.85 + (1 - thr) * 1.8 : 2.4;
-  wT += (slip * align + slip * slip * slip * 1.6 + (assist && slipAbs > 0.8 ? slip * 1.4 : 0)) * sp;
+  const align = drifting ? 1.15 + (1 - thr) * 1.6 : 2.4;
+  wT += (slip * align + slip * slip * slip * 1.6 + (assist && slipAbs > 0.62 ? slip * 1.9 : 0)) * sp;
   car.w += (wT - car.w) * (1 - Math.exp(-(drifting ? 3 : 8) * dt));
   car.h += car.w * dt;
   if (speed < 0.25 && !inp.thr && !inp.brk) { vF = 0; vR = 0; car.w *= 0.8; }
