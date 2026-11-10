@@ -390,6 +390,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
           <p class="sdesc">בטלפון מומלץ "חסכונית" או "טורבו". רזולוציה אוטומטית מורידה חדות כשהמשחק מתחיל להיתקע.</p></div>
         <div class="toggle"><span>רזולוציה אוטומטית</span><div class="seg" id="autores"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>סיוע היגוי (מונע הסתחררות)</span><div class="seg" id="assist"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
+        <div class="toggle"><span>הצללה בפינות (כבדה, למחשבים חזקים)</span><div class="seg" id="ssaoSeg"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>צליל</span><div class="seg" id="sound"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>מוזיקה ערבית</span><div class="seg" id="music"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>קריאות בערבית (קול)</span><div class="seg" id="voice"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
@@ -2705,7 +2706,7 @@ const glow = new B.GlowLayer('glow', scene, { mainTextureRatio: 0.5, blurKernelS
 glow.intensity = 0.55;
 ['lamp', 'winLit', 'mring', 'bulb', 'archLit'].forEach(k => TI[k] && glow.addIncludedOnlyMesh(TI[k].mesh));
 
-let ssao = null;
+let ssao = null, ssaoOn = store.get('ssao', false); // off by default everywhere: measured ~90 ms/frame on an iPhone
 const pipe = new B.DefaultRenderingPipeline('pipe', true, scene, [camera]);
 pipe.samples = 4;
 pipe.fxaaEnabled = true;
@@ -2737,7 +2738,7 @@ function setQuality(q) {
   baseScale = 1 / Math.min(dpr, DPR_TARGET[q] || 1);  // engine buffer = CSS size / level, so level = 1 / wanted pixel density
   resMul = 1; applyScale();
   setPipe(q === 'high' || q === 'med');
-  pipe.samples = q === 'high' ? ((devicePixelRatio || 1) >= 2 ? 2 : 4) : (devicePixelRatio || 1) >= 2 ? 1 : 2;
+  pipe.samples = q === 'high' ? 2 : (devicePixelRatio || 1) >= 2 ? 1 : 2;
   pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = false;
   glow.isEnabled = q === 'high' || q === 'med';
   sun.shadowEnabled = !!csm && (q === 'high' || q === 'med');
@@ -2751,7 +2752,7 @@ function setQuality(q) {
   rivalsShown = q === 'turbo' ? 3 : rivals.length;
   rivals.forEach((r, k) => { const on = k < rivalsShown; r.rc.root.setEnabled(on); r.active = on; if (!on) { r.tag.hidden = true; r.sm.emitRate = 0; } });
   // screen-space AO re-renders the whole scene and runs several full-screen passes: measured ~90 ms/frame on an iPhone, so phones skip it (desktop keeps it)
-  const wantAO = q === 'high' && !COARSE && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
+  const wantAO = q === 'high' && ssaoOn && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
   if (wantAO && !ssao) {
     try {
       ssao = new B.SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.75, blurRatio: 1 }, [camera], false);
@@ -3905,6 +3906,7 @@ let state = 'menu', countT = 0, countStep = -1;
 function segInit(id, cur, cb) { const el = $(id); const upd = v => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; upd(b.dataset.v); cb(b.dataset.v === '1'); }); upd(cur ? '1' : '0'); }
 document.querySelectorAll('#q1').forEach(el => el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setQuality(b.dataset.q); }));
 segInit('assist', assist, v => { assist = v; store.set('assist', v); });
+segInit('ssaoSeg', ssaoOn, v => { ssaoOn = v; store.set('ssao', v); setQuality(quality); });
 segInit('sound', sfx.on, v => { sfx.init(); sfx.set(v); });
 segInit('music', musicOn, v => { musicOn = v; store.set('music', v); sfx.init(); sfx.resume(); });
 segInit('voice', voice.on, v => { voice.on = v; store.set('voice', v); if (v) speak('yalla', true); });
@@ -4071,7 +4073,7 @@ async function runBench() {
   const g = k => TI[k] && TI[k].mesh, camP = () => camera.getScene().activeCamera;
   const tests = [
     ['צללים', () => { const v = sun.shadowEnabled; sun.shadowEnabled = false; return () => { sun.shadowEnabled = v; }; }],
-    ['הצללה בפינות (SSAO)', () => { const m = scene.postProcessRenderPipelineManager; try { m.detachCamerasFromRenderPipeline('ssao', camera); } catch (e) {} return () => { try { m.attachCamerasToRenderPipeline('ssao', camera); } catch (e) {} }; }],
+    ['הצללה בפינות (SSAO)', () => { if (!ssaoOn) return () => {}; ssaoOn = false; setQuality(quality); return () => { ssaoOn = true; setQuality(quality); }; }],
     ['bloom + זוהר', () => { const a = pipe.bloomEnabled, b2 = glow.isEnabled; pipe.bloomEnabled = false; glow.isEnabled = false; return () => { pipe.bloomEnabled = a; glow.isEnabled = b2; }; }],
     ['קרני שמש', () => { if (!vls) return () => {}; camera.detachPostProcess(vls); return () => camera.attachPostProcess(vls); }],
     ['MSAA', () => { const v = pipe.samples; pipe.samples = 1; return () => { pipe.samples = v; }; }],
