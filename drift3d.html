@@ -396,6 +396,18 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <div class="toggle"><span>קריאות בערבית (קול)</span><div class="seg" id="voice"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>בדיקת קול</span><button class="btn ghost" id="voiceTest" type="button">🔊 יאללה חביבי!</button></div>
         <p class="sdesc" id="voiceInfo">לחץ כדי לשמוע קריאה בערבית.</p>
+        <div class="toggle"><span>מנהל</span><button class="btn ghost" id="adminBtn" type="button">🔑 כניסת מנהל</button></div>
+        <div id="adminBox" hidden style="display:grid;gap:8px;padding:6px 0">
+          <input id="adminPw" type="password" placeholder="סיסמת מנהל" autocomplete="off" style="padding:10px;border-radius:10px;border:1px solid #555;background:#15151c;color:#fff;font:600 15px system-ui">
+          <button class="btn" id="adminGo" type="button">היכנס</button>
+          <p class="sdesc" id="adminMsg"></p>
+        </div>
+        <div id="adminPanel" hidden style="display:grid;gap:8px;padding:6px 0">
+          <p class="sdesc" id="adminState">מצב מנהל פעיל: הכול פתוח בחינם.</p>
+          <div class="toggle"><span>ניטרו אינסופי</span><div class="seg" id="adminNitroSeg"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
+          <button class="btn ghost" id="adminFal" type="button">🧆 ‎+10,000 פלאפלים</button>
+          <button class="btn ghost" id="adminOut" type="button">התנתק ממצב מנהל</button>
+        </div>
         <div class="toggle"><span>אבחון ביצועים (כ-40 שניות)</span><button class="btn ghost" id="benchGo" type="button">▶ הרץ אבחון</button></div>
         <p class="sdesc">מכבה כל אפקט לרגע ומודד כמה הוא עולה בטלפון שלך. אחר כך מופיעה טבלה, שאפשר לצלם ולשלוח.</p>
       </div>
@@ -1051,6 +1063,12 @@ const woodMat2 = pbr('wood2', { color: 0x6b4a2e, rough: 0.9 });
 }
 kit('shutter', box('shutter'), shutterMat, { cast: false });
 kit('rail', box('rail'), metalMat, { cast: false, colors: false });
+{ // fanous: a hanging star lantern; its glass is lit by a 'bulb' placed inside it
+  const { S, C, Bx, merge } = animalKit(), brass = [0.62, 0.45, 0.16], gl = [[0.9, 0.2, 0.15], [0.15, 0.55, 0.3], [0.95, 0.7, 0.15]];
+  C(0.5, 0.01, 0.01, 0, 0.25, 0, brass, 0, 0, 4); C(0.05, 0.16, 0.12, 0, 0.0, 0, brass, 0, 0, 8); C(0.34, 0.2, 0.2, 0, -0.2, 0, gl[0], 0, 0, 8); C(0.06, 0.2, 0.22, 0, -0.4, 0, brass, 0, 0, 8); C(0.18, 0.12, 0.01, 0, -0.52, 0, brass, 0, 0, 8);
+  for (const a of [0, 1.57, 3.14, 4.71]) Bx(0.012, 0.34, 0.012, Math.sin(a) * 0.105, -0.2, Math.cos(a) * 0.105, brass);
+  kit('fanous', merge(), vcMat, { colors: false, cast: false });
+}
 // Arabic + Hebrew shop signs over doors, and kilim rugs on balconies
 const SHOP_SIGNS = [['حلويات أبو سمير', 'ממתקים אבו סמיר', '#1d6b3a', '#ffd34d'], ['فلافل أبو دريفت', 'פלאפל אבו דריפט', '#c4261f', '#fff4d6'], ['كراج سمير', 'מוסך סמיר – מתקנים הכל חוץ מהלב', '#1d3f8c', '#ffffff'], ['مقهى الختيارية', 'בית קפה של הזקנים', '#4a2a16', '#ffd38a'], ['ملحمة الأمانة', 'קצביית האמון', '#8a1414', '#ffffff'], ['حمص أبو غازي', 'חומוס אבו גאזי – עד שנגמר', '#c79a1f', '#2a1a0a'], ['مخبز الطابون', 'מאפיית הטאבון – כעכ חם', '#6b3b12', '#ffe9b0'], ['صالون أبو حسن', 'מספרת אבו חסן – גם לעיזים', '#0f5e6b', '#ffffff']];
 const signMats = SHOP_SIGNS.map(([ar, he, bg, fg], i) => {
@@ -1298,6 +1316,8 @@ function house(cx, cz, w, d, floors, yaw, tint) {
       if (fl === 0 && k === 0 && f === doorFace) {
         put('door', cx + ox, y + 1.15, cz + oz, 1.25, 2.3, 0.16, fy, [...DOORS[(R1() * DOORS.length) | 0], 1]);
         put('lintel', cx + ox, y + 2.45, cz + oz, 1.7, 0.22, 0.26, fy, sc);
+        if (R1() < 0.55) { const sgf = f % 2 ? -1 : 1, [nxf, nzf] = rot(yaw, f < 2 ? 0 : sgf, f < 2 ? sgf : 0), [uxf, uzf] = rot(fy, 1, 0), qf = R1() < 0.5 ? 1 : -1, fx2 = cx + ox + uxf * qf * 1.35 + nxf * 0.25, fz2 = cz + oz + uzf * qf * 1.35 + nzf * 0.25;
+          put('fanous', fx2, y + 2.7, fz2, 1.2, 1.2, 1.2, fy); put('bulb', fx2, y + 2.5, fz2, 0.16, 0.2, 0.16); }
         if (R1() < 0.3) { const sg2 = f % 2 ? -1 : 1, [nxs, nzs] = rot(yaw, f < 2 ? 0 : sg2, f < 2 ? sg2 : 0), face = Math.atan2(-nxs, -nzs); put('sign' + ((R1() * SHOP_SIGNS.length) | 0), cx + ox + nxs * 0.16, y + 2.95, cz + oz + nzs * 0.16, 2.1, 2.1, 1, face); }
         if (R1() < 0.42) { const sg = f % 2 ? -1 : 1, [nx3, nz3] = rot(yaw, f < 2 ? 0 : sg, f < 2 ? sg : 0), [ux3, uz3] = rot(fy, 1, 0), q = R1() < 0.5 ? 1 : -1;
           put('bougain', cx + ox + ux3 * q * 1.25 + nx3 * 0.15, y, cz + oz + uz3 * q * 1.25 + nz3 * 0.15, 1, 0.9 + R1() * 0.6 * floors, 1, fy); }
@@ -2136,14 +2156,11 @@ MODELS.push(
   { id: 'gsedan', name: 'סדאן הכפר', style: 'sedan', L: 2.3, W: 0.9, H: 1.4, R: 1.4, nose: 0.3, n: 4, wr: 0.33, badge: 'bars', price: 340, acc: 1.02, vmax: 1.02, grip: 1.0, head: 'round', grey: 0x8a8c8f, glb: 'sedan.glb', flip: false, desc: 'מודל אמיתי, מסודר מבחוץ ומבפנים. מחזיק את הכביש כמו סבא על הכורסה.' },
   { id: 'gcharger', name: 'הטעינה המהירה', style: 'hatch', L: 2.4, W: 0.92, H: 1.4, R: 1.4, nose: 0.3, n: 4, wr: 0.3, badge: 'bars', price: 420, acc: 1.1, vmax: 1.08, grip: 1.06, head: 'slant', grey: 0x6f7174, glb: 'charger.glb', flip: false, desc: 'מודל אמיתי עם ארבעה גלגלים שמסתובבים. כשהיא עוברת, השכנים מחפשים את הכבלים.' }
 );
-const PAINTCOLS = [
+const PAINTCOLS = [ // beaters only come in grey or white
   { id: 'grey', name: 'אפור טרנטה (מקורי)', hex: null, price: 0 }, { id: 'silver', name: 'כסף דהוי', hex: 0xb8bab9, price: 0 },
-  { id: 'white', name: 'לבן מנהלים', hex: 0xe8e6e0, price: 15 }, { id: 'black', name: 'שחור מבריק', hex: 0x141416, price: 15 },
-  { id: 'red', name: 'אדום פרארי של עני', hex: 0xb3121c, price: 20 }, { id: 'blue', name: 'כחול רויאל', hex: 0x1d3f8c, price: 20 },
-  { id: 'olive', name: 'ירוק זית', hex: 0x5b6a2e, price: 20 }, { id: 'taxi', name: 'צהוב מונית', hex: 0xf2c21b, price: 25 },
-  { id: 'turq', name: 'טורקיז', hex: 0x0fa3a0, price: 25 }, { id: 'purple', name: 'סגול חתונה', hex: 0x6a2fb8, price: 30 },
-  { id: 'pink', name: 'ורוד של הדודה', hex: 0xe0559a, price: 30 }, { id: 'gold', name: 'זהב שייח׳', hex: 0xc8a03a, price: 60, metal: 0.9, rough: 0.25 },
-  { id: 'chrome', name: 'כרום מראה', hex: 0xd8d8dc, price: 120, metal: 1, rough: 0.07 }
+  { id: 'white', name: 'לבן טרנטה', hex: 0xe8e6e0, price: 0 }, { id: 'yellowwhite', name: 'לבן מצהיב מהשמש', hex: 0xdad3bd, price: 10 },
+  { id: 'charcoal', name: 'אפור פחם מאובק', hex: 0x6a6c70, price: 10 }, { id: 'primer', name: 'אפור פריימר (חצי צבוע)', hex: 0x9a9890, price: 15 },
+  { id: 'pearl', name: 'לבן שנהב ישן', hex: 0xefece2, price: 20 }
 ];
 const UPG = [
   { cat: 'exhaust', title: 'אגזוז', items: [['std', 'מקורי חלוד', 0, 'עושה רעש של מייבש שיער'], ['dual', 'אגזוז כפול', 25, 'פי שתיים רעש'], ['cannon', 'אגזוז תותח', 60, 'קוטר של צינור ביוב'], ['fire', 'יורק אש', 90, 'פיצוצים ולהבות כשעוזבים גז']] },
@@ -2159,12 +2176,15 @@ const UPG = [
 ];
 const DEFAULT_EQ = { car: 'mazda', paint: 'grey', exhaust: 'std', wing: 'none', wheels: 'steel', roof: 'none', neon: 'none', engine: 'stock', tires: 'std', horn: 'beep', door: 'same', polish: 'dusty' };
 let EQ = Object.assign({}, DEFAULT_EQ, store.get('eq', {}));
+if (!PAINTCOLS.some(p => p.id === EQ.paint)) EQ.paint = 'grey'; // old saves with colourful paint fall back to beater grey
 const OWNED = new Set(store.get('owned', []));
+let ADMIN = store.get('admin', false), adminNitro = store.get('adminNitro', true);
+const isOwned = k => ADMIN || OWNED.has(k);
 MODELS.forEach(m => { if (!m.price) OWNED.add('car:' + m.id); });
 PAINTCOLS.forEach(p => { if (!p.price) OWNED.add('paint:' + p.id); });
 UPG.forEach(g => g.items.forEach(([id, , pr]) => { if (!pr) OWNED.add(g.cat + ':' + id); }));
 let falafel = store.get('falafel', 25);
-for (const k of Object.keys(DEFAULT_EQ)) { const key = (k === 'car' ? 'car' : k) + ':' + EQ[k]; if (!OWNED.has(key)) EQ[k] = DEFAULT_EQ[k]; }
+for (const k of Object.keys(DEFAULT_EQ)) { const key = (k === 'car' ? 'car' : k) + ':' + EQ[k]; if (!isOwned(key)) EQ[k] = DEFAULT_EQ[k]; }
 const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
 
 const paint = pbr('paint', { color: 0x8a8c8f, metal: 0.25, rough: 0.55, env: 1.2 });
@@ -2401,7 +2421,7 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   add(MB.CreateRibbon('roof', { pathArray: [tA, tA + 0.015, tA + 0.06, (tA + tB) / 2, tB - 0.06, tB - 0.015, tB].map((t, k) => { const y = topAt(t) + 0.012, e = k === 0 || k === 6; return sectionPath(lerp(zr, zf, t), rw * (e ? 0.9 : 1), y - (e ? 0.003 : 0.05), y, 0.02, 8); }), sideOrientation: B.Mesh.DOUBLESIDE }, scene), pm);
   const bx = (w, h, d, x, y, z, mat, rx = 0, ry = 0, parent = body) => { const m = add(MB.CreateBox('p', { width: w, height: h, depth: d }, scene), mat, parent); m.position.set(x, y, z); m.rotation.x = rx; m.rotation.y = ry; return m; };
   const fy = H - nz - 0.05;
-  const D = MD[M.id] || {}, jankL = (simple || eq.polish === 'shine') ? 0 : 1 + carHash(M.id) % 3;
+  const D = MD[M.id] || {}, jankL = simple ? 0 : eq.polish === 'shine' ? 1 : 2 + carHash(M.id) % 2;
   const F = { impreza: { scoop: 1 }, e30: { chromeBelt: 1 }, merc: { chromeGrille: 1, chromeBelt: 1 }, corolla: { chromeBelt: 1 }, lancer: { scoop: 0 }, golf4: { cpillar: 1 }, van: {} }[M.id] || {};
   if (F.scoop) bx(0.52, 0.08, 0.42, 0, H - nz * 0.3 + 0.03, L - 0.72, carMats.black, -0.06);
   if (F.twin) for (const s of [-1, 1]) bx(0.17, 0.14, 0.05, s * 0.1, fy - 0.03, L + 0.005, carMats.chrome);
@@ -2458,7 +2478,7 @@ function buildCar(ghost = false, pm = paint, o = {}) {
   if (eq.door === 'odd') bx(0.02, 0.42, Math.min(1.1, (zf - zr) * 0.5), -(W + 0.004), 0.62, (zf + zr) / 2 - 0.05, eq.paint === 'grey' || eq.paint === 'silver' ? carMats.primer : (() => { const m2 = pm.clone('door' + uid); m2.albedoColor = LC(M.grey); m2.albedoTexture = grimeTex; ownMats.push(m2); return m2; })());
   // beater details: door handles, grille slats, mirror glass, and per-model jank (rust, tape, rope, stickers, for-sale sign)
   if (!simple) {
-    const hs = carHash(M.id), shine = eq.polish === 'shine', jank = shine ? 0 : 1 + hs % 3;
+    const hs = carHash(M.id), shine = eq.polish === 'shine', jank = shine ? 1 : 2 + hs % 2;
     for (const s of [-1, 1]) {
       for (const zz of [lerp(zr, zf, 0.5) + 0.12, st === 'van' ? lerp(zr, zf, 0.2) : zr + 0.15]) bx(0.025, 0.035, 0.14, s * (W * 0.995 + 0.012), H - 0.2, zz, carMats.chrome);
       bx(0.012, 0.075, 0.15, s * (W + 0.13), H + 0.07, zf - 0.08 - 0.06, carMats.chrome).rotation.y = s * 0.15;
@@ -2935,15 +2955,15 @@ for (let i = 0; i < N; i++) {
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
 const RIVAL_DEF = [
   { name: 'אבו עלי', model: 'corolla', hex: 0xe9e7e1, skill: 0.96, start: 16, lane: -3, eq: { wing: 'lip', wheels: 'chrome' } },
-  { name: 'סמיר טורבו', model: 'e30', hex: 0x1d8a45, skill: 0.97, start: -11, lane: 3, eq: { wing: 'gt', exhaust: 'cannon', wheels: 'chrome', polish: 'shine' } },
-  { name: 'הדודה פאטמה', model: 'rio', hex: 0xe0559a, skill: 0.94, start: -24, lane: -2.5, eq: { roof: 'mattress', wheels: 'chrome' } },
-  { name: 'אבו טסלה סעיד', model: 'golf4', hex: 0xf3f3f0, skill: 0.95, start: 30, lane: 3, eq: { exhaust: 'none', neon: 'purple', polish: 'shine' } },
-  { name: 'יוסוף התותח', model: 'lancer', hex: 0x2b2b30, skill: 0.96, start: -38, lane: -3, eq: { wing: 'plane', exhaust: 'fire', wheels: 'gold' } },
-  { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x1f4fa8, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
+  { name: 'סמיר טורבו', model: 'e30', hex: 0x8a8c8f, skill: 0.97, start: -11, lane: 3, eq: { wing: 'gt', exhaust: 'cannon', wheels: 'chrome', polish: 'shine' } },
+  { name: 'הדודה פאטמה', model: 'rio', hex: 0xdad3bd, skill: 0.94, start: -24, lane: -2.5, eq: { roof: 'mattress', wheels: 'chrome' } },
+  { name: 'אבו טסלה סעיד', model: 'golf4', hex: 0x9a9890, skill: 0.95, start: 30, lane: 3, eq: { exhaust: 'none', neon: 'purple', polish: 'shine' } },
+  { name: 'יוסוף התותח', model: 'lancer', hex: 0xf3f3f0, skill: 0.96, start: -38, lane: -3, eq: { wing: 'plane', exhaust: 'fire', wheels: 'gold' } },
+  { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x6f7174, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
   { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } },
-  { name: 'סעיד השניצל', model: 'octavia', hex: 0xd9a441, skill: 0.94, start: 58, lane: 2.5, eq: { wing: 'lip' } },
-  { name: 'חמדי', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } },
-  { name: 'כרים עבדול ג׳מאל', model: 'merc', hex: 0xc8a165, skill: 0.955, start: 66, lane: -3, eq: { roof: 'camel', wheels: 'gold', horn: 'camel' } }
+  { name: 'סעיד השניצל', model: 'octavia', hex: 0xb5b2aa, skill: 0.94, start: 58, lane: 2.5, eq: { wing: 'lip' } },
+  { name: 'חמדי', model: 'optra', hex: 0xefece2, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } },
+  { name: 'כרים עבדול ג׳מאל', model: 'merc', hex: 0x7c7f84, skill: 0.955, start: 66, lane: -3, eq: { roof: 'camel', wheels: 'gold', horn: 'camel' } }
 ];
 const rivals = RIVAL_DEF.map((d, k) => {
   const M = modelOf(d.model), eq = Object.assign({}, DEFAULT_EQ, d.eq);
@@ -3326,6 +3346,7 @@ function physics(dt, inp) {
   const thr = car.thr;
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
+  if (ADMIN && adminNitro) car.nos = 1;
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
   if (car.boost) { vF += 6.5 * (1 - Math.min(1, (vF / 36) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
@@ -3384,10 +3405,10 @@ const AR = {
   yalla: 'يلا يا حبيبي!', walla: 'والله يا حبيبي، دريفت حلو يا عيني!', insha: 'إن شاء الله!', masha: 'ما شاء الله!', salam: 'يا سلام!',
   shway: 'شوي شوي!', mabrouk: 'مبروك! مبروك يا بطل!', yamajnoon: 'يا مجنون!', baklava: 'بقلاوة! بقلاوة طازة!', onefal: 'حبيبي، بس فلافل وحدة!',
   yaba: 'يابا! شو هذا؟', bism: 'بسم الله!', khalas: 'خلاص!', yaallah: 'يا الله!', ahlan: 'أهلا وسهلا!', aib: 'عيب عليك!', zay: 'زي الصاروخ!',
-  kunafa: 'استنى استنى! في كنافة كمان!', sabah: 'من الصبح وأنا مستنيك!', ummi: 'بقلاوة إمي، والله!', helu: 'حلوة زي الدريفت تبعك!', habibi: 'حبيبي، تعال!', uff: 'أوووف!'
+  kunafa: 'استنى استنى! في كنافة كمان!', sahtein: 'صحتين وعافية!', yaeni: 'يا عيني عليك!', baladi: 'والله هيك بلدي!', tfaddal: 'تفضل تفضل!', shabab: 'يا شباب، شوفوا هاد!', sabah: 'من الصبح وأنا مستنيك!', ummi: 'بقلاوة إمي، والله!', helu: 'حلوة زي الدريفت تبعك!', habibi: 'حبيبي، تعال!', uff: 'أوووف!'
 };
 const SHOUT = {
-  drift: [['וואלה יחביבי, אחלה של דריפט יאומי!', 'walla'], ['מאשאללה, איזה עשן!', 'masha'], ['יא סלאם על ההחלקה!', 'salam'], ['עשן כמו בטאבון של סבתא', 'uff'], ['הדריפט הזה יגיע לחתונה של הבן דוד', 'masha'], ['אחלה סבבה יא זלמה', 'yalla'], ['תכף מגיעה הדודה לראות', 'yaba'], ['זי א-צארוח! כמו טיל!', 'zay'], ['הצמיגים ביקשו חופש מחלה', 'uff'], ['השכנים חושבים שיש מנגל', 'salam']],
+  drift: [['סחתיין עליך! כמו שאומרים אצל סבתא', 'sahtein'], ['יא עיני, איזה סטייל!', 'yaeni'], ['הכי בלדי שיש, וואלה!', 'baladi'], ['יא שבאב, תראו מה הוא עושה!', 'shabab'], ['בתאבון על הצמיגים!', 'sahtein'], ['וואלה יחביבי, אחלה של דריפט יאומי!', 'walla'], ['מאשאללה, איזה עשן!', 'masha'], ['יא סלאם על ההחלקה!', 'salam'], ['עשן כמו בטאבון של סבתא', 'uff'], ['הדריפט הזה יגיע לחתונה של הבן דוד', 'masha'], ['אחלה סבבה יא זלמה', 'yalla'], ['תכף מגיעה הדודה לראות', 'yaba'], ['זי א-צארוח! כמו טיל!', 'zay'], ['הצמיגים ביקשו חופש מחלה', 'uff'], ['השכנים חושבים שיש מנגל', 'salam']],
   combo2: [['יאללה שבאב!', 'yalla'], ['בסמאללה, זה מתחיל!', 'bism'], ['אהלן וסהלן לדריפט!', 'ahlan']],
   combo4: [['וואלה יחביבי, אחלה של דריפט יאומי!', 'walla'], ['מאשאללה מאשאללה!', 'masha'], ['כל הכפר עומד על הגג!', 'salam']],
   combo6: [['יא אללה! דריפט של אגדות!', 'yaallah'], ['המוכתר בעצמו מוחא כפיים', 'masha'], ['הדריפט הזה ייכנס לסיפורים של סבא', 'salam']],
@@ -3945,7 +3966,7 @@ let gTab = 'cars', askKey = null;
 $('gtabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; gTab = b.dataset.tab; askKey = null; renderGarage(); });
 const hexCss = h => '#' + h.toString(16).padStart(6, '0');
 function card(key, name, desc, price, equipped, extra = '') {
-  const own = OWNED.has(key), poor = !own && price > falafel, ask = askKey === key;
+  const own = isOwned(key), poor = !own && price > falafel, ask = askKey === key;
   const pr = equipped ? 'בשימוש' : own ? 'שלך · לחץ להפעלה' : ask ? `לקנות ב-🧆 ${price}? לחץ שוב` : poor ? `🧆 ${price} · חסרים ${price - falafel}` : `🧆 ${price}`;
   return `<button type="button" class="gi${own ? ' own' : ''}${equipped ? ' on' : ''}${poor ? ' poor' : ''}${ask ? ' ask' : ''}" data-key="${key}" data-price="${price}">${extra}<span class="nm">${name}</span>${desc ? `<span class="ds">${desc}</span>` : ''}<span class="pr">${pr}</span></button>`;
 }
@@ -3966,7 +3987,7 @@ function renderGarage() {
 $('glist').addEventListener('click', e => {
   const b = e.target.closest('.gi'); if (!b) return;
   const key = b.dataset.key, price = +b.dataset.price, [cat, id] = key.split(':');
-  if (!OWNED.has(key)) {
+  if (!isOwned(key)) {
     if (price > falafel) { toast('חסר פלאפל', `צריך עוד ${price - falafel} 🧆. לך תחליק.`, true); return; }
     if (askKey !== key) { askKey = key; renderGarage(); return; }
     falafel -= price; store.set('falafel', falafel); OWNED.add(key); store.set('owned', [...OWNED]); toast('קנית!', pick(['מבורך', 'שיהיה בכיף', 'תתחדש, אחי']));
@@ -4101,6 +4122,25 @@ async function runBench() {
   ov.addEventListener('click', () => ov.remove()); fpsCap = capSaved; setDOF(dofSaved || state === 'menu'); btn.disabled = false;
 }
 $('benchGo').addEventListener('click', runBench);
+/* ---- admin mode: password-gated; unlocks every car/paint/upgrade for free. (A client-side lock for a game: it keeps casual players out, it is not real security.) ---- */
+const ADMIN_SHA = '4d8ce6c28b4129438667c1735629bdb911a898153a3ec92f6af27088347ca01f', ADMIN_FALLBACK = '3g7vlh13mg';
+const cyrb53 = (str, seed = 0) => { let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed; for (let i = 0, ch; i < str.length; i++) { ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); };
+async function adminPwOk(p) {
+  try { if (window.crypto && crypto.subtle) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('') === ADMIN_SHA; } } catch (e) {}
+  return cyrb53(p) === ADMIN_FALLBACK;
+}
+function refreshAdminUI() { $('adminPanel').hidden = !ADMIN; $('adminBtn').textContent = ADMIN ? '🔑 מצב מנהל פעיל' : '🔑 כניסת מנהל'; if (!ADMIN) $('adminBox').hidden = true; }
+$('adminBtn').addEventListener('click', () => { if (ADMIN) return; $('adminBox').hidden = !$('adminBox').hidden; if (!$('adminBox').hidden) $('adminPw').focus(); });
+async function adminLogin() {
+  if (await adminPwOk($('adminPw').value)) { ADMIN = true; store.set('admin', true); $('adminPw').value = ''; $('adminBox').hidden = true; $('adminMsg').textContent = ''; refreshAdminUI(); renderGarage(); toast('ברוך הבא, מנהל', 'הכול פתוח בחינם'); }
+  else { $('adminMsg').textContent = 'סיסמה שגויה.'; }
+}
+$('adminGo').addEventListener('click', adminLogin);
+$('adminPw').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
+$('adminFal').addEventListener('click', () => { addFalafel(10000); });
+$('adminOut').addEventListener('click', () => { ADMIN = false; store.set('admin', false); for (const k of Object.keys(DEFAULT_EQ)) { if (!isOwned(k + ':' + EQ[k])) EQ[k] = DEFAULT_EQ[k]; } store.set('eq', EQ); refreshAdminUI(); renderGarage(); makePlayerCar(); });
+segInit('adminNitroSeg', adminNitro, v => { adminNitro = v; store.set('adminNitro', v); });
+refreshAdminUI();
 
 let jsMs = 0;
 scene.onBeforeRenderObservable.add(() => {
