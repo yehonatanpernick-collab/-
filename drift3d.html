@@ -363,6 +363,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
       </div>
       <p class="tip" id="fin-prize-note"></p>
       <p class="tip" id="fin-msg"></p>
+      <ol id="fin-table" style="margin:6px 0 0;padding:0 22px 0 0;max-height:150px;overflow:auto;font:600 14px/1.55 var(--body);color:var(--muted)"></ol>
       <div class="row-btns"><button class="btn" id="fin-again" type="button">שוב</button><button class="btn ghost" id="fin-menu" type="button">לתפריט</button></div>
     </div>
   </div>
@@ -1783,7 +1784,7 @@ function updateHerd(t, dt) {
     let x = PX[i0] + RX[i0] * g.side * g.lat, z = PZ[i0] + RZ[i0] * g.side * g.lat;
     if (g.init && (x - cx) ** 2 + (z - cz) ** 2 > 150 * 150) return;
     const dcar = Math.hypot(car.x - x, car.z - z);
-    if (state === 'drive' && dcar < 13 && !g.out) {
+    if (state === 'drive' && (dcar < 13 || (hornT > 1.2 && dcar < 32)) && !g.out) {
       if (g.panic <= 0) { sfx.bleat(); if (t - herdShoutT > 7) { herdShoutT = t; toast(pick(['עיזים בהלם!', 'מההההה!', 'העדר של אבו עלי בורח', 'העזים קופצות מעל הקיר!']), ''); } }
       g.panic = 1.4;
       if (dcar < 6 && g.jump <= 0) { g.jump = 0.7; g.vy = 6.5; }
@@ -3094,7 +3095,7 @@ function updateRivals(dt) {
       if (raceT - r.hitT > 0.7 && Math.abs(vn) > 2) { r.hitT = raceT; sfx.thud(5); camShake = Math.min(1, camShake + 0.25); buzz(25); }
     }
     const dist = Math.sqrt(d2);
-    if (dist < 9 && (!nearRival || dist < nearRival.d)) nearRival = { r, d: dist };
+    if (dist < 9 && (!nearRival || dist < nearRival.d)) nearRival = { r, d: dist, ahead: r.s > pp && r.s - pp < 9 && Math.abs((car.d || 0) - r.lane) < 2.2 };
     const ahead = r.s > pp;
     if (r.ahead !== null && ahead !== r.ahead && raceT > 4) {
       if (!ahead) { const pay = raceT - r.passT > 10; toast(`עקפת את ${r.name}!`, pay ? 'יאללה ביי · +1 🧆' : 'יאללה ביי'); speak(pick(['yalla', 'salam', 'zay'])); if (pay) addFalafel(1); r.passT = raceT; } else toast(`${r.name} עקף אותך`, 'לא נורא, תחזיר לו');
@@ -3121,19 +3122,19 @@ function syncRivals(dt) {
 const _tm = new B.Vector3();
 function updateTags() {
   const rw = engine.getRenderWidth(), rh = engine.getRenderHeight(), k = innerWidth / rw;
-  const vp = camera.viewport.toGlobal(rw, rh), tm = scene.getTransformMatrix();
-  rivals.forEach((r, n) => {
-    const d = Math.hypot(r.x - camera.position.x, r.z - camera.position.z);
-    let vis = r.active !== false && state !== 'menu' && d < 95;
+  const vp = camera.viewport.toGlobal(rw, rh), tm = scene.getTransformMatrix(), shown = [], pp = playerProg();
+  const order = rivals.map(r => ({ r, d: Math.hypot(r.x - camera.position.x, r.z - camera.position.z) })).sort((a, b) => a.d - b.d);
+  for (const { r, d } of order) {
+    let vis = r.active !== false && state !== 'menu' && d < 80;
     if (vis) {
       _tm.set(r.x, 2.25, r.z);
-      const p = B.Vector3.Project(_tm, B.Matrix.IdentityReadOnly, tm, vp);
-      vis = p.z > 0 && p.z < 1 && p.x > -50 && p.x < rw + 50;
-      if (vis) r.tag.style.transform = `translate(${(p.x * k).toFixed(1)}px,${(p.y * k).toFixed(1)}px) translate(-50%,-100%)`;
+      const p = B.Vector3.Project(_tm, B.Matrix.IdentityReadOnly, tm, vp), sx = p.x * k, sy = p.y * k;
+      vis = p.z > 0 && p.z < 1 && p.x > -50 && p.x < rw + 50 && !shown.some(q => Math.abs(q[0] - sx) < 120 && Math.abs(q[1] - sy) < 30);
+      if (vis) { shown.push([sx, sy]); r.tag.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-100%)`; }
     }
     if (r.tag.hidden === vis) r.tag.hidden = !vis;
-    if (vis) { const pos = 1 + rivals.filter(o => o.s > r.s).length + (playerProg() > r.s ? 1 : 0); r.tag.lastChild.textContent = String(pos); }
-  });
+    if (vis) r.tag.lastChild.textContent = String(1 + rivals.filter(o => o.s > r.s).length + (pp > r.s ? 1 : 0));
+  }
 }
 
 // ---- Mohammed Khaled, the baklava seller who plants himself on the road now and then ----
@@ -3404,7 +3405,8 @@ function physics(dt, inp) {
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
   if (car.boost) { vF += 6.5 * (1 - Math.min(1, (vF / 36) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
-  const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
+  const slipS = nearRival && nearRival.ahead && vF > 12 ? 0.55 : 1; if (slipS < 1 && !car.slipMsg) { car.slipMsg = true; toast('💨 בצל של ' + nearRival.r.name, 'פחות רוח, יותר מהירות'); } else if (slipS === 1 && !nearRival) car.slipMsg = false;
+  const drag = 0.3 + 0.0034 * slipS * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
   const speed = Math.hypot(vF, vR), slip = Math.atan2(vR, Math.max(Math.abs(vF), 1.0)), slipAbs = Math.abs(slip);
   const drifting = slipAbs > 0.17 && speed > 5;
@@ -4038,7 +4040,7 @@ $('voiceTest').addEventListener('click', () => {
 addEventListener('pointerdown', () => { sfx.init(); sfx.resume(); }, { once: true });
 /* track picker */
 $('eyebrow').textContent = `${TRACK.name} · ${TRACK.len} ק״מ`;
-$('tracks').innerHTML = TRACKS.map(t => `<button type="button" class="trk" data-t="${t.id}" aria-pressed="${t.id === TRACK.id}"><b>${t.name}</b><span>${t.desc}</span></button>`).join('');
+$('tracks').innerHTML = TRACKS.map(t => `<button type="button" class="trk" data-t="${t.id}" aria-pressed="${t.id === TRACK.id}"><b>${t.name}${(p => p === 1 ? ' 🥇' : p === 2 ? ' 🥈' : p === 3 ? ' 🥉' : p < 99 ? ` · שיא: מקום ${p}` : '')(store.get('bestPlace:' + t.id, 99))}</b><span>${t.desc}</span></button>`).join('');
 $('tracks').addEventListener('click', e => { const b = e.target.closest('.trk'); if (!b || b.dataset.t === TRACK.id) return; store.set('track', b.dataset.t); $('loading').hidden = false; $('loading').querySelector('div').innerHTML = '<b>דריפט בין ערבים</b>נוסעים ל' + TRACKS.find(t => t.id === b.dataset.t).name + '…'; setTimeout(() => location.reload(), 60); });
 
 /* settings */
@@ -4127,6 +4129,9 @@ function finishRace() {
     $('fin-prize-note').textContent = `${base} פלאפלים על מקום ${place}` + (bonus ? ` + ${bonus} בונוס דריפט` : '') + ' · הדודה כבר מטגנת';
     if (place === 1) { sfx.zaghrouta(); speak('mabrouk', true); confettiBurst(); } else speak(place <= 3 ? 'masha' : 'insha', true);
   }
+  { const rows = rivals.filter(r => r.active !== false).map(r => ({ n: r.name, s: r.s, me: false })); rows.push({ n: 'אתה', s: playerProg(), me: true }); rows.sort((a, b) => b.s - a.s);
+    $('fin-table').innerHTML = rows.map((r, i) => `<li style="${r.me ? 'color:var(--sodium);font-weight:800' : ''}">${['🥇 ', '🥈 ', '🥉 '][i] || ''}${r.n}</li>`).join('');
+    const bp = store.get(TK('bestPlace'), 99); if (place < bp) store.set(TK('bestPlace'), place); }
   $('fin-pos').textContent = `${place}/${rivalsShown + 1}`;
   $('fin-time').textContent = fmtT(raceT);
   $('fin-score').textContent = fmt(total);
