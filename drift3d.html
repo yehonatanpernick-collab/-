@@ -692,6 +692,7 @@ const TRACKS = [
   { id: 'olive', name: 'כפר הזיתים', desc: 'מסלול זורם בין גבעות, כרמי זיתים ושמונה כפרים.', len: '1.6', ctrl: [[0,0],[120,0],[200,30],[232,100],[205,160],[135,172],[92,132],[42,140],[12,200],[-60,224],[-142,192],[-190,126],[-158,66],[-206,6],[-166,-64],[-84,-76]], scale: 1.25, hw: 8.5, villages: 8, vOff: 60, street: 0.14, roadMosques: 5, fans: 360, herds: 11, hill: 1, canyon: false, camels: 3, sea: false },
   { id: 'souk', name: 'סמטאות השוק', desc: 'מסלול צפוף וטכני בתוך עיירה. בתים ומסגדים צמודים לקיר, ובכל פינה קהל.', len: '1.5', ctrl: [[0,0],[110,-5],[165,40],[165,110],[115,150],[60,140],[20,170],[-40,175],[-100,145],[-125,85],[-95,35],[-75,-25]], scale: 1.35, hw: 7.5, villages: 6, vOff: 34, street: 0.8, roadMosques: 8, fans: 440, herds: 5, hill: 0.55, canyon: false, camels: 1, sea: false },
   { id: 'wadi', name: 'ואדי הסחרחורת', desc: 'כביש מהיר בין צוקים, פניות ארוכות לדריפט ועדרי עיזים בכל מקום.', len: '1.5', ctrl: [[0,0],[160,-20],[300,30],[380,140],[330,250],[200,270],[120,200],[20,240],[-110,220],[-200,120],[-170,20],[-90,-30]], scale: 1.0, hw: 9, villages: 4, vOff: 95, street: 0.05, roadMosques: 3, fans: 240, herds: 24, hill: 1.7, canyon: true, camels: 5, sea: false },
+  { id: 'camels', name: 'מרוץ הגמלים המטורף', desc: 'מסלול פראי עם עיקול סיכה, שיירות גמלים בכל פינה, עדרי עיזים ושלט "כביש סגור" שאף אחד לא מתייחס אליו.', len: '1.8', ctrl: [[0,0],[140,-10],[240,40],[270,130],[220,200],[140,190],[110,130],[50,150],[20,230],[-60,270],[-150,240],[-200,160],[-170,80],[-110,40],[-60,-20]], scale: 1.15, hw: 8.5, villages: 5, vOff: 70, street: 0.1, roadMosques: 4, fans: 300, herds: 18, camels: 10, hill: 1.2, canyon: false, sea: false },
   { id: 'coast', name: 'חוף הדייגים', desc: 'מסלול על שפת הים, עם דקלים, סירות דייגים ומסגד על החוף.', len: '1.3', ctrl: [[0,0],[140,0],[230,40],[260,120],[200,170],[120,150],[60,190],[-40,200],[-120,160],[-150,80],[-110,20],[-60,-10]], scale: 1.2, hw: 8.5, villages: 5, vOff: 55, street: 0.22, roadMosques: 4, fans: 320, herds: 7, hill: 0.9, canyon: false, camels: 2, sea: true }
 ];
 const TOTAL_LAPS = 2;
@@ -2928,7 +2929,7 @@ const DS = LEN / N;
 const VT = new Float32Array(N), TURN = new Float32Array(N);
 for (let i = 0; i < N; i++) {
   const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
-  VT[i] = clamp(Math.sqrt(11 / Math.max(ang / (16 * DS), 1e-4)), 11, 33);
+  VT[i] = clamp(Math.sqrt(9 / Math.max(ang / (16 * DS), 1e-4)), 10, 25);
   const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
@@ -2941,7 +2942,7 @@ const RIVAL_DEF = [
   { name: 'מוסטפא גלגלי בזק', model: 'civic', hex: 0x1f4fa8, skill: 0.95, start: 44, lane: 2.5, eq: { wheels: 'spinner', neon: 'green', exhaust: 'dual' } },
   { name: 'מחמוד הלא חמוד', model: 'van', hex: null, skill: 0.9, start: -52, lane: -1, eq: { roof: 'goat', door: 'odd' } },
   { name: 'סעיד השניצל', model: 'octavia', hex: 0xd9a441, skill: 0.94, start: 58, lane: 2.5, eq: { wing: 'lip' } },
-  { name: 'חמדי הקולנוע', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } },
+  { name: 'חמדי', model: 'optra', hex: 0x7a2d8f, skill: 0.93, start: -60, lane: -2.5, eq: { wheels: 'chrome' } },
   { name: 'כרים עבדול ג׳מאל', model: 'merc', hex: 0xc8a165, skill: 0.955, start: 66, lane: -3, eq: { roof: 'camel', wheels: 'gold', horn: 'camel' } }
 ];
 const rivals = RIVAL_DEF.map((d, k) => {
@@ -3004,11 +3005,11 @@ function updateRivals(dt) {
     const i = r.i ?? 0, look = (i + 18) % N;
     const rb = clamp(1 - (r.s - pp) / 700, 0.9, 1.16);
     const vt = Math.min(VT[i], VT[look]) * r.skill * rb;
-    r.v += clamp(vt - r.v, -14 * dt, 5 * dt);
+    r.v += clamp(vt - r.v, -12 * dt, 3.8 * dt);
     r.s += r.v * dt;
     if (Math.random() < dt * 0.25) r.laneT = (Math.random() - .5) * 9;
     r.lane = lerp(r.lane, r.laneT, 1 - Math.exp(-dt * 0.7));
-    const t = TURN[i], want = clamp(Math.abs(t) * 1.25 * clamp((r.v - 8) / 10, 0, 1), 0, 0.75) * (t < 0 ? 1 : -1);
+    const t = TURN[i], want = clamp(Math.abs(t) * 1.35 * clamp((r.v - 6) / 8, 0, 1), 0, 0.85) * (t < 0 ? 1 : -1);
     r.ang = lerp(r.ang, want, 1 - Math.exp(-dt * 2.5));
     placeRival(r);
     const dx = car.x - r.x, dz = car.z - r.z, d2 = dx * dx + dz * dz;
@@ -3033,7 +3034,7 @@ function syncRivals(dt) {
   for (const r of rivals) {
     if (r.active === false) continue;
     r.rc.root.position.set(r.x, 0, r.z); r.rc.root.rotation.y = r.h;
-    r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.11, -0.07, 0.07), 0.1);
+    r.rc.body.rotation.z = lerp(r.rc.body.rotation.z, clamp(r.ang * 0.12, -0.08, 0.08), 0.1);
     r.rc.spinners.forEach(n => n.rotation.x += dt * 2.6);
     for (const w of r.rc.wheels) { w.spin.rotation.x += r.v / r.rc.wr * dt; if (w.front) w.pivot.rotation.y = -r.ang * 0.7; }
     const sh = Math.sin(r.h), ch = Math.cos(r.h);
@@ -3299,7 +3300,7 @@ function readInput() {
 }
 
 /* ================= vehicle model ================= */
-const VMAX = 32, ACC = 6.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
+const VMAX = 27, ACC = 5.4, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
 const car = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, steer: 0, idx: 0, d: 0, thr: 0, slip: 0, speed: 0, vF: 0, ax: 0, ay: 0, grass: false, hit: 0, nos: 0.35, boost: false, scrape: 0, sn: [0, 0], pop: 0, thrPrev: 0, drifting: false };
 let assist = store.get('assist', true);
 function locate(full) {
@@ -3326,7 +3327,7 @@ function physics(dt, inp) {
   if (inp.thr) { if (vF > -0.5) vF += inp.thr * ACC * STAT.acc * (1 - Math.min(1, (vF / (VMAX * STAT.vmax)) ** 2)) * (car.grass ? (STAT.off ? 0.92 : 0.65) : 1) * dt; else vF += inp.thr * BRAKE * dt; }
   if (inp.brk) { if (vF > 0.5) vF -= inp.brk * BRAKE * dt; else if (vF > -REV_MAX) vF -= inp.brk * REV_ACC * dt; }
   car.boost = !!(inp.nitro && car.nos > 0.01 && vF > 2 && !inp.brk);
-  if (car.boost) { vF += 9 * (1 - Math.min(1, (vF / 42) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
+  if (car.boost) { vF += 6.5 * (1 - Math.min(1, (vF / 36) ** 2)) * dt; car.nos = Math.max(0, car.nos - (STAT.turbo ? 0.2 : 0.3) * dt); if (!car.boostShout) { car.boostShout = true; shout(SHOUT.nitro); } } else if (!inp.nitro) car.boostShout = false;
   if (inp.hb) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 6 * dt);
   const drag = 0.3 + 0.0034 * vF * vF + (car.grass ? (STAT.off ? 0.03 : 0.11) * Math.abs(vF) : 0);
   vF -= Math.sign(vF) * Math.min(Math.abs(vF), drag * dt);
@@ -3334,16 +3335,16 @@ function physics(dt, inp) {
   const drifting = slipAbs > 0.17 && speed > 5;
   let g = 8.5 * STAT.grip;
   g *= 1 - 0.8 * thr * ss(speed, 7, 17) * ss(Math.abs(car.steer), 0.3, 0.95);
-  if (drifting) g = Math.min(g, 1.7 + (1 - thr) * 3.0);
+  if (drifting) g = Math.min(g, 1.5 + (1 - thr) * 2.6);
   if (inp.hb) g = Math.min(g, 1.1);
   if (car.grass) g *= STAT.off ? 0.92 : 0.6;
   const lost = vR * (1 - Math.exp(-g * dt)); vR -= lost;
-  if (vF > 0) vF += Math.abs(lost) * 0.34;
+  if (vF > 0) vF += Math.abs(lost) * 0.42;
   const sf = clamp(vF / 6, -1, 1);
-  let wT = car.steer * (drifting ? 2.35 : 2.15) * sf / (1 + Math.max(0, vF) / (drifting ? 80 : 34));
+  let wT = car.steer * (drifting ? 2.5 : 2.15) * sf / (1 + Math.max(0, vF) / (drifting ? 80 : 34));
   if (inp.hb && speed > 5) wT += car.steer * 1.5;
   const sp = Math.min(1, speed / 10) * (vF > 0 ? 1 : 0.15);
-  const align = drifting ? 1.15 + (1 - thr) * 1.6 : 2.4;
+  const align = drifting ? 1.0 + (1 - thr) * 1.5 : 2.4;
   wT += (slip * align + slip * slip * slip * 1.6 + (assist && slipAbs > 0.62 ? slip * 1.9 : 0)) * sp;
   car.w += (wT - car.w) * (1 - Math.exp(-(drifting ? 3 : 8) * dt));
   car.h += car.w * dt;
@@ -3444,7 +3445,7 @@ function scoring(dt) {
     if (combo.mult !== combo.lastM) { if (combo.mult === 2 || combo.mult === 4 || combo.mult === 6) shout(SHOUT['combo' + combo.mult], '×' + combo.mult + ' קומבו'); combo.lastM = combo.mult; }
     combo.prox = WALL - Math.abs(car.d) - 1.15 < 3.0;
     combo.tandem = !!nearRival && nearRival.d < 8;
-    combo.pts += dt * Math.min(deg, 70) * car.speed * 0.32 * combo.mult * (combo.prox ? 1.6 : 1) * (combo.tandem ? 1.3 : 1);
+    combo.pts += dt * Math.min(deg, 70) * car.speed * 0.5 * combo.mult * (combo.prox ? 1.6 : 1) * (combo.tandem ? 1.3 : 1);
     car.nos = Math.min(1, car.nos + dt * (combo.prox ? 0.14 : 0.085) * (STAT.turbo ? 1.5 : 1));
   } else if (combo.pts > 0) {
     combo.prox = false; combo.tandem = false; combo.grace += dt;
