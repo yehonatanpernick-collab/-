@@ -332,7 +332,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
       <span class="eyebrow" id="eyebrow">מסלול</span>
       <h1>דריפט בין ערבים</h1>
       <p class="lead">מסלול שמתפתל בין כפרי אבן על הגבעות, מסגדים וצריחים, כרמי זיתים ועיזים על הגגות. כל הכפר יצא לראות, ושבעה נהגים מקומיים רוצים לעקוף אותך. כל דריפט יפה שווה כדורי פלאפל, ועם הפלאפל קונים טרנטות ושדרוגים במוסך.</p>
-      <div class="group"><span class="lbl">מסלול</span><div class="tracks" id="tracks"></div></div>
+      <div class="group" hidden><span class="lbl">מסלול</span><div class="tracks" id="tracks"></div></div>
       <div class="carrow">
         <div><span class="lbl">המכונית שלך</span><b id="carname">מזדע 323</b></div>
         <div class="row-btns"><button class="btn ghost small" id="openGarage" type="button">מוסך · 🧆 <span id="sfal">0</span></button><button class="btn ghost small" id="openSettings" type="button">הגדרות</button></div>
@@ -349,12 +349,13 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
       </dl>
       <p class="tip coarse-only">אגודל שמאל גורר את ההגה, אגודל ימין על הדוושות. בלם יד לרגע בכניסה לסיבוב, ואז גז מלא.</p>
       <p class="tip fine-only">בלם יד לרגע בכניסה לסיבוב, ואז גז מלא והיגוי נגדי כדי להחזיק את הזווית. דריפט צמוד לקיר שווה ×1.6, דריפט צמוד ליריב (טנדם) ×1.3, והקהל קופץ כשאתה עובר לידו.</p>
-      <div class="row-btns"><button class="btn" id="go" type="button">🎟️ להירשם בקופה ולנסוע</button><button class="btn ghost" id="goWalk" type="button">🚶 לטייל בכפר</button></div>
+      <p class="tip">למרוצים נרשמים בקופה של אבו עלי, בכפר ליד שער המסלול.</p>
+      <div class="row-btns"><button class="btn" id="goWalk" type="button">🚶 חזרה לכפר</button><button class="btn ghost" id="go" type="button" hidden>מרוץ</button></div>
     </div>
   </div>
 
   <div id="walkHud" hidden>
-    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="tpBtn" type="button">📍 שגר אותי</button><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
+    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="tpBtn" type="button">📍 שגר אותי</button><button class="btn ghost small" id="yallaBtn" type="button">😄 יאללה!</button><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
     <div class="plate tpp" id="tpPanel" hidden><b>📍 לאן לשגר?</b><div id="tpList"></div></div>
     <p class="whint fine-only">WASD / חצים ללכת · Shift לרוץ · E לפעולה</p>
     <div id="joy" hidden><div id="joyKnob"></div></div>
@@ -1278,6 +1279,7 @@ function personMeshes(o, tag) {
   if (o.basket) { const bk = C(0.2, 0.32, 0.24, -0.82, 0.27, 0.05, 12); P(bk, [0.62, 0.45, 0.24], arms); const hd = MB.CreateTorus('bh', { diameter: 0.26, thickness: 0.02, tessellation: 12 }, scene); hd.rotation.z = Math.PI / 2; hd.position.set(0.27, -0.72, 0.05); P(hd, [0.5, 0.35, 0.18], arms); P(S(0.09, -0.7, 0.3, 0.08), [0.95, 0.45, 0.1], arms); P(S(0.08, -0.7, 0.22, 0.02), [0.3, 0.6, 0.2], arms); }
   if (o.pot) { P(C(0.22, 0.08, 0.16, -0.8, -0.27, 0.06, 12), [0.85, 0.68, 0.3], arms); const sp = C(0.16, 0.02, 0.04, -0.74, -0.27, 0.16, 6); sp.rotation.x = 1.1; P(sp, [0.85, 0.68, 0.3], arms); }
   if (o.tray) { P(C(0.03, 0.56, 0.56, -0.7, 0.27, 0.16, 20), [0.95, 0.75, 0.3], arms); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { P(Bx(0.1, 0.045, 0.1, 0.27 + i * 0.13, -0.665, 0.16 + j * 0.13), [0.8, 0.52, 0.2], arms); P(S(0.03, -0.64, 0.27 + i * 0.13, 0.16 + j * 0.13), [0.45, 0.62, 0.2], arms); } }
+  if (o.beads) { for (let k = 0; k < 9; k++) { const a = k / 8 * Math.PI; P(S(0.035, -0.72 - Math.sin(a) * 0.1, 0.27 + Math.cos(a) * 0.05, 0.08), k === 4 ? [0.85, 0.65, 0.2] : [0.15, 0.4, 0.28], arms); } }
   if (o.staff) { const st = C(1.7, 0.035, 0.04, -0.3, -0.27, 0.08, 6); P(st, [0.42, 0.3, 0.18], arms); }
   const body = B.Mesh.MergeMeshes(parts, true, true), arm = B.Mesh.MergeMeshes(arms, true, true);
   body.name = 'person' + tag; arm.name = 'arms' + tag;
@@ -4172,6 +4174,7 @@ function finishRace() {
   { const rows = rivals.filter(r => r.active !== false).map(r => ({ n: r.name, s: r.s, me: false })); rows.push({ n: 'אתה', s: playerProg(), me: true }); rows.sort((a, b) => b.s - a.s);
     $('fin-table').innerHTML = rows.map((r, i) => `<li style="${r.me ? 'color:var(--sodium);font-weight:800' : ''}">${['🥇 ', '🥈 ', '🥉 '][i] || ''}${r.n}</li>`).join('');
     const bp = store.get(TK('bestPlace'), 99); if (place < bp) store.set(TK('bestPlace'), place); }
+  $('fin-again').textContent = '🎟️ שוב (דרך הקופה)'; $('fin-menu').textContent = '🚶 חזרה לכפר';
   $('fin-pos').textContent = `${place}/${rivalsShown + 1}`;
   $('fin-time').textContent = fmtT(raceT);
   $('fin-score').textContent = fmt(total);
@@ -4179,8 +4182,8 @@ function finishRace() {
   $('finish').hidden = false;
   $('fin-again').focus();
 }
-$('fin-again').addEventListener('click', () => { $('finish').hidden = true; state = 'menu'; startGame(); });
-$('fin-menu').addEventListener('click', () => { $('finish').hidden = true; toMenu(); });
+$('fin-again').addEventListener('click', () => { $('finish').hidden = true; toMenu(); enterWalk(true); });
+$('fin-menu').addEventListener('click', () => { $('finish').hidden = true; toMenu(); enterWalk(); });
 function togglePause() {
   if (state === 'drive' || state === 'count') { state = 'pause'; $('pause').hidden = false; $('resume').focus(); }
   else if (state === 'pause') { state = 'drive'; $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
@@ -4189,7 +4192,7 @@ function toMenu() { setDOF(true); resetRivals(); state = 'menu'; $('pause').hidd
 $('go').addEventListener('click', () => openKupa());
 $('resume').addEventListener('click', togglePause);
 $('restart').addEventListener('click', () => { $('pause').hidden = true; state = 'menu'; startGame(); });
-$('tomenu').addEventListener('click', toMenu);
+$('tomenu').addEventListener('click', () => { toMenu(); enterWalk(); });
 $('bPause').addEventListener('click', togglePause);
 $('bCam').addEventListener('click', cycleCam);
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); });
@@ -4285,11 +4288,11 @@ segInit('adminNitroSeg', adminNitro, v => { adminNitro = v; store.set('adminNitr
 refreshAdminUI();
 
 /* ================= the walkable world: stroll the villages, register for races at the ticket booth, visit houses and mosques ================= */
-const WALK = { built: false, x: 0, z: 0, h: 0, cam: 0, v: 0, room: null, ret: null, bob: 0, done: new Set(), near: null };
+const WALK = { built: false, hop: 0, x: 0, z: 0, h: 0, cam: 0, v: 0, room: null, ret: null, bob: 0, done: new Set(), near: null };
 const ROOM_Y = 520;
 function walkerBuild() {
   if (WALK.built) return; WALK.built = true;
-  const o = { pants: [0.2, 0.28, 0.5], shirt: [0.9, 0.88, 0.82], head: 'cap', hc: [0.75, 0.1, 0.1], skin: SKIN[1], mustache: [0.08, 0.06, 0.05] };
+  const o = { robe: [0.96, 0.95, 0.92], head: 'keffiyeh', hc: [0.85, 0.15, 0.17], skin: SKIN[1], mustache: [0.07, 0.05, 0.04], bigMoustache: true, shades: true, vest: [0.32, 0.22, 0.14], basket: false, beads: true };
   const pm = personMeshes(o, 'walker'); WALK.root = new B.TransformNode('walker', scene);
   pm.body.parent = WALK.root; pm.arm.parent = WALK.root; pm.arm.position.y = pm.sh; WALK.body = pm.body; WALK.arm = pm.arm;
   caster(pm.body); caster(pm.arm); WALK.root.setEnabled(false);
@@ -4317,6 +4320,27 @@ const GATE = {};
     const lm = k3.merge(); lm.material = unlit('pathLampM', new B.Color3(1.3, 0.95, 0.55)); lm.isPickable = false;
     GATE.village = best; GATE.villageDoor = null;
   }
+}
+// ---- organised roads: a paved ring and spokes in every village, plus a road from each village to the track ----
+{
+  const T = [], C = [];
+  const lay = (x0, z0, x1, z1, w, col, step = 1.5) => { const L = Math.hypot(x1 - x0, z1 - z0), yaw = Math.atan2(x1 - x0, z1 - z0);
+    for (let t = 0; t < L; t += step) { const x = x0 + (x1 - x0) * t / L, z = z0 + (z1 - z0) * t / L; T.push(B.Matrix.Compose(new B.Vector3(w, 0.06, step + 0.05), B.Quaternion.RotationYawPitchRoll(yaw, 0, 0), new B.Vector3(x, terrainH(x, z) + 0.05, z))); const j = 0.92 + Math.sin(t * 2.3) * 0.05; C.push(col[0] * j, col[1] * j, col[2] * j, 1); } };
+  const stone = [0.8, 0.72, 0.58], asph = [0.36, 0.35, 0.34];
+  VILLAGES.forEach(([vx, vz], k) => {
+    const R = 34, n = 40; for (let q = 0; q < n; q++) { const a0 = q / n * 6.283, a1 = (q + 1) / n * 6.283; lay(vx + Math.cos(a0) * R, vz + Math.sin(a0) * R, vx + Math.cos(a1) * R, vz + Math.sin(a1) * R, 3.2, stone); }
+    for (let q = 0; q < 6; q++) { const a = q / 6 * 6.283 + k; lay(vx + Math.cos(a) * 12, vz + Math.sin(a) * 12, vx + Math.cos(a) * 82, vz + Math.sin(a) * 82, 2.4, stone); }
+    let bi = 0, bd = 1e18; for (let i = 0; i < N; i += 2) { const d = (PX[i] - vx) ** 2 + (PZ[i] - vz) ** 2; if (d < bd) { bd = d; bi = i; } }
+    const sd = Math.sign((vx - PX[bi]) * RX[bi] + (vz - PZ[bi]) * RZ[bi]) || 1, ex = PX[bi] + RX[bi] * sd * (WALL + 1.5), ez = PZ[bi] + RZ[bi] * sd * (WALL + 1.5);
+    const a = Math.atan2(ex - vx, ez - vz); lay(vx + Math.sin(a) * R, vz + Math.cos(a) * R, ex, ez, 4.2, asph, 2);
+  });
+  const m = MB.CreateBox('villageRoad', { size: 1 }, scene); colorize(m, [1, 1, 1]); m.material = vcMat; m.isPickable = false; m.receiveShadows = true;
+  const buf = new Float32Array(T.length * 16); T.forEach((mt, i) => mt.copyToArray(buf, i * 16)); m.thinInstanceSetBuffer('matrix', buf, 16, true); m.thinInstanceSetBuffer('color', new Float32Array(C), 4, true); m.freezeWorldMatrix();
+  // a fountain in front of every village mosque
+  const fk = animalKit(); VILLAGES.forEach(([vx, vz, vy]) => { const [nx, nz] = rot(vy, 0, 1), fx = vx + nx * 26 + nz * 6, fz = vz + nz * 26 - nx * 6, fy = terrainH(fx, fz);
+    fk.C(0.6, 4.2, 4.4, fx, fy + 0.3, fz, [0.86, 0.8, 0.68], 0, 0, 16); fk.C(0.05, 3.7, 3.7, fx, fy + 0.58, fz, [0.25, 0.55, 0.75], 0, 0, 16); fk.C(1.6, 0.45, 0.6, fx, fy + 1.1, fz, [0.86, 0.8, 0.68], 0, 0, 10); fk.C(0.3, 1.3, 1.0, fx, fy + 1.95, fz, [0.86, 0.8, 0.68], 0, 0, 12); fk.S(0.5, 0.6, 0.5, fx, fy + 2.3, fz, [0.4, 0.7, 0.9], 6);
+    WCOLL.push([fx, fz, 2.4]); });
+  const fm = fk.merge(); if (fm) { fm.material = vcMat; fm.isPickable = false; fm.receiveShadows = true; caster(fm); }
 }
 // ---- ticket booth by the start line ----
 const KUPA = {};
@@ -4496,19 +4520,21 @@ $('kupaList').addEventListener('click', e => {
 });
 $('kupaClose').addEventListener('click', () => { $('kupa').hidden = true; });
 // ---- entering / leaving walk mode ----
-function enterWalk() {
+function enterWalk(atKupa) {
   if (state !== 'menu') return;
   walkerBuild(); sfx.init(); sfx.resume(); setDOF(false);
   $('start').hidden = true; showTouch(false); document.body.classList.add('walking'); $('walkHud').hidden = false; $('joy').hidden = !COARSE;
   WALK.x = GATE.spawn[0]; WALK.z = GATE.spawn[1]; WALK.h = GATE.yaw; WALK.cam = WALK.h;
   WALK.root.setEnabled(true); state = 'walk'; WALK.snap = true;
-  toast('🚶 ברוך הבא לכפר', 'השביל מוביל לכפר · 📍 שגר אותי לכל מקום');
+  if (atKupa === true) { WALK.x = KUPA.x + Math.sin(KUPA.yaw) * 1.5; WALK.z = KUPA.z + Math.cos(KUPA.yaw) * 1.5; WALK.h = WALK.cam = KUPA.yaw + Math.PI; setTimeout(openKupa, 400); }
+  toast('🚶 ברוך הבא לכפר', 'למרוץ? הקופה ליד השער · 📍 שגר אותי לכל מקום');
 }
 function exitWalk() {
   if (state === 'room') leaveRoom();
   WALK.root && WALK.root.setEnabled(false); document.body.classList.remove('walking'); $('walkHud').hidden = true; $('actBtn').hidden = true; $('kupa').hidden = true; state = 'menu';
 }
 $('goWalk').addEventListener('click', enterWalk);
+$('yallaBtn').addEventListener('click', () => { if (state !== 'walk' && state !== 'room') return; WALK.hop = 0.6; const sh = pick([['יאללה שבאב!', 'yalla'], ['וואלה, איזה יום יפה', 'walla'], ['אהלן וסהלן לכולם!', 'ahlan'], ['מאשאללה על הכפר הזה', 'masha'], ['מי רוצה פלאפל?!', 'habibi']]); toast(sh[0], ''); speak(sh[1], true); sfx.horn('tune'); });
 function tpPlaces() {
   const P = [['🚪 שער הכפר', GATE.spawn[0], GATE.spawn[1], GATE.yaw], ['🎟️ קופת המרוצים', KUPA.x + Math.sin(KUPA.yaw) * 2, KUPA.z + Math.cos(KUPA.yaw) * 2, KUPA.yaw + Math.PI]];
   const near = (x, z, t) => WDOORS.filter(d => d.t === t).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0];
@@ -4528,6 +4554,14 @@ $('tpList').addEventListener('click', e => { const b = e.target.closest('button'
 $('walkMenu').addEventListener('click', () => { exitWalk(); toMenu(); });
 $('actBtn').addEventListener('click', walkAction);
 addEventListener('keydown', e => { if ((state === 'walk' || state === 'room') && (e.code === 'KeyE' || e.code === 'Enter')) walkAction(); if ((state === 'walk' || state === 'room') && e.code === 'Escape') { exitWalk(); toMenu(); } });
+// swipe on the screen to look around (separate finger from the joystick)
+const LOOK = { id: null, x: 0, y: 0, pitch: 0.28, t: 0 };
+canvas.addEventListener('pointerdown', e => { if (state !== 'walk' && state !== 'room') return; LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; LOOK.t = performance.now(); try { canvas.setPointerCapture(e.pointerId); } catch (er) {} });
+canvas.addEventListener('pointermove', e => { if (e.pointerId !== LOOK.id || (state !== 'walk' && state !== 'room')) return; const dx = e.clientX - LOOK.x, dy = e.clientY - LOOK.y; LOOK.x = e.clientX; LOOK.y = e.clientY; LOOK.t = performance.now();
+  WALK.cam += dx * 0.008; LOOK.pitch = clamp(LOOK.pitch + dy * 0.005, 0.05, 1.05); });
+const lookEnd = e => { if (e.pointerId === LOOK.id) LOOK.id = null; };
+canvas.addEventListener('pointerup', lookEnd); canvas.addEventListener('pointercancel', lookEnd);
+canvas.style.touchAction = 'none';
 // virtual joystick (touch)
 const JOY = { x: 0, y: 0, id: null };
 {
@@ -4544,14 +4578,15 @@ function updateWalk(dt, t) {
   if (keys.has('KeyW') || keys.has('ArrowUp')) iy = 1; if (keys.has('KeyS') || keys.has('ArrowDown')) iy = -1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) ix = -1; if (keys.has('KeyD') || keys.has('ArrowRight')) ix = 1;
   if (WALK.sitting) { ix = 0; iy = 0; }
-  // stick up walks forward, sideways turns: predictable on a phone; the camera stays right behind you
-  const turn = ix * (state === 'room' ? 2.0 : 2.4) * dt * (Math.abs(iy) < 0.2 ? 1 : 0.8);
-  WALK.h += turn;
-  const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || iy > 0.9 ? 1.65 : 1, sp = (state === 'room' ? 2.6 : 5.2) * run * iy * (iy < 0 ? 0.55 : 1);
-  const mag = Math.min(1, Math.abs(iy) + Math.abs(ix) * 0.3);
+  // joystick moves you relative to the camera; dragging anywhere on the screen turns the view
+  const mag = Math.min(1, Math.hypot(ix, iy)), run = keys.has('ShiftLeft') || keys.has('ShiftRight') || mag > 0.93 ? 1.7 : 1, sp = (state === 'room' ? 2.6 : 5.4) * run * mag;
   const ox = WALK.x, oz = WALK.z;
-  if (Math.abs(iy) > 0.06) { WALK.x += Math.sin(WALK.h) * sp * dt; WALK.z += Math.cos(WALK.h) * sp * dt; WALK.bob += dt * Math.abs(sp) * 2.2; }
-  WALK.cam += Math.atan2(Math.sin(WALK.h - WALK.cam), Math.cos(WALK.h - WALK.cam)) * Math.min(1, dt * 5);
+  if (mag > 0.08) {
+    const a = WALK.cam + Math.atan2(ix, iy); WALK.x += Math.sin(a) * sp * dt; WALK.z += Math.cos(a) * sp * dt;
+    WALK.h += Math.atan2(Math.sin(a - WALK.h), Math.cos(a - WALK.h)) * Math.min(1, dt * 10); WALK.bob += dt * sp * 2.2;
+    if (performance.now() - LOOK.t > 1500 && Math.abs(ix) < 0.5 && iy > 0) WALK.cam += Math.atan2(Math.sin(WALK.h - WALK.cam), Math.cos(WALK.h - WALK.cam)) * Math.min(1, dt * 0.9);
+  }
+  if (WALK.hop > 0) WALK.hop = Math.max(0, WALK.hop - dt);
   if (state === 'walk') {
     const solid = (cx, cz, r) => { const dx = WALK.x - cx, dz = WALK.z - cz, d2 = dx * dx + dz * dz; if (d2 < r * r && d2 > 1e-6) { const d = Math.sqrt(d2); WALK.x = cx + dx / d * r; WALK.z = cz + dz / d * r; } };
     for (const hs of HOUSES) if (Math.abs(WALK.x - hs[0]) < 14 && Math.abs(WALK.z - hs[1]) < 14) solid(hs[0], hs[1], hs[2] * 0.72 + 0.35);
@@ -4567,10 +4602,10 @@ function updateWalk(dt, t) {
     if (!atGate && Math.abs(lat) < WALL + 0.55 && Math.abs(lat) > WALL - 0.55) { const sgn = Math.sign(lat), outside = Math.abs(latO) >= WALL; const tgt = sgn * (outside ? WALL + 0.56 : WALL - 0.56); WALK.x += RX[bi] * (tgt - lat); WALK.z += RZ[bi] * (tgt - lat); }
   } else { const R = ROOMS[WALK.room]; WALK.x = clamp(WALK.x, R.cx - R.bx, R.cx + R.bx); WALK.z = clamp(WALK.z, R.cz - R.bz, R.cz + R.bz); }
   const gy = state === 'room' ? ROOMS[WALK.room].y : terrainH(WALK.x, WALK.z);
-  WALK.root.position.set(WALK.x, gy + (WALK.sitting ? -0.4 : Math.abs(Math.sin(WALK.bob)) * 0.04 * Math.min(1, mag * 2)), WALK.z); WALK.root.rotation.y = WALK.h;
-  WALK.arm.rotation.x = Math.abs(iy) > 0.06 ? Math.sin(WALK.bob) * 0.55 : -0.05 + Math.sin(t * 1.4) * 0.04;
+  WALK.root.position.set(WALK.x, gy + (WALK.sitting ? -0.4 : Math.abs(Math.sin(WALK.bob)) * 0.07 * Math.min(1, mag * 2) + Math.sin(Math.min(1, WALK.hop / 0.6) * Math.PI) * 0.5), WALK.z); WALK.root.rotation.y = WALK.h; WALK.root.rotation.z = mag > 0.08 ? Math.sin(WALK.bob) * 0.06 : 0; // a proud little waddle
+  WALK.arm.rotation.x = WALK.hop > 0 ? -2.8 + Math.sin(t * 18) * 0.3 : mag > 0.08 ? Math.sin(WALK.bob) * 0.7 : -0.05 + Math.sin(t * 1.4) * 0.04;
   // camera follows from behind
-  const cd = state === 'room' ? 3.4 : 5.6, ch = state === 'room' ? 2.1 : 2.8, k = WALK.snap ? 1 : 1 - Math.exp(-dt * 6); WALK.snap = false;
+  const cdist = state === 'room' ? 3.6 : 6.0, cd = cdist * Math.cos(LOOK.pitch), ch = 1.35 + cdist * Math.sin(LOOK.pitch), k = WALK.snap ? 1 : 1 - Math.exp(-dt * 8); WALK.snap = false;
   let tx = WALK.x - Math.sin(WALK.cam) * cd, tz = WALK.z - Math.cos(WALK.cam) * cd;
   if (state === 'room') { const R = ROOMS[WALK.room]; tx = clamp(tx, R.cx - R.bx - 0.3, R.cx + R.bx + 0.3); tz = clamp(tz, R.cz - R.bz - 0.3, R.cz + R.bz + 0.3); }
   camPos.x = lerp(camPos.x, tx, k); camPos.z = lerp(camPos.z, tz, k); camPos.y = lerp(camPos.y, gy + ch, k);
@@ -4614,7 +4649,7 @@ scene.onBeforeRenderObservable.add(() => {
   jsMs = jsMs * 0.9 + (performance.now() - jsT0) * 0.1;
 });
 let shown = false;
-const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') $('start').hidden = false; };
+const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') { if (store.get('autoRace', false)) $('start').hidden = false; else enterWalk(); } }; // the game opens in the village
 scene.executeWhenReady(reveal);
 setTimeout(reveal, 15000);
 let lastRenderT = 0;
