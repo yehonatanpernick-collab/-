@@ -59,6 +59,15 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .combo .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sodium),var(--ember))}
 .tomato{position:fixed;pointer-events:none;z-index:40;width:150px;height:130px;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;background:radial-gradient(circle at 40% 40%,#8a3b2e 0%,#6b4a3d 35%,#6f746a 70%,rgba(110,115,105,0) 100%);filter:blur(.6px);box-shadow:0 20px 0 -8px rgba(100,95,85,.7),-26px 12px 0 -14px rgba(120,60,50,.8),30px 8px 0 -16px rgba(110,110,100,.7);animation:tomatoSplat 2.6s ease-out forwards}
 @keyframes tomatoSplat{0%{transform:scale(calc(var(--s,1)*.2)) rotate(-8deg);opacity:0}8%{transform:scale(calc(var(--s,1)*1.15)) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(var(--s,1)) translateY(10px)}100%{opacity:0;transform:scale(var(--s,1)) translateY(70px)}}
+.walking .speedo,.walking .combo,.walking .lap,.walking .score,.walking .minibox,.walking #touch,.walking #tags,.walking .ticker{display:none!important}
+#walkHud .whud{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:16px;display:flex;gap:14px;align-items:center;padding:10px 14px;font:700 15px var(--body);color:var(--fg)}
+#walkHud .whint{position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:18px;margin:0;font:600 13px var(--body);color:var(--muted)}
+#joy{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:140px;height:140px;border-radius:50%;background:rgba(20,18,26,.45);border:2px solid rgba(255,179,65,.5);touch-action:none}
+#joyKnob{position:absolute;left:43px;top:43px;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffd37a,#c98a1f);pointer-events:none}
+.wact{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px));font-size:18px;padding:16px 20px;z-index:20}
+.roomp{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:calc(70px + env(safe-area-inset-top,0px));width:min(80vw,360px);padding:12px 14px;display:grid;gap:6px;z-index:15;background:rgba(14,13,20,.58)}
+.roomp .tip{font-size:13px;margin:0}.roomp .btn.small{font-size:13px;padding:8px 10px}
+.roomp h3{margin:0;font:800 19px var(--body);color:var(--fg)} .row-btns.wrap{flex-wrap:wrap}
 .tag{position:absolute;left:0;top:0;font:700 12px var(--body);color:var(--fg);background:rgba(14,13,20,.62);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;white-space:nowrap;will-change:transform}
 .tag b{color:var(--sodium);font-family:var(--num);margin-inline-start:6px}
 .prox{font-family:var(--num);font-weight:700;font-size:14px;color:var(--sky);letter-spacing:.04em;margin-top:4px}
@@ -335,7 +344,27 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
       </dl>
       <p class="tip coarse-only">אגודל שמאל גורר את ההגה, אגודל ימין על הדוושות. בלם יד לרגע בכניסה לסיבוב, ואז גז מלא.</p>
       <p class="tip fine-only">בלם יד לרגע בכניסה לסיבוב, ואז גז מלא והיגוי נגדי כדי להחזיק את הזווית. דריפט צמוד לקיר שווה ×1.6, דריפט צמוד ליריב (טנדם) ×1.3, והקהל קופץ כשאתה עובר לידו.</p>
-      <button class="btn" id="go" type="button">יאללה, לנסוע</button>
+      <div class="row-btns"><button class="btn" id="go" type="button">🎟️ להירשם בקופה ולנסוע</button><button class="btn ghost" id="goWalk" type="button">🚶 לטייל בכפר</button></div>
+    </div>
+  </div>
+
+  <div id="walkHud" hidden>
+    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
+    <p class="whint fine-only">WASD / חצים ללכת · Shift לרוץ · E לפעולה</p>
+    <div id="joy" hidden><div id="joyKnob"></div></div>
+  </div>
+  <button class="btn wact" id="actBtn" type="button" hidden>פעולה</button>
+  <div class="plate roomp" id="roomPanel" hidden>
+    <h3 id="roomTitle"></h3><p class="tip" id="roomSub"></p>
+    <div class="row-btns wrap" id="roomActs"></div>
+    <button class="btn ghost small" id="roomExit" type="button">🚪 לצאת החוצה</button>
+  </div>
+  <div class="modal" id="kupa" hidden>
+    <div class="mpanel plate">
+      <div class="mhead"><h2>🎟️ קופת המרוצים של אבו עלי</h2></div>
+      <p class="tip">בחר מסלול והירשם. דמי ההרשמה הולכים לקרן הצמיגים של הכפר.</p>
+      <div class="tracks" id="kupaList"></div>
+      <div class="row-btns"><button class="btn ghost" id="kupaClose" type="button">אחר כך</button></div>
     </div>
   </div>
 
@@ -1281,7 +1310,7 @@ const goat = (x, y, z) => put('goat', x, y, z, 1, 1, 1, R1() * 6.28, GOATC[(R1()
 
 /* ================= scenery ================= */
 const R1 = rng(1337);
-const HOUSES = [];
+const HOUSES = [], WDOORS = []; // WDOORS: doors you can walk into
 const STONES = [[0.9, 0.84, 0.72], [0.96, 0.93, 0.86], [0.86, 0.74, 0.58], [0.92, 0.86, 0.76], [0.84, 0.82, 0.78], [0.93, 0.8, 0.64]].map(c => c.map(v => Math.pow(v, 2.2)));
 const SHUTTERS = [[0.08, 0.38, 0.42], [0.1, 0.2, 0.5], [0.14, 0.32, 0.12], [0.35, 0.18, 0.08], [0.6, 0.62, 0.6]];
 const DOORS = [[0.06, 0.32, 0.36], [0.08, 0.16, 0.42], [0.1, 0.28, 0.1], [0.25, 0.12, 0.05], [0.5, 0.48, 0.45]];
@@ -1318,6 +1347,7 @@ function house(cx, cz, w, d, floors, yaw, tint) {
       const [ox, oz] = rot(yaw, lx, lz), y = base + fl * 3.3;
       if (fl === 0 && k === 0 && f === doorFace) {
         put('door', cx + ox, y + 1.15, cz + oz, 1.25, 2.3, 0.16, fy, [...DOORS[(R1() * DOORS.length) | 0], 1]);
+        { const sgD = f % 2 ? -1 : 1, [nxD, nzD] = rot(yaw, f < 2 ? 0 : sgD, f < 2 ? sgD : 0); WDOORS.push({ t: 'house', x: cx + ox + nxD * 1.3, z: cz + oz + nzD * 1.3, nx: nxD, nz: nzD }); }
         put('lintel', cx + ox, y + 2.45, cz + oz, 1.7, 0.22, 0.26, fy, sc);
         if (R1() < 0.55) { const sgf = f % 2 ? -1 : 1, [nxf, nzf] = rot(yaw, f < 2 ? 0 : sgf, f < 2 ? sgf : 0), [uxf, uzf] = rot(fy, 1, 0), qf = R1() < 0.5 ? 1 : -1, fx2 = cx + ox + uxf * qf * 1.35 + nxf * 0.25, fz2 = cz + oz + uzf * qf * 1.35 + nzf * 0.25;
           put('fanous', fx2, y + 2.7, fz2, 1.2, 1.2, 1.2, fy); put('bulb', fx2, y + 2.5, fz2, 0.16, 0.2, 0.16); }
@@ -1397,6 +1427,7 @@ function mosque(cx, cz, yaw, domeCol, s = 1, minarets = 1) {
   put('dome', cx, base + h + 1.6 * s, cz, 9 * s, 9 * s, 9 * s, 0, domeCol);
   put('spire', cx, base + h + 1.6 * s + 4.5 * s + 1.0, cz, 0.35, 2.4, 0.35, 0, GOLD);
   put('crescent', cx, base + h + 1.6 * s + 4.5 * s + 2.75, cz, 1.6, 1.6, 1.6, yaw);
+  { const [nxM, nzM] = rot(yaw, 0, 1); WDOORS.push({ t: 'mosque', x: cx + nxM * (w / 2 + 4.8), z: cz + nzM * (w / 2 + 4.8), nx: nxM, nz: nzM }); }
   { const f = 0, fy = yaw, [nx2, nz2] = rot(yaw, 0, 1), [ux, uz] = rot(yaw, 1, 0), dep = w / 2 + 2.2; put('slab', cx + nx2 * dep, base + 4.1, cz + nz2 * dep, w * 0.9, 0.35, 4.4, yaw, WHITE); for (let q = 0; q < 6; q++) { const o2 = (q / 5 - 0.5) * w * 0.82; put('mshaft', cx + nx2 * (dep + 1.9) + ux * o2, base + 1.95, cz + nz2 * (dep + 1.9) + uz * o2, 0.45, 3.9, 0.45, yaw, WHITE); } }
   if (s > 1.3) for (const [a, b] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
     const [ox, oz] = rot(yaw, a * w * 0.33, b * w * 0.33);
@@ -3125,7 +3156,7 @@ function updateTags() {
   const vp = camera.viewport.toGlobal(rw, rh), tm = scene.getTransformMatrix(), shown = [], pp = playerProg();
   const order = rivals.map(r => ({ r, d: Math.hypot(r.x - camera.position.x, r.z - camera.position.z) })).sort((a, b) => a.d - b.d);
   for (const { r, d } of order) {
-    let vis = r.active !== false && state !== 'menu' && d < 80;
+    let vis = r.active !== false && state !== 'menu' && state !== 'walk' && state !== 'room' && d < 80;
     if (vis) {
       _tm.set(r.x, 2.25, r.z);
       const p = B.Vector3.Project(_tm, B.Matrix.IdentityReadOnly, tm, vp), sx = p.x * k, sy = p.y * k;
@@ -3797,6 +3828,7 @@ const camPos = V3(0, 3, 0), camLook = V3(0, 1, 0);
 function cycleCam() { camMode = (camMode + 1) % CAMS.length; store.set('cam', camMode); }
 let fovDeg = 58;
 function updateCamera(dt, t) {
+  if (state === 'walk' || state === 'room') return; // the walker drives the camera
   const fx = Math.sin(car.h), fz = Math.cos(car.h);
   const ck = state !== 'menu' && CAMS[camMode].cockpit && CAR && CAR.eye;
   if (ck !== inCockpit) { inCockpit = ck; carMats.glass.alpha = ck ? 0.08 : 0.62; camera.minZ = ck ? 0.03 : 0.1; }
@@ -4146,7 +4178,7 @@ function togglePause() {
   else if (state === 'pause') { state = 'drive'; $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
 }
 function toMenu() { setDOF(true); resetRivals(); state = 'menu'; $('pause').hidden = true; $('start').hidden = false; showTouch(false); combo.pts = 0; resetCar(30); car.h += 0.5; }
-$('go').addEventListener('click', startGame);
+$('go').addEventListener('click', () => openKupa());
 $('resume').addEventListener('click', togglePause);
 $('restart').addEventListener('click', () => { $('pause').hidden = true; state = 'menu'; startGame(); });
 $('tomenu').addEventListener('click', toMenu);
@@ -4244,6 +4276,197 @@ $('adminOut').addEventListener('click', () => { ADMIN = false; store.set('admin'
 segInit('adminNitroSeg', adminNitro, v => { adminNitro = v; store.set('adminNitro', v); });
 refreshAdminUI();
 
+/* ================= the walkable world: stroll the villages, register for races at the ticket booth, visit houses and mosques ================= */
+const WALK = { built: false, x: 0, z: 0, h: 0, cam: 0, v: 0, room: null, ret: null, bob: 0, done: new Set(), near: null };
+const ROOM_Y = 520;
+function walkerBuild() {
+  if (WALK.built) return; WALK.built = true;
+  const o = { pants: [0.2, 0.28, 0.5], shirt: [0.9, 0.88, 0.82], head: 'cap', hc: [0.75, 0.1, 0.1], skin: SKIN[1], mustache: [0.08, 0.06, 0.05] };
+  const pm = personMeshes(o, 'walker'); WALK.root = new B.TransformNode('walker', scene);
+  pm.body.parent = WALK.root; pm.arm.parent = WALK.root; pm.arm.position.y = pm.sh; WALK.body = pm.body; WALK.arm = pm.arm;
+  caster(pm.body); caster(pm.arm); WALK.root.setEnabled(false);
+}
+// ---- ticket booth by the start line ----
+const KUPA = {};
+{
+  const i = 14, side = 1, off = WALL + 5.5, x = PX[i] + RX[i] * side * off, z = PZ[i] + RZ[i] * side * off, yaw = Math.atan2(-RX[i] * side, -RZ[i] * side);
+  const { S, C, Bx, merge } = animalKit(), wood = [0.55, 0.38, 0.22], stripe = [0.85, 0.15, 0.15], cream = [0.95, 0.92, 0.84];
+  Bx(3.2, 1.1, 1.4, 0, 0.55, 0, wood); Bx(3.3, 0.08, 1.5, 0, 1.12, 0, [0.9, 0.75, 0.35]); Bx(3.2, 1.6, 0.12, 0, 1.9, -0.65, cream);
+  for (const sx of [-1.55, 1.55]) Bx(0.12, 2.8, 0.12, sx, 1.4, 0.6, wood);
+  for (let k = 0; k < 8; k++) Bx(0.44, 0.06, 2.0, -1.54 + k * 0.44, 2.85, 0.2, k % 2 ? cream : stripe, -0.25);
+  Bx(0.6, 0.25, 0.3, -0.9, 1.25, 0.1, [0.15, 0.15, 0.17]); S(0.18, 0.18, 0.18, 0.9, 1.25, 0.2, [0.85, 0.68, 0.3], 5);
+  const m = merge(); m.material = vcMat; m.position.set(x, terrainH(x, z), z); m.rotation.y = yaw; m.isPickable = false; m.receiveShadows = true; caster(m);
+  const sg = MB.CreatePlane('kupaSign', { width: 3.0, height: 0.75 }, scene); sg.parent = m; sg.position.set(0, 3.45, 0.55); sg.rotation.y = Math.PI;
+  sg.material = textDecal('kupa', 512, 128, (x2, w, h) => { x2.fillStyle = '#1d6b3a'; x2.fillRect(0, 0, w, h); x2.strokeStyle = '#ffd34d'; x2.lineWidth = 8; x2.strokeRect(6, 6, w - 12, h - 12); x2.direction = 'rtl'; x2.textAlign = 'center'; x2.fillStyle = '#fff'; x2.font = '900 46px Heebo, Arial, sans-serif'; x2.fillText('🎟️ קופה · הרשמה למרוצים', w / 2, 60); x2.font = '700 26px Heebo, Arial, sans-serif'; x2.fillStyle = '#ffd34d'; x2.fillText('אבו עלי מוכר כרטיסים · 5 🧆', w / 2, 102); });
+  sg.material.backFaceCulling = false;
+  const [fx, fz] = rot(yaw, 0, 1);
+  Object.assign(KUPA, { x: x + fx * 2.2, z: z + fz * 2.2, mesh: m, yaw });
+  const seller = personMeshes({ robe: [0.93, 0.92, 0.88], head: 'keffiyeh', hc: [0.82, 0.18, 0.18], skin: SKIN[1], mustache: [0.1, 0.08, 0.06] }, 'kupaSeller');
+  const sr = new B.TransformNode('kupaSellerR', scene); seller.body.parent = sr; seller.arm.parent = sr; seller.arm.position.y = seller.sh; sr.parent = m; sr.position.set(0, 0, -0.25); KUPA.arm = seller.arm;
+}
+// ---- interiors (built once, high above the map so nothing outside is visible) ----
+const ROOMS = {};
+function roomLightFor(meshes, pos, col, int) { const l = new B.PointLight('roomL', pos, scene); l.diffuse = col; l.intensity = int; l.range = 30; l.includedOnlyMeshes = meshes; l.setEnabled(false); return l; }
+function buildHouseRoom() {
+  const cx = TCX + 3200, cz = TCZ + 3200, y = ROOM_Y, list = [];
+  const box = (w, h, d, x, yy, z, mat, ry = 0) => { const m = MB.CreateBox('rm', { width: w, height: h, depth: d }, scene); m.position.set(cx + x, y + yy, cz + z); m.rotation.y = ry; m.material = mat; m.isPickable = false; list.push(m); return m; };
+  const plaster = pbr('rmWall', { color: 0xe9dcc4, rough: 0.95 }), wood = pbr('rmWood', { color: 0x6b4426, rough: 0.7 }), cush = pbr('rmCush', { color: 0x8f1d2c, rough: 0.9 }), cush2 = pbr('rmCush2', { color: 0x1f4f7a, rough: 0.9 });
+  const rugT = texFrom('rugRoomT', mkCanvas(256, 256, (x2, w, h) => { x2.fillStyle = '#7d1622'; x2.fillRect(0, 0, w, h); x2.strokeStyle = '#e8c36a'; x2.lineWidth = 10; x2.strokeRect(12, 12, w - 24, h - 24); for (let k = 0; k < 6; k++) for (let j = 0; j < 6; j++) { x2.fillStyle = (k + j) % 2 ? '#1d3f6b' : '#e8c36a'; x2.beginPath(); const px = 40 + k * 35, py = 40 + j * 35; x2.moveTo(px, py - 12); x2.lineTo(px + 12, py); x2.lineTo(px, py + 12); x2.lineTo(px - 12, py); x2.fill(); } }));
+  const rug = pbr('rmRug', { rough: 1 }); rug.albedoTexture = rugT;
+  box(10, 0.2, 8, 0, -0.1, 0, pbr('rmFloor', { color: 0xc9b89a, rough: 0.8 })); box(6, 0.03, 4.5, 0, 0.02, 0, rug);
+  box(10, 3.4, 0.2, 0, 1.7, -4, plaster); box(10, 3.4, 0.2, 0, 1.7, 4, plaster); box(0.2, 3.4, 8, -5, 1.7, 0, plaster); box(0.2, 3.4, 8, 5, 1.7, 0, plaster); box(10, 0.2, 8, 0, 3.4, 0, plaster);
+  for (const [x, z, ry, m] of [[-3.6, -3.4, 0, cush], [-1.2, -3.4, 0, cush2], [1.2, -3.4, 0, cush], [3.6, -3.4, 0, cush2], [-4.4, 0, Math.PI / 2, cush], [4.4, 0, Math.PI / 2, cush2]]) { box(2.2, 0.35, 0.9, x, 0.18, z, m, ry); box(2.2, 0.6, 0.25, x + (ry ? (x < 0 ? -0.35 : 0.35) : 0), 0.55, z + (ry ? 0 : -0.35), m, ry); }
+  box(1.6, 0.35, 1.0, 0, 0.18, -1.2, wood); box(1.3, 0.04, 0.8, 0, 0.37, -1.2, pbr('rmTray', { color: 0xc8a03a, rough: 0.3, metal: 0.8 }));
+  const dallah = MB.CreateCylinder('rmDallah', { height: 0.35, diameterTop: 0.08, diameterBottom: 0.22, tessellation: 12 }, scene); dallah.position.set(cx + 0.3, y + 0.56, cz - 1.2); dallah.material = pbr('rmGold', { color: 0xd6a83a, rough: 0.25, metal: 0.9 }); list.push(dallah);
+  for (let k = 0; k < 4; k++) { const c = MB.CreateCylinder('rmCup', { height: 0.07, diameterTop: 0.07, diameterBottom: 0.05, tessellation: 8 }, scene); c.position.set(cx - 0.4 + k * 0.15, y + 0.43, cz - 1.0); c.material = plaster; list.push(c); }
+  const tv = box(1.5, 0.9, 0.1, 0, 1.6, 3.85, pbr('rmTv', { color: 0x111111, rough: 0.4 })); tv.rotation.y = Math.PI;
+  const scr = MB.CreatePlane('rmScr', { width: 1.35, height: 0.75 }, scene); scr.position.set(cx, y + 1.6, cz + 3.79); list.push(scr);
+  scr.material = textDecal('tvScr', 256, 144, (x2, w, h) => { x2.fillStyle = '#1f7a3a'; x2.fillRect(0, 0, w, h); x2.strokeStyle = '#fff'; x2.lineWidth = 3; x2.strokeRect(10, 10, w - 20, h - 20); x2.beginPath(); x2.arc(w / 2, h / 2, 22, 0, 7); x2.stroke(); x2.fillStyle = '#fff'; x2.font = '700 18px sans-serif'; x2.textAlign = 'center'; x2.fillText('الدوري · 2 : 1', w / 2, 30); });
+  const win = MB.CreatePlane('rmWin', { width: 1.6, height: 1.2 }, scene); win.position.set(cx - 4.88, y + 1.8, cz + 1.5); win.rotation.y = -Math.PI / 2; win.material = unlit('rmWinM', new B.Color3(1.2, 0.85, 0.55)); list.push(win);
+  for (const [x, txt] of [[-2.5, 'סבא בחתונה 1974'], [2.5, 'הנכד בגרמניה']]) { const f = MB.CreatePlane('rmPic', { width: 0.9, height: 0.65 }, scene); f.position.set(cx + x, y + 2.2, cz - 3.88); f.rotation.y = Math.PI; f.material = textDecal('pic' + x, 192, 140, (x2, w, h) => { x2.fillStyle = '#5a3a1e'; x2.fillRect(0, 0, w, h); x2.fillStyle = '#d8c7a4'; x2.fillRect(12, 12, w - 24, h - 44); x2.fillStyle = '#6b5a44'; x2.beginPath(); x2.arc(w / 2, 52, 22, 0, 7); x2.fill(); x2.fillRect(w / 2 - 26, 70, 52, 30); x2.direction = 'rtl'; x2.textAlign = 'center'; x2.fillStyle = '#f0e2c4'; x2.font = '700 15px Heebo, sans-serif'; x2.fillText(txt, w / 2, h - 12); }); list.push(f); }
+  const bulb = MB.CreateSphere('rmBulb', { diameter: 0.3, segments: 6 }, scene); bulb.position.set(cx, y + 3.0, cz); bulb.material = unlit('rmBulbM', new B.Color3(3, 2.2, 1.2)); list.push(bulb);
+  const fam = [[{ robe: [0.12, 0.26, 0.18], head: 'hijab', hc: [0.95, 0.94, 0.9], skin: SKIN[1], seated: true }, -1.2, -3.0, 0], [{ robe: [0.55, 0.5, 0.42], head: 'keffiyeh', hc: [0.94, 0.94, 0.94], skin: SKIN[3], mustache: [0.88, 0.88, 0.88], seated: true }, -4.0, 0.3, Math.PI / 2], [{ pants: [0.2, 0.3, 0.52], shirt: [0.96, 0.55, 0.1], head: 'hair', skin: SKIN[1], seated: true }, 1.2, -3.0, 0]];
+  const people = fam.map(([o, x, z, ry], k) => { const p = personMeshes(o, 'fam' + k), r = new B.TransformNode('famR' + k, scene); p.body.parent = r; p.arm.parent = r; p.arm.position.y = p.sh; r.position.set(cx + x, y + 0.02, cz + z); r.rotation.y = ry; if (k === 2) r.scaling.setAll(0.72); list.push(p.body, p.arm); return p; });
+  const light = roomLightFor(list.slice(), V3(cx, y + 2.8, cz), new B.Color3(1, 0.8, 0.55), 18);
+  list.forEach(m => m.setEnabled(false));
+  ROOMS.house = { cx, cz, y, list, light, people, bx: 4.4, bz: 3.4, door: [0, 3.5], spawn: [0, 0.6], face: Math.PI, title: 'בבית של משפחת אבו סמיר', sub: 'ריח של קפה עם הל. הטלוויזיה על משחק כדורגל, וסבתא כבר מכינה צלחת.',
+    acts: [['coffee', '☕ לשתות קפה עם הדודה', 2, 'tfaddal', 'הקפה עם הל, חם ומר. הדודה מספרת על הנכד בגרמניה כבר בפעם השלישית.'], ['maqluba', '🍲 לאכול מקלובה', 3, 'sahtein', 'הפכו את הסיר בבת אחת וכולם מחאו כפיים. סחתיין!'], ['tv', '📺 לראות כדורגל עם הדוד', 0, 'yaallah', 'גול! הדוד קפץ, שפך קפה על השטיח, והסבתא כבר כועסת.'], ['saba', '👴 לשאול את סבא על דריפטים', 0, 'habibi', 'סבא: "בזמני דרפטנו עם עגלה וחמור. וגם אז ניצחתי."']] };
+}
+function buildMosqueRoom() {
+  const cx = TCX + 3260, cz = TCZ + 3200, y = ROOM_Y, list = [];
+  const box = (w, h, d, x, yy, z, mat, ry = 0) => { const m = MB.CreateBox('mq', { width: w, height: h, depth: d }, scene); m.position.set(cx + x, y + yy, cz + z); m.rotation.y = ry; m.material = mat; m.isPickable = false; list.push(m); return m; };
+  const white = pbr('mqWall', { color: 0xf1ece0, rough: 0.9 }), green = pbr('mqGreen', { color: 0x1d5a3a, rough: 0.6 }), wood = pbr('mqWood', { color: 0x5a3a1e, rough: 0.6 }), gold = pbr('mqGold', { color: 0xd6a83a, rough: 0.3, metal: 0.9 });
+  const carpetT = texFrom('mqCarpetT', mkCanvas(256, 256, (x2, w, h) => { x2.fillStyle = '#6e1420'; x2.fillRect(0, 0, w, h); for (let k = 0; k < 4; k++) { x2.fillStyle = '#e1c27a'; x2.fillRect(0, k * 64 + 58, w, 6); for (let j = 0; j < 4; j++) { x2.fillStyle = '#8f2232'; x2.beginPath(); x2.moveTo(j * 64 + 32, k * 64 + 8); x2.lineTo(j * 64 + 54, k * 64 + 30); x2.lineTo(j * 64 + 54, k * 64 + 56); x2.lineTo(j * 64 + 10, k * 64 + 56); x2.lineTo(j * 64 + 10, k * 64 + 30); x2.closePath(); x2.fill(); } } }), { uScale: 4, vScale: 3 });
+  const carpet = pbr('mqCarpet', { rough: 1 }); carpet.albedoTexture = carpetT;
+  box(16, 0.2, 14, 0, -0.1, 0, white); box(15.6, 0.03, 13.6, 0, 0.02, 0, carpet);
+  box(16, 6, 0.3, 0, 3, -7, white); box(16, 6, 0.3, 0, 3, 7, white); box(0.3, 6, 14, -8, 3, 0, white); box(0.3, 6, 14, 8, 3, 0, white); box(16, 0.3, 14, 0, 6, 0, white);
+  // mihrab niche with mosaic frame, minbar steps
+  box(2.0, 3.4, 0.4, 0, 1.7, -6.75, green); box(2.4, 0.25, 0.45, 0, 3.5, -6.7, gold); box(0.2, 3.6, 0.45, -1.1, 1.8, -6.7, gold); box(0.2, 3.6, 0.45, 1.1, 1.8, -6.7, gold);
+  const mos = MB.CreatePlane('mqMosaic', { width: 4.5, height: 1.2 }, scene); mos.position.set(cx, y + 4.6, cz - 6.83); mos.rotation.y = Math.PI; list.push(mos);
+  mos.material = textDecal('mosaic', 512, 136, (x2, w, h) => { x2.fillStyle = '#0f4a5a'; x2.fillRect(0, 0, w, h); for (let k = 0; k < 16; k++) for (let j = 0; j < 4; j++) { x2.fillStyle = ['#e1c27a', '#2f8a9a', '#f1ece0', '#1d5a3a'][(k + j) % 4]; x2.beginPath(); const px = 16 + k * 32, py = 17 + j * 34; x2.arc(px, py, 10, 0, 7); x2.fill(); } x2.strokeStyle = '#e1c27a'; x2.lineWidth = 6; x2.strokeRect(4, 4, w - 8, h - 8); });
+  for (let k = 0; k < 5; k++) box(1.0, 0.35 * (k + 1), 0.5, 2.4, 0.175 * (k + 1), -6.2 + k * 0.5, wood);
+  for (const x of [-5, -1.7, 1.7, 5]) for (const z of [-2.5, 2.5]) { box(0.6, 6, 0.6, x, 3, z, white); }
+  const ch = MB.CreateTorus('mqChand', { diameter: 2.4, thickness: 0.08, tessellation: 24 }, scene); ch.position.set(cx, y + 4.4, cz); ch.material = gold; list.push(ch);
+  for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, b = MB.CreateSphere('mqB', { diameter: 0.18, segments: 5 }, scene); b.position.set(cx + Math.cos(a) * 1.2, y + 4.35, cz + Math.sin(a) * 1.2); b.material = unlit('mqBM', new B.Color3(3, 2.4, 1.4)); list.push(b); }
+  for (const z of [-3.5, -0.5]) for (let k = 0; k < 6; k++) { const st = box(0.35, 0.4, 0.3, -4 + k * 1.6, 0.2, z, wood); st.rotation.x = 0; }
+  const light = roomLightFor(list.slice(), V3(cx, y + 4.2, cz), new B.Color3(1, 0.92, 0.75), 26);
+  list.forEach(m => m.setEnabled(false));
+  ROOMS.mosque = { cx, cz, y, list, light, bx: 7.4, bz: 6.4, door: [0, 6.6], spawn: [0, 2.8], face: Math.PI, title: 'בתוך המסגד', sub: 'שקט ושלווה. השטיח רך, האור חם, והרעש של הכפר נשאר בחוץ. כאן לא צופרים ולא מדרפטים.',
+    acts: [['shoes', '👞 לחלוץ נעליים ולשבת בשקט', 0, null, 'ישבת על השטיח. רגע של שקט, בלי מנועים ובלי עגבניות.'], ['look', '🕌 להסתכל על המחראב והפסיפס', 0, null, 'אריחי פסיפס בכחול, ירוק וזהב, עבודת יד של אומני הכפר.'], ['story', '📿 לשמוע מהשומר את סיפור המסגד', 0, null, 'השומר מספר: המסגד נבנה מאבן מקומית לפני כמאה שנה, והכיפה נצבעת מחדש כל עשר שנים.']] };
+}
+// ---- doors you can walk into ----
+function nearInteract() {
+  let best = null, bd = 3.2 * 3.2;
+  const d2 = (x, z) => (x - WALK.x) ** 2 + (z - WALK.z) ** 2;
+  if (state === 'room') { const R = ROOMS[WALK.room], dd = d2(R.cx + R.door[0], R.cz + R.door[1]); if (dd < 2.6 * 2.6) best = { t: 'exit' }; return best; }
+  if (d2(KUPA.x, KUPA.z) < bd) { best = { t: 'kupa' }; bd = d2(KUPA.x, KUPA.z); }
+  for (const dr of WDOORS) { const dd = d2(dr.x, dr.z); if (dd < bd) { bd = dd; best = dr; } }
+  return best;
+}
+const WLABEL = { kupa: '🎟️ קופה: להירשם למרוץ', house: '🚪 להיכנס לבית', mosque: '🕌 להיכנס למסגד', exit: '🚪 לצאת החוצה' };
+let fadeEl = null;
+function fade(fn) { if (!fadeEl) { fadeEl = document.createElement('div'); fadeEl.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .25s;z-index:60'; document.body.appendChild(fadeEl); } fadeEl.style.opacity = 1; setTimeout(() => { fn(); fadeEl.style.opacity = 0; }, 260); }
+function walkAction() {
+  const it = WALK.near; if (!it) return;
+  if (it.t === 'kupa') { openKupa(); return; }
+  if (it.t === 'exit') { fade(() => leaveRoom()); return; }
+  fade(() => enterRoom(it));
+}
+function enterRoom(dr) {
+  if (!ROOMS.house) { buildHouseRoom(); buildMosqueRoom(); }
+  const R = ROOMS[dr.t]; WALK.room = dr.t; WALK.ret = dr; WALK.done = new Set(); state = 'room';
+  R.list.forEach(m => m.setEnabled(true)); R.light.setEnabled(true);
+  WALK.x = R.cx + R.spawn[0]; WALK.z = R.cz + R.spawn[1]; WALK.h = R.face; WALK.cam = R.face;
+  $('roomTitle').textContent = R.title; $('roomSub').textContent = R.sub;
+  $('roomActs').innerHTML = R.acts.map(([id, label]) => `<button class="btn ghost small" type="button" data-act="${id}">${label}</button>`).join('');
+  $('roomPanel').hidden = false; WALK.snap = true;
+}
+function leaveRoom() {
+  const R = ROOMS[WALK.room]; R.list.forEach(m => m.setEnabled(false)); R.light.setEnabled(false);
+  const dr = WALK.ret; WALK.x = dr.x + dr.nx * 1.6; WALK.z = dr.z + dr.nz * 1.6; WALK.h = Math.atan2(dr.nx, dr.nz); WALK.cam = WALK.h; WALK.room = null; state = 'walk'; $('roomPanel').hidden = true; WALK.snap = true;
+}
+$('roomActs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || WALK.done.has(b.dataset.act)) return;
+  const R = ROOMS[WALK.room], a = R.acts.find(x => x[0] === b.dataset.act); if (!a) return;
+  WALK.done.add(a[0]); b.disabled = true;
+  toast(a[1].replace(/^\S+\s/, ''), a[4]); if (a[3]) speak(a[3], true);
+  if (a[2]) { addFalafel(a[2]); setTimeout(() => toast('+' + a[2] + ' 🧆', 'מהמטבח של הדודה'), 1800); }
+  if (a[0] === 'look') WALK.cam = R.face + Math.PI;
+});
+$('roomExit').addEventListener('click', () => { if (state === 'room') fade(() => leaveRoom()); });
+// ---- ticket booth: race registration ----
+const RACE_FEE = 5;
+function openKupa() {
+  $('kupaList').innerHTML = TRACKS.map(t => `<button type="button" class="trk" data-t="${t.id}"><b>${t.name}${t.id === TRACK.id ? ' · אתה כאן' : ''}</b><span>${t.desc}</span><span style="color:var(--sodium)">דמי הרשמה: ${ADMIN ? 'חינם (מנהל)' : RACE_FEE + ' 🧆'}</span></button>`).join('');
+  $('kupa').hidden = false; speak('ahlan', true);
+}
+$('kupaList').addEventListener('click', e => {
+  const b = e.target.closest('.trk'); if (!b) return;
+  if (!ADMIN && falafel < RACE_FEE) { toast('אין מספיק פלאפל', 'לך תחליק קצת או תבקר את הדודה', true); return; }
+  if (!ADMIN) { addFalafel._raw = true; addFalafel(-RACE_FEE); addFalafel._raw = false; }
+  $('kupa').hidden = true;
+  if (b.dataset.t === TRACK.id) { exitWalk(); toast('🎟️ נרשמת!', 'אבו עלי: "בהצלחה, ואל תשבור לי את הגדר"'); setTimeout(startGame, 400); }
+  else { store.set('track', b.dataset.t); store.set('autoRace', true); $('loading').hidden = false; $('loading').querySelector('div').innerHTML = '<b>נרשמת למרוץ!</b>נוסעים ל' + TRACKS.find(t => t.id === b.dataset.t).name + '…'; setTimeout(() => location.reload(), 80); }
+});
+$('kupaClose').addEventListener('click', () => { $('kupa').hidden = true; });
+// ---- entering / leaving walk mode ----
+function enterWalk() {
+  if (state !== 'menu') return;
+  walkerBuild(); sfx.init(); sfx.resume(); setDOF(false);
+  $('start').hidden = true; showTouch(false); document.body.classList.add('walking'); $('walkHud').hidden = false; $('joy').hidden = !COARSE;
+  WALK.x = KUPA.x + Math.sin(KUPA.yaw) * 4; WALK.z = KUPA.z + Math.cos(KUPA.yaw) * 4; WALK.h = KUPA.yaw + Math.PI; WALK.cam = WALK.h;
+  WALK.root.setEnabled(true); state = 'walk'; WALK.snap = true;
+  toast('🚶 ברוך הבא לכפר', 'קופה ליד קו הזינוק · אפשר להיכנס לבתים ולמסגדים');
+}
+function exitWalk() {
+  if (state === 'room') leaveRoom();
+  WALK.root && WALK.root.setEnabled(false); document.body.classList.remove('walking'); $('walkHud').hidden = true; $('actBtn').hidden = true; $('kupa').hidden = true; state = 'menu';
+}
+$('goWalk').addEventListener('click', enterWalk);
+$('walkMenu').addEventListener('click', () => { exitWalk(); toMenu(); });
+$('actBtn').addEventListener('click', walkAction);
+addEventListener('keydown', e => { if ((state === 'walk' || state === 'room') && (e.code === 'KeyE' || e.code === 'Enter')) walkAction(); if ((state === 'walk' || state === 'room') && e.code === 'Escape') { exitWalk(); toMenu(); } });
+// virtual joystick (touch)
+const JOY = { x: 0, y: 0, id: null };
+{
+  const el = $('joy'), kn = $('joyKnob');
+  const set = (e) => { const r = el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), m = r.width / 2, l = Math.hypot(dx, dy), k = l > m ? m / l : 1; JOY.x = dx * k / m; JOY.y = -dy * k / m; kn.style.transform = `translate(${dx * k}px,${dy * k}px)`; };
+  el.addEventListener('pointerdown', e => { JOY.id = e.pointerId; el.setPointerCapture(e.pointerId); set(e); e.preventDefault(); });
+  el.addEventListener('pointermove', e => { if (e.pointerId === JOY.id) set(e); });
+  const end = e => { if (e.pointerId !== JOY.id) return; JOY.id = null; JOY.x = JOY.y = 0; kn.style.transform = ''; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+function updateWalk(dt, t) {
+  if (state !== 'walk' && state !== 'room') { if (KUPA.arm) KUPA.arm.rotation.x = -0.4 + Math.sin(t * 1.3) * 0.2; return; }
+  let ix = JOY.x, iy = JOY.y;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) iy = 1; if (keys.has('KeyS') || keys.has('ArrowDown')) iy = -1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) ix = -1; if (keys.has('KeyD') || keys.has('ArrowRight')) ix = 1;
+  const mag = Math.min(1, Math.hypot(ix, iy)), run = keys.has('ShiftLeft') || keys.has('ShiftRight') || mag > 0.92 ? 1.7 : 1, sp = (state === 'room' ? 2.4 : 4.2) * run * mag;
+  if (mag > 0.08) {
+    const a = WALK.cam + Math.atan2(ix, iy), mx = Math.sin(a) * sp * dt, mz = Math.cos(a) * sp * dt;
+    WALK.x += mx; WALK.z += mz; WALK.h = a; WALK.cam += Math.atan2(Math.sin(a - WALK.cam), Math.cos(a - WALK.cam)) * Math.min(1, dt * (Math.abs(ix) > 0.3 ? 1.6 : 0.9));
+    WALK.bob += dt * sp * 2.2;
+  }
+  if (state === 'walk') { // stay out of buildings
+    for (const hs of HOUSES) { const dx = WALK.x - hs[0], dz = WALK.z - hs[1], r = hs[2] * 0.72 + 0.35, d2 = dx * dx + dz * dz; if (d2 < r * r && d2 > 1e-6) { const d = Math.sqrt(d2); WALK.x = hs[0] + dx / d * r; WALK.z = hs[1] + dz / d * r; } }
+  } else { const R = ROOMS[WALK.room]; WALK.x = clamp(WALK.x, R.cx - R.bx, R.cx + R.bx); WALK.z = clamp(WALK.z, R.cz - R.bz, R.cz + R.bz); }
+  const gy = state === 'room' ? ROOMS[WALK.room].y : terrainH(WALK.x, WALK.z);
+  WALK.root.position.set(WALK.x, gy + Math.abs(Math.sin(WALK.bob)) * 0.04 * Math.min(1, mag * 2), WALK.z); WALK.root.rotation.y = WALK.h;
+  WALK.arm.rotation.x = mag > 0.08 ? Math.sin(WALK.bob) * 0.55 : -0.05 + Math.sin(t * 1.4) * 0.04;
+  // camera follows from behind
+  const cd = state === 'room' ? 3.4 : 5.6, ch = state === 'room' ? 2.1 : 2.8, k = WALK.snap ? 1 : 1 - Math.exp(-dt * 6); WALK.snap = false;
+  let tx = WALK.x - Math.sin(WALK.cam) * cd, tz = WALK.z - Math.cos(WALK.cam) * cd;
+  if (state === 'room') { const R = ROOMS[WALK.room]; tx = clamp(tx, R.cx - R.bx - 0.3, R.cx + R.bx + 0.3); tz = clamp(tz, R.cz - R.bz - 0.3, R.cz + R.bz + 0.3); }
+  camPos.x = lerp(camPos.x, tx, k); camPos.z = lerp(camPos.z, tz, k); camPos.y = lerp(camPos.y, gy + ch, k);
+  camLook.set(WALK.x, gy + 1.35, WALK.z);
+  camera.position.copyFrom(camPos); camera.setTarget(camLook); camera.rotation.z = 0; camera.fov = 62 * Math.PI / 180 * (innerWidth < innerHeight ? 1.25 : 1);
+  // what can I do here?
+  const it = nearInteract(); WALK.near = it; const btn = $('actBtn');
+  if (it) { const lbl = WLABEL[it.t] + (COARSE ? '' : '  (E)'); if (btn.textContent !== lbl) btn.textContent = lbl; btn.hidden = false; } else btn.hidden = true;
+  $('wfal').textContent = falafel;
+}
+if (store.get('autoRace', false)) { store.set('autoRace', false); const tryGo = () => { if (state === 'menu' && $('loading').hidden) { toast('🎟️ נרשמת בקופה', 'יאללה, למרוץ!'); startGame(); } else setTimeout(tryGo, 300); }; setTimeout(tryGo, 800); }
+
 let jsMs = 0;
 scene.onBeforeRenderObservable.add(() => {
   const jsT0 = performance.now();
@@ -4261,8 +4484,8 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt); updatePads(dt); updateTomatoes(dt);
-  sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt); updatePads(dt); updateTomatoes(dt); updateWalk(dt, elapsed);
+  sfx.music(state === 'room' && WALK.room === 'mosque' ? 0 : state === 'walk' || state === 'room' ? 0.45 : state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
   motes.emitter.copyFrom(camera.position); cullKits(camera.position.x, camera.position.z); updateShafts(); hookShadowMap();
@@ -4286,6 +4509,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { tomato: () => { tomatoT = -999; tomato(); }, TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { walk: () => WALK, enterWalk, enterRoom, openKupa, tomato: () => { tomatoT = -999; tomato(); }, TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
