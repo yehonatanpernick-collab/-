@@ -59,12 +59,15 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .combo .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sodium),var(--ember))}
 .tomato{position:fixed;pointer-events:none;z-index:40;width:150px;height:130px;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;background:radial-gradient(circle at 40% 40%,#8a3b2e 0%,#6b4a3d 35%,#6f746a 70%,rgba(110,115,105,0) 100%);filter:blur(.6px);box-shadow:0 20px 0 -8px rgba(100,95,85,.7),-26px 12px 0 -14px rgba(120,60,50,.8),30px 8px 0 -16px rgba(110,110,100,.7);animation:tomatoSplat 2.6s ease-out forwards}
 @keyframes tomatoSplat{0%{transform:scale(calc(var(--s,1)*.2)) rotate(-8deg);opacity:0}8%{transform:scale(calc(var(--s,1)*1.15)) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(var(--s,1)) translateY(10px)}100%{opacity:0;transform:scale(var(--s,1)) translateY(70px)}}
-.walking .speedo,.walking .combo,.walking .lap,.walking .score,.walking .minibox,.walking #touch,.walking #tags,.walking .ticker{display:none!important}
+.walking .speedo,.walking .combo,.walking .lap,.walking .score,.walking .minibox,.walking #touch,.walking #tags,.walking .ticker,.walking .chips .chip:not(.fpsv){display:none!important}
+.walking .top{padding-top:70px}
 #walkHud .whud,#walkHud .whud *{pointer-events:auto}
-#walkHud .whud{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:16px;display:flex;gap:14px;align-items:center;padding:10px 14px;font:700 15px var(--body);color:var(--fg)}
-#walkHud .whint{position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:18px;margin:0;font:600 13px var(--body);color:var(--muted)}
-#walkHud .tpp{pointer-events:auto;position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:16px;width:min(86vw,330px);max-height:62vh;overflow:auto;padding:12px;display:grid;gap:6px;z-index:25;background:rgba(14,13,20,.82)}
-#tpList{display:grid;gap:6px} #tpList button{text-align:start}
+#walkHud .whud{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:8px;align-items:center;font:700 15px var(--body);color:var(--fg)}
+.wsp{flex:1}.wpill{background:rgba(14,13,20,.6);border:1px solid var(--edge);border-radius:999px;padding:8px 14px;font:800 17px var(--num)}
+.wib{display:grid;justify-items:center;gap:1px;width:58px;height:54px;border-radius:16px;background:rgba(14,13,20,.6);border:1px solid var(--edge);color:var(--fg);font-size:22px;line-height:1;cursor:pointer}.wib small{font:700 11px var(--body);color:var(--muted)}.wib:active{transform:scale(.94)}
+#walkHud .whint{position:absolute;top:calc(72px + env(safe-area-inset-top,0px));right:18px;margin:0;font:600 13px var(--body);color:var(--muted)}
+#walkHud .tpp{pointer-events:auto;position:absolute;top:calc(72px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));left:max(12px,env(safe-area-inset-left,0px));max-width:420px;margin-inline-start:auto;max-height:62vh;overflow:auto;padding:12px;display:grid;gap:6px;z-index:25;background:rgba(14,13,20,.82)}
+#tpList{display:grid;gap:10px} .tpg h4{margin:0 0 6px;font:800 13px var(--body);color:var(--sodium)} .tpg div{display:grid;grid-template-columns:1fr 1fr;gap:6px} .tpg button{text-align:start;font-size:13px;padding:8px 9px}
 .roomp .btn:disabled{opacity:.45}
 #joy{pointer-events:auto;position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:140px;height:140px;border-radius:50%;background:rgba(20,18,26,.45);border:2px solid rgba(255,179,65,.5);touch-action:none}
 #joyKnob{position:absolute;left:43px;top:43px;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffd37a,#c98a1f);pointer-events:none}
@@ -355,7 +358,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   </div>
 
   <div id="walkHud" hidden>
-    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="tpBtn" type="button">📍 שגר אותי</button><button class="btn ghost small" id="yallaBtn" type="button">😄 יאללה!</button><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
+    <div class="whud"><span class="wpill">🧆 <b id="wfal">0</b></span><span class="wsp"></span><button class="wib" id="tpBtn" type="button" aria-label="שגר אותי">📍<small>שיגור</small></button><button class="wib" id="yallaBtn" type="button" aria-label="יאללה">😄<small>יאללה</small></button><button class="wib" id="walkMenu" type="button" aria-label="תפריט">☰<small>תפריט</small></button></div>
     <div class="plate tpp" id="tpPanel" hidden><b>📍 לאן לשגר?</b><div id="tpList"></div></div>
     <p class="whint fine-only">WASD / חצים ללכת · Shift לרוץ · E לפעולה</p>
     <div id="joy" hidden><div id="joyKnob"></div></div>
@@ -4292,7 +4295,7 @@ const WALK = { built: false, hop: 0, x: 0, z: 0, h: 0, cam: 0, v: 0, room: null,
 const ROOM_Y = 520;
 function walkerBuild() {
   if (WALK.built) return; WALK.built = true;
-  const o = { robe: [0.96, 0.95, 0.92], head: 'keffiyeh', hc: [0.85, 0.15, 0.17], skin: SKIN[1], mustache: [0.07, 0.05, 0.04], bigMoustache: true, shades: true, vest: [0.32, 0.22, 0.14], basket: false, beads: true };
+  const o = { robe: [0.84, 0.82, 0.78], head: 'keffiyeh', hc: [0.85, 0.15, 0.17], skin: SKIN[1], mustache: [0.07, 0.05, 0.04], bigMoustache: true, shades: true, vest: [0.32, 0.22, 0.14], basket: false, beads: true };
   const pm = personMeshes(o, 'walker'); WALK.root = new B.TransformNode('walker', scene);
   pm.body.parent = WALK.root; pm.arm.parent = WALK.root; pm.arm.position.y = pm.sh; WALK.body = pm.body; WALK.arm = pm.arm;
   caster(pm.body); caster(pm.arm); WALK.root.setEnabled(false);
@@ -4310,11 +4313,12 @@ const GATE = {};
   const sg = MB.CreatePlane('gateSign', { width: 4.2, height: 0.62 }, scene); sg.parent = gm; sg.position.set(0, 4.6, -0.47);
   sg.material = textDecal('gateSign', 512, 76, (x2, w, h) => { x2.fillStyle = '#1d5a3a'; x2.fillRect(0, 0, w, h); x2.strokeStyle = '#e1c27a'; x2.lineWidth = 5; x2.strokeRect(4, 4, w - 8, h - 8); x2.direction = 'rtl'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillStyle = '#fff'; x2.font = '800 34px Heebo, Arial, sans-serif'; x2.fillText('أهلا وسهلا · ברוכים הבאים לכפר', w / 2, 40); });
   sg.material.backFaceCulling = false;
-  Object.assign(GATE, { i: gi, x: gx, z: gz, out, yaw, spawn: [gx + out[0] * 3.2, gz + out[1] * 3.2] });
+  Object.assign(GATE, { i: gi, x: gx, z: gz, out, yaw, spawn: [gx + out[0] * 7, gz + out[1] * 7] });
   let best = null, bd = 1e9; for (const v of VILLAGES) { const d = Math.hypot(v[0] - gx, v[1] - gz); if (d < bd) { bd = d; best = v; } }
+  GATE.look = best ? Math.atan2(best[0] - GATE.spawn[0], best[1] - GATE.spawn[1]) : yaw;
   if (best) {
     const k2 = animalKit(), len = Math.max(10, bd - 18), dx = (best[0] - gx) / bd, dz = (best[1] - gz) / bd, pyaw = Math.atan2(dx, dz);
-    for (let t = 3; t < len; t += 1.6) { const px = gx + dx * t, pz = gz + dz * t, py = terrainH(px, pz) - gy; k2.Bx(2.4 + Math.sin(t) * 0.3, 0.08, 1.3, px - gx, py + 0.03, pz - gz, [0.74 + Math.sin(t * 3) * 0.05, 0.68, 0.56], 0, pyaw + Math.sin(t * 1.7) * 0.15); }
+    for (let t = 3; t < len; t += 1.6) { const px = gx + dx * t, pz = gz + dz * t, py = terrainH(px, pz) - gy; if (HOUSES.some(h => (h[0] - px) ** 2 + (h[1] - pz) ** 2 < (h[2] * 0.8 + 1.3) ** 2)) continue; k2.Bx(2.4 + Math.sin(t) * 0.3, 0.08, 1.3, px - gx, py + 0.03, pz - gz, [0.74 + Math.sin(t * 3) * 0.05, 0.68, 0.56], 0, pyaw + Math.sin(t * 1.7) * 0.15); }
     const pm = k2.merge(); pm.material = vcMat; pm.position.set(gx, gy, gz); pm.isPickable = false; pm.receiveShadows = true;
     const k3 = animalKit(); for (let t = 8; t < len; t += 9) for (const sd of [-1.8, 1.8]) { const px = gx + dx * t - dz * sd, pz = gz + dz * t + dx * sd, py = terrainH(px, pz); k3.C(2.2, 0.08, 0.1, px, py + 1.1, pz, [0.2, 0.2, 0.22], 0, 0, 6); k3.S(0.3, 0.42, 0.3, px, py + 2.3, pz, [1, 0.75, 0.35], 6); }
     const lm = k3.merge(); lm.material = unlit('pathLampM', new B.Color3(1.3, 0.95, 0.55)); lm.isPickable = false;
@@ -4325,7 +4329,7 @@ const GATE = {};
 {
   const T = [], C = [];
   const lay = (x0, z0, x1, z1, w, col, step = 1.5) => { const L = Math.hypot(x1 - x0, z1 - z0), yaw = Math.atan2(x1 - x0, z1 - z0);
-    for (let t = 0; t < L; t += step) { const x = x0 + (x1 - x0) * t / L, z = z0 + (z1 - z0) * t / L; T.push(B.Matrix.Compose(new B.Vector3(w, 0.06, step + 0.05), B.Quaternion.RotationYawPitchRoll(yaw, 0, 0), new B.Vector3(x, terrainH(x, z) + 0.05, z))); const j = 0.92 + Math.sin(t * 2.3) * 0.05; C.push(col[0] * j, col[1] * j, col[2] * j, 1); } };
+    for (let t = 0; t < L; t += step) { const x = x0 + (x1 - x0) * t / L, z = z0 + (z1 - z0) * t / L; if (HOUSES.some(h => (h[0] - x) ** 2 + (h[1] - z) ** 2 < (h[2] * 0.8 + w * 0.5) ** 2)) continue; T.push(B.Matrix.Compose(new B.Vector3(w, 0.06, step + 0.05), B.Quaternion.RotationYawPitchRoll(yaw, 0, 0), new B.Vector3(x, terrainH(x, z) + 0.05, z))); const j = 0.92 + Math.sin(t * 2.3) * 0.05; C.push(col[0] * j, col[1] * j, col[2] * j, 1); } };
   const stone = [0.8, 0.72, 0.58], asph = [0.36, 0.35, 0.34];
   VILLAGES.forEach(([vx, vz], k) => {
     const R = 34, n = 40; for (let q = 0; q < n; q++) { const a0 = q / n * 6.283, a1 = (q + 1) / n * 6.283; lay(vx + Math.cos(a0) * R, vz + Math.sin(a0) * R, vx + Math.cos(a1) * R, vz + Math.sin(a1) * R, 3.2, stone); }
@@ -4524,7 +4528,7 @@ function enterWalk(atKupa) {
   if (state !== 'menu') return;
   walkerBuild(); sfx.init(); sfx.resume(); setDOF(false);
   $('start').hidden = true; showTouch(false); document.body.classList.add('walking'); $('walkHud').hidden = false; $('joy').hidden = !COARSE;
-  WALK.x = GATE.spawn[0]; WALK.z = GATE.spawn[1]; WALK.h = GATE.yaw; WALK.cam = WALK.h;
+  WALK.x = GATE.spawn[0]; WALK.z = GATE.spawn[1]; WALK.h = GATE.look; WALK.cam = WALK.h;
   WALK.root.setEnabled(true); state = 'walk'; WALK.snap = true;
   if (atKupa === true) { WALK.x = KUPA.x + Math.sin(KUPA.yaw) * 1.5; WALK.z = KUPA.z + Math.cos(KUPA.yaw) * 1.5; WALK.h = WALK.cam = KUPA.yaw + Math.PI; setTimeout(openKupa, 400); }
   toast('🚶 ברוך הבא לכפר', 'למרוץ? הקופה ליד השער · 📍 שגר אותי לכל מקום');
@@ -4536,18 +4540,21 @@ function exitWalk() {
 $('goWalk').addEventListener('click', enterWalk);
 $('yallaBtn').addEventListener('click', () => { if (state !== 'walk' && state !== 'room') return; WALK.hop = 0.6; const sh = pick([['יאללה שבאב!', 'yalla'], ['וואלה, איזה יום יפה', 'walla'], ['אהלן וסהלן לכולם!', 'ahlan'], ['מאשאללה על הכפר הזה', 'masha'], ['מי רוצה פלאפל?!', 'habibi']]); toast(sh[0], ''); speak(sh[1], true); sfx.horn('tune'); });
 function tpPlaces() {
-  const P = [['🚪 שער הכפר', GATE.spawn[0], GATE.spawn[1], GATE.yaw], ['🎟️ קופת המרוצים', KUPA.x + Math.sin(KUPA.yaw) * 2, KUPA.z + Math.cos(KUPA.yaw) * 2, KUPA.yaw + Math.PI]];
+  const P = [['🚪 שער הכפר', GATE.spawn[0], GATE.spawn[1], GATE.look], ['🎟️ קופת המרוצים', KUPA.x + Math.sin(KUPA.yaw) * 2, KUPA.z + Math.cos(KUPA.yaw) * 2, KUPA.yaw + Math.PI]];
   const near = (x, z, t) => WDOORS.filter(d => d.t === t).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0];
-  VILLAGES.forEach(([vx, vz], k) => { const mq = near(vx, vz, 'mosque'), hs = near(vx, vz, 'house'), nm = VNAMES[k % VNAMES.length];
-    if (mq) P.push([`🕌 ${nm}: המסגד`, mq.x + mq.nx * 2, mq.z + mq.nz * 2, Math.atan2(-mq.nx, -mq.nz)]);
-    if (hs) P.push([`🏠 ${nm}: בית משפחה`, hs.x + hs.nx * 1.5, hs.z + hs.nz * 1.5, Math.atan2(-hs.nx, -hs.nz)]); });
-  const seen = new Set(); WDOORS.filter(d => d.t === 'shop').forEach(d => { const key = d.name; if (seen.has(key)) return; seen.add(key); P.push([`${KIND_INFO[d.kind][0]} ${d.name}`, d.x + d.nx * 1.5, d.z + d.nz * 1.5, Math.atan2(-d.nx, -d.nz)]); });
+  const hs = near(GATE.x, GATE.z, 'house'); if (hs) P.push(['🏠 בית אבו סמיר', hs.x + hs.nx * 1.5, hs.z + hs.nz * 1.5, Math.atan2(-hs.nx, -hs.nz)]);
+  const vseen = new Set(); VILLAGES.forEach(([vx, vz], k) => { const mq = near(vx, vz, 'mosque'), nm = VNAMES[k % VNAMES.length]; if (!mq || vseen.has(nm)) return; vseen.add(nm);
+    P.push([`🕌 ${nm}`, mq.x + mq.nx * 2, mq.z + mq.nz * 2, Math.atan2(-mq.nx, -mq.nz)]); });
+  const seen = new Set(); WDOORS.filter(d => d.t === 'shop').forEach(d => { const key = d.name; if (seen.has(key)) return; seen.add(key); P.push([`${KIND_INFO[d.kind][0]} ${d.name.split(/ [–-] /)[0]}`, d.x + d.nx * 1.5, d.z + d.nz * 1.5, Math.atan2(-d.nx, -d.nz)]); });
   const cf = WDOORS.find(d => d.t === 'cafe'); if (cf) P.push(['☕ בית הקפה של הזקנים', cf.x + 2.6, cf.z + 2.6, Math.atan2(-2.6, -2.6)]);
   return P;
 }
 $('tpBtn').addEventListener('click', () => {
   if (state === 'room') { fade(() => leaveRoom()); }
-  const P = tpPlaces(); $('tpList').innerHTML = P.map((p, k) => `<button class="btn ghost small" type="button" data-k="${k}">${p[0]}</button>`).join(''); $('tpPanel').hidden = !$('tpPanel').hidden; WALK.tp = P;
+  const P = tpPlaces(), grp = { race: [], village: [], shop: [] };
+  P.forEach((p, k) => grp[/🚪|🎟️|🏠/.test(p[0]) ? 'race' : /🕌|🏠/.test(p[0]) ? 'village' : 'shop'].push(`<button class="btn ghost small" type="button" data-k="${k}">${p[0]}</button>`));
+  $('tpList').innerHTML = [['🏁 ליד השער', 'race'], ['🕌 כפרים', 'village'], ['🏪 חנויות ובתי קפה', 'shop']].map(([h, g]) => grp[g].length ? `<section class="tpg"><h4>${h}</h4><div>${grp[g].join('')}</div></section>` : '').join('');
+  $('tpPanel').hidden = !$('tpPanel').hidden; WALK.tp = P;
 });
 $('tpList').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const p = WALK.tp[+b.dataset.k]; $('tpPanel').hidden = true;
   fade(() => { if (state === 'room') leaveRoom(); if (WALK.sitting) leaveRoom(); WALK.x = p[1]; WALK.z = p[2]; WALK.h = p[3]; WALK.cam = p[3]; WALK.snap = true; WALK.idx = null; toast(p[0], 'הגעת'); }); });
