@@ -58,7 +58,7 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .combo .bar{width:180px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:6px}
 .combo .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sodium),var(--ember))}
 .tomato{position:fixed;pointer-events:none;z-index:40;width:150px;height:130px;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;background:radial-gradient(circle at 40% 40%,#8a3b2e 0%,#6b4a3d 35%,#6f746a 70%,rgba(110,115,105,0) 100%);filter:blur(.6px);box-shadow:0 20px 0 -8px rgba(100,95,85,.7),-26px 12px 0 -14px rgba(120,60,50,.8),30px 8px 0 -16px rgba(110,110,100,.7);animation:tomatoSplat 2.6s ease-out forwards}
-@keyframes tomatoSplat{0%{transform:scale(.2) rotate(-8deg);opacity:0}8%{transform:scale(1.15) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(1) translateY(10px)}100%{opacity:0;transform:scale(1.02) translateY(60px)}}
+@keyframes tomatoSplat{0%{transform:scale(calc(var(--s,1)*.2)) rotate(-8deg);opacity:0}8%{transform:scale(calc(var(--s,1)*1.15)) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(var(--s,1)) translateY(10px)}100%{opacity:0;transform:scale(var(--s,1)) translateY(70px)}}
 .tag{position:absolute;left:0;top:0;font:700 12px var(--body);color:var(--fg);background:rgba(14,13,20,.62);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;white-space:nowrap;will-change:transform}
 .tag b{color:var(--sodium);font-family:var(--num);margin-inline-start:6px}
 .prox{font-family:var(--num);font-weight:700;font-size:14px;color:var(--sky);letter-spacing:.04em;margin-top:4px}
@@ -3216,6 +3216,7 @@ function updateKhaled(t, dt) {
 
 /* race commentary */
 const COMMENTS = [
+  'הדודה מהמרפסת צועקת: "תחזור לכביש, יא חמור!"', 'סבא בכיסא על המדרכה שופט את הדריפט שלך. 6.5 מתוך 10', 'ילד בן 6 מסביר לאבא שלו איך מדרפטים. האבא מהנהן', 'מישהו מכר לך עכשיו פלאפל בלי שיעצרת. כנראה.', 'עז מעבר לקיר מסתכלת על הדריפט ולועסת בבוז', 'הגמל בכביש לא מתרגש. הוא ראה דברים גרועים מזה', 'אחד השכנים הדליק מנגל בגלל העשן שלך', 'בבית הקפה מחליטים: זה לא דריפט, זה סגנון', 'הקהל מנהל הימורים: כמה פגיעות בקיר עד הסיבוב הבא', 'נהג האוטובוס מצפצף. אין אוטובוס. הוא פשוט מצפצף',
   'הדודה פאטמה מחליקה עם מזרן על הגג. כבוד.', 'אבו טסלה סעיד טוען את המכונית בגנרטור של השכנים', 'מחמוד הלא חמוד שכח את העז בפנייה הקודמת',
   'השכנים מבקשים להנמיך את האגזוז, יש תינוק ישן', 'ריח של שווארמה בפנייה הבאה. להתרכז!', 'סמיר טורבו נשבע שהבמוו שלו מקורית. היא לא.',
   'יוסוף התותח נתקע עם הכנף בכבל חשמל', 'מוסטפא גלגלי בזק: "הספינרים שלי מסתובבים גם כשאני ישן"', 'בחתונה בכפר כבר מזמינים אותך לרקוד דבקה',
@@ -3510,13 +3511,44 @@ function updFalafel(bump) {
   if (bump) for (const id of ['hfal', 'gfal']) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 }
 function addFalafel(n) { if (!n) return; if (n > 0 && EQ.fal === 'double' && !addFalafel._raw) n *= 2; falafel += n; store.set('falafel', falafel); updFalafel(true); }
-let tomatoT = -9;
-function tomato(msg, quiet) { // the village crowd boos: a rotten grey-red tomato splats on the screen (pure slapstick)
-  const now = performance.now() / 1000; if (now - tomatoT < 2.2 || state !== 'drive') return; tomatoT = now;
-  const el = document.createElement('div'); el.className = 'tomato'; el.style.left = (12 + Math.random() * 62) + '%'; el.style.top = (14 + Math.random() * 40) + '%'; document.body.appendChild(el); setTimeout(() => el.remove(), 2700);
-  sfx.squish(); if (!quiet) toast(msg || pick(['עגבנייה רקובה מהקהל!', 'הקהל לא התרשם. פלאח!', 'זו עגבנייה מאתמול, אחי', 'בוז מהכפר: עגבנייה אפורה בפנים']), '', true);
+let tomatoT = -999;
+const TOM = { pool: [], active: [], mat: null };
+function tomatoInit() {
+  if (TOM.mat) return;
+  TOM.mat = pbr('tomatoM', { color: 0x7a3a30, rough: 0.5 }); TOM.mat.emissiveColor = new B.Color3(0.08, 0.03, 0.02);
+  TOM.leaf = pbr('tomatoLeaf', { color: 0x4a5a2a, rough: 0.8 });
+  for (let k = 0; k < 10; k++) {
+    const m = MB.CreateSphere('tom' + k, { diameter: 0.42, segments: 6 }, scene); m.material = TOM.mat; m.isPickable = false; m.setEnabled(false); m.scaling.y = 0.88;
+    const lf = MB.CreateCylinder('tl' + k, { height: 0.04, diameter: 0.2, tessellation: 5 }, scene); lf.material = TOM.leaf; lf.parent = m; lf.position.y = 0.21; lf.isPickable = false;
+    TOM.pool.push(m);
+  }
 }
-function loseCombo(msg) { tomato(null, true); if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
+function splat(big) { // the tomato arrives: a rotten grey-red splat on the lens, it slides down and fades
+  const el = document.createElement('div'); el.className = 'tomato'; const sc = big ? 1 : 0.55 + Math.random() * 0.5;
+  el.style.left = (8 + Math.random() * 70) + '%'; el.style.top = (10 + Math.random() * 45) + '%'; el.style.transform = `scale(${sc})`; el.style.setProperty('--s', sc);
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2700); sfx.squish();
+}
+// a volley of tomatoes lobbed from the nearby roofs and windows at the camera (never at the car); rare on purpose
+function tomato(msg) {
+  const now = performance.now() / 1000; if (now - tomatoT < 70 || state !== 'drive') return; tomatoT = now; tomatoInit();
+  const fx = Math.sin(car.h), fz = Math.cos(car.h), srcs = [];
+  for (const h of HOUSES) { const dx = h[0] - car.x, dz = h[1] - car.z, d = Math.hypot(dx, dz); if (d > 14 && d < 60 && (dx * fx + dz * fz) / d > 0.2) srcs.push(h); }
+  const n = 6 + ((Math.random() * 3) | 0);
+  for (let k = 0; k < n; k++) {
+    const h = srcs.length ? pick(srcs) : [car.x + fx * 25 + (Math.random() - .5) * 30, car.z + fz * 25 + (Math.random() - .5) * 30], m = TOM.pool[k % TOM.pool.length];
+    TOM.active.push({ m, t: -k * 0.16 - Math.random() * 0.1, dur: 0.95 + Math.random() * 0.25, x: h[0] + (Math.random() - .5) * 5, y: 5 + Math.random() * 4, z: h[1] + (Math.random() - .5) * 5, ox: (Math.random() - .5) * 0.8, oy: (Math.random() - .5) * 0.4, spin: Math.random() * 12 });
+  }
+  toast(msg || pick(['🍅 אש על הכביש! הכפר מעיף עגבניות', 'מהגגות: עגבניות רקובות! זה בשביל הצמיגים', 'הדודות מהמרפסת לא התרשמו 🍅', 'חג עגבניות בכפר! אתה האורח המיוחד']), 'כיוונו על המצלמה, לא על האוטו', true);
+}
+function updateTomatoes(dt) {
+  for (let i = TOM.active.length - 1; i >= 0; i--) {
+    const a = TOM.active[i]; a.t += dt / a.dur; if (a.t < 0) { a.m.setEnabled(false); continue; }
+    if (a.t >= 1) { a.m.setEnabled(false); TOM.active.splice(i, 1); splat(Math.random() < 0.4); continue; }
+    const u = a.t, tx = camera.position.x + a.ox, ty = camera.position.y + a.oy, tz = camera.position.z;
+    a.m.setEnabled(true); a.m.position.set(lerp(a.x, tx, u), lerp(a.y, ty, u) + Math.sin(Math.PI * u) * 2.2, lerp(a.z, tz, u)); a.m.rotation.set(a.spin * u, a.spin * u * 0.7, 0); a.m.scaling.setAll(0.6 + 0.8 * u);
+  }
+}
+function loseCombo(msg) { if (combo.pts > 800) tomato(); if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
 function scoring(dt) {
   const deg = Math.abs(car.slip) * 57.3;
   const valid = car.drifting && car.vF > 4 && deg > 12 && deg < 115 && !car.grass;
@@ -3532,7 +3564,7 @@ function scoring(dt) {
     if (car.grass && combo.grace > 0.35) loseCombo(sayPick(SHOUT.sand)); else if (combo.grace > 1.4) bankCombo();
   }
   if (car.hit > 0) {
-    if (car.hit > 4 && combo.pts > 0) loseCombo(sayPick(SHOUT.crash)); else if (car.hit > 5) tomato();
+    if (car.hit > 4 && combo.pts > 0) loseCombo(sayPick(SHOUT.crash)); else if (car.hit > 7) tomato();
     camShake = Math.min(1, camShake + car.hit * 0.06); sfx.thud(car.hit); if (car.hit > 4) buzz(Math.min(60, car.hit * 5)); car.hit = 0;
   }
   const i = car.idx;
@@ -4219,7 +4251,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt); updatePads(dt);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt); updatePads(dt); updateTomatoes(dt);
   sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
