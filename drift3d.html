@@ -1832,6 +1832,16 @@ function shop(i, side, text, colors, withChairs) {
     mk(1.2, 0.06, 0.8, -0.8, 0.75, 4.3, chair); mk(0.08, 0.72, 0.08, -0.8, 0.36, 4.3, chair);
   }
   for (let k = 0; k < 5; k++) { const lx = (R1() - .5) * 6, lz = 2.4 + R1() * 2.6, [ox, oz] = rot(yaw, lx, lz); addPersonLate(x + ox, z + oz, yaw + Math.PI + (R1() - .5) * 1.2); }
+  // static: merge the shop's boxes per material (same look, a handful of draw calls instead of ~30)
+  root.computeWorldMatrix(true); const groups = new Map();
+  for (const m of root.getChildMeshes()) { if (!groups.has(m.material)) groups.set(m.material, []); groups.get(m.material).push(m); }
+  for (const [mat, list] of groups) {
+    if (list.length < 2) continue;
+    const merged = B.Mesh.MergeMeshes(list, true, true); if (!merged) continue;
+    merged.material = mat; merged.isPickable = false; merged.receiveShadows = true; merged.freezeWorldMatrix();
+    for (const m of list) { const gi = GANTRY.indexOf(m); if (gi >= 0) GANTRY.splice(gi, 1); }
+    GANTRY.push(merged);
+  }
 }
 const LATE = [];
 const BOATS = [];
@@ -2061,13 +2071,22 @@ if (WEBGL2 && B.CascadedShadowGenerator) {
   csm.usePercentageCloserFiltering = true; csm.filteringQuality = COARSE ? B.ShadowGenerator.QUALITY_LOW : B.ShadowGenerator.QUALITY_HIGH;
   csm.bias = 0.0035; csm.normalBias = 0.02;
 }
-const caster = m => csm?.addShadowCaster(m, false);
+const caster = m => { if (m && !m._small && !m._noShadow) csm?.addShadowCaster(m, false); };
 if (csm) { // per-cascade culling: a cascade only draws casters up to its far distance (+ margin for long dusk shadows)
   const sm = csm.getShadowMap();
-  sm.getCustomRenderList = (layer) => {
+  const layerLists = [];
+  sm.getCustomRenderList = (layer, list, len) => {
     const far = (csm._viewSpaceFrustumsZ && csm._viewSpaceFrustumsZ[layer]) || csm.shadowMaxZ, lim = far * 1.35 + 80;
     for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = kitCountWithin(t, lim);
-    return null;
+    const out = layerLists[layer] || (layerLists[layer] = []); out.length = 0;
+    const cx = camera.position.x, cz = camera.position.z;
+    for (let i = 0; i < len; i++) { // only casters that can reach this cascade (RTTs don't frustum-cull on their own)
+      const m = list[i]; if (!m || !m.isEnabled() || !m.isVisible) continue;
+      if (m.hasThinInstances) { if (m.thinInstanceCount > 0) out.push(m); continue; }
+      const bs = m.getBoundingInfo().boundingSphere, c = bs.centerWorld;
+      if (Math.hypot(c.x - cx, c.z - cz) - bs.radiusWorld < lim) out.push(m);
+    }
+    return out;
   };
   sm.onAfterRenderObservable.add(() => { for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = t.k; });
 }
@@ -2515,6 +2534,19 @@ function buildCar(ghost = false, pm = paint, o = {}) {
     }
   };
   mergeNode(body); wheels.forEach(w => { mergeNode(w.spin); mergeNode(w.pivot); }); spinners.forEach(mergeNode);
+  // tiny details: no shadow casting (hidden inside the body's shadow) and, on rival cars, not drawn once they are sub-pixel far away
+  const INTERIOR = [seatMat, dashMat, diceMat, beadMat, steerMat, handMat, needleMat, carRopeMat, tapeMat];
+  for (const m of meshes) {
+    const mat = m.material; if (!mat) continue; const nm = mat.name || '';
+    const interior = INTERIOR.includes(mat) || (nm.startsWith('dcM') && !nm.startsWith('dcMcap'));
+    const tiny = mat === carMats.amber || mat === carMats.caliper || nm.startsWith('bdgM') || nm.startsWith('plM') || nm.startsWith('dcMcap');
+    if (interior || tiny) { m._small = true; if (!o.flag && !ghost && m.addLODLevel) m.addLODLevel(interior ? 45 : 80, null); continue; }
+    // only silhouette-forming parts cast shadows; rims, hubs, calipers, lamps and chrome trim sit inside the silhouette
+    const silhouette = mat === pm || mat === carMats.glass || mat === carMats.tire || mat === carMats.black || mat === carMats.bumper || mat === carMats.mattress || mat === carMats.wood || mat === carMats.melon || mat === vcMat || nm.startsWith('door') || mat === carMats.primer;
+    if (!silhouette) m._noShadow = true;
+    const pn = m.parent && m.parent.name;
+    if (!o.flag && !ghost && (pn === 'ws' || pn === 'wp' || pn === 'spn') && mat !== carMats.tire && m.addLODLevel) m.addLODLevel(60, null); // wheel internals of far rivals
+  }
   if (ghost) {
     const gm = unlit('ghostM', new B.Color3(0.35, 0.7, 1.0), 0.22); gm.fogEnabled = true;
     meshes.forEach(m => { m.material = gm; m.receiveShadows = false; });
@@ -2618,7 +2650,7 @@ function buildGLBCar(res, M) {
   const tailMat = unlit('glbTail' + carUid, new B.Color3(2.2, 0.08, 0.1));
   return { root: wrap, body, wheels, meshes: [...meshes, ...flames], spot, flame, flameMat, flames, tailMat, neonMat: null, spinners: [], glowMeshes: flames.slice(), ownMats: [flameMat, tailMat], M, eq: EQ, wr, glb: true, eye: V3(-0.36, hgt * 0.78, fz * 0.1) };
 }
-const GHOST = buildCar(true); GHOST.root.setEnabled(false);
+const GHOST = buildCar(true, paint, { simple: true }); GHOST.root.setEnabled(false);
 
 /* ================= render pipeline ================= */
 const glow = new B.GlowLayer('glow', scene, { mainTextureRatio: 0.5, blurKernelSize: 48 });
