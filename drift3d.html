@@ -395,6 +395,8 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
         <div class="toggle"><span>קריאות בערבית (קול)</span><div class="seg" id="voice"><button type="button" data-v="1">פועל</button><button type="button" data-v="0">כבוי</button></div></div>
         <div class="toggle"><span>בדיקת קול</span><button class="btn ghost" id="voiceTest" type="button">🔊 יאללה חביבי!</button></div>
         <p class="sdesc" id="voiceInfo">לחץ כדי לשמוע קריאה בערבית.</p>
+        <div class="toggle"><span>אבחון ביצועים (כ-40 שניות)</span><button class="btn ghost" id="benchGo" type="button">▶ הרץ אבחון</button></div>
+        <p class="sdesc">מכבה כל אפקט לרגע ומודד כמה הוא עולה בטלפון שלך. אחר כך מופיעה טבלה, שאפשר לצלם ולשלוח.</p>
       </div>
     </div>
   </div>
@@ -4056,6 +4058,46 @@ function autoRes(dt) {
   else if (fps > (fpsCap || 60) * 0.97 && resMul > 1) { resMul = Math.max(1, resMul - 0.08); applyScale(); }
 }
 const STEP = 1 / 120; let acc = 0, elapsed = 0, lastFrameT = performance.now(), fpsTick = 0;
+/* ================= on-device performance diagnosis: switches each effect off for a moment and measures what it costs on THIS phone ================= */
+async function runBench() {
+  if (state !== 'menu') return;
+  const btn = $('benchGo'); btn.disabled = true;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const capSaved = fpsCap, dofSaved = pipe.depthOfFieldEnabled; fpsCap = 0; setDOF(false);
+  const ov = document.createElement('div'); ov.id = 'benchRes'; ov.style.cssText = 'position:fixed;inset:0;z-index:99;background:rgba(8,8,14,.92);color:#eee;font:600 15px/1.5 system-ui;padding:20px 16px;overflow:auto;direction:rtl;white-space:pre-wrap';
+  document.body.appendChild(ov);
+  const measure = async () => { await sleep(500); let n = 0; const t0 = performance.now(); const o = scene.onAfterRenderObservable.add(() => n++); while (performance.now() - t0 < 1600 || (n < 8 && performance.now() - t0 < 8000)) await sleep(100); scene.onAfterRenderObservable.remove(o); return (performance.now() - t0) / Math.max(1, n); };
+  const g = k => TI[k] && TI[k].mesh, camP = () => camera.getScene().activeCamera;
+  const tests = [
+    ['צללים', () => { const v = sun.shadowEnabled; sun.shadowEnabled = false; return () => { sun.shadowEnabled = v; }; }],
+    ['הצללה בפינות (SSAO)', () => { const m = scene.postProcessRenderPipelineManager; try { m.detachCamerasFromRenderPipeline('ssao', camera); } catch (e) {} return () => { try { m.attachCamerasToRenderPipeline('ssao', camera); } catch (e) {} }; }],
+    ['bloom + זוהר', () => { const a = pipe.bloomEnabled, b2 = glow.isEnabled; pipe.bloomEnabled = false; glow.isEnabled = false; return () => { pipe.bloomEnabled = a; glow.isEnabled = b2; }; }],
+    ['קרני שמש', () => { if (!vls) return () => {}; camera.detachPostProcess(vls); return () => camera.attachPostProcess(vls); }],
+    ['MSAA', () => { const v = pipe.samples; pipe.samples = 1; return () => { pipe.samples = v; }; }],
+    ['כל הפוסט־פרוססינג', () => { const m = scene.postProcessRenderPipelineManager; try { m.detachCamerasFromRenderPipeline('pipe', camera); } catch (e) {} return () => { try { m.attachCamerasToRenderPipeline('pipe', camera); } catch (e) {} }; }],
+    ['חלקיקים', () => { scene.particlesEnabled = false; return () => { scene.particlesEnabled = true; }; }],
+    ['אנשים', () => { PV.forEach(v => { v.body.setEnabled(false); v.arm.setEnabled(false); }); return () => PV.forEach(v => { v.body.setEnabled(true); v.arm.setEnabled(true); }); }],
+    ['מכוניות יריבות', () => { rivals.forEach(r => r.rc.root.setEnabled(false)); return () => rivals.forEach(r => r.rc.root.setEnabled(r.active !== false)); }],
+    ['בתים ועצים (גיאומטריית עולם)', () => { const on = []; for (const k in TI) { const m = TI[k].mesh; if (m.isEnabled()) { on.push(m); m.setEnabled(false); } } return () => on.forEach(m => m.setEnabled(true)); }],
+    ['שמיים + הרים', () => { const ms = scene.meshes.filter(m => /^(skyDay|skyNight|ridge)/.test(m.name) && m.isEnabled()); ms.forEach(m => m.setEnabled(false)); return () => ms.forEach(m => m.setEnabled(true)); }],
+    ['רזולוציה ×0.67 (פחות פיקסלים)', () => { const lv = engine.getHardwareScalingLevel(); engine.setHardwareScalingLevel(lv * 1.5); return () => engine.setHardwareScalingLevel(lv); }],
+    ['רזולוציה ×0.33', () => { const lv = engine.getHardwareScalingLevel(); engine.setHardwareScalingLevel(lv * 3); return () => engine.setHardwareScalingLevel(lv); }]
+  ];
+  const rows = []; let base = 0;
+  const show = (extra = '') => { ov.textContent = `אבחון ביצועים${extra}\n${engine.getRenderWidth()}×${engine.getRenderHeight()} · רמה: ${quality}\n\n` + rows.map(r => r.l).join('\n'); };
+  show('… מודד, אל תיגע במסך'); base = await measure(); rows.push({ l: `בסיס: ${base.toFixed(0)}ms לפריים = ${(1000 / base).toFixed(1)} FPS`, d: 0 });
+  for (const [name, off] of tests) {
+    show('… מודד: ' + name); let undo = () => {}, ms = base;
+    try { undo = off(); ms = await measure(); } catch (e) { ms = base; } try { undo(); } catch (e) {}
+    await sleep(300); const save = base - ms;
+    rows.push({ l: `${name}: ${ms.toFixed(0)}ms (${save > 0 ? 'חוסך ' : 'מוסיף '}${Math.abs(save).toFixed(0)}ms${save > base * 0.08 ? '  ◀◀ כבד' : ''})`, d: save });
+  }
+  const top = rows.slice(1).sort((a, b) => b.d - a.d).slice(0, 4).map(r => r.l.split(':')[0]);
+  show(' – סיום'); ov.textContent += `\n\nהכי כבדים: ${top.join(' · ')}\n\nצלם את המסך הזה ושלח לי.\n(לחץ בכל מקום לסגירה)`;
+  ov.addEventListener('click', () => ov.remove()); fpsCap = capSaved; setDOF(dofSaved || state === 'menu'); btn.disabled = false;
+}
+$('benchGo').addEventListener('click', runBench);
+
 let jsMs = 0;
 scene.onBeforeRenderObservable.add(() => {
   const jsT0 = performance.now();
