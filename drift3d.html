@@ -57,6 +57,8 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .combo .ang{color:var(--sodium);font-family:var(--num);font-weight:500}
 .combo .bar{width:180px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:6px}
 .combo .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sodium),var(--ember))}
+.tomato{position:fixed;pointer-events:none;z-index:40;width:150px;height:130px;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;background:radial-gradient(circle at 40% 40%,#8a3b2e 0%,#6b4a3d 35%,#6f746a 70%,rgba(110,115,105,0) 100%);filter:blur(.6px);box-shadow:0 20px 0 -8px rgba(100,95,85,.7),-26px 12px 0 -14px rgba(120,60,50,.8),30px 8px 0 -16px rgba(110,110,100,.7);animation:tomatoSplat 2.6s ease-out forwards}
+@keyframes tomatoSplat{0%{transform:scale(.2) rotate(-8deg);opacity:0}8%{transform:scale(1.15) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(1) translateY(10px)}100%{opacity:0;transform:scale(1.02) translateY(60px)}}
 .tag{position:absolute;left:0;top:0;font:700 12px var(--body);color:var(--fg);background:rgba(14,13,20,.62);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;white-space:nowrap;will-change:transform}
 .tag b{color:var(--sodium);font-family:var(--num);margin-inline-start:6px}
 .prox{font-family:var(--num);font-weight:700;font-size:14px;color:var(--sky);letter-spacing:.04em;margin-top:4px}
@@ -1930,15 +1932,31 @@ const FB = { list: [], mesh: null };
   const m = MB.CreateSphere('fball', { diameter: 0.62, segments: 12 }, scene);
   m.material = pbr('fallM', { tex: ft, rough: 0.7, emissive: new B.Color3(0.25, 0.12, 0.03) }); m.isPickable = false; m.alwaysSelectAsActiveMesh = true;
   for (let i = 40; i < N; i += Math.round(70 / DS0())) { const lat = (Math.sin(i * 0.37) * 0.5) * HW * 1.1; FB.list.push({ x: PX[i] + RX[i] * lat, z: PZ[i] + RZ[i] * lat, got: false, ph: i }); }
+  for (let i = 40 + Math.round(35 / DS0()); i < N; i += Math.round(70 / DS0())) { const lat = (Math.cos(i * 0.53) * 0.6) * HW; FB.list.push({ x: PX[i] + RX[i] * lat, z: PZ[i] + RZ[i] * lat, got: false, ph: i + 3, extra: true }); }
   FB.buf = new Float32Array(FB.list.length * 16); m.thinInstanceSetBuffer('matrix', FB.buf, 16, false); FB.mesh = m;
 }
 function DS0() { return CUM[N] / N; }
+const PADS = [];
+{ // boost pads: chevron strips on the racing line, active with the 'pads' track upgrade
+  const pt = texFrom('padT', mkCanvas(128, 256, (x, w, h) => { x.fillStyle = '#18130a'; x.fillRect(0, 0, w, h); for (let k = 0; k < 4; k++) { const y = 30 + k * 58; x.fillStyle = '#ffcc33'; x.beginPath(); x.moveTo(64, y - 28); x.lineTo(118, y + 6); x.lineTo(100, y + 22); x.lineTo(64, y - 6); x.lineTo(28, y + 22); x.lineTo(10, y + 6); x.closePath(); x.fill(); } }), { clampUV: true });
+  const pm2 = new B.StandardMaterial('padM', scene); pm2.diffuseTexture = pt; pm2.emissiveTexture = pt; pm2.emissiveColor = new B.Color3(0.9, 0.9, 0.9); pm2.specularColor = B.Color3.Black(); pm2.zOffset = -4;
+  for (let k = 1; k <= 7; k++) { const i = Math.floor(N * k / 7.7), g = MB.CreateGround('pad' + k, { width: 4.2, height: 9 }, scene);
+    g.material = pm2; g.isPickable = false; g.position.set(PX[i], 0.075, PZ[i]); g.rotation.y = Math.atan2(TX[i], TZ[i]); g.setEnabled(false); PADS.push({ i, mesh: g, cd: 0 }); }
+}
+function updatePads(dt) {
+  const on = EQ.trk === 'pads' || ADMIN;
+  for (const p of PADS) { if (p.mesh.isEnabled() !== on) p.mesh.setEnabled(on); p.cd = Math.max(0, p.cd - dt);
+    if (on && state === 'drive' && !p.cd && Math.abs(car.d) < HW + 1 && ((car.idx - p.i + N) % N < 14 || (p.i - car.idx + N) % N < 4)) {
+      const dx = car.x - PX[p.i], dz = car.z - PZ[p.i];
+      if (dx * dx + dz * dz < 25) { p.cd = 3; car.nos = Math.min(1, car.nos + 0.45); car.vx += Math.sin(car.h) * 4; car.vz += Math.cos(car.h) * 4; sfx.shift(); toast('🚀 פס האצה!', 'בעיטת ניטרו'); } } }
+}
 function resetPickups() { FB.list.forEach(b => b.got = false); }
 function updatePickups(t) {
   if (!FB.mesh) return;
   FB.list.forEach((b, i) => {
-    if (!b.got && state === 'drive' && (b.x - car.x) ** 2 + (b.z - car.z) ** 2 < 2.4 * 2.4) { b.got = true; addFalafel(1); sfx.crunch(); }
-    writeM(FB.buf, i, b.got ? 0.0001 : 1, t * 2.4 + b.ph, 0.3, b.x, 0.9 + Math.sin(t * 3 + b.ph) * 0.15, b.z);
+    const off = b.extra && EQ.trk !== 'more' && !ADMIN, rad = EQ.fal === 'magnet' ? 8 : 2.4;
+    if (!off && !b.got && state === 'drive' && (b.x - car.x) ** 2 + (b.z - car.z) ** 2 < rad * rad) { b.got = true; addFalafel(EQ.fal === 'golden' ? 3 : 1); sfx.crunch(); }
+    writeM(FB.buf, i, b.got || off ? 0.0001 : 1, t * 2.4 + b.ph, 0.3, b.x, 0.9 + Math.sin(t * 3 + b.ph) * 0.15, b.z);
   });
   FB.mesh.thinInstanceBufferUpdated('matrix');
 }
@@ -2164,17 +2182,20 @@ const PAINTCOLS = [ // beaters only come in grey or white
 ];
 const UPG = [
   { cat: 'exhaust', title: 'אגזוז', items: [['std', 'מקורי חלוד', 0, 'עושה רעש של מייבש שיער'], ['dual', 'אגזוז כפול', 25, 'פי שתיים רעש'], ['cannon', 'אגזוז תותח', 60, 'קוטר של צינור ביוב'], ['fire', 'יורק אש', 90, 'פיצוצים ולהבות כשעוזבים גז']] },
-  { cat: 'wing', title: 'כנף', items: [['none', 'בלי', 0, 'נקי'], ['lip', 'שפתון קטן', 20, 'צנוע'], ['gt', 'כנף GT', 50, 'נראה מהיר עומד'], ['plane', 'כנף של מטוס', 110, 'אפשר לתלות עליה כביסה']] },
+  { cat: 'wing', title: 'כנף', items: [['none', 'בלי', 0, 'נקי'], ['lip', 'שפתון קטן', 20, 'צנוע'], ['gt', 'כנף GT', 50, 'נראה מהיר עומד'], ['plane', 'כנף ענקית', 110, 'אפשר לתלות עליה כביסה'], ['jet', 'כנפי מטוס אמיתיות', 200, 'כנפיים, מנועים וזנב. אסור להמריא בכביש.']] },
   { cat: 'wheels', title: 'גלגלים', items: [['steel', 'פח שחור', 0, 'מקורי מהמפעל'], ['chrome', 'כרום', 30, 'נוצץ בשמש'], ['gold', 'זהב', 70, 'כמו שן של דוד'], ['spinner', 'ספינרים', 90, 'ממשיכים להסתובב גם בחניה']] },
-  { cat: 'roof', title: 'על הגג', items: [['none', 'כלום', 0, ''], ['mattress', 'מזרן קשור בחבל', 20, 'מעבר דירה תוך כדי דריפט'], ['melons', 'ארגז אבטיחים', 35, 'משלוח לשוק'], ['speaker', 'רמקול חתונות', 45, 'מכריז על כל דריפט'], ['goat', 'עז בטרמפ', 60, 'היא לא ביקשה, אבל נהנית'], ['camel', 'גמל קטן על הגג', 90, 'מתנה מכרים עבדול ג׳מאל']] },
+  { cat: 'roof', title: 'על הגג', items: [['none', 'כלום', 0, ''], ['mattress', 'מזרן קשור בחבל', 20, 'מעבר דירה תוך כדי דריפט'], ['melons', 'ארגז אבטיחים', 35, 'משלוח לשוק'], ['speaker', 'רמקול חתונות', 45, 'מכריז על כל דריפט'], ['goat', 'עז בטרמפ', 60, 'היא לא ביקשה, אבל נהנית'], ['sitter', 'דוד סמיר יושב על הגג', 70, 'עם שטיח, דלה וכוס קפה. לא מוריד אותו.'], ['satellite', 'צלחת לווין ענקית', 40, 'קולטת 3 ערוצים ושכנה'], ['tank', 'מיכל מים קשור', 30, 'לדריפט עם אספקה'], ['camel', 'גמל קטן על הגג', 90, 'מתנה מכרים עבדול ג׳מאל']] },
   { cat: 'neon', title: 'ניאון מתחת לרכב', items: [['none', 'בלי', 0, ''], ['green', 'ירוק', 30, ''], ['purple', 'סגול', 30, ''], ['rainbow', 'דיסקו', 60, 'מחליף צבעים כמו אולם אירועים']] },
   { cat: 'engine', title: 'מנוע', items: [['stock', 'מקורי (בקושי)', 0, ''], ['swap', 'מנוע מושתל', 80, '+12% תאוצה, מאיפה? לא שואלים'], ['turbo', 'טורבו מהמוסך של סמיר', 100, 'ניטרו מתמלא מהר יותר ונגמר לאט']] },
   { cat: 'tires', title: 'צמיגים', items: [['std', 'רגילים', 0, ''], ['bald', 'קירחים', 40, 'פחות אחיזה, יותר עשן, יותר דריפט'], ['offroad', 'צמיגי שטח', 35, 'חצץ? איזה חצץ']] },
   { cat: 'horn', title: 'צופר', items: [['beep', 'ביפ עצוב', 0, ''], ['tune', 'צופר מנגינה', 25, 'כמו בחתונה'], ['donkey', 'צופר חמור', 30, 'אי-אה!'], ['camel', 'צופר גמל', 35, 'גרררר-בלבלבל']] },
   { cat: 'door', title: 'דלת', items: [['same', 'באותו צבע', 0, ''], ['odd', 'דלת מפירוק', 10, 'בצבע אחר, כמו שצריך']] },
-  { cat: 'polish', title: 'גימור', items: [['dusty', 'מאובק', 0, 'אבק של שלוש שנים'], ['shine', 'פוליש מבריק', 25, 'שטיפה בתחנה ליד המסגד']] }
+  { cat: 'polish', title: 'גימור', items: [['dusty', 'מאובק', 0, 'אבק של שלוש שנים'], ['shine', 'פוליש מבריק', 25, 'שטיפה בתחנה ליד המסגד']] },
+  { cat: 'fal', title: 'פלאפל לרכב', items: [['none', 'בלי', 0, ''], ['magnet', 'מגנט פלאפל', 60, 'שואב כדורים מרחוק'], ['double', 'פלאפל כפול', 120, 'כל פרס, כפול. הדודה בהלם.'], ['golden', 'כדורי זהב', 90, 'כל כדור שווה שלושה']] },
+  { cat: 'trk', title: 'שדרוגי מסלול', items: [['none', 'בלי', 0, ''], ['pads', 'פסי האצה בכביש', 80, 'אחרי כל כמה מטרים, בעיטה של ניטרו'], ['more', 'עוד פלאפלים בכביש', 50, 'הדוד פיזר עוד כדורים']] },
+  { cat: 'deco', title: 'קישוטים', items: [['none', 'בלי', 0, ''], ['evil', 'עין הרע תלויה', 25, 'נגד קנאה ונגד שוטרים'], ['pompom', 'פונפונים צבעוניים', 20, 'כמו בטנדר של חתונה']] }
 ];
-const DEFAULT_EQ = { car: 'mazda', paint: 'grey', exhaust: 'std', wing: 'none', wheels: 'steel', roof: 'none', neon: 'none', engine: 'stock', tires: 'std', horn: 'beep', door: 'same', polish: 'dusty' };
+const DEFAULT_EQ = { car: 'mazda', paint: 'grey', exhaust: 'std', wing: 'none', wheels: 'steel', roof: 'none', neon: 'none', engine: 'stock', tires: 'std', horn: 'beep', door: 'same', polish: 'dusty', fal: 'none', trk: 'none', deco: 'none' };
 let EQ = Object.assign({}, DEFAULT_EQ, store.get('eq', {}));
 if (!PAINTCOLS.some(p => p.id === EQ.paint)) EQ.paint = 'grey'; // old saves with colourful paint fall back to beater grey
 const OWNED = new Set(store.get('owned', []));
@@ -2319,6 +2340,7 @@ const rustMat = () => textDecal('rust', 256, 256, (x, w, h) => {
     const c = r() < 0.5 ? '120,52,20' : '86,38,16'; g.addColorStop(0, `rgba(${c},.85)`); g.addColorStop(0.7, `rgba(${c},.5)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, rr, 0, 7); x.fill(); }
   for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(${150 + r() * 60},${70 + r() * 30},20,${0.4 + r() * 0.4})`; x.fillRect(w / 2 + (r() - .5) * w * 0.7, h / 2 + (r() - .5) * h * 0.7, 2, 2); }
 });
+const eyeSticker = () => textDecal('evileye', 128, 128, (x, w, h) => { for (const [r, c] of [[60, '#1d4ed8'], [42, '#f8f8f8'], [26, '#2563eb'], [12, '#050505']]) { x.fillStyle = c; x.beginPath(); x.arc(64, 64, r, 0, 7); x.fill(); } });
 const tapeMat = pbr('tape', { color: 0xb9b2a0, rough: 0.55 });
 const carRopeMat = pbr('carRope', { color: 0xa98250, rough: 0.95 });
 const steerMat = pbr('steerM', { color: 0x161618, rough: 0.55 }), handMat = pbr('handM', { color: 0xa8775a, rough: 0.7 }), needleMat = unlit('needleM', new B.Color3(1.6, 0.25, 0.1));
@@ -2488,6 +2510,7 @@ function buildCar(ghost = false, pm = paint, o = {}) {
       const rs = (x, y, z, sc, ry) => { const p = add(MB.CreatePlane('rust', { size: sc }, scene), rustMat()); p.position.set(x, y, z); p.rotation.y = ry; return p; };
       rs(W * 0.995 + 0.01, 0.48, wzR0 + aR + 0.18, 0.34, -Math.PI / 2); rs(-(W * 0.995 + 0.01), 0.46, wzF0 - aR - 0.12, 0.3, Math.PI / 2);
       if (jank >= 2) rs(W * 0.995 + 0.01, 0.42, (zf + zr) / 2 - 0.4, 0.26, -Math.PI / 2);
+      const evEye = add(MB.CreatePlane('eyeS', { size: 0.12 }, scene), eyeSticker()); evEye.position.set(-W * 0.62, 0.52, -L - 0.07);
       const st1 = add(MB.CreatePlane('stk', { width: 0.46, height: 0.1 }, scene), stickerMat(STICKERS[hs % STICKERS.length])); st1.position.set(W * 0.58, 0.39, -L - 0.072);
     }
     if (jank >= 2) { // taped headlight
@@ -2538,12 +2561,42 @@ function buildCar(ghost = false, pm = paint, o = {}) {
     for (const s of [-1, 1]) { bx(0.04, sh, 0.1, s * 0.5, wy + sh / 2, wingZ, carMats.black); bx(0.03, big ? 0.5 : 0.28, wd + 0.06, s * ww / 2, wy + sh + 0.02, wingZ - 0.05, carMats.black); }
     bx(ww, 0.05, wd, 0, wy + sh + 0.02, wingZ - 0.05, big ? pm : carMats.black, 0.08);
   }
+  if (eq.wing === 'jet') { // proper aircraft: swept wings with engine pods and winglets, vertical tail fin and tailplane
+    const zc = (zf + zr) / 2 - 0.15, wy2 = H * 0.62, tail = pm;
+    for (const s2 of [-1, 1]) {
+      bx(2.7, 0.05, 0.95, s2 * (W + 1.2), wy2, zc - 0.3, tail, 0, s2 * 0.5);
+      bx(0.5, 0.06, 0.34, s2 * (W + 2.1), wy2 + 0.01, zc - 1.05, carMats.black, 0, s2 * 0.5); // aileron
+      bx(0.05, 0.4, 0.3, s2 * (W + 2.45), wy2 + 0.2, zc - 1.0, tail, 0, s2 * 0.5); // winglet
+      const eng = add(MB.CreateCylinder('eng', { height: 0.9, diameter: 0.34, tessellation: 12 }, scene), carMats.rim); eng.rotation.x = Math.PI / 2; eng.position.set(s2 * (W + 0.85), wy2 - 0.22, zc + 0.05);
+      const fan = add(MB.CreateCylinder('fan', { height: 0.02, diameter: 0.27, tessellation: 10 }, scene), carMats.black); fan.rotation.x = Math.PI / 2; fan.position.set(s2 * (W + 0.85), wy2 - 0.22, zc + 0.5);
+      bx(0.04, 0.2, 0.3, s2 * (W + 0.85), wy2 - 0.1, zc + 0.05, carMats.black);
+      bx(1.0, 0.04, 0.5, s2 * 0.55, H + 0.04, -L + 0.45, tail, 0, s2 * 0.35); // tailplane
+    }
+    bx(0.06, 0.85, 0.9, 0, H + 0.42, -L + 0.55, tail, -0.15, 0); // vertical tail fin
+    bx(0.07, 0.3, 0.3, 0, H + 0.62, -L + 0.2, carMats.black, -0.15, 0);
+  }
   // roof cargo
   const rY = topAt((tA + tB) / 2) + 0.02, rZ = lerp(zr, zf, (tA + tB) / 2);
   if (eq.roof !== 'none') for (const dz of [-0.45, 0.45]) bx(2 * W * 0.78, 0.04, 0.05, 0, rY + 0.05, rZ + dz, carMats.black);
   if (eq.roof === 'mattress') { bx(1.25, 0.2, 1.75, 0, rY + 0.17, rZ, carMats.mattress); for (const dz of [-0.4, 0.4]) bx(1.28, 0.21, 0.05, 0, rY + 0.17, rZ + dz, carMats.black); }
   if (eq.roof === 'melons') { bx(1.1, 0.24, 1.25, 0, rY + 0.18, rZ, carMats.wood); for (let k = 0; k < 6; k++) { const m = add(MB.CreateSphere('mel', { diameter: 0.36, segments: 10 }, scene), carMats.melon); m.scaling.set(1, 0.85, 1.2); m.position.set(((k % 2) - 0.5) * 0.42, rY + 0.38, rZ + (Math.floor(k / 2) - 1) * 0.38); } }
   if (eq.roof === 'speaker') { bx(0.5, 0.12, 0.4, 0, rY + 0.1, rZ, carMats.black); for (const s of [-1, 1]) { const c = add(MB.CreateCylinder('hornS', { height: 0.5, diameterTop: 0.36, diameterBottom: 0.08, tessellation: 14 }, scene), carMats.rim); c.rotation.x = Math.PI / 2; c.rotation.y = s * 0.35; c.position.set(s * 0.22, rY + 0.3, rZ + 0.1); } }
+  if (eq.roof === 'sitter') { // an uncle sitting cross-legged on a rug, sipping coffee, cheering
+    const { S, C, Bx, T, merge } = animalKit(), robe = [0.93, 0.92, 0.86], skin = [0.68, 0.5, 0.37], red = [0.78, 0.16, 0.16];
+    Bx(1.2, 0.03, 0.95, 0, 0.015, 0, [0.62, 0.12, 0.12]); Bx(1.14, 0.032, 0.12, 0, 0.016, 0.3, [0.9, 0.75, 0.3]); Bx(1.14, 0.032, 0.12, 0, 0.016, -0.3, [0.9, 0.75, 0.3]);
+    S(0.8, 0.28, 0.7, 0, 0.17, 0, robe, 6); C(0.46, 0.3, 0.42, 0, 0.5, -0.02, robe, 0, 0, 8); S(0.22, 0.24, 0.22, 0, 0.86, 0.02, skin, 6);
+    S(0.27, 0.16, 0.27, 0, 0.96, 0, red, 6); C(0.04, 0.26, 0.26, 0, 0.9, 0, [0.06, 0.06, 0.06], 0, 0, 8); Bx(0.14, 0.03, 0.03, 0, 0.82, 0.11, [0.08, 0.06, 0.05]);
+    Bx(0.25, 0.28, 0.04, 0, 0.8, -0.14, red);
+    for (const sx of [-1, 1]) T([[sx * 0.2, 0.62, 0], [sx * 0.34, 0.72, 0.08], [sx * 0.4, 0.95 + (sx > 0 ? 0.15 : 0), 0.12]], 0.05, 0.04, robe, 5);
+    S(0.08, 0.08, 0.08, 0.4, 1.1, 0.12, skin, 4); S(0.08, 0.08, 0.08, -0.4, 0.95, 0.12, skin, 4);
+    C(0.12, 0.08, 0.06, 0.45, 0.07, 0.35, [0.85, 0.68, 0.3], 0, 0, 8); // dallah
+    const g = merge(); add(g, vcMat); g.position.set(0, rY + 0.02, rZ); g.scaling.setAll(1.1); }
+  if (eq.roof === 'satellite') { const { S, C, Bx, merge } = animalKit(); S(1.1, 0.14, 1.1, 0, 0.55, 0, [0.9, 0.9, 0.88], 6, 0.5); Bx(0.06, 0.5, 0.06, 0, 0.28, 0, [0.35, 0.35, 0.37]); C(0.5, 0.03, 0.03, 0, 0.95, 0.3, [0.35, 0.35, 0.37], 0.6, 0, 4); S(0.1, 0.1, 0.1, 0, 1.12, 0.5, [0.2, 0.2, 0.2], 4);
+    const g = merge(); add(g, vcMat); g.position.set(0, rY + 0.02, rZ); g.rotation.y = 0.4; }
+  if (eq.roof === 'tank') { const { C, Bx, merge } = animalKit(); C(0.9, 0.7, 0.7, 0, 0.45, 0, [0.1, 0.1, 0.12], Math.PI / 2, 0, 12); C(0.12, 0.12, 0.12, 0.2, 0.9, 0, [0.4, 0.4, 0.42], 0, 0, 6); Bx(1.0, 0.04, 0.06, 0, 0.75, 0.2, [0.5, 0.35, 0.18]); Bx(1.0, 0.04, 0.06, 0, 0.75, -0.2, [0.5, 0.35, 0.18]);
+    const g = merge(); add(g, vcMat); g.position.set(0, rY + 0.02, rZ); }
+  if (eq.deco === 'pompom') for (let k = 0; k < 9; k++) { const pc = [[0.9, 0.2, 0.25], [0.2, 0.55, 0.9], [0.95, 0.75, 0.15], [0.3, 0.75, 0.35], [0.9, 0.4, 0.75]][k % 5], bm = add(MB.CreateSphere('pp', { diameter: 0.13, segments: 4 }, scene), (() => { const m2 = pbr('pomM' + k, { color: LC((Math.round(pc[0] * 255) << 16) | (Math.round(pc[1] * 255) << 8) | Math.round(pc[2] * 255)), rough: 1 }); ownMats.push(m2); return m2; })()); bm.position.set((k % 2 ? 1 : -1) * (rw * 0.9), rY + 0.12, rZ + (Math.floor(k / 2) - 2) * 0.38); }
+  if (eq.deco === 'evil') { const mz = zf - 0.22, my = topAt(0.82) - 0.3; for (const [dd, cc] of [[0.14, 0x1d4ed8], [0.1, 0xf5f5f5], [0.06, 0x1d4ed8], [0.03, 0x050505]]) { const e2 = add(MB.CreateSphere('eye', { diameter: dd, segments: 6 }, scene), pbr('eyeM' + dd, { color: cc, rough: 0.2 })); e2.scaling.z = 0.3; e2.position.set(0.07, my, mz - 0.01 + (0.14 - dd) * 0.2); } bx(0.004, 0.14, 0.004, 0.07, my + 0.12, mz, carMats.black); }
   if (eq.roof === 'goat') { const g = goatMesh(); add(g, vcMat); g.position.set(0, rY + 0.06, rZ); g.rotation.y = Math.PI / 2 + 0.3; }
   if (eq.roof === 'camel') { const g = camelMesh({ part: 'all', saddle: true }).body; add(g, vcMat); g.scaling.setAll(0.42); g.position.set(0, rY + 0.06, rZ); g.rotation.y = 0.25;
     for (const dz of [-0.3, 0.3]) { const st2 = add(MB.CreateTorus('strap', { diameter: 0.9, thickness: 0.02, tessellation: 16 }, scene), carRopeMat); st2.position.set(0, rY + 0.25, rZ + dz); st2.rotation.z = Math.PI / 2; st2.scaling.set(1, 0.55, 1); } }
@@ -3456,8 +3509,14 @@ function updFalafel(bump) {
   $('fal').textContent = falafel; $('sfal').textContent = falafel; $('gfal').textContent = '🧆 ' + falafel;
   if (bump) for (const id of ['hfal', 'gfal']) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 }
-function addFalafel(n) { if (!n) return; falafel += n; store.set('falafel', falafel); updFalafel(true); }
-function loseCombo(msg) { if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
+function addFalafel(n) { if (!n) return; if (n > 0 && EQ.fal === 'double' && !addFalafel._raw) n *= 2; falafel += n; store.set('falafel', falafel); updFalafel(true); }
+let tomatoT = -9;
+function tomato(msg, quiet) { // the village crowd boos: a rotten grey-red tomato splats on the screen (pure slapstick)
+  const now = performance.now() / 1000; if (now - tomatoT < 2.2 || state !== 'drive') return; tomatoT = now;
+  const el = document.createElement('div'); el.className = 'tomato'; el.style.left = (12 + Math.random() * 62) + '%'; el.style.top = (14 + Math.random() * 40) + '%'; document.body.appendChild(el); setTimeout(() => el.remove(), 2700);
+  sfx.squish(); if (!quiet) toast(msg || pick(['עגבנייה רקובה מהקהל!', 'הקהל לא התרשם. פלאח!', 'זו עגבנייה מאתמול, אחי', 'בוז מהכפר: עגבנייה אפורה בפנים']), '', true);
+}
+function loseCombo(msg) { tomato(null, true); if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
 function scoring(dt) {
   const deg = Math.abs(car.slip) * 57.3;
   const valid = car.drifting && car.vF > 4 && deg > 12 && deg < 115 && !car.grass;
@@ -3473,7 +3532,7 @@ function scoring(dt) {
     if (car.grass && combo.grace > 0.35) loseCombo(sayPick(SHOUT.sand)); else if (combo.grace > 1.4) bankCombo();
   }
   if (car.hit > 0) {
-    if (car.hit > 4 && combo.pts > 0) loseCombo(sayPick(SHOUT.crash));
+    if (car.hit > 4 && combo.pts > 0) loseCombo(sayPick(SHOUT.crash)); else if (car.hit > 5) tomato();
     camShake = Math.min(1, camShake + car.hit * 0.06); sfx.thud(car.hit); if (car.hit > 4) buzz(Math.min(60, car.hit * 5)); car.hit = 0;
   }
   const i = car.idx;
@@ -3645,6 +3704,7 @@ const sfx = (() => {
     shift() { if (!nodes || !on) return; const t = ctx.currentTime; this._shiftUntil = t + 0.11;
       const s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 3; const g = ctx.createGain(); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.06); },
     blowoff() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.setValueAtTime(5200, t); f.frequency.exponentialRampToValueAtTime(1400, t + 0.35); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.13, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.42); },
+    squish() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(220, t + 0.25); f.Q.value = 3; const g = ctx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.32); },
     pop() { if (!nodes || !on) return; const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = nodes.buf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 1.2; const g = ctx.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09); s.connect(f).connect(g).connect(nodes.comp); s.start(t, Math.random()); s.stop(t + 0.12); },
     beep(hi) { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = hi ? 880 : 440; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + (hi ? 0.5 : 0.22)); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.55); },
     crunch() { if (!nodes || !on) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(1320, t + 0.09); g.gain.setValueAtTime(0.13, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.16); o.connect(g).connect(nodes.comp); o.start(t); o.stop(t + 0.18); },
@@ -4137,7 +4197,7 @@ async function adminLogin() {
 }
 $('adminGo').addEventListener('click', adminLogin);
 $('adminPw').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
-$('adminFal').addEventListener('click', () => { addFalafel(10000); });
+$('adminFal').addEventListener('click', () => { addFalafel._raw = true; addFalafel(10000); addFalafel._raw = false; });
 $('adminOut').addEventListener('click', () => { ADMIN = false; store.set('admin', false); for (const k of Object.keys(DEFAULT_EQ)) { if (!isOwned(k + ':' + EQ[k])) EQ[k] = DEFAULT_EQ[k]; } store.set('eq', EQ); refreshAdminUI(); renderGarage(); makePlayerCar(); });
 segInit('adminNitroSeg', adminNitro, v => { adminNitro = v; store.set('adminNitro', v); });
 refreshAdminUI();
@@ -4159,7 +4219,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (state !== 'pause') syncVisuals(dt);
   updateHUD(dt); updateCamera(dt, elapsed); updatePeople(elapsed, dt); updateHerd(elapsed, dt); updateTags();
   if (water) water.material.bumpTexture.uOffset = elapsed * 0.004;
-  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt);
+  updatePickups(elapsed); updateWedding(dt); updateTicker(dt); updateBirds(elapsed); updateCaravans(elapsed); updateKhaled(elapsed, dt); updatePads(dt);
   sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
@@ -4184,6 +4244,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { tomato, TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
