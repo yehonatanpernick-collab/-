@@ -477,7 +477,7 @@ function texFrom(name, c, { linear = false, uScale = 1, vScale = 1, clampUV = fa
   const t = new B.DynamicTexture(name, c, scene, true, B.Texture.TRILINEAR_SAMPLINGMODE);
   t.update(false);
   t.wrapU = t.wrapV = clampUV ? B.Texture.CLAMP_ADDRESSMODE : B.Texture.WRAP_ADDRESSMODE;
-  t.anisotropicFilteringLevel = 8; t.uScale = uScale; t.vScale = vScale;
+  t.anisotropicFilteringLevel = 16; t.uScale = uScale; t.vScale = vScale;
   if (linear) t.gammaSpace = false;
   return t;
 }
@@ -554,7 +554,7 @@ function bindRM(mat, tex) {
 const AW = 2048, AH = 1024;
 const asphaltHt = (() => {
   const H = fbmTile(AW, AH, 8, 6, 101), g = tileNoise(AW, AH, 512, 256, 77);
-  for (let i = 0; i < H.length; i++) H[i] = H[i] * 0.45 + g[i] * 0.25;
+  for (let i = 0; i < H.length; i++) H[i] = H[i] * 0.5 + g[i] * 0.1;
   const r = rng(55);
   for (let s = 0; s < 26000; s++) { // aggregate stones
     const cx = r() * AW | 0, cy = r() * AH | 0, rad = 1 + r() * 2.6, hgt = 0.25 + r() * 0.35, R = Math.ceil(rad);
@@ -574,8 +574,8 @@ const asphaltC = mkCanvas(AW, AH, (x, w, h) => {
     const v = j / h, lane = asphaltLanes[j], oil = Math.exp(-((v - 0.5) ** 2) / 0.0025);
     for (let i = 0; i < w; i++) {
       const k = j * w + i, hh = H[k], big = asphaltBig[k];
-      let c = 46 + hh * 70 + (big - 0.5) * 26 - lane * 10 - oil * (big > 0.5 ? 14 : 6);
-      const stone = hh > 0.42 ? (hh - 0.42) * 120 : 0;
+      let c = 50 + hh * 52 + (big - 0.5) * 26 - lane * 10 - oil * (big > 0.5 ? 14 : 6);
+      const stone = hh > 0.46 ? (hh - 0.46) * 45 : 0; // subtle aggregate: bright specks read as grain on a phone
       d[k * 4] = clamp(c + stone * 1.05, 0, 255); d[k * 4 + 1] = clamp(c + stone, 0, 255); d[k * 4 + 2] = clamp(c + 2 + stone * 0.9, 0, 255); d[k * 4 + 3] = 255;
     }
   }
@@ -663,7 +663,7 @@ const groundHt = fbmTile(GW, GW, 8, 6, 404);
 const groundC = mkCanvas(GW, GW, (x, w, h) => {
   const img = x.createImageData(w, h), d = img.data, patch = fbmTile(w, h, 4, 3, 505), r = rng(66);
   for (let k = 0; k < w * h; k++) {
-    const hh = groundHt[k], p = patch[k], v = (r() - 0.5) * 18, gr = clamp((p - 0.58) * 4, 0, 1);
+    const hh = groundHt[k], p = patch[k], v = (r() - 0.5) * 6, gr = clamp((p - 0.58) * 4, 0, 1);
     d[k * 4] = clamp(178 + hh * 40 - gr * 70 + v, 0, 255); d[k * 4 + 1] = clamp(166 + hh * 36 - gr * 44 + v, 0, 255); d[k * 4 + 2] = clamp(138 + hh * 30 - gr * 70 + v, 0, 255); d[k * 4 + 3] = 255;
   }
   x.putImageData(img, 0, 0);
@@ -818,8 +818,8 @@ function finalizeKits() {
     const t = TI[k], n = t.M.length;
     if (!n) { t.mesh.setEnabled(false); continue; }
     const buf = new Float32Array(n * 16); t.M.forEach((m, i) => m.copyToArray(buf, i * 16));
-    if (KIT_CULL[k] && n > 8) {
-      t.all = buf; t.vis = new Float32Array(n * 16); t.vis.set(buf); t.R2 = KIT_CULL[k] ** 2; t.n = n;
+    if (n > 8) { // every multi-instance kit: packed nearest-first so the main view and each shadow cascade only draw what they need
+      t.all = buf; t.vis = new Float32Array(n * 16); t.vis.set(buf); t.R2 = (KIT_CULL[k] || 1700) ** 2; t.n = n; t.keys = new Float64Array(n); t.d2s = new Float32Array(n);
       t.xz = new Float32Array(n * 2); for (let i = 0; i < n; i++) { t.xz[i * 2] = buf[i * 16 + 12]; t.xz[i * 2 + 1] = buf[i * 16 + 14]; }
       t.mesh.thinInstanceSetBuffer('matrix', t.vis, 16, false);
       if (t.C) { t.allC = new Float32Array(n * 4); t.C.forEach((c, i) => t.allC.set(c, i * 4)); t.visC = new Float32Array(n * 4); t.visC.set(t.allC); t.mesh.thinInstanceSetBuffer('color', t.visC, 4, false); }
@@ -834,19 +834,19 @@ function finalizeKits() {
 }
 let cullX = 1e9, cullZ = 1e9;
 function cullKits(cx, cz, force) {
-  if (!force && (cx - cullX) ** 2 + (cz - cullZ) ** 2 < 64) return; // re-pack after moving 8 m
+  if (!force && (cx - cullX) ** 2 + (cz - cullZ) ** 2 < 144) return; // re-pack after moving 12 m
   cullX = cx; cullZ = cz;
   for (const t of CULLED) {
     let k = 0; const R2 = t.R2 * (t.scaleR || 1);
-    for (let i = 0; i < t.n; i++) {
-      const dx = t.xz[i * 2] - cx, dz = t.xz[i * 2 + 1] - cz; if (dx * dx + dz * dz > R2) continue;
-      if (k !== i) { t.vis.set(t.all.subarray(i * 16, i * 16 + 16), k * 16); if (t.visC) t.visC.set(t.allC.subarray(i * 4, i * 4 + 4), k * 4); }
-      k++;
-    }
-    t.mesh.thinInstanceCount = k; t.mesh.setEnabled(k > 0 && t.on !== false);
+    for (let i = 0; i < t.n; i++) { const dx = t.xz[i * 2] - cx, dz = t.xz[i * 2 + 1] - cz, d2 = dx * dx + dz * dz; if (d2 <= R2) t.keys[k++] = Math.floor(d2) * 65536 + i; }
+    const keys = t.keys.subarray(0, k); keys.sort();
+    for (let q = 0; q < k; q++) { const i = keys[q] % 65536; t.d2s[q] = (keys[q] - i) / 65536; t.vis.set(t.all.subarray(i * 16, i * 16 + 16), q * 16); if (t.visC) t.visC.set(t.allC.subarray(i * 4, i * 4 + 4), q * 4); }
+    t.k = k; t.mesh.thinInstanceCount = k; t.mesh.setEnabled(k > 0 && t.on !== false);
     t.mesh.thinInstanceBufferUpdated('matrix'); if (t.visC) t.mesh.thinInstanceBufferUpdated('color');
   }
 }
+// how many of a kit's packed (nearest-first) instances lie within r metres of the camera
+function kitCountWithin(t, r) { const r2 = r * r; let lo = 0, hi = t.k || 0; while (lo < hi) { const m = (lo + hi) >> 1; if (t.d2s[m] <= r2) lo = m + 1; else hi = m; } return lo; }
 const MB = B.MeshBuilder;
 const box = n => MB.CreateBox(n, { size: 1 }, scene);
 const cyl = (n, top = 1, bot = 1, tess = 16) => MB.CreateCylinder(n, { height: 1, diameterTop: top, diameterBottom: bot, tessellation: tess }, scene);
@@ -2062,6 +2062,15 @@ if (WEBGL2 && B.CascadedShadowGenerator) {
   csm.bias = 0.0035; csm.normalBias = 0.02;
 }
 const caster = m => csm?.addShadowCaster(m, false);
+if (csm) { // per-cascade culling: a cascade only draws casters up to its far distance (+ margin for long dusk shadows)
+  const sm = csm.getShadowMap();
+  sm.getCustomRenderList = (layer) => {
+    const far = (csm._viewSpaceFrustumsZ && csm._viewSpaceFrustumsZ[layer]) || csm.shadowMaxZ, lim = far * 1.35 + 80;
+    for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = kitCountWithin(t, lim);
+    return null;
+  };
+  sm.onAfterRenderObservable.add(() => { for (const t of CULLED) if (t.cast && t.k) t.mesh.thinInstanceCount = t.k; });
+}
 const STATIC_CASTERS = [];
 for (const k in TI) if (TI[k].cast && TI[k].M.length) { caster(TI[k].mesh); STATIC_CASTERS.push(TI[k].mesh); }
 let staticShadows = true;
@@ -2648,8 +2657,8 @@ function setQuality(q) {
   baseScale = 1 / Math.min(dpr, DPR_TARGET[q] || 1);  // engine buffer = CSS size / level, so level = 1 / wanted pixel density
   resMul = 1; applyScale();
   setPipe(q === 'high' || q === 'med');
-  pipe.samples = (devicePixelRatio || 1) >= 2 ? 1 : q === 'high' ? 4 : 2; // at 2x/3x pixel density FXAA is enough; MSAA there costs a lot of bandwidth
-  pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = q === 'high';
+  pipe.samples = q === 'high' ? ((devicePixelRatio || 1) >= 2 ? 2 : 4) : (devicePixelRatio || 1) >= 2 ? 1 : 2;
+  pipe.bloomEnabled = true; pipe.grainEnabled = false; pipe.sharpenEnabled = false;
   glow.isEnabled = q === 'high' || q === 'med';
   sun.shadowEnabled = !!csm && (q === 'high' || q === 'med');
   if (csm) { csm.numCascades = q === 'high' ? 4 : 2; csm.filteringQuality = q === 'high' ? B.ShadowGenerator.QUALITY_HIGH : B.ShadowGenerator.QUALITY_LOW; csm.shadowMaxZ = q === 'high' ? 240 : 110;
@@ -2664,8 +2673,9 @@ function setQuality(q) {
   const wantAO = q === 'high' && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
   if (wantAO && !ssao) {
     try {
-      ssao = new B.SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.5, blurRatio: 0.5 }, [camera], false);
-      ssao.radius = 1.6; ssao.totalStrength = 1.15; ssao.base = 0.12; ssao.samples = 16; ssao.maxZ = 220; ssao.minZAspect = 0.5; ssao.expensiveBlur = true;
+      ssao = new B.SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.75, blurRatio: 1 }, [camera], false);
+      ssao.radius = 1.6; ssao.totalStrength = 1.1; ssao.base = 0.12; ssao.samples = 12; ssao.maxZ = 220; ssao.minZAspect = 0.5; ssao.expensiveBlur = true;
+      try { ssao.bilateralSamples = 16; ssao.bilateralSoften = 0.6; ssao.bilateralTolerance = 0.002; } catch (e) {}
     } catch (e) { ssao = null; }
   } else if (!wantAO && ssao) { ssao.dispose(); ssao = null; }
   document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
@@ -2680,9 +2690,31 @@ function setRays() {
   const on = (quality === 'high' || quality === 'med') && (typeof timeMode === 'undefined' || timeMode === 'dusk');
   sunDisc.setEnabled(typeof timeMode === 'undefined' || timeMode === 'dusk');
   if (on && !vls) {
-    try { vls = new B.VolumetricLightScatteringPostProcess('vls', 0.5, camera, sunDisc, 70, B.Texture.BILINEAR_SAMPLINGMODE, engine, false); vls.exposure = 0.2; vls.decay = 0.965; vls.weight = 0.6; vls.density = 0.93; }
-    catch (e) { vls = null; }
+    try {
+      // screen-space sun shafts: radial blur of the bright sky around the sun on the final image (no second render of the scene)
+      vls = new B.PostProcess('shafts', 'shafts', ['sunPos', 'strength', 'aspect'], null, 1.0, camera, B.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+      vls.onApply = e => { e.setVector2('sunPos', shaftSun); e.setFloat('strength', shaftStr); e.setFloat('aspect', engine.getRenderWidth() / engine.getRenderHeight()); };
+    } catch (e) { vls = null; }
   } else if (!on && vls) { vls.dispose(camera); vls = null; }
+}
+B.Effect.ShadersStore.shaftsFragmentShader = `precision highp float; varying vec2 vUV; uniform sampler2D textureSampler; uniform vec2 sunPos; uniform float strength; uniform float aspect;
+  void main(){
+    vec4 base = texture2D(textureSampler, vUV);
+    if (strength < 0.01) { gl_FragColor = base; return; }
+    vec2 dir = (vUV - sunPos); float dist = length(vec2(dir.x * aspect, dir.y));
+    vec2 stepv = dir * (0.85 / 28.0); vec2 uv = vUV; float decay = 1.0; vec3 acc = vec3(0.0);
+    for (int i = 0; i < 28; i++) { uv -= stepv; vec3 c = texture2D(textureSampler, clamp(uv, 0.001, 0.999)).rgb; float l = max(0.0, dot(c, vec3(0.35, 0.45, 0.2)) - 0.66); acc += c * l * decay; decay *= 0.95; }
+    acc *= (1.0 / 28.0) * 2.4 * strength * exp(-dist * 1.1);
+    gl_FragColor = vec4(base.rgb + acc * vec3(1.0, 0.82, 0.6), base.a);
+  }`;
+const shaftSun = new B.Vector2(0.5, 0.3); let shaftStr = 0;
+function updateShafts() {
+  if (!vls) return;
+  const rw = engine.getRenderWidth(), rh = engine.getRenderHeight();
+  const p = B.Vector3.Project(sunDisc.getAbsolutePosition(), B.Matrix.IdentityReadOnly, scene.getTransformMatrix(), camera.viewport.toGlobal(rw, rh));
+  shaftSun.set(p.x / rw, 1 - p.y / rh);
+  const facing = p.z > 0 && p.z < 1, off = Math.max(0, Math.max(Math.abs(shaftSun.x - 0.5), Math.abs(shaftSun.y - 0.5)) - 0.5);
+  shaftStr = lerp(shaftStr, facing ? Math.max(0, 1 - off * 2.5) : 0, 0.1);
 }
 function setDOF(on) {
   const want = on && (quality === 'high' || quality === 'med');
@@ -2726,7 +2758,7 @@ function attachHeadBeam() {
 }
 function applyAtmos() {
   const night = typeof timeMode !== 'undefined' && timeMode === 'night', rich = quality === 'high' || quality === 'med';
-  if (TI.lampCone) TI.lampCone.mesh.setEnabled(night && quality !== 'turbo' && TI.lampCone.M.length > 0);
+  if (TI.lampCone) { TI.lampCone.on = night && quality !== 'turbo'; TI.lampCone.mesh.setEnabled(TI.lampCone.on && TI.lampCone.M.length > 0 && (TI.lampCone.k ?? 1) > 0); }
   headBeam.setEnabled(night && quality !== 'turbo');
   flareSys.isEnabled = !night && rich && sunVisible();
   motes.emitRate = quality === 'turbo' ? 0 : quality === 'low' ? 8 : 18;
@@ -2812,7 +2844,7 @@ const DS = LEN / N;
 const VT = new Float32Array(N), TURN = new Float32Array(N);
 for (let i = 0; i < N; i++) {
   const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
-  VT[i] = clamp(Math.sqrt(17 / Math.max(ang / (16 * DS), 1e-4)), 15, 50);
+  VT[i] = clamp(Math.sqrt(17 / Math.max(ang / (16 * DS), 1e-4)), 15, 52);
   const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
@@ -2886,7 +2918,7 @@ function updateRivals(dt) {
   for (const r of rivals) {
     if (r.active === false) continue;
     const i = r.i ?? 0, look = (i + 18) % N;
-    const rb = clamp(1 - (r.s - pp) / 900, 0.82, 1.1);
+    const rb = clamp(1 - (r.s - pp) / 700, 0.9, 1.16);
     const vt = Math.min(VT[i], VT[look]) * r.skill * rb;
     r.v += clamp(vt - r.v, -20 * dt, 10.5 * dt);
     r.s += r.v * dt;
@@ -3183,7 +3215,7 @@ function readInput() {
 }
 
 /* ================= vehicle model ================= */
-const VMAX = 60, ACC = 15.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
+const VMAX = 51, ACC = 12.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
 const car = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, steer: 0, idx: 0, d: 0, thr: 0, slip: 0, speed: 0, vF: 0, ax: 0, ay: 0, grass: false, hit: 0, nos: 0.35, boost: false, scrape: 0, sn: [0, 0], pop: 0, thrPrev: 0, drifting: false };
 let assist = store.get('assist', true);
 function locate(full) {
@@ -3935,7 +3967,7 @@ resetCar(30); car.h += 0.5; resetRivals();
 camPos.set(car.x + 6, 2, car.z + 6);
 let prewarm = 25, arT = 0, arFrames = 0;
 function autoRes(dt) {
-  if (!autoOn) return;
+  if (!autoOn || quality === 'high' || quality === 'med') { if (resMul !== 1) { resMul = 1; applyScale(); } return; } // sharp: full device pixel density on high/med
   arT += dt; arFrames++;
   if (arT < 1.6) return;
   const fps = arFrames / arT, target = (fpsCap || 60) * 0.82; arT = 0; arFrames = 0;
@@ -3963,13 +3995,13 @@ scene.onBeforeRenderObservable.add(() => {
   sfx.music(state === 'drive' || state === 'count' ? 0.42 : state === 'pause' ? 0.2 : 0.9);
   if ((sunVisT -= dt) < 0) { sunVisT = 0.2; flareSys.isEnabled = timeMode !== 'night' && (quality === 'high' || quality === 'med') && sunVisible(); }
   skyMat.setFloat('uTime', elapsed); nightMat.setFloat('uTime', elapsed); windTime = elapsed;
-  motes.emitter.copyFrom(camera.position); cullKits(camera.position.x, camera.position.z);
+  motes.emitter.copyFrom(camera.position); cullKits(camera.position.x, camera.position.z); updateShafts();
   if (state === 'drive' && lapN > TOTAL_LAPS) finishRace();
   BOATS.forEach((b, k) => { b.rotation.z = Math.sin(elapsed * 0.9 + k) * 0.05; b.position.y = -0.35 + Math.sin(elapsed * 1.1 + k * 2) * 0.12; });
   autoRes(dt);
   if (prewarm > 0) { prewarm--; CAR.flame.setEnabled(prewarm > 0); GHOST.root.setEnabled(prewarm > 0); if (prewarm > 0) { GHOST.root.position.set(car.x, -3, car.z); sparks.emitter.set(car.x, -2, car.z); sparks.manualEmitCount = 2; } }
   if (pipe.depthOfFieldEnabled) pipe.depthOfField.focusDistance = 8500;
-  pipe.chromaticAberration.aberrationAmount = state === 'drive' ? clamp((car.speed - 25) / 60, 0, 1) * 3 + (car.boost ? 4 : 0) : 0;
+  pipe.chromaticAberration.aberrationAmount = state === 'drive' && car.boost ? 1.2 : 0;
 });
 let shown = false;
 const reveal = () => { if (shown) return; shown = true; $('loading').hidden = true; if (state === 'menu') $('start').hidden = false; };
