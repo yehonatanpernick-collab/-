@@ -2876,7 +2876,7 @@ const DS = LEN / N;
 const VT = new Float32Array(N), TURN = new Float32Array(N);
 for (let i = 0; i < N; i++) {
   const a = (i - 8 + N) % N, b = (i + 8) % N, ang = Math.acos(clamp(TX[a] * TX[b] + TZ[a] * TZ[b], -1, 1));
-  VT[i] = clamp(Math.sqrt(17 / Math.max(ang / (16 * DS), 1e-4)), 15, 52);
+  VT[i] = clamp(Math.sqrt(15 / Math.max(ang / (16 * DS), 1e-4)), 14, 45);
   const c = (i - 15 + N) % N, d = (i + 15) % N; TURN[i] = TX[c] * TZ[d] - TZ[c] * TX[d];
 }
 for (let pass = 0; pass < 2; pass++) for (let i = N - 1; i >= 0; i--) { const nx = VT[(i + 1) % N]; VT[i] = Math.min(VT[i], Math.sqrt(nx * nx + 2 * 15 * DS)); }
@@ -3247,7 +3247,7 @@ function readInput() {
 }
 
 /* ================= vehicle model ================= */
-const VMAX = 51, ACC = 12.5, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
+const VMAX = 44, ACC = 11, BRAKE = 26, REV_ACC = 9, REV_MAX = 11;
 const car = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, steer: 0, idx: 0, d: 0, thr: 0, slip: 0, speed: 0, vF: 0, ax: 0, ay: 0, grass: false, hit: 0, nos: 0.35, boost: false, scrape: 0, sn: [0, 0], pop: 0, thrPrev: 0, drifting: false };
 let assist = store.get('assist', true);
 function locate(full) {
