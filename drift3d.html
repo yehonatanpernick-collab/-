@@ -3518,34 +3518,39 @@ function tomatoInit() {
   TOM.mat = pbr('tomatoM', { color: 0x7a3a30, rough: 0.5 }); TOM.mat.emissiveColor = new B.Color3(0.08, 0.03, 0.02);
   TOM.leaf = pbr('tomatoLeaf', { color: 0x4a5a2a, rough: 0.8 });
   for (let k = 0; k < 10; k++) {
-    const m = MB.CreateSphere('tom' + k, { diameter: 0.42, segments: 6 }, scene); m.material = TOM.mat; m.isPickable = false; m.setEnabled(false); m.scaling.y = 0.88;
-    const lf = MB.CreateCylinder('tl' + k, { height: 0.04, diameter: 0.2, tessellation: 5 }, scene); lf.material = TOM.leaf; lf.parent = m; lf.position.y = 0.21; lf.isPickable = false;
+    const m = MB.CreateSphere('tom' + k, { diameter: 0.9, segments: 8 }, scene); m.material = TOM.mat; m.isPickable = false; m.setEnabled(false); m.scaling.y = 0.88;
+    const lf = MB.CreateCylinder('tl' + k, { height: 0.08, diameter: 0.4, tessellation: 6 }, scene); lf.material = TOM.leaf; lf.parent = m; lf.position.y = 0.44; lf.isPickable = false;
     TOM.pool.push(m);
   }
 }
-function splat(big) { // the tomato arrives: a rotten grey-red splat on the lens, it slides down and fades
-  const el = document.createElement('div'); el.className = 'tomato'; const sc = big ? 1 : 0.55 + Math.random() * 0.5;
-  el.style.left = (8 + Math.random() * 70) + '%'; el.style.top = (10 + Math.random() * 45) + '%'; el.style.transform = `scale(${sc})`; el.style.setProperty('--s', sc);
-  document.body.appendChild(el); setTimeout(() => el.remove(), 2700); sfx.squish();
-}
-// a volley of tomatoes lobbed from the nearby roofs and windows at the camera (never at the car); rare on purpose
+// a volley of big, clearly visible tomatoes lobbed at the car from the nearby roofs and windows. They bounce off harmlessly and vanish: no stains, nothing on the screen. Rare.
 function tomato(msg) {
-  const now = performance.now() / 1000; if (now - tomatoT < 70 || state !== 'drive') return; tomatoT = now; tomatoInit();
+  const now = performance.now() / 1000; if (now - tomatoT < 75 || state !== 'drive') return; tomatoT = now; tomatoInit();
   const fx = Math.sin(car.h), fz = Math.cos(car.h), srcs = [];
-  for (const h of HOUSES) { const dx = h[0] - car.x, dz = h[1] - car.z, d = Math.hypot(dx, dz); if (d > 14 && d < 60 && (dx * fx + dz * fz) / d > 0.2) srcs.push(h); }
-  const n = 6 + ((Math.random() * 3) | 0);
+  for (const h of HOUSES) { const dx = h[0] - car.x, dz = h[1] - car.z, d = Math.hypot(dx, dz); if (d > 12 && d < 55 && (dx * fx + dz * fz) / d > -0.1) srcs.push(h); }
+  const n = 5 + ((Math.random() * 3) | 0);
   for (let k = 0; k < n; k++) {
-    const h = srcs.length ? pick(srcs) : [car.x + fx * 25 + (Math.random() - .5) * 30, car.z + fz * 25 + (Math.random() - .5) * 30], m = TOM.pool[k % TOM.pool.length];
-    TOM.active.push({ m, t: -k * 0.16 - Math.random() * 0.1, dur: 0.95 + Math.random() * 0.25, x: h[0] + (Math.random() - .5) * 5, y: 5 + Math.random() * 4, z: h[1] + (Math.random() - .5) * 5, ox: (Math.random() - .5) * 0.8, oy: (Math.random() - .5) * 0.4, spin: Math.random() * 12 });
+    const h = srcs.length ? pick(srcs) : [car.x + fx * 22 + (Math.random() - .5) * 30, car.z + fz * 22 + (Math.random() - .5) * 30], m = TOM.pool[k % TOM.pool.length];
+    TOM.active.push({ m, ph: 0, t: -k * 0.22 - Math.random() * 0.12, dur: 1.05 + Math.random() * 0.25, x: h[0] + (Math.random() - .5) * 5, y: 6 + Math.random() * 4, z: h[1] + (Math.random() - .5) * 5, ox: (Math.random() - .5) * 1.0, oz: (Math.random() - .5) * 1.4, spin: 6 + Math.random() * 10, vx: 0, vy: 0, vz: 0, life: 0 });
   }
-  toast(msg || pick(['🍅 אש על הכביש! הכפר מעיף עגבניות', 'מהגגות: עגבניות רקובות! זה בשביל הצמיגים', 'הדודות מהמרפסת לא התרשמו 🍅', 'חג עגבניות בכפר! אתה האורח המיוחד']), 'כיוונו על המצלמה, לא על האוטו', true);
+  toast(msg || pick(['🍅 הכפר מפרגן: עגבניות מהגגות!', 'מהמרפסות: עגבניות! זה בשביל הדריפט 🍅', 'חג עגבניות! הדודות מפעילות זרוע', '🍅 הקהל התלהב קצת יותר מדי']), 'הן קופצות מהאוטו. לא נשאר כתם.');
 }
 function updateTomatoes(dt) {
+  if (state === 'drive' && performance.now() / 1000 - tomatoT > 95) tomato(); // every ~minute and a half the village shows its love
+  const grav = 14, gy = 0.46;
   for (let i = TOM.active.length - 1; i >= 0; i--) {
-    const a = TOM.active[i]; a.t += dt / a.dur; if (a.t < 0) { a.m.setEnabled(false); continue; }
-    if (a.t >= 1) { a.m.setEnabled(false); TOM.active.splice(i, 1); splat(Math.random() < 0.4); continue; }
-    const u = a.t, tx = camera.position.x + a.ox, ty = camera.position.y + a.oy, tz = camera.position.z;
-    a.m.setEnabled(true); a.m.position.set(lerp(a.x, tx, u), lerp(a.y, ty, u) + Math.sin(Math.PI * u) * 2.2, lerp(a.z, tz, u)); a.m.rotation.set(a.spin * u, a.spin * u * 0.7, 0); a.m.scaling.setAll(0.6 + 0.8 * u);
+    const a = TOM.active[i];
+    if (a.ph === 0) { // flight toward the car
+      a.t += dt / a.dur; if (a.t < 0) { a.m.setEnabled(false); continue; }
+      if (a.t >= 1) { a.ph = 1; a.vx = (Math.random() - .5) * 7 + Math.sin(car.h) * 3; a.vz = (Math.random() - .5) * 7 + Math.cos(car.h) * 3; a.vy = 4.5 + Math.random() * 2; a.life = 0; sfx.thud(4); camShake = Math.max(camShake, 0.05); continue; }
+      const u = a.t, tx = car.x + a.ox + car.vx * 0.15, tz = car.z + a.oz + car.vz * 0.15;
+      a.m.setEnabled(true); a.m.position.set(lerp(a.x, tx, u), lerp(a.y, 1.1, u) + Math.sin(Math.PI * u) * 3.0, lerp(a.z, tz, u)); a.m.rotation.set(a.spin * u, a.spin * u * 0.7, 0);
+    } else { // bounce off and roll away, then pop out of existence (no stain)
+      a.life += dt; a.vy -= grav * dt; const p = a.m.position; p.x += a.vx * dt; p.y += a.vy * dt; p.z += a.vz * dt;
+      if (p.y < gy) { p.y = gy; a.vy = Math.abs(a.vy) * 0.45; a.vx *= 0.6; a.vz *= 0.6; }
+      a.m.rotation.x += dt * 6; a.m.scaling.setAll(Math.max(0.01, 1 - Math.max(0, a.life - 0.9) / 0.5));
+      if (a.life > 1.4) { a.m.setEnabled(false); a.m.scaling.setAll(1); TOM.active.splice(i, 1); }
+    }
   }
 }
 function loseCombo(msg) { if (combo.pts > 800) tomato(); if (combo.pts > 100) toast(msg, '−' + fmt(combo.pts), true); combo.pts = 0; combo.time = 0; combo.mult = 1; }
@@ -4095,7 +4100,7 @@ function startGame() {
   if (state !== 'menu') return;
   sfx.init(); sfx.resume();
   $('start').hidden = true; showTouch(COARSE);
-  finishPaid = false; khOff(true); resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1'; resetRivals(); raceT = 0; setDOF(false);
+  finishPaid = false; khOff(true); tomatoT = performance.now() / 1000 - 35; resetCar(8); lapT = 0; total = 0; half = false; prevIdx = 8; rec = []; recAcc = 0; car.nos = 0.35; lapN = 1; $('lapn').textContent = '1'; resetRivals(); raceT = 0; setDOF(false);
   camPos.set(car.x - Math.sin(car.h) * 9, 3.2, car.z - Math.cos(car.h) * 9);
   state = 'count'; countT = 0; countStep = -1;
   canvas.focus({ preventScroll: true });
@@ -4276,6 +4281,6 @@ function frameLoop(now) {
   engine.beginFrame(); scene.render(); engine.endFrame();
 }
 requestAnimationFrame(frameLoop);
-window.__dd = { tomato, TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
+window.__dd = { tomato: () => { tomatoT = -999; tomato(); }, TI, PV, kh: () => KH, khSpawn: i => khSpawn(i), place: () => place, people: () => PEOPLE, caravan: () => CARAVAN, villages: VILLAGES, rivals: () => rivals, car, combo, scene, finishRace, carObj: () => CAR, rivalsInfo: () => rivals.map(r => ({ glb: !!r.rc.glb, on: r.active !== false })), setInput: (k, v) => { touch[k] = v; }, startGame, setTime, setQuality, sim(n, inp) { for (let i = 0; i < n; i++) { physics(STEP, { analog: false, ...inp }); scoring(STEP); } return { v: car.speed * 3.6, slip: car.slip * 57.3, d: car.d, combo: combo.pts }; }, get state() { return state; }, set state(v) { state = v; } };
 })();
 </script>
