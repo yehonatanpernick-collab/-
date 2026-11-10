@@ -63,6 +63,9 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 #walkHud .whud,#walkHud .whud *{pointer-events:auto}
 #walkHud .whud{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:16px;display:flex;gap:14px;align-items:center;padding:10px 14px;font:700 15px var(--body);color:var(--fg)}
 #walkHud .whint{position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:18px;margin:0;font:600 13px var(--body);color:var(--muted)}
+#walkHud .tpp{pointer-events:auto;position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:16px;width:min(86vw,330px);max-height:62vh;overflow:auto;padding:12px;display:grid;gap:6px;z-index:25;background:rgba(14,13,20,.82)}
+#tpList{display:grid;gap:6px} #tpList button{text-align:start}
+.roomp .btn:disabled{opacity:.45}
 #joy{pointer-events:auto;position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:140px;height:140px;border-radius:50%;background:rgba(20,18,26,.45);border:2px solid rgba(255,179,65,.5);touch-action:none}
 #joyKnob{position:absolute;left:43px;top:43px;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffd37a,#c98a1f);pointer-events:none}
 .wact{pointer-events:auto;position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px));font-size:18px;padding:16px 20px;z-index:20}
@@ -351,7 +354,8 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   </div>
 
   <div id="walkHud" hidden>
-    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
+    <div class="plate whud"><b>🚶 טיול בכפר</b><span>🧆 <b id="wfal">0</b></span><button class="btn ghost small" id="tpBtn" type="button">📍 שגר אותי</button><button class="btn ghost small" id="walkMenu" type="button">לתפריט</button></div>
+    <div class="plate tpp" id="tpPanel" hidden><b>📍 לאן לשגר?</b><div id="tpList"></div></div>
     <p class="whint fine-only">WASD / חצים ללכת · Shift לרוץ · E לפעולה</p>
     <div id="joy" hidden><div id="joyKnob"></div></div>
   </div>
@@ -359,6 +363,7 @@ kbd{font:600 12px var(--num);min-width:26px;height:26px;padding:0 6px;display:in
   <div class="plate roomp" id="roomPanel" hidden>
     <h3 id="roomTitle"></h3><p class="tip" id="roomSub"></p>
     <div class="row-btns wrap" id="roomActs"></div>
+    <p class="tip" id="roomMsg" style="color:var(--sodium);min-height:1.2em"></p>
     <button class="btn ghost small" id="roomExit" type="button">🚪 לצאת החוצה</button>
   </div>
   <div class="modal" id="kupa" hidden>
@@ -1312,7 +1317,7 @@ const goat = (x, y, z) => put('goat', x, y, z, 1, 1, 1, R1() * 6.28, GOATC[(R1()
 
 /* ================= scenery ================= */
 const R1 = rng(1337);
-const HOUSES = [], WDOORS = []; // WDOORS: doors you can walk into
+const HOUSES = [], WDOORS = [], WCOLL = []; // WDOORS: doors you can walk into
 const STONES = [[0.9, 0.84, 0.72], [0.96, 0.93, 0.86], [0.86, 0.74, 0.58], [0.92, 0.86, 0.76], [0.84, 0.82, 0.78], [0.93, 0.8, 0.64]].map(c => c.map(v => Math.pow(v, 2.2)));
 const SHUTTERS = [[0.08, 0.38, 0.42], [0.1, 0.2, 0.5], [0.14, 0.32, 0.12], [0.35, 0.18, 0.08], [0.6, 0.62, 0.6]];
 const DOORS = [[0.06, 0.32, 0.36], [0.08, 0.16, 0.42], [0.1, 0.28, 0.1], [0.25, 0.12, 0.05], [0.5, 0.48, 0.45]];
@@ -1353,7 +1358,7 @@ function house(cx, cz, w, d, floors, yaw, tint) {
         put('lintel', cx + ox, y + 2.45, cz + oz, 1.7, 0.22, 0.26, fy, sc);
         if (R1() < 0.55) { const sgf = f % 2 ? -1 : 1, [nxf, nzf] = rot(yaw, f < 2 ? 0 : sgf, f < 2 ? sgf : 0), [uxf, uzf] = rot(fy, 1, 0), qf = R1() < 0.5 ? 1 : -1, fx2 = cx + ox + uxf * qf * 1.35 + nxf * 0.25, fz2 = cz + oz + uzf * qf * 1.35 + nzf * 0.25;
           put('fanous', fx2, y + 2.7, fz2, 1.2, 1.2, 1.2, fy); put('bulb', fx2, y + 2.5, fz2, 0.16, 0.2, 0.16); }
-        if (R1() < 0.3) { const sg2 = f % 2 ? -1 : 1, [nxs, nzs] = rot(yaw, f < 2 ? 0 : sg2, f < 2 ? sg2 : 0), face = Math.atan2(-nxs, -nzs); put('sign' + ((R1() * SHOP_SIGNS.length) | 0), cx + ox + nxs * 0.16, y + 2.95, cz + oz + nzs * 0.16, 2.1, 2.1, 1, face); }
+        if (R1() < 0.3) { const sg2 = f % 2 ? -1 : 1, [nxs, nzs] = rot(yaw, f < 2 ? 0 : sg2, f < 2 ? sg2 : 0), face = Math.atan2(-nxs, -nzs), si = (R1() * SHOP_SIGNS.length) | 0; const wd = WDOORS[WDOORS.length - 1]; if (wd && wd.t === 'house') { wd.t = 'shop'; wd.kind = si; wd.name = SHOP_SIGNS[si][1]; } put('sign' + si, cx + ox + nxs * 0.16, y + 2.95, cz + oz + nzs * 0.16, 2.1, 2.1, 1, face); }
         if (R1() < 0.42) { const sg = f % 2 ? -1 : 1, [nx3, nz3] = rot(yaw, f < 2 ? 0 : sg, f < 2 ? sg : 0), [ux3, uz3] = rot(fy, 1, 0), q = R1() < 0.5 ? 1 : -1;
           put('bougain', cx + ox + ux3 * q * 1.25 + nx3 * 0.15, y, cz + oz + uz3 * q * 1.25 + nz3 * 0.15, 1, 0.9 + R1() * 0.6 * floors, 1, fy); }
         continue;
@@ -1652,7 +1657,7 @@ for (let i = 0; i < N; i++) {
 for (let k = 0; k < 70; k++) { const i = (R1() * N) | 0, lat = (R1() - .5) * HW * 1.4; put('patch', PX[i] + RX[i] * lat, 0.044, PZ[i] + RZ[i] * lat, 1 + R1() * 2.5, 1, 1 + R1() * 3, Math.atan2(TX[i], TZ[i]) + (R1() - .5) * 0.3); }
 // cafés: plastic tables, coffee, tawla and a nargila
 function cafe(x, z, yaw) {
-  const y = terrainH(x, z);
+  const y = terrainH(x, z); WDOORS.push({ t: 'cafe', x, z, nx: Math.sin(yaw), nz: Math.cos(yaw), name: 'בית הקפה של הזקנים' });
   put('table', x, y, z, 1, 1, 1, yaw);
   const seats = 2 + ((R1() * 3) | 0);
   for (let q = 0; q < 4; q++) {
@@ -1877,6 +1882,7 @@ function signTex(name, lines, bg, fg) {
 function shop(i, side, text, colors, withChairs) {
   const off = WALL + 7, x = PX[i] + RX[i] * side * off, z = PZ[i] + RZ[i] * side * off, yaw = Math.atan2(-RX[i] * side, -RZ[i] * side);
   const root = new B.TransformNode('shop', scene); root.position.set(x, terrainH(x, z), z); root.rotation.y = yaw;
+  { const [fx2, fz2] = rot(yaw, 0, 1), kind = /פלאפל/.test(text[0]) ? 1 : /מוסך/.test(text[0]) ? 2 : 6; WDOORS.push({ t: 'shop', kind, name: text[0], x: x + fx2 * 4.6, z: z + fz2 * 4.6, nx: fx2, nz: fz2, road: true }); WCOLL.push([x, z, 3.6]); }
   const mk = (w, h, d, px, py, pz, mat) => { const m = MB.CreateBox('sh', { width: w, height: h, depth: d }, scene); m.parent = root; m.position.set(px, py, pz); m.material = mat; GANTRY.push(m); return m; };
   const body = pbr('shopB' + i, { color: colors[0], rough: 0.8 }), counter = pbr('shopC' + i, { color: 0xe8e2d4, rough: 0.6 });
   mk(6.4, 3.2, 3.2, 0, 1.6, -0.6, stoneMat); mk(6.4, 1.1, 0.6, 0, 0.55, 1.2, counter);
@@ -4288,6 +4294,30 @@ function walkerBuild() {
   pm.body.parent = WALK.root; pm.arm.parent = WALK.root; pm.arm.position.y = pm.sh; WALK.body = pm.body; WALK.arm = pm.arm;
   caster(pm.body); caster(pm.arm); WALK.root.setEnabled(false);
 }
+// ---- village gate over the tyre wall and a lantern-lit stone path to the nearest village ----
+const GATE = {};
+{
+  const gi = 22, side = 1, gx = PX[gi] + RX[gi] * side * WALL, gz = PZ[gi] + RZ[gi] * side * WALL, out = [RX[gi] * side, RZ[gi] * side], along = [TX[gi], TZ[gi]];
+  const yaw = Math.atan2(out[0], out[1]), gy = terrainH(gx, gz);
+  const { S, C, Bx, merge } = animalKit(), stone = [0.86, 0.78, 0.62], wood = [0.52, 0.36, 0.2], green = [0.12, 0.42, 0.24];
+  for (const sx of [-2.2, 2.2]) { Bx(0.9, 4.4, 0.9, sx, 2.2, 0, stone); Bx(1.1, 0.3, 1.1, sx, 4.5, 0, stone); }
+  Bx(5.4, 0.7, 0.9, 0, 4.6, 0, stone); C(0.5, 0.3, 0.3, 0, 5.3, 0, green, 0, 0, 10); S(0.9, 0.7, 0.9, 0, 5.6, 0, green, 6, 0.5);
+  for (let k = 0; k < 6; k++) Bx(3.6, 0.12, 0.5, 0, 0.18 + Math.min(k, 5 - k) * 0.22, -1.25 + k * 0.5, wood); // wooden steps over the tyre wall
+  const gm = merge(); gm.material = vcMat; gm.position.set(gx, gy, gz); gm.rotation.y = yaw; gm.isPickable = false; gm.receiveShadows = true; caster(gm);
+  const sg = MB.CreatePlane('gateSign', { width: 4.2, height: 0.62 }, scene); sg.parent = gm; sg.position.set(0, 4.6, -0.47);
+  sg.material = textDecal('gateSign', 512, 76, (x2, w, h) => { x2.fillStyle = '#1d5a3a'; x2.fillRect(0, 0, w, h); x2.strokeStyle = '#e1c27a'; x2.lineWidth = 5; x2.strokeRect(4, 4, w - 8, h - 8); x2.direction = 'rtl'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillStyle = '#fff'; x2.font = '800 34px Heebo, Arial, sans-serif'; x2.fillText('أهلا وسهلا · ברוכים הבאים לכפר', w / 2, 40); });
+  sg.material.backFaceCulling = false;
+  Object.assign(GATE, { i: gi, x: gx, z: gz, out, yaw, spawn: [gx + out[0] * 3.2, gz + out[1] * 3.2] });
+  let best = null, bd = 1e9; for (const v of VILLAGES) { const d = Math.hypot(v[0] - gx, v[1] - gz); if (d < bd) { bd = d; best = v; } }
+  if (best) {
+    const k2 = animalKit(), len = Math.max(10, bd - 18), dx = (best[0] - gx) / bd, dz = (best[1] - gz) / bd, pyaw = Math.atan2(dx, dz);
+    for (let t = 3; t < len; t += 1.6) { const px = gx + dx * t, pz = gz + dz * t, py = terrainH(px, pz) - gy; k2.Bx(2.4 + Math.sin(t) * 0.3, 0.08, 1.3, px - gx, py + 0.03, pz - gz, [0.74 + Math.sin(t * 3) * 0.05, 0.68, 0.56], 0, pyaw + Math.sin(t * 1.7) * 0.15); }
+    const pm = k2.merge(); pm.material = vcMat; pm.position.set(gx, gy, gz); pm.isPickable = false; pm.receiveShadows = true;
+    const k3 = animalKit(); for (let t = 8; t < len; t += 9) for (const sd of [-1.8, 1.8]) { const px = gx + dx * t - dz * sd, pz = gz + dz * t + dx * sd, py = terrainH(px, pz); k3.C(2.2, 0.08, 0.1, px, py + 1.1, pz, [0.2, 0.2, 0.22], 0, 0, 6); k3.S(0.3, 0.42, 0.3, px, py + 2.3, pz, [1, 0.75, 0.35], 6); }
+    const lm = k3.merge(); lm.material = unlit('pathLampM', new B.Color3(1.3, 0.95, 0.55)); lm.isPickable = false;
+    GATE.village = best; GATE.villageDoor = null;
+  }
+}
 // ---- ticket booth by the start line ----
 const KUPA = {};
 {
@@ -4329,7 +4359,8 @@ function buildHouseRoom() {
   const bulb = MB.CreateSphere('rmBulb', { diameter: 0.3, segments: 6 }, scene); bulb.position.set(cx, y + 3.0, cz); bulb.material = unlit('rmBulbM', new B.Color3(3, 2.2, 1.2)); list.push(bulb);
   const fam = [[{ robe: [0.12, 0.26, 0.18], head: 'hijab', hc: [0.95, 0.94, 0.9], skin: SKIN[1], seated: true }, -1.2, -3.0, 0], [{ robe: [0.55, 0.5, 0.42], head: 'keffiyeh', hc: [0.94, 0.94, 0.94], skin: SKIN[3], mustache: [0.88, 0.88, 0.88], seated: true }, -4.0, 0.3, Math.PI / 2], [{ pants: [0.2, 0.3, 0.52], shirt: [0.96, 0.55, 0.1], head: 'hair', skin: SKIN[1], seated: true }, 1.2, -3.0, 0]];
   const people = fam.map(([o, x, z, ry], k) => { const p = personMeshes(o, 'fam' + k), r = new B.TransformNode('famR' + k, scene); p.body.parent = r; p.arm.parent = r; p.arm.position.y = p.sh; r.position.set(cx + x, y + 0.02, cz + z); r.rotation.y = ry; if (k === 2) r.scaling.setAll(0.72); list.push(p.body, p.arm); return p; });
-  const light = roomLightFor(list.slice(), V3(cx, y + 2.8, cz), new B.Color3(1, 0.8, 0.55), 18);
+  list.forEach(m => { if (m.material && m.material.environmentIntensity != null) m.material.environmentIntensity = 0.35; });
+  const light = roomLightFor(list.slice(), V3(cx, y + 2.8, cz), new B.Color3(1, 0.8, 0.55), 5);
   list.forEach(m => m.setEnabled(false));
   ROOMS.house = { cx, cz, y, list, light, people, bx: 4.4, bz: 3.4, door: [0, 3.5], spawn: [0, 0.6], face: Math.PI, title: 'בבית של משפחת אבו סמיר', sub: 'ריח של קפה עם הל. הטלוויזיה על משחק כדורגל, וסבתא כבר מכינה צלחת.',
     acts: [['coffee', '☕ לשתות קפה עם הדודה', 2, 'tfaddal', 'הקפה עם הל, חם ומר. הדודה מספרת על הנכד בגרמניה כבר בפעם השלישית.'], ['maqluba', '🍲 לאכול מקלובה', 3, 'sahtein', 'הפכו את הסיר בבת אחת וכולם מחאו כפיים. סחתיין!'], ['tv', '📺 לראות כדורגל עם הדוד', 0, 'yaallah', 'גול! הדוד קפץ, שפך קפה על השטיח, והסבתא כבר כועסת.'], ['saba', '👴 לשאול את סבא על דריפטים', 0, 'habibi', 'סבא: "בזמני דרפטנו עם עגלה וחמור. וגם אז ניצחתי."']] };
@@ -4351,51 +4382,104 @@ function buildMosqueRoom() {
   const ch = MB.CreateTorus('mqChand', { diameter: 2.4, thickness: 0.08, tessellation: 24 }, scene); ch.position.set(cx, y + 4.4, cz); ch.material = gold; list.push(ch);
   for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, b = MB.CreateSphere('mqB', { diameter: 0.18, segments: 5 }, scene); b.position.set(cx + Math.cos(a) * 1.2, y + 4.35, cz + Math.sin(a) * 1.2); b.material = unlit('mqBM', new B.Color3(3, 2.4, 1.4)); list.push(b); }
   for (const z of [-3.5, -0.5]) for (let k = 0; k < 6; k++) { const st = box(0.35, 0.4, 0.3, -4 + k * 1.6, 0.2, z, wood); st.rotation.x = 0; }
-  const light = roomLightFor(list.slice(), V3(cx, y + 4.2, cz), new B.Color3(1, 0.92, 0.75), 26);
+  list.forEach(m => { if (m.material && m.material.environmentIntensity != null) m.material.environmentIntensity = 0.35; });
+  const light = roomLightFor(list.slice(), V3(cx, y + 4.2, cz), new B.Color3(1, 0.92, 0.75), 7);
   list.forEach(m => m.setEnabled(false));
   ROOMS.mosque = { cx, cz, y, list, light, bx: 7.4, bz: 6.4, door: [0, 6.6], spawn: [0, 2.8], face: Math.PI, title: 'בתוך המסגד', sub: 'שקט ושלווה. השטיח רך, האור חם, והרעש של הכפר נשאר בחוץ. כאן לא צופרים ולא מדרפטים.',
     acts: [['shoes', '👞 לחלוץ נעליים ולשבת בשקט', 0, null, 'ישבת על השטיח. רגע של שקט, בלי מנועים ובלי עגבניות.'], ['look', '🕌 להסתכל על המחראב והפסיפס', 0, null, 'אריחי פסיפס בכחול, ירוק וזהב, עבודת יד של אומני הכפר.'], ['story', '📿 לשמוע מהשומר את סיפור המסגד', 0, null, 'השומר מספר: המסגד נבנה מאבן מקומית לפני כמאה שנה, והכיפה נצבעת מחדש כל עשר שנים.']] };
 }
+const VNAMES = ['כפר הזיתים', 'עין אל-עסל', 'ואדי אל-גמל', 'ראס אבו דריפט', 'חירבת אל-פלאפל', 'עין אל-מאעז', 'בית אל-כנאפה', 'דיר אל-גמלים'];
+const SHOP_ACTS = {
+  0: [['knafeh', '🍯 לטעום כנאפה חמה', 2, 'sahtein', 'הגבינה נמתחת עד התקרה. סחתיין!'], ['baklava', '🥮 קופסת באקלאווה למשפחה', 1, 'mabrouk', 'אבו סמיר הוסיף עוד שתיים במתנה'], ['scale', '⚖️ להישקל אחרי הכנאפה', 0, null, 'המשקל אומר: "עוד אחת ודי".']],
+  1: [['fal', '🧆 לאכול מנת פלאפל', 2, 'sahtein', 'פלאפל שמשלמים עליו בפלאפל. כלכלה מסובכת.'], ['hot', '🌶️ לבקש סחוג חריף', 0, 'yaba', 'העיניים דומעות, והמוכר מרוצה מאוד.'], ['tahini', '🥙 עוד טחינה בבקשה', 1, 'tfaddal', 'עוד טחינה, ועוד, ועוד…']],
+  2: [['open', '🔧 לפתוח את המוסך (שדרוגים)', 0, 'ahlan', 'סמיר פותח את השער החורק.'], ['pump', '🛞 לנפח צמיגים', 0, null, 'סמיר ניפח, ואז הוריד קצת "בשביל הדריפט".'], ['tea', '☕ תה עם סמיר', 1, 'ahlan', 'סמיר נשבע שהבמוו שלו מקורית. היא לא.']],
+  3: [['tawla', '🎲 לשחק שש-בש עם אבו חסן', 0, 'yalla', ''], ['tea', '🍵 תה עם נענע', 1, 'tfaddal', 'מתוק מדי, בדיוק כמו שצריך.'], ['radio', '📻 לשמוע אום כולתום ברדיו', 0, null, 'כל בית הקפה שר יחד. גם אתה.']],
+  4: [['kebab', '🍢 לקנות קבב למנגל', 2, 'sahtein', 'הקצב: "בשבילך? חצי מחיר."'], ['joke', '🔪 לשמוע בדיחה מהקצב', 0, null, '"למה העז חצתה את הכביש? כי ראתה אותך מדרפט."']],
+  5: [['hummus', '🥣 צלחת חומוס עם פול', 2, 'sahtein', 'מנגבים עם פיתה, בלי מזלג.'], ['pita', '🫓 פיתה חמה מהטאבון', 1, null, 'הפיתה תפחה כמו כרית.']],
+  6: [['kaak', '🥯 לאפות כעכ עם שומשום', 2, 'tfaddal', 'יצא קצת שרוף, אבל באהבה.'], ['manaqish', '🫓 מנאקיש זעתר', 2, 'sahtein', 'ריח של זעתר בכל הכפר.'], ['dough', '👐 ללוש בצק עם אום ג׳מיל', 0, null, 'אום ג׳מיל: "חזק יותר, יא חביבי!"']],
+  7: [['cut', '💈 תספורת דריפט', 0, 'masha', 'נראה מעולה. בערך.'], ['shave', '🪒 גילוח עם מגבת חמה', 0, null, 'אבו חסן שר אום כולתום תוך כדי גילוח.'], ['gossip', '🗣️ הרכילות של הכפר', 0, null, 'מסתבר שכרים עבדול ג׳מאל מחביא גמל נוסף במחסן.']]
+};
+const KIND_INFO = { 0: ['🍯', 'חנות ממתקים', '#b8326b'], 1: ['🧆', 'דוכן פלאפל', '#1f7a3a'], 2: ['🔧', 'מוסך', '#1d3f8c'], 3: ['☕', 'בית קפה', '#4a2a16'], 4: ['🍢', 'קצבייה', '#8a1414'], 5: ['🥣', 'חומוסייה', '#c79a1f'], 6: ['🥯', 'מאפייה', '#6b3b12'], 7: ['💈', 'מספרה', '#0f5e6b'] };
+function buildShopRoom() {
+  const cx = TCX + 3320, cz = TCZ + 3200, y = ROOM_Y, list = [];
+  const box = (w, h, d, x, yy, z, mat) => { const m = MB.CreateBox('sp', { width: w, height: h, depth: d }, scene); m.position.set(cx + x, y + yy, cz + z); m.material = mat; m.isPickable = false; list.push(m); return m; };
+  const wall = pbr('spWall', { color: 0xd9c9a8, rough: 0.95 }), wood = pbr('spWood', { color: 0x6b4426, rough: 0.7 }), tile = pbr('spTile', { color: 0x8a6a4a, rough: 0.8 });
+  [wall, wood, tile].forEach(m => m.environmentIntensity = 0.35);
+  box(9, 0.2, 7, 0, -0.1, 0, tile); box(9, 3.2, 0.2, 0, 1.6, -3.5, wall); box(9, 3.2, 0.2, 0, 1.6, 3.5, wall); box(0.2, 3.2, 7, -4.5, 1.6, 0, wall); box(0.2, 3.2, 7, 4.5, 1.6, 0, wall); box(9, 0.2, 7, 0, 3.2, 0, wall);
+  box(5, 1.05, 0.8, 0, 0.52, -1.6, wood); box(5.2, 0.06, 0.95, 0, 1.07, -1.6, pbr('spTop', { color: 0xc8b48a, rough: 0.5 }));
+  for (let r = 0; r < 3; r++) { box(7, 0.06, 0.45, 0, 0.9 + r * 0.7, -3.15, wood); for (let k = 0; k < 9; k++) { const it = box(0.4, 0.4, 0.3, -3 + k * 0.75, 1.13 + r * 0.7, -3.15, pbr('spItem' + ((r * 9 + k) % 6), { color: [0xc23b2b, 0xe0a32a, 0x2f7a3a, 0x2a5ea8, 0xe8e2d4, 0x8a3a8a][(r * 9 + k) % 6], rough: 0.6 })); it.material.environmentIntensity = 0.35; } }
+  const sign = MB.CreatePlane('spSign', { width: 4, height: 0.8 }, scene); sign.position.set(cx, y + 2.6, cz - 3.38); sign.rotation.y = Math.PI; list.push(sign);
+  const sc = document.createElement('canvas'); sc.width = 512; sc.height = 102; const st = new B.DynamicTexture('spSignT', sc, scene, true); const sm = new B.StandardMaterial('spSignM', scene); sm.diffuseTexture = st; sm.emissiveTexture = st; sm.emissiveColor = new B.Color3(0.5, 0.5, 0.5); sm.specularColor = B.Color3.Black(); sign.material = sm;
+  const vendor = personMeshes({ robe: [0.95, 0.94, 0.9], head: 'kufi', hc: [0.95, 0.95, 0.95], skin: SKIN[2], mustache: [0.1, 0.08, 0.06], vest: [0.6, 0.12, 0.1] }, 'vendor'), vr = new B.TransformNode('vendorR', scene);
+  vendor.body.parent = vr; vendor.arm.parent = vr; vendor.arm.position.y = vendor.sh; vr.position.set(cx, y, cz - 2.4); list.push(vendor.body, vendor.arm);
+  const bulb = MB.CreateSphere('spBulb', { diameter: 0.3, segments: 6 }, scene); bulb.position.set(cx, y + 2.9, cz); bulb.material = unlit('spBulbM', new B.Color3(2.4, 1.8, 1.0)); list.push(bulb);
+  const light = roomLightFor(list.slice(), V3(cx, y + 2.7, cz), new B.Color3(1, 0.85, 0.65), 4.5);
+  list.forEach(m => m.setEnabled(false));
+  ROOMS.shop = { cx, cz, y, list, light, bx: 4.0, bz: 3.0, door: [0, 3.1], spawn: [0, 0.8], face: Math.PI, vendorArm: vendor.arm,
+    setSign(txt, col) { const x = sc.getContext('2d'); x.fillStyle = col; x.fillRect(0, 0, 512, 102); x.strokeStyle = '#ffd34d'; x.lineWidth = 6; x.strokeRect(5, 5, 502, 92); x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff'; let fs = 52; do { x.font = `900 ${fs}px Heebo, Arial, sans-serif`; fs -= 2; } while (x.measureText(txt).width > 470 && fs > 20); x.fillText(txt, 256, 54); st.update(true); } };
+}
+const ROOM_DONE = new Map(); // activities already done per venue (per session), so revisiting is not a falafel farm
 // ---- doors you can walk into ----
 function nearInteract() {
   let best = null, bd = 3.2 * 3.2;
   const d2 = (x, z) => (x - WALK.x) ** 2 + (z - WALK.z) ** 2;
+  if (WALK.sitting) return null;
   if (state === 'room') { const R = ROOMS[WALK.room], dd = d2(R.cx + R.door[0], R.cz + R.door[1]); if (dd < 2.6 * 2.6) best = { t: 'exit' }; return best; }
   if (d2(KUPA.x, KUPA.z) < bd) { best = { t: 'kupa' }; bd = d2(KUPA.x, KUPA.z); }
   for (const dr of WDOORS) { const dd = d2(dr.x, dr.z); if (dd < bd) { bd = dd; best = dr; } }
   return best;
 }
-const WLABEL = { kupa: '🎟️ קופה: להירשם למרוץ', house: '🚪 להיכנס לבית', mosque: '🕌 להיכנס למסגד', exit: '🚪 לצאת החוצה' };
+const WLABEL = { kupa: '🎟️ קופה: להירשם למרוץ', house: '🚪 להיכנס לבית', mosque: '🕌 להיכנס למסגד', exit: '🚪 לצאת החוצה', shop: '🏪 להיכנס', cafe: '☕ לשבת בבית הקפה' };
+const actLabel = it => it.t === 'shop' ? `${KIND_INFO[it.kind][0]} להיכנס: ${it.name}` : WLABEL[it.t];
 let fadeEl = null;
 function fade(fn) { if (!fadeEl) { fadeEl = document.createElement('div'); fadeEl.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .25s;z-index:60'; document.body.appendChild(fadeEl); } fadeEl.style.opacity = 1; setTimeout(() => { fn(); fadeEl.style.opacity = 0; }, 260); }
 function walkAction() {
   const it = WALK.near; if (!it) return;
   if (it.t === 'kupa') { openKupa(); return; }
   if (it.t === 'exit') { fade(() => leaveRoom()); return; }
+  if (it.t === 'cafe') { enterRoom(it); return; }
   fade(() => enterRoom(it));
 }
+let savedLook = null;
+function roomActsFor(dr) { if (dr.t === 'shop') return SHOP_ACTS[dr.kind]; if (dr.t === 'cafe') return SHOP_ACTS[3]; return ROOMS[dr.t].acts; }
+function showRoomPanel(title, sub, acts, key) {
+  const done = ROOM_DONE.get(key) || new Set(); ROOM_DONE.set(key, done); WALK.doneKey = key; WALK.acts = acts;
+  $('roomTitle').textContent = title; $('roomSub').textContent = sub; $('roomMsg').textContent = '';
+  $('roomActs').innerHTML = acts.map(([id, label]) => `<button class="btn ghost small" type="button" data-act="${id}"${done.has(id) && id !== 'tawla' && id !== 'open' ? ' disabled' : ''}>${label}</button>`).join('');
+  $('roomPanel').hidden = false;
+}
 function enterRoom(dr) {
-  if (!ROOMS.house) { buildHouseRoom(); buildMosqueRoom(); }
-  const R = ROOMS[dr.t]; WALK.room = dr.t; WALK.ret = dr; WALK.done = new Set(); state = 'room';
+  if (dr.t === 'cafe') { WALK.ret = dr; showRoomPanel('☕ ' + dr.name, 'שולחן פלסטיק, כיסאות פלסטיק, תה מתוק ושש-בש. הזקנים מפנים לך מקום.', SHOP_ACTS[3], 'cafe' + Math.round(dr.x) + Math.round(dr.z)); WALK.sitting = true; return; }
+  if (!ROOMS.house) { buildHouseRoom(); buildMosqueRoom(); buildShopRoom(); }
+  const kind = dr.t === 'shop' ? 'shop' : dr.t, R = ROOMS[kind]; WALK.room = kind; WALK.ret = dr; state = 'room';
+  if (kind === 'shop') { const ki = KIND_INFO[dr.kind]; R.setSign(ki[0] + ' ' + (dr.name || ki[1]), ki[2]); }
   R.list.forEach(m => m.setEnabled(true)); R.light.setEnabled(true);
+  savedLook = { exp: IP.exposure, thr: pipe.bloomThreshold }; IP.exposure = 0.92; pipe.bloomThreshold = 1.4; // interiors: no washed-out glare
   WALK.x = R.cx + R.spawn[0]; WALK.z = R.cz + R.spawn[1]; WALK.h = R.face; WALK.cam = R.face;
-  $('roomTitle').textContent = R.title; $('roomSub').textContent = R.sub;
-  $('roomActs').innerHTML = R.acts.map(([id, label]) => `<button class="btn ghost small" type="button" data-act="${id}">${label}</button>`).join('');
-  $('roomPanel').hidden = false; WALK.snap = true;
+  const ki = dr.t === 'shop' ? KIND_INFO[dr.kind] : null;
+  showRoomPanel(ki ? ki[0] + ' ' + (dr.name || ki[1]) : R.title, ki ? 'המוכר מחייך: "אהלן וסהלן! מה תרצה היום?"' : R.sub, roomActsFor(dr), dr.t + Math.round(dr.x) + Math.round(dr.z));
+  WALK.snap = true;
 }
 function leaveRoom() {
+  if (WALK.sitting) { WALK.sitting = false; $('roomPanel').hidden = true; return; }
   const R = ROOMS[WALK.room]; R.list.forEach(m => m.setEnabled(false)); R.light.setEnabled(false);
+  if (savedLook) { IP.exposure = savedLook.exp; pipe.bloomThreshold = savedLook.thr; savedLook = null; }
   const dr = WALK.ret; WALK.x = dr.x + dr.nx * 1.6; WALK.z = dr.z + dr.nz * 1.6; WALK.h = Math.atan2(dr.nx, dr.nz); WALK.cam = WALK.h; WALK.room = null; state = 'walk'; $('roomPanel').hidden = true; WALK.snap = true;
 }
 $('roomActs').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b || WALK.done.has(b.dataset.act)) return;
-  const R = ROOMS[WALK.room], a = R.acts.find(x => x[0] === b.dataset.act); if (!a) return;
-  WALK.done.add(a[0]); b.disabled = true;
-  toast(a[1].replace(/^\S+\s/, ''), a[4]); if (a[3]) speak(a[3], true);
-  if (a[2]) { addFalafel(a[2]); setTimeout(() => toast('+' + a[2] + ' 🧆', 'מהמטבח של הדודה'), 1800); }
-  if (a[0] === 'look') WALK.cam = R.face + Math.PI;
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  const a = (WALK.acts || []).find(x => x[0] === b.dataset.act); if (!a) return;
+  const done = ROOM_DONE.get(WALK.doneKey); let msg = a[4], gain = a[2];
+  if (a[0] === 'open') { $('roomPanel').hidden = true; $('openGarage').click(); return; }
+  if (a[0] === 'tawla') { if (done.has('tawla')) { msg = 'אבו חסן: "מספיק להיום, תחזור מחר"'; gain = 0; } else { const win = Math.random() < 0.55; msg = win ? 'ניצחת! אבו חסן טוען שהקוביות שלך מכושפות.' : 'אבו חסן ניצח ושר שיר ניצחון לכל בית הקפה.'; gain = win ? 4 : 0; } }
+  if (a[0] !== 'tawla') b.disabled = true; done.add(a[0]);
+  if (gain) addFalafel(gain);
+  $('roomMsg').textContent = msg + (gain ? `  (+${gain} 🧆)` : '');
+  if (a[3]) speak(a[3], true); sfx.crunch();
+  if (a[0] === 'look' && ROOMS.mosque) WALK.cam = ROOMS.mosque.face + Math.PI;
+  if (ROOMS.shop && WALK.room === 'shop') ROOMS.shop.vendorArm.rotation.x = -2.2;
 });
-$('roomExit').addEventListener('click', () => { if (state === 'room') fade(() => leaveRoom()); });
+$('roomExit').addEventListener('click', () => { if (state === 'room') fade(() => leaveRoom()); else if (WALK.sitting) leaveRoom(); });
 // ---- ticket booth: race registration ----
 const RACE_FEE = 5;
 function openKupa() {
@@ -4416,15 +4500,31 @@ function enterWalk() {
   if (state !== 'menu') return;
   walkerBuild(); sfx.init(); sfx.resume(); setDOF(false);
   $('start').hidden = true; showTouch(false); document.body.classList.add('walking'); $('walkHud').hidden = false; $('joy').hidden = !COARSE;
-  WALK.x = KUPA.x + Math.sin(KUPA.yaw) * 4; WALK.z = KUPA.z + Math.cos(KUPA.yaw) * 4; WALK.h = KUPA.yaw + Math.PI; WALK.cam = WALK.h;
+  WALK.x = GATE.spawn[0]; WALK.z = GATE.spawn[1]; WALK.h = GATE.yaw; WALK.cam = WALK.h;
   WALK.root.setEnabled(true); state = 'walk'; WALK.snap = true;
-  toast('🚶 ברוך הבא לכפר', 'קופה ליד קו הזינוק · אפשר להיכנס לבתים ולמסגדים');
+  toast('🚶 ברוך הבא לכפר', 'השביל מוביל לכפר · 📍 שגר אותי לכל מקום');
 }
 function exitWalk() {
   if (state === 'room') leaveRoom();
   WALK.root && WALK.root.setEnabled(false); document.body.classList.remove('walking'); $('walkHud').hidden = true; $('actBtn').hidden = true; $('kupa').hidden = true; state = 'menu';
 }
 $('goWalk').addEventListener('click', enterWalk);
+function tpPlaces() {
+  const P = [['🚪 שער הכפר', GATE.spawn[0], GATE.spawn[1], GATE.yaw], ['🎟️ קופת המרוצים', KUPA.x + Math.sin(KUPA.yaw) * 2, KUPA.z + Math.cos(KUPA.yaw) * 2, KUPA.yaw + Math.PI]];
+  const near = (x, z, t) => WDOORS.filter(d => d.t === t).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0];
+  VILLAGES.forEach(([vx, vz], k) => { const mq = near(vx, vz, 'mosque'), hs = near(vx, vz, 'house'), nm = VNAMES[k % VNAMES.length];
+    if (mq) P.push([`🕌 ${nm}: המסגד`, mq.x + mq.nx * 2, mq.z + mq.nz * 2, Math.atan2(-mq.nx, -mq.nz)]);
+    if (hs) P.push([`🏠 ${nm}: בית משפחה`, hs.x + hs.nx * 1.5, hs.z + hs.nz * 1.5, Math.atan2(-hs.nx, -hs.nz)]); });
+  const seen = new Set(); WDOORS.filter(d => d.t === 'shop').forEach(d => { const key = d.name; if (seen.has(key)) return; seen.add(key); P.push([`${KIND_INFO[d.kind][0]} ${d.name}`, d.x + d.nx * 1.5, d.z + d.nz * 1.5, Math.atan2(-d.nx, -d.nz)]); });
+  const cf = WDOORS.find(d => d.t === 'cafe'); if (cf) P.push(['☕ בית הקפה של הזקנים', cf.x + 2.6, cf.z + 2.6, Math.atan2(-2.6, -2.6)]);
+  return P;
+}
+$('tpBtn').addEventListener('click', () => {
+  if (state === 'room') { fade(() => leaveRoom()); }
+  const P = tpPlaces(); $('tpList').innerHTML = P.map((p, k) => `<button class="btn ghost small" type="button" data-k="${k}">${p[0]}</button>`).join(''); $('tpPanel').hidden = !$('tpPanel').hidden; WALK.tp = P;
+});
+$('tpList').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const p = WALK.tp[+b.dataset.k]; $('tpPanel').hidden = true;
+  fade(() => { if (state === 'room') leaveRoom(); if (WALK.sitting) leaveRoom(); WALK.x = p[1]; WALK.z = p[2]; WALK.h = p[3]; WALK.cam = p[3]; WALK.snap = true; WALK.idx = null; toast(p[0], 'הגעת'); }); });
 $('walkMenu').addEventListener('click', () => { exitWalk(); toMenu(); });
 $('actBtn').addEventListener('click', walkAction);
 addEventListener('keydown', e => { if ((state === 'walk' || state === 'room') && (e.code === 'KeyE' || e.code === 'Enter')) walkAction(); if ((state === 'walk' || state === 'room') && e.code === 'Escape') { exitWalk(); toMenu(); } });
@@ -4443,18 +4543,32 @@ function updateWalk(dt, t) {
   let ix = JOY.x, iy = JOY.y;
   if (keys.has('KeyW') || keys.has('ArrowUp')) iy = 1; if (keys.has('KeyS') || keys.has('ArrowDown')) iy = -1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) ix = -1; if (keys.has('KeyD') || keys.has('ArrowRight')) ix = 1;
-  const mag = Math.min(1, Math.hypot(ix, iy)), run = keys.has('ShiftLeft') || keys.has('ShiftRight') || mag > 0.92 ? 1.7 : 1, sp = (state === 'room' ? 2.4 : 4.2) * run * mag;
-  if (mag > 0.08) {
-    const a = WALK.cam + Math.atan2(ix, iy), mx = Math.sin(a) * sp * dt, mz = Math.cos(a) * sp * dt;
-    WALK.x += mx; WALK.z += mz; WALK.h = a; WALK.cam += Math.atan2(Math.sin(a - WALK.cam), Math.cos(a - WALK.cam)) * Math.min(1, dt * (Math.abs(ix) > 0.3 ? 1.6 : 0.9));
-    WALK.bob += dt * sp * 2.2;
-  }
-  if (state === 'walk') { // stay out of buildings
-    for (const hs of HOUSES) { const dx = WALK.x - hs[0], dz = WALK.z - hs[1], r = hs[2] * 0.72 + 0.35, d2 = dx * dx + dz * dz; if (d2 < r * r && d2 > 1e-6) { const d = Math.sqrt(d2); WALK.x = hs[0] + dx / d * r; WALK.z = hs[1] + dz / d * r; } }
+  if (WALK.sitting) { ix = 0; iy = 0; }
+  // stick up walks forward, sideways turns: predictable on a phone; the camera stays right behind you
+  const turn = ix * (state === 'room' ? 2.0 : 2.4) * dt * (Math.abs(iy) < 0.2 ? 1 : 0.8);
+  WALK.h += turn;
+  const run = keys.has('ShiftLeft') || keys.has('ShiftRight') || iy > 0.9 ? 1.65 : 1, sp = (state === 'room' ? 2.6 : 5.2) * run * iy * (iy < 0 ? 0.55 : 1);
+  const mag = Math.min(1, Math.abs(iy) + Math.abs(ix) * 0.3);
+  const ox = WALK.x, oz = WALK.z;
+  if (Math.abs(iy) > 0.06) { WALK.x += Math.sin(WALK.h) * sp * dt; WALK.z += Math.cos(WALK.h) * sp * dt; WALK.bob += dt * Math.abs(sp) * 2.2; }
+  WALK.cam += Math.atan2(Math.sin(WALK.h - WALK.cam), Math.cos(WALK.h - WALK.cam)) * Math.min(1, dt * 5);
+  if (state === 'walk') {
+    const solid = (cx, cz, r) => { const dx = WALK.x - cx, dz = WALK.z - cz, d2 = dx * dx + dz * dz; if (d2 < r * r && d2 > 1e-6) { const d = Math.sqrt(d2); WALK.x = cx + dx / d * r; WALK.z = cz + dz / d * r; } };
+    for (const hs of HOUSES) if (Math.abs(WALK.x - hs[0]) < 14 && Math.abs(WALK.z - hs[1]) < 14) solid(hs[0], hs[1], hs[2] * 0.72 + 0.35);
+    for (const c of WCOLL) solid(c[0], c[1], c[2]);
+    solid(KUPA.x - Math.sin(KUPA.yaw) * 2.2, KUPA.z - Math.cos(KUPA.yaw) * 2.2, 1.9);
+    if (CAR && CAR.root.isEnabled()) solid(car.x, car.z, 2.4);
+    rivals.forEach(r => { if (r.active !== false) solid(r.x, r.z, 2.4); });
+    // the tyre walls: only the village gate lets you cross
+    if (WALK.idx == null) { let b2 = 0, bd = 1e18; for (let k = 0; k < N; k += 3) { const dd = (WALK.x - PX[k]) ** 2 + (WALK.z - PZ[k]) ** 2; if (dd < bd) { bd = dd; b2 = k; } } WALK.idx = b2; }
+    let bi = WALK.idx, bd = 1e18; for (let k = -30; k <= 30; k++) { const q = (WALK.idx + k + N) % N, dd = (WALK.x - PX[q]) ** 2 + (WALK.z - PZ[q]) ** 2; if (dd < bd) { bd = dd; bi = q; } } WALK.idx = bi;
+    const lat = (WALK.x - PX[bi]) * RX[bi] + (WALK.z - PZ[bi]) * RZ[bi], latO = (ox - PX[bi]) * RX[bi] + (oz - PZ[bi]) * RZ[bi];
+    const atGate = Math.hypot(WALK.x - GATE.x, WALK.z - GATE.z) < 2.0;
+    if (!atGate && Math.abs(lat) < WALL + 0.55 && Math.abs(lat) > WALL - 0.55) { const sgn = Math.sign(lat), outside = Math.abs(latO) >= WALL; const tgt = sgn * (outside ? WALL + 0.56 : WALL - 0.56); WALK.x += RX[bi] * (tgt - lat); WALK.z += RZ[bi] * (tgt - lat); }
   } else { const R = ROOMS[WALK.room]; WALK.x = clamp(WALK.x, R.cx - R.bx, R.cx + R.bx); WALK.z = clamp(WALK.z, R.cz - R.bz, R.cz + R.bz); }
   const gy = state === 'room' ? ROOMS[WALK.room].y : terrainH(WALK.x, WALK.z);
-  WALK.root.position.set(WALK.x, gy + Math.abs(Math.sin(WALK.bob)) * 0.04 * Math.min(1, mag * 2), WALK.z); WALK.root.rotation.y = WALK.h;
-  WALK.arm.rotation.x = mag > 0.08 ? Math.sin(WALK.bob) * 0.55 : -0.05 + Math.sin(t * 1.4) * 0.04;
+  WALK.root.position.set(WALK.x, gy + (WALK.sitting ? -0.4 : Math.abs(Math.sin(WALK.bob)) * 0.04 * Math.min(1, mag * 2)), WALK.z); WALK.root.rotation.y = WALK.h;
+  WALK.arm.rotation.x = Math.abs(iy) > 0.06 ? Math.sin(WALK.bob) * 0.55 : -0.05 + Math.sin(t * 1.4) * 0.04;
   // camera follows from behind
   const cd = state === 'room' ? 3.4 : 5.6, ch = state === 'room' ? 2.1 : 2.8, k = WALK.snap ? 1 : 1 - Math.exp(-dt * 6); WALK.snap = false;
   let tx = WALK.x - Math.sin(WALK.cam) * cd, tz = WALK.z - Math.cos(WALK.cam) * cd;
@@ -4464,7 +4578,7 @@ function updateWalk(dt, t) {
   camera.position.copyFrom(camPos); camera.setTarget(camLook); camera.rotation.z = 0; camera.fov = 62 * Math.PI / 180 * (innerWidth < innerHeight ? 1.25 : 1);
   // what can I do here?
   const it = nearInteract(); WALK.near = it; const btn = $('actBtn');
-  if (it) { const lbl = WLABEL[it.t] + (COARSE ? '' : '  (E)'); if (btn.textContent !== lbl) btn.textContent = lbl; btn.hidden = false; } else btn.hidden = true;
+  if (it) { const lbl = actLabel(it) + (COARSE ? '' : '  (E)'); if (btn.textContent !== lbl) btn.textContent = lbl; btn.hidden = false; } else btn.hidden = true;
   $('wfal').textContent = falafel;
 }
 if (store.get('autoRace', false)) { store.set('autoRace', false); const tryGo = () => { if (state === 'menu' && $('loading').hidden) { toast('🎟️ נרשמת בקופה', 'יאללה, למרוץ!'); startGame(); } else setTimeout(tryGo, 300); }; setTimeout(tryGo, 800); }
