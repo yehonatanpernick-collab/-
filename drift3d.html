@@ -2750,7 +2750,8 @@ function setQuality(q) {
   peopleR = { high: 170, med: 130, low: 95, turbo: 65 }[q];
   rivalsShown = q === 'turbo' ? 3 : rivals.length;
   rivals.forEach((r, k) => { const on = k < rivalsShown; r.rc.root.setEnabled(on); r.active = on; if (!on) { r.tag.hidden = true; r.sm.emitRate = 0; } });
-  const wantAO = q === 'high' && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
+  // screen-space AO re-renders the whole scene and runs several full-screen passes: measured ~90 ms/frame on an iPhone, so phones skip it (desktop keeps it)
+  const wantAO = q === 'high' && !COARSE && WEBGL2 && B.SSAO2RenderingPipeline && B.SSAO2RenderingPipeline.IsSupported;
   if (wantAO && !ssao) {
     try {
       ssao = new B.SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.75, blurRatio: 1 }, [camera], false);
@@ -4049,7 +4050,7 @@ resetCar(30); car.h += 0.5; resetRivals();
 camPos.set(car.x + 6, 2, car.z + 6);
 let prewarm = 25, arT = 0, arFrames = 0;
 function autoRes(dt) {
-  if (!autoOn || quality === 'high' || quality === 'med') { if (resMul !== 1) { resMul = 1; applyScale(); } return; } // sharp: full device pixel density on high/med
+  if (!autoOn) return;
   arT += dt; arFrames++;
   if (arT < 1.6) return;
   const fps = arFrames / arT, target = (fpsCap || 60) * 0.82; arT = 0; arFrames = 0;
