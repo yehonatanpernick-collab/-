@@ -60,11 +60,13 @@ button:focus-visible{outline:2px solid var(--sodium);outline-offset:2px}
 .tomato{position:fixed;pointer-events:none;z-index:40;width:150px;height:130px;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;background:radial-gradient(circle at 40% 40%,#8a3b2e 0%,#6b4a3d 35%,#6f746a 70%,rgba(110,115,105,0) 100%);filter:blur(.6px);box-shadow:0 20px 0 -8px rgba(100,95,85,.7),-26px 12px 0 -14px rgba(120,60,50,.8),30px 8px 0 -16px rgba(110,110,100,.7);animation:tomatoSplat 2.6s ease-out forwards}
 @keyframes tomatoSplat{0%{transform:scale(calc(var(--s,1)*.2)) rotate(-8deg);opacity:0}8%{transform:scale(calc(var(--s,1)*1.15)) rotate(3deg);opacity:1}60%{opacity:.95;transform:scale(var(--s,1)) translateY(10px)}100%{opacity:0;transform:scale(var(--s,1)) translateY(70px)}}
 .walking .speedo,.walking .combo,.walking .lap,.walking .score,.walking .minibox,.walking #touch,.walking #tags,.walking .ticker{display:none!important}
+#walkHud .whud,#walkHud .whud *{pointer-events:auto}
 #walkHud .whud{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:16px;display:flex;gap:14px;align-items:center;padding:10px 14px;font:700 15px var(--body);color:var(--fg)}
 #walkHud .whint{position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:18px;margin:0;font:600 13px var(--body);color:var(--muted)}
-#joy{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:140px;height:140px;border-radius:50%;background:rgba(20,18,26,.45);border:2px solid rgba(255,179,65,.5);touch-action:none}
+#joy{pointer-events:auto;position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(28px + env(safe-area-inset-bottom,0px));width:140px;height:140px;border-radius:50%;background:rgba(20,18,26,.45);border:2px solid rgba(255,179,65,.5);touch-action:none}
 #joyKnob{position:absolute;left:43px;top:43px;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffd37a,#c98a1f);pointer-events:none}
-.wact{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px));font-size:18px;padding:16px 20px;z-index:20}
+.wact{pointer-events:auto;position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px));font-size:18px;padding:16px 20px;z-index:20}
+.roomp,.roomp *{pointer-events:auto}
 .roomp{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:calc(70px + env(safe-area-inset-top,0px));width:min(80vw,360px);padding:12px 14px;display:grid;gap:6px;z-index:15;background:rgba(14,13,20,.58)}
 .roomp .tip{font-size:13px;margin:0}.roomp .btn.small{font-size:13px;padding:8px 10px}
 .roomp h3{margin:0;font:800 19px var(--body);color:var(--fg)} .row-btns.wrap{flex-wrap:wrap}
