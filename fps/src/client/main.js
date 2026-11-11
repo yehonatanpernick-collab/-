@@ -11,6 +11,7 @@ import { Input } from './input.js';
 import { Game } from './game.js';
 import { UI, loadSettings, saveSettings } from './ui.js';
 import { LocalNet, WSNet } from './net.js';
+import { t } from './i18n.js';
 
 const SEED = 1337;
 const settings = loadSettings();
@@ -86,12 +87,12 @@ function serverUrl() {
 async function probeServer() {
   const url = serverUrl();
   const sub = document.getElementById('mOnlineSub');
-  if (!url) { sub.textContent = 'Run `node server.js` and open its address'; return; }
+  if (!url) { sub.textContent = t('noServer'); return; }
   try {
     const r = await fetch((url.replace(/^ws/, 'http').replace(/\/ws$/, '')) + '/api/status', { cache: 'no-store' });
-    if (r.ok) { const j = await r.json(); sub.textContent = `${j.name} · ${j.humans} online · ${j.players}/${j.max} soldiers`; return; }
+    if (r.ok) { const j = await r.json(); sub.textContent = t('serverFound', j); return; }
   } catch (e) { /* no server */ }
-  sub.textContent = 'No server here · run `node server.js` to host one';
+  sub.textContent = t('noServerHere');
 }
 
 function makeGame() {
@@ -101,7 +102,7 @@ function makeGame() {
   return game;
 }
 async function startLocal() {
-  ui.menuMsg('Starting match…');
+  ui.menuMsg(t('startingMatch'));
   audio.init();
   const { Sim } = await import('../shared/sim.js');
   const sim = new Sim({ seed: SEED, bots: settings.bots, skill: settings.skill });

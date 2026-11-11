@@ -3,6 +3,7 @@
 import { CLASSES, CLASS_LIST, WEAPONS, TEAMS, RULES } from '../shared/config.js';
 import { MAP_NAME } from '../shared/world.js';
 import { MAPB } from './hud.js';
+import { t, toggleLang, curLang } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -16,6 +17,8 @@ export function loadSettings() {
 }
 export function saveSettings(s) { try { localStorage.setItem('ih_settings', JSON.stringify(s)); } catch (e) { /* storage unavailable */ } }
 
+const langBtn = () => `<button class="mbtn sm lang" data-lang-toggle><b>${t('lang')}</b></button>`;
+
 export class UI {
   constructor(settings, handlers) {
     this.s = settings; this.h = handlers;
@@ -26,6 +29,7 @@ export class UI {
     this.buildDeploy();
     this.buildPause();
     this.buildEnd();
+    document.querySelectorAll('[data-lang-toggle]').forEach((b) => b.addEventListener('click', () => toggleLang()));
   }
   loading(p, txt) {
     const l = $('#loading');
@@ -38,24 +42,24 @@ export class UI {
     const m = $('#menu');
     const s = this.s;
     m.innerHTML = `
-      <div class="mlogo"><div class="mt">IRON HORIZON</div><div class="ms">ALL-OUT WARFARE · ${MAP_NAME} · CONQUEST</div></div>
+      <div class="mlogo"><div class="mt">IRON HORIZON</div><div class="ms">ALL-OUT WARFARE · ${MAP_NAME} · ${t('mapTitle')}</div></div>
       <div class="mcol">
-        <label class="fld"><span>CALLSIGN</span><input id="mName" maxlength="16" value="${s.name.replace(/"/g, '')}"></label>
-        <button class="mbtn primary" id="mPlay"><b>QUICK MATCH</b><span>Instant action vs AI · offline</span></button>
-        <button class="mbtn" id="mOnline"><b>MULTIPLAYER</b><span id="mOnlineSub">Join a dedicated server</span></button>
+        <label class="fld"><span>${t('callsign')}</span><input id="mName" maxlength="16" value="${s.name.replace(/"/g, '')}"></label>
+        <button class="mbtn primary" id="mPlay"><b>${t('quick')}</b><span>${t('quickSub')}</span></button>
+        <button class="mbtn" id="mOnline"><b>${t('multi')}</b><span id="mOnlineSub">${t('multiSub')}</span></button>
         <div class="mrow">
-          <label class="fld sm"><span>PLAYERS</span><select id="mBots">${[12, 16, 24, 32].map((n) => `<option ${n === s.bots ? 'selected' : ''} value="${n}">${n / 2} vs ${n / 2}</option>`).join('')}</select></label>
-          <label class="fld sm"><span>AI SKILL</span><select id="mSkill">${[[0.3, 'RECRUIT'], [0.55, 'REGULAR'], [0.8, 'VETERAN']].map(([v, n]) => `<option ${Math.abs(v - s.skill) < 0.01 ? 'selected' : ''} value="${v}">${n}</option>`).join('')}</select></label>
+          <label class="fld sm"><span>${t('players')}</span><select id="mBots">${[12, 16, 24, 32].map((n) => `<option ${n === s.bots ? 'selected' : ''} value="${n}">${n / 2} vs ${n / 2}</option>`).join('')}</select></label>
+          <label class="fld sm"><span>${t('aiSkill')}</span><select id="mSkill">${[[0.3, t('recruit')], [0.55, t('regular')], [0.8, t('veteran')]].map(([v, n]) => `<option ${Math.abs(v - s.skill) < 0.01 ? 'selected' : ''} value="${v}">${n}</option>`).join('')}</select></label>
         </div>
-        <div class="mrow"><button class="mbtn sm" id="mSettings">SETTINGS</button><button class="mbtn sm" id="mControls">CONTROLS</button></div>
+        <div class="mrow"><button class="mbtn sm" id="mSettings">${t('settings')}</button><button class="mbtn sm" id="mControls">${t('controls')}</button>${langBtn()}</div>
         <div id="mControlsBox" class="hidden">
-          <div class="ctl"><kbd>WASD</kbd> move <kbd>SHIFT</kbd> sprint <kbd>SPACE</kbd> jump <kbd>C</kbd> crouch / slide while sprinting <kbd>CTRL</kbd> hold crouch</div>
-          <div class="ctl"><kbd>LMB</kbd> fire <kbd>RMB</kbd> aim <kbd>R</kbd> reload <kbd>1 2 3</kbd>/<kbd>WHEEL</kbd> weapons/gadget <kbd>G</kbd> grenade</div>
-          <div class="ctl"><kbd>E</kbd> enter tank / hold to revive <kbd>Q</kbd> spot enemy <kbd>TAB</kbd> scoreboard <kbd>ESC</kbd> menu</div>
-          <div class="ctl">Tank: <kbd>WASD</kbd> drive <kbd>MOUSE</kbd> turret <kbd>LMB</kbd> fire <kbd>RMB</kbd> zoom <kbd>2</kbd> coax MG <kbd>E</kbd> exit</div>
-          <div class="ctl">Mobile: left thumb moves (push up to sprint), right side looks, ◉ fires (drag to aim while firing).</div>
+          <div class="ctl"><kbd>WASD</kbd> ${t('ctlMove')} <kbd>SHIFT</kbd> ${t('ctlSprint')} <kbd>SPACE</kbd> ${t('ctlJump')} <kbd>C</kbd> ${t('ctlCrouch')} <kbd>CTRL</kbd> ${t('ctlHoldCrouch')}</div>
+          <div class="ctl"><kbd>LMB</kbd> ${t('ctlFire')} <kbd>RMB</kbd> ${t('ctlAim')} <kbd>R</kbd> ${t('ctlReload')} <kbd>1 2 3</kbd>/<kbd>WHEEL</kbd> ${t('ctlWeapons')} <kbd>G</kbd> ${t('ctlGrenade')}</div>
+          <div class="ctl"><kbd>E</kbd> ${t('ctlEnter')} <kbd>Q</kbd> ${t('ctlSpot')} <kbd>TAB</kbd> ${t('ctlScore')} <kbd>ESC</kbd> ${t('ctlMenu')}</div>
+          <div class="ctl">${t('tankCtl')} <kbd>WASD</kbd> ${t('tankDrive')} <kbd>MOUSE</kbd> ${t('tankTurret')} <kbd>LMB</kbd> ${t('tankFire')} <kbd>RMB</kbd> ${t('tankZoom')} <kbd>2</kbd> ${t('tankCoax')} <kbd>E</kbd> ${t('tankExit')}</div>
+          <div class="ctl">${t('mobileCtl')}</div>
         </div>
-        <div class="mfoot">Capture and hold objectives A–E. The team holding the majority drains enemy tickets. Walls, floors and whole buildings can be destroyed.</div>
+        <div class="mfoot">${t('footer')}</div>
       </div>
       <div id="mMsg"></div>`;
     $('#mName').addEventListener('change', (e) => { s.name = e.target.value.trim().slice(0, 16) || s.name; saveSettings(s); });
@@ -67,25 +71,26 @@ export class UI {
     $('#mControls').onclick = () => { this.click(); $('#mControlsBox').classList.toggle('hidden'); };
   }
   click() { this.h.audio?.play('ui', { ui: true }); }
-  menuMsg(t) { $('#mMsg').innerHTML = t; }
+  menuMsg(txt) { $('#mMsg').innerHTML = txt; }
   showMenu(v) { $('#menu').classList.toggle('hidden', !v); }
 
   buildSettings() {
     const st = $('#settings');
     const s = this.s;
     const q = s.quality || (matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
-    st.innerHTML = `<div class="panel"><div class="ph">SETTINGS</div>
-      <label class="srow"><span>Graphics quality</span><select id="sQ">${['low', 'medium', 'high', 'ultra'].map((k) => `<option value="${k}" ${k === q ? 'selected' : ''}>${k.toUpperCase()}</option>`).join('')}</select></label>
-      <label class="srow"><span>Render scale <b id="sRSv">${Math.round(s.renderScale * 100)}%</b></span><input type="range" id="sRS" min="0.5" max="1" step="0.05" value="${s.renderScale}"></label>
-      <label class="srow"><span>Field of view <b id="sFovV">${s.fov}°</b></span><input type="range" id="sFov" min="60" max="105" step="1" value="${s.fov}"></label>
-      <label class="srow"><span>Sensitivity <b id="sSensV">${s.sens.toFixed(2)}</b></span><input type="range" id="sSens" min="0.2" max="3" step="0.05" value="${s.sens}"></label>
-      <label class="srow"><span>Aim sensitivity <b id="sAdsV">${s.adsSens.toFixed(2)}</b></span><input type="range" id="sAds" min="0.2" max="1.5" step="0.05" value="${s.adsSens}"></label>
-      <label class="srow"><span>Master volume <b id="sVolV">${Math.round(s.volume * 100)}%</b></span><input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.volume}"></label>
-      <label class="srow chk"><span>Invert look</span><input type="checkbox" id="sInv" ${s.invert ? 'checked' : ''}></label>
-      <label class="srow chk"><span>Show FPS</span><input type="checkbox" id="sFps" ${s.showFps ? 'checked' : ''}></label>
-      <label class="srow chk"><span>Touch: aim while firing</span><input type="checkbox" id="sAuto" ${s.autoAdsTouch ? 'checked' : ''}></label>
-      <label class="srow"><span>Server address</span><input id="sSrv" placeholder="auto (this host)" value="${s.server || ''}"></label>
-      <button class="mbtn primary" id="sClose"><b>DONE</b></button></div>`;
+    st.innerHTML = `<div class="panel"><div class="ph">${t('settingsTitle')}</div>
+      <label class="srow"><span>${t('quality')}</span><select id="sQ">${['low', 'medium', 'high', 'ultra'].map((k) => `<option value="${k}" ${k === q ? 'selected' : ''}>${k.toUpperCase()}</option>`).join('')}</select></label>
+      <label class="srow"><span>${t('renderScale')} <b id="sRSv">${Math.round(s.renderScale * 100)}%</b></span><input type="range" id="sRS" min="0.5" max="1" step="0.05" value="${s.renderScale}"></label>
+      <label class="srow"><span>${t('fov')} <b id="sFovV">${s.fov}°</b></span><input type="range" id="sFov" min="60" max="105" step="1" value="${s.fov}"></label>
+      <label class="srow"><span>${t('sens')} <b id="sSensV">${s.sens.toFixed(2)}</b></span><input type="range" id="sSens" min="0.2" max="3" step="0.05" value="${s.sens}"></label>
+      <label class="srow"><span>${t('adsSens')} <b id="sAdsV">${s.adsSens.toFixed(2)}</b></span><input type="range" id="sAds" min="0.2" max="1.5" step="0.05" value="${s.adsSens}"></label>
+      <label class="srow"><span>${t('volume')} <b id="sVolV">${Math.round(s.volume * 100)}%</b></span><input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.volume}"></label>
+      <label class="srow chk"><span>${t('invert')}</span><input type="checkbox" id="sInv" ${s.invert ? 'checked' : ''}></label>
+      <label class="srow chk"><span>${t('showFps')}</span><input type="checkbox" id="sFps" ${s.showFps ? 'checked' : ''}></label>
+      <label class="srow chk"><span>${t('touchAim')}</span><input type="checkbox" id="sAuto" ${s.autoAdsTouch ? 'checked' : ''}></label>
+      <label class="srow"><span>${t('server')}</span><input id="sSrv" placeholder="${t('serverPh')}" value="${s.server || ''}"></label>
+      ${langBtn()}
+      <button class="mbtn primary" id="sClose"><b>${t('done')}</b></button></div>`;
     const bind = (id, key, fmt, cb) => $(id).addEventListener('input', (e) => { const v = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' ? +e.target.value : e.target.value; s[key] = v; if (fmt) fmt(v); saveSettings(s); cb && cb(v); });
     bind('#sQ', 'quality', null, (v) => this.h.quality(v));
     bind('#sRS', 'renderScale', (v) => ($('#sRSv').textContent = Math.round(v * 100) + '%'), (v) => this.h.renderScale(v));
@@ -103,17 +108,17 @@ export class UI {
   buildDeploy() {
     const d = $('#deploy');
     d.innerHTML = `
-      <div class="dtop"><div class="dteam" id="dTeam"></div><div class="dmap">${MAP_NAME} · CONQUEST</div><div class="dtk" id="dTk"></div></div>
+      <div class="dtop"><div class="dteam" id="dTeam"></div><div class="dmap">${MAP_NAME} · ${t('mapTitle')}</div><div class="dtk" id="dTk"></div></div>
       <div class="dbody">
         <div class="dclasses" id="dClasses"></div>
         <div class="dmapwrap"><canvas id="dMap"></canvas><div id="dSpawns"></div></div>
       </div>
-      <div class="dbottom"><div id="dInfo"></div><button class="mbtn primary" id="dGo"><b>DEPLOY</b><span id="dGoSub"></span></button></div>`;
+      <div class="dbottom"><div id="dInfo"></div><button class="mbtn primary" id="dGo"><b>${t('deploy')}</b><span id="dGoSub"></span></button></div>`;
     const cl = $('#dClasses');
     cl.innerHTML = CLASS_LIST.map((c) => {
       const C = CLASSES[c];
       const pw = WEAPONS[C.primary], gw = WEAPONS[C.gadget];
-      return `<div class="dcls" data-c="${c}"><div class="dci">${C.icon}</div><div class="dcn">${C.name}</div><div class="dcd">${C.desc}</div><div class="dcl"><span>${pw.name}</span><span>${WEAPONS[C.secondary].name}</span><span>${gw.name}</span><span>${C.grenades}× Frag</span></div></div>`;
+      return `<div class="dcls" data-c="${c}"><div class="dci">${C.icon}</div><div class="dcn">${C.name}</div><div class="dcd">${C.desc}</div><div class="dcl"><span>${pw.name}</span><span>${WEAPONS[C.secondary].name}</span><span>${gw.name}</span><span>${C.grenades}× ${t('frag')}</span></div></div>`;
     }).join('');
     cl.querySelectorAll('.dcls').forEach((e) => e.addEventListener('click', () => { this.cls = e.dataset.c; this.s.lastClass = this.cls; saveSettings(this.s); this.click(); this.refreshClasses(); }));
     this.refreshClasses();
@@ -171,10 +176,10 @@ export class UI {
     const items = [];
     for (const o of opts) {
       let x, z, label, cls = 'my';
-      if (o === 'hq') { const hq = W.hq[myT]; x = hq.x; z = hq.z; label = 'HQ'; cls = 'hq'; }
+      if (o === 'hq') { const hq = W.hq[myT]; x = hq.x; z = hq.z; label = t('hq'); cls = 'hq'; }
       else if (o === 'tank') { const rv = [...game.vehs.values()].find((v) => v.team === myT && v.cur?.alive); if (!rv) continue; x = rv.cur.x; z = rv.cur.z; label = '▰ TANK'; cls = 'veh'; }
       else if (o === 'beacon') { const e = game.ents.find((e) => e.ty === 'beacon' && e.team === myT && e.squad === game.mySquad); if (!e) continue; x = e.x; z = e.z; label = '⌖ BEACON'; cls = 'sq'; }
-      else if (o.startsWith('sq:')) { const rp = game.rps.get(+o.slice(3)); const s = rp?.cur; if (!s) continue; x = s.x; z = s.z; label = '◆ ' + (game.info.get(+o.slice(3))?.name || 'SQUAD'); cls = 'sq'; }
+      else if (o.startsWith('sq:')) { const rp = game.rps.get(+o.slice(3)); const s = rp?.cur; if (!s) continue; x = s.x; z = s.z; label = '◆ ' + (game.info.get(+o.slice(3))?.name || t('squad')); cls = 'sq'; }
       else { const f = W.flags.find((f) => f.id === o); if (!f) continue; x = f.x; z = f.z; label = f.id; cls = 'my flag'; }
       items.push({ o, x, z, label, cls });
     }
@@ -183,7 +188,7 @@ export class UI {
       const st = game.flagStates[f.id];
       items.push({ o: null, x: f.x, z: f.z, label: f.id, cls: 'flag ' + (st.owner === 0 ? 'neu' : st.owner === myT ? 'my dis' : 'en') });
     }
-    const key = JSON.stringify(items.map((i) => [i.o, i.label, i.cls, Math.round(i.x / 4), Math.round(i.z / 4)])) + w + 'x' + h + this.spawnAt;
+    const key = JSON.stringify(items.map((i) => [i.o, i.label, i.cls, Math.round(i.x / 4), Math.round(i.z / 4)])) + w + 'x' + h + this.spawnAt + curLang();
     if (key !== this.drawnFor) {
       this.drawnFor = key;
       const ox = cv.offsetLeft, oy = cv.offsetTop;
@@ -194,18 +199,19 @@ export class UI {
     const alive = game.meState.alive;
     const btn = $('#dGo');
     btn.disabled = rem > 0.05 || alive || game.phase === 'end';
-    $('#dGoSub').textContent = game.phase === 'end' ? 'ROUND OVER' : rem > 0.05 ? `REDEPLOY IN ${rem.toFixed(0)}` : alive ? '' : 'at ' + (this.spawnAt === 'hq' ? 'HQ' : this.spawnAt.startsWith('sq:') ? 'SQUAD MATE' : this.spawnAt.toUpperCase());
-    $('#dInfo').innerHTML = `<b>${CLASSES[this.cls].name}</b> · select a spawn point on the map`;
+    $('#dGoSub').textContent = game.phase === 'end' ? t('roundOver') : rem > 0.05 ? `${t('redeployIn')} ${rem.toFixed(0)}` : alive ? '' : (this.spawnAt === 'hq' ? t('atHq') : this.spawnAt.startsWith('sq:') ? t('squadMate') : this.spawnAt.toUpperCase());
+    $('#dInfo').innerHTML = `<b>${CLASSES[this.cls].name}</b> · ${t('selectSpawn')}`;
   }
 
   // ---------------------------------------------------------------- pause / end
   buildPause() {
     const p = $('#pause');
-    p.innerHTML = `<div class="panel"><div class="ph">PAUSED</div>
-      <button class="mbtn primary" id="pResume"><b>RESUME</b></button>
-      <button class="mbtn" id="pRedeploy"><b>REDEPLOY</b><span>Change class / spawn</span></button>
-      <button class="mbtn" id="pSettings"><b>SETTINGS</b></button>
-      <button class="mbtn" id="pQuit"><b>QUIT TO MENU</b></button></div>`;
+    p.innerHTML = `<div class="panel"><div class="ph">${t('paused')}</div>
+      <button class="mbtn primary" id="pResume"><b>${t('resume')}</b></button>
+      <button class="mbtn" id="pRedeploy"><b>${t('redeploy')}</b><span>${t('redeploySub')}</span></button>
+      <button class="mbtn" id="pSettings"><b>${t('settings')}</b></button>
+      ${langBtn()}
+      <button class="mbtn" id="pQuit"><b>${t('quit')}</b></button></div>`;
     $('#pResume').onclick = () => { this.click(); this.hidePause(); this.h.resume(); };
     $('#pRedeploy').onclick = () => { this.click(); this.hidePause(); this.h.redeploy(); };
     $('#pSettings').onclick = () => { this.click(); this.showSettings(); };
@@ -220,10 +226,10 @@ export class UI {
     const won = winner === game.myTeam;
     const top = [...game.roster].sort((a, b) => b.score - a.score).slice(0, 3);
     const me = game.roster.find((r) => r.id === game.myId);
-    e.innerHTML = `<div class="eb ${won ? 'win' : 'lose'}"><div class="et">${won ? 'VICTORY' : 'DEFEAT'}</div><div class="es">${TEAMS[winner].name} WINS</div></div>
-      <div class="etop">${top.map((r, i) => `<div class="ep"><div class="epn">${['MVP', '2ND', '3RD'][i]}</div><div class="epm ${r.team === game.myTeam ? 'my' : 'en'}">${r.name}</div><div class="eps">${r.score} · ${r.kills}/${r.deaths}</div></div>`).join('')}</div>
-      ${me ? `<div class="eme">YOUR SCORE <b>${me.score}</b> · KILLS <b>${me.kills}</b> · DEATHS <b>${me.deaths}</b> · REVIVES <b>${me.revives}</b></div>` : ''}
-      <div class="enext">Next round starting shortly…</div>`;
+    e.innerHTML = `<div class="eb ${won ? 'win' : 'lose'}"><div class="et">${won ? t('victory') : t('defeat')}</div><div class="es">${TEAMS[winner].name} ${t('winsSuffix')}</div></div>
+      <div class="etop">${top.map((r, i) => `<div class="ep"><div class="epn">${[t('mvp'), t('second'), t('third')][i]}</div><div class="epm ${r.team === game.myTeam ? 'my' : 'en'}">${r.name}</div><div class="eps">${r.score} · ${r.kills}/${r.deaths}</div></div>`).join('')}</div>
+      ${me ? `<div class="eme">${t('yourScore')} <b>${me.score}</b> · ${t('kills')} <b>${me.kills}</b> · ${t('deaths')} <b>${me.deaths}</b> · ${t('revives')} <b>${me.revives}</b></div>` : ''}
+      <div class="enext">${t('nextRound')}</div>`;
     e.classList.remove('hidden');
     game.input.unlock();
   }
