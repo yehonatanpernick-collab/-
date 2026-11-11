@@ -1,0 +1,11 @@
+{
+  "name": "iron-horizon",
+  "version": "1.0.0",
+  "description": "IRON HORIZON - large-scale combined-arms multiplayer FPS for PC and mobile browsers",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=18" }
+}

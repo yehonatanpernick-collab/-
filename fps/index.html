@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Iron Horizon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0b0d0c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+
+<div id="loading">
+  <div class="lwrap">
+    <div class="lt">IRON HORIZON</div>
+    <div class="lsub">VARESH CROSSING · CONQUEST LARGE</div>
+    <div class="lbar"><i></i></div>
+    <div class="ltxt">Loading</div>
+    <div class="ltip">Everything you see is generated in real time: terrain, town, textures, soldiers, weapons and sound.</div>
+  </div>
+</div>
+<div id="menu" class="hidden"></div>
+<div id="settings" class="hidden overlay"></div>
+<div id="deploy" class="hidden"></div>
+<div id="pause" class="hidden overlay"></div>
+<div id="endscreen" class="hidden"></div>
+<noscript><div style="color:#fff;padding:20px">IRON HORIZON needs JavaScript and WebGL2.</div></noscript>
+<script type="module" src="src/client/main.js"></script>
+</body>
+</html>
