@@ -1,0 +1,446 @@
+{
+  "generated": "2026-11-11",
+  "assets": [
+    {
+      "name": "asphalt_02",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/asphalt_02",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 260KB, nor 338KB, arm 200KB)",
+      "files": "client/public/assets/textures/asphalt_02_*.jpg",
+      "use": "Road surface"
+    },
+    {
+      "name": "concrete_pavement",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/concrete_pavement",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 158KB, nor 314KB, arm 81KB)",
+      "files": "client/public/assets/textures/concrete_pavement_*.jpg",
+      "use": "Sidewalks and plaza paving"
+    },
+    {
+      "name": "concrete_wall_008",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/concrete_wall_008",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 74KB, nor 38KB, arm 59KB)",
+      "files": "client/public/assets/textures/concrete_wall_008_*.jpg",
+      "use": "Concrete walls, barriers, parking structure"
+    },
+    {
+      "name": "brick_wall_001",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/brick_wall_001",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 157KB, nor 274KB, arm 79KB)",
+      "files": "client/public/assets/textures/brick_wall_001_*.jpg",
+      "use": "Brick building facades"
+    },
+    {
+      "name": "plastered_wall_04",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/plastered_wall_04",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 11KB, nor 25KB, arm 7KB)",
+      "files": "client/public/assets/textures/plastered_wall_04_*.jpg",
+      "use": "Plaster building facades (tinted per building)"
+    },
+    {
+      "name": "painted_concrete",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/painted_concrete",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 194KB, nor 46KB, arm 103KB)",
+      "files": "client/public/assets/textures/painted_concrete_*.jpg",
+      "use": "Painted concrete facades and interiors"
+    },
+    {
+      "name": "concrete_floor_worn_001",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/concrete_floor_worn_001",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 58KB, nor 87KB, arm 80KB)",
+      "files": "client/public/assets/textures/concrete_floor_worn_001_*.jpg",
+      "use": "Interior floors, parking decks"
+    },
+    {
+      "name": "floor_tiles_06",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/floor_tiles_06",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 88KB, nor 12KB, arm 29KB)",
+      "files": "client/public/assets/textures/floor_tiles_06_*.jpg",
+      "use": "Shop / lobby interior floors"
+    },
+    {
+      "name": "corrugated_iron",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/corrugated_iron",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 126KB, nor 131KB, arm 48KB)",
+      "files": "client/public/assets/textures/corrugated_iron_*.jpg",
+      "use": "Sheds, shutters, containers, roofing"
+    },
+    {
+      "name": "metal_plate",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/metal_plate",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 99KB, nor 169KB, arm 186KB)",
+      "files": "client/public/assets/textures/metal_plate_*.jpg",
+      "use": "Metal structures, vehicle armour, stairs"
+    },
+    {
+      "name": "rubble",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/rubble",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 144KB, nor 318KB, arm 141KB)",
+      "files": "client/public/assets/textures/rubble_*.jpg",
+      "use": "Debris piles and collapsed sections"
+    },
+    {
+      "name": "dirt",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/dirt",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 96KB, nor 335KB, arm 69KB)",
+      "files": "client/public/assets/textures/dirt_*.jpg",
+      "use": "Construction site and planter ground"
+    },
+    {
+      "name": "wood_planks_dirt",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/wood_planks_dirt",
+      "license": "CC0 1.0",
+      "format": "JPEG 1024px (diff 176KB, nor 51KB, arm 54KB)",
+      "files": "client/public/assets/textures/wood_planks_dirt_*.jpg",
+      "use": "Crates, scaffolding planks, doors"
+    },
+    {
+      "name": "rusty_metal_02",
+      "type": "PBR texture set",
+      "source": "Poly Haven — https://polyhaven.com/a/rusty_metal_02",
+      "license": "CC0 1.0",
+      "format": "JPEG 512px (diff 48KB, nor 19KB, arm 25KB)",
+      "files": "client/public/assets/textures/rusty_metal_02_*.jpg",
+      "use": "Rusted metal props and wrecks"
+    },
+    {
+      "name": "kloofendal_48d_partly_cloudy_puresky",
+      "type": "HDRI",
+      "source": "Poly Haven — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+      "license": "CC0 1.0",
+      "format": "Radiance HDR 1k (1401KB) + tonemapped JPEG 4k (283KB)",
+      "files": "client/public/assets/hdri/kloofendal_48d_partly_cloudy_puresky_*",
+      "use": "Environment lighting + sky (\"Overcast Day\" preset)"
+    },
+    {
+      "name": "industrial_sunset_puresky",
+      "type": "HDRI",
+      "source": "Poly Haven — https://polyhaven.com/a/industrial_sunset_puresky",
+      "license": "CC0 1.0",
+      "format": "Radiance HDR 1k (1131KB) + tonemapped JPEG 4k (172KB)",
+      "files": "client/public/assets/hdri/industrial_sunset_puresky_*",
+      "use": "Environment lighting + sky (\"Dusk Assault\" preset)"
+    },
+    {
+      "name": "bolt_action_rifle_7_62",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/bolt_action_rifle_7_62",
+      "license": "CC0 1.0",
+      "format": "GLB, 19985 tris (source 19985), textures ≤1024px, 1735KB",
+      "files": "client/public/assets/models/bolt_action_rifle_7_62.glb",
+      "use": "Sniper rifle (Longbow SR-762) first/third person model"
+    },
+    {
+      "name": "service_pistol",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/service_pistol",
+      "license": "CC0 1.0",
+      "format": "GLB, 13011 tris (source 27548), textures ≤1024px, 1001KB",
+      "files": "client/public/assets/models/service_pistol.glb",
+      "use": "Combat pistol (P-12 Service) first/third person model"
+    },
+    {
+      "name": "stick_grenade",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/stick_grenade",
+      "license": "CC0 1.0",
+      "format": "GLB, 4000 tris (source 4612), textures ≤512px, 188KB",
+      "files": "client/public/assets/models/stick_grenade.glb",
+      "use": "Frag grenade projectile / first person model"
+    },
+    {
+      "name": "Barrel_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/Barrel_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 1800 tris (source 2682), textures ≤512px, 181KB",
+      "files": "client/public/assets/models/Barrel_01.glb",
+      "use": "Explosive barrel (destructible)"
+    },
+    {
+      "name": "barrel_03",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/barrel_03",
+      "license": "CC0 1.0",
+      "format": "GLB, 1473 tris (source 1473), textures ≤512px, 142KB",
+      "files": "client/public/assets/models/barrel_03.glb",
+      "use": "Static barrel prop"
+    },
+    {
+      "name": "concrete_road_barrier",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/concrete_road_barrier",
+      "license": "CC0 1.0",
+      "format": "GLB, 1500 tris (source 60928), textures ≤512px, 129KB",
+      "files": "client/public/assets/models/concrete_road_barrier.glb",
+      "use": "Jersey barrier cover"
+    },
+    {
+      "name": "concrete_road_barrier_02",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/concrete_road_barrier_02",
+      "license": "CC0 1.0",
+      "format": "GLB, 1500 tris (source 23822), textures ≤512px, 147KB",
+      "files": "client/public/assets/models/concrete_road_barrier_02.glb",
+      "use": "Low concrete barrier cover"
+    },
+    {
+      "name": "covered_car",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/covered_car",
+      "license": "CC0 1.0",
+      "format": "GLB, 5995 tris (source 12592), textures ≤1024px, 536KB",
+      "files": "client/public/assets/models/covered_car.glb",
+      "use": "Parked covered car (cover)"
+    },
+    {
+      "name": "fire_hydrant",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/fire_hydrant",
+      "license": "CC0 1.0",
+      "format": "GLB, 3322 tris (source 86316), textures ≤512px, 336KB",
+      "files": "client/public/assets/models/fire_hydrant.glb",
+      "use": "Street furniture"
+    },
+    {
+      "name": "metal_trash_can",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/metal_trash_can",
+      "license": "CC0 1.0",
+      "format": "GLB, 2504 tris (source 13960), textures ≤512px, 355KB",
+      "files": "client/public/assets/models/metal_trash_can.glb",
+      "use": "Street furniture"
+    },
+    {
+      "name": "street_lamp_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/street_lamp_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 4154 tris (source 30610), textures ≤512px, 189KB",
+      "files": "client/public/assets/models/street_lamp_01.glb",
+      "use": "Street lighting"
+    },
+    {
+      "name": "street_lamp_02",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/street_lamp_02",
+      "license": "CC0 1.0",
+      "format": "GLB, 4141 tris (source 20338), textures ≤512px, 207KB",
+      "files": "client/public/assets/models/street_lamp_02.glb",
+      "use": "Street lighting"
+    },
+    {
+      "name": "utility_box_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/utility_box_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 2000 tris (source 4404), textures ≤512px, 171KB",
+      "files": "client/public/assets/models/utility_box_01.glb",
+      "use": "Street utility box"
+    },
+    {
+      "name": "utility_box_02",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/utility_box_02",
+      "license": "CC0 1.0",
+      "format": "GLB, 2500 tris (source 6268), textures ≤512px, 191KB",
+      "files": "client/public/assets/models/utility_box_02.glb",
+      "use": "Street utility box"
+    },
+    {
+      "name": "old_tyre",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/old_tyre",
+      "license": "CC0 1.0",
+      "format": "GLB, 1400 tris (source 2880), textures ≤512px, 144KB",
+      "files": "client/public/assets/models/old_tyre.glb",
+      "use": "Debris / checkpoint dressing"
+    },
+    {
+      "name": "metal_jerrycan_green",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/metal_jerrycan_green",
+      "license": "CC0 1.0",
+      "format": "GLB, 2496 tris (source 9636), textures ≤512px, 219KB",
+      "files": "client/public/assets/models/metal_jerrycan_green.glb",
+      "use": "Military dressing"
+    },
+    {
+      "name": "portable_generator",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/portable_generator",
+      "license": "CC0 1.0",
+      "format": "GLB, 6065 tris (source 26419), textures ≤512px, 469KB",
+      "files": "client/public/assets/models/portable_generator.glb",
+      "use": "Military equipment"
+    },
+    {
+      "name": "propane_tank",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/propane_tank",
+      "license": "CC0 1.0",
+      "format": "GLB, 2000 tris (source 5238), textures ≤512px, 166KB",
+      "files": "client/public/assets/models/propane_tank.glb",
+      "use": "Industrial dressing"
+    },
+    {
+      "name": "trashbag",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/trashbag",
+      "license": "CC0 1.0",
+      "format": "GLB, 1500 tris (source 4482), textures ≤512px, 146KB",
+      "files": "client/public/assets/models/trashbag.glb",
+      "use": "Street debris"
+    },
+    {
+      "name": "wooden_crate_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/wooden_crate_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 2006 tris (source 6576), textures ≤512px, 171KB",
+      "files": "client/public/assets/models/wooden_crate_01.glb",
+      "use": "Destructible crate"
+    },
+    {
+      "name": "wooden_crate_02",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/wooden_crate_02",
+      "license": "CC0 1.0",
+      "format": "GLB, 1998 tris (source 5176), textures ≤512px, 176KB",
+      "files": "client/public/assets/models/wooden_crate_02.glb",
+      "use": "Destructible crate"
+    },
+    {
+      "name": "old_military_crate",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/old_military_crate",
+      "license": "CC0 1.0",
+      "format": "GLB, 2997 tris (source 10476), textures ≤512px, 212KB",
+      "files": "client/public/assets/models/old_military_crate.glb",
+      "use": "Military supply crate (cover)"
+    },
+    {
+      "name": "wooden_military_crate",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/wooden_military_crate",
+      "license": "CC0 1.0",
+      "format": "GLB, 3997 tris (source 22986), textures ≤512px, 282KB",
+      "files": "client/public/assets/models/wooden_military_crate.glb",
+      "use": "Military supply crate / ammo crate deployable"
+    },
+    {
+      "name": "ammo_box",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/ammo_box",
+      "license": "CC0 1.0",
+      "format": "GLB, 2494 tris (source 4382), textures ≤512px, 160KB",
+      "files": "client/public/assets/models/ammo_box.glb",
+      "use": "Ammo crate deployable / dressing"
+    },
+    {
+      "name": "medical_box",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/medical_box",
+      "license": "CC0 1.0",
+      "format": "GLB, 2495 tris (source 3718), textures ≤512px, 206KB",
+      "files": "client/public/assets/models/medical_box.glb",
+      "use": "Medical crate deployable"
+    },
+    {
+      "name": "cardboard_box_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/cardboard_box_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 2000 tris (source 16952), textures ≤512px, 138KB",
+      "files": "client/public/assets/models/cardboard_box_01.glb",
+      "use": "Interior dressing"
+    },
+    {
+      "name": "metal_office_desk",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/metal_office_desk",
+      "license": "CC0 1.0",
+      "format": "GLB, 2996 tris (source 6898), textures ≤512px, 207KB",
+      "files": "client/public/assets/models/metal_office_desk.glb",
+      "use": "Interior furniture"
+    },
+    {
+      "name": "plastic_monobloc_chair_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/plastic_monobloc_chair_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 2000 tris (source 3356), textures ≤512px, 202KB",
+      "files": "client/public/assets/models/plastic_monobloc_chair_01.glb",
+      "use": "Interior furniture"
+    },
+    {
+      "name": "vintage_radio_transceiver",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/vintage_radio_transceiver",
+      "license": "CC0 1.0",
+      "format": "GLB, 10993 tris (source 42350), textures ≤512px, 903KB",
+      "files": "client/public/assets/models/vintage_radio_transceiver.glb",
+      "use": "Command post dressing / motion sensor"
+    },
+    {
+      "name": "water_manhole_cover",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/water_manhole_cover",
+      "license": "CC0 1.0",
+      "format": "GLB, 934 tris (source 6301), textures ≤512px, 161KB",
+      "files": "client/public/assets/models/water_manhole_cover.glb",
+      "use": "Street detail"
+    },
+    {
+      "name": "old_military_compressor",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/old_military_compressor",
+      "license": "CC0 1.0",
+      "format": "GLB, 8184 tris (source 79042), textures ≤512px, 512KB",
+      "files": "client/public/assets/models/old_military_compressor.glb",
+      "use": "Military equipment"
+    },
+    {
+      "name": "modular_fire_escape",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/modular_fire_escape",
+      "license": "CC0 1.0",
+      "format": "GLB, 11322 tris (source 11322), textures ≤512px, 685KB",
+      "files": "client/public/assets/models/modular_fire_escape.glb",
+      "use": "Facade detail"
+    },
+    {
+      "name": "Soldier.glb",
+      "type": "3D model",
+      "source": "three.js examples (mrdoob/three.js, examples/models/gltf/Soldier.glb) — \"Vanguard\" character and Idle/Walk/Run clips from Adobe Mixamo",
+      "license": "three.js repository is MIT; the character/animations originate from Adobe Mixamo, which Adobe licenses royalty-free for personal and commercial projects (the raw files may not be redistributed standalone outside a project).",
+      "format": "GLB (skinned mesh + 4 animation clips), 2110KB",
+      "files": "client/public/assets/characters/soldier.glb",
+      "use": "Third-person soldier body for remote players and bots"
+    }
+  ]
+}
