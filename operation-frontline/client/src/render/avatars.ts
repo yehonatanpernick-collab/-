@@ -68,6 +68,7 @@ class Avatar {
   primary = -1; secondary = -1; optic = ''; muzzle = '';
   slot = 0;
   has = false;
+  upper: pc.AnimComponentLayer | null = null;
 
   constructor(readonly id: number, engine: Engine, assets: Assets) {
     this.model = assets.instantiate('soldier');
@@ -89,6 +90,17 @@ class Avatar {
       anim.assignAnimation(track.name, track);
     }
     anim.baseLayer?.transition('Idle', 0);
+    // upper body keeps the rifle shouldered while the legs walk / run: an overwrite layer masked to the spine
+    const spine = this.model.findByName('mixamorig:Spine');
+    const rifle = res.animations.map((a) => a.resource as pc.AnimTrack).find((t) => t.name === 'RifleIdle');
+    if (spine && rifle) {
+      const names: string[] = [];
+      for (let e: pc.GraphNode | null = spine; e && e !== this.model.parent; e = e.parent) names.unshift(e.name);
+      const layer = anim.addLayer('upper', 1, { [names.join('/')]: { children: true } } as unknown as pc.AnimComponent['layers'][number]['mask']);
+      layer.assignAnimation('Rifle', rifle);
+      layer.transition('Rifle', 0);
+      this.upper = layer;
+    }
     for (const r of this.model.findComponents('render') as pc.RenderComponent[]) {
       r.castShadows = true; r.receiveShadows = true;
       // skinned bounds follow the bind pose, so frustum culling would wrongly hide moving soldiers

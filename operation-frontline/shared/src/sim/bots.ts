@@ -30,10 +30,10 @@ export interface BotSkill {
 }
 
 export const BOT_SKILLS: BotSkill[] = [
-  { name: 'Recruit', reaction: 0.7, aimErr: 3.2, dmg: 0.4, turn: 200, view: 55, recoilComp: 0.25, tactics: 0.25 },
-  { name: 'Regular', reaction: 0.45, aimErr: 1.9, dmg: 0.55, turn: 300, view: 75, recoilComp: 0.5, tactics: 0.5 },
-  { name: 'Veteran', reaction: 0.3, aimErr: 1.1, dmg: 0.72, turn: 420, view: 95, recoilComp: 0.7, tactics: 0.75 },
-  { name: 'Elite', reaction: 0.18, aimErr: 0.6, dmg: 0.92, turn: 560, view: 120, recoilComp: 0.88, tactics: 0.95 },
+  { name: 'Recruit', reaction: 0.6, aimErr: 3.0, dmg: 0.3, turn: 240, view: 80, recoilComp: 0.3, tactics: 0.35 },
+  { name: 'Regular', reaction: 0.4, aimErr: 1.9, dmg: 0.4, turn: 330, view: 100, recoilComp: 0.5, tactics: 0.6 },
+  { name: 'Veteran', reaction: 0.28, aimErr: 1.2, dmg: 0.52, turn: 440, view: 120, recoilComp: 0.7, tactics: 0.8 },
+  { name: 'Elite', reaction: 0.18, aimErr: 0.7, dmg: 0.66, turn: 560, view: 140, recoilComp: 0.88, tactics: 0.95 },
 ];
 
 const NAMES = [

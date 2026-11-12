@@ -189,6 +189,36 @@ export class MapBuilder {
     return index;
   }
 
+  /**
+   * Place a prop and its point-mirrored twin (x, z) -> (-x, -z) for fairness, but only where both footprints are free
+   * of solid geometry, objectives and spawns. Returns true when the pair was placed.
+   */
+  propPairIfFree(model: string, x: number, z: number, yawDeg: number, scale = 1, margin = 0.8): boolean {
+    const def = PROPS[model];
+    if (!def) throw new Error(`unknown prop ${model}`);
+    const hx = ((def.max[0] - def.min[0]) / 2) * scale + margin, hz = ((def.max[2] - def.min[2]) / 2) * scale + margin;
+    const fits = (cx: number, cz: number, yaw: number): number | null => {
+      const c = Math.abs(Math.cos(yaw * DEG)), sn = Math.abs(Math.sin(yaw * DEG));
+      const ex = c * hx + sn * hz, ez = sn * hx + c * hz;
+      let ground = 0;
+      for (const b of this.world.boxes) {
+        if (b.flags & F_NOCOLLIDE) continue;
+        if (b.minX < cx + ex && b.maxX > cx - ex && b.minZ < cz + ez && b.maxZ > cz - ez) {
+          if (b.maxY > 0.4 && b.minY < 3) return null;
+          if (b.minY <= 0.01 && cx >= b.minX && cx <= b.maxX && cz >= b.minZ && cz <= b.maxZ) ground = Math.max(ground, b.maxY);
+        }
+      }
+      for (const o of this.objectives) if (Math.hypot(o.x - cx, o.z - cz) < o.radius + Math.max(ex, ez)) return null;
+      for (const bs of this.bases) for (const sp of bs.spawns) if (Math.hypot(sp.x - cx, sp.z - cz) < 4 + Math.max(ex, ez)) return null;
+      return ground;
+    };
+    const g1 = fits(x, z, yawDeg), g2 = fits(-x, -z, yawDeg + 180);
+    if (g1 === null || g2 === null) return false;
+    this.prop(model, x, g1, z, yawDeg, scale);
+    this.prop(model, -x, g2, -z, yawDeg + 180, scale);
+    return true;
+  }
+
   /** Explosive barrel. */
   barrel(x: number, y: number, z: number): void {
     this.prop('Barrel_01', x, y, z, this.rng.range(0, 360), 1.15, { dyn: 'barrel', hp: 35 });
@@ -234,16 +264,47 @@ export class MapBuilder {
         const yb = base + f * FH + (f === 0 ? 1.3 : 1.0), yt = base + f * FH + FH - 0.7;
         const lit = (): number => (rng.chance(0.07) ? MAT.LAMP : MAT.DARKGLASS);
         const nX = Math.floor((x1 - x0 - 1.6) / spacing), sX = x0 + (x1 - x0 - nX * spacing) / 2 + (spacing - w) / 2;
+        // window = glass + frame (jambs), a projecting sill and a lintel; now and then a balcony or a wall AC unit
+        const frameX = (a: number, z: number, out: number): void => {
+          const zi = out < 0 ? z : z, zo = z + out;
+          this.decor(a - 0.12, yb - 0.13, Math.min(zi, zo + out * 1.4), a + w + 0.12, yb, Math.max(zi, zo + out * 1.4), MAT.TRIM, 0);
+          this.decor(a - 0.1, yt, Math.min(zi, zo), a + w + 0.1, yt + 0.16, Math.max(zi, zo), MAT.TRIM, 0);
+          this.decor(a - 0.1, yb, Math.min(zi, zo), a, yt, Math.max(zi, zo), MAT.TRIM, 0);
+          this.decor(a + w, yb, Math.min(zi, zo), a + w + 0.1, yt, Math.max(zi, zo), MAT.TRIM, 0);
+          this.decor(a + w / 2 - 0.03, yb, Math.min(zi, zo * 0.5 + zi * 0.5), a + w / 2 + 0.03, yt, Math.max(zi, zo * 0.5 + zi * 0.5), MAT.TRIM, 0);
+        };
+        const frameZ = (a: number, x: number, out: number): void => {
+          const xo = x + out;
+          this.decor(Math.min(x, xo + out * 1.4), yb - 0.13, a - 0.12, Math.max(x, xo + out * 1.4), yb, a + w + 0.12, MAT.TRIM, 0);
+          this.decor(Math.min(x, xo), yt, a - 0.1, Math.max(x, xo), yt + 0.16, a + w + 0.1, MAT.TRIM, 0);
+          this.decor(Math.min(x, xo), yb, a - 0.1, Math.max(x, xo), yt, a, MAT.TRIM, 0);
+          this.decor(Math.min(x, xo), yb, a + w, Math.max(x, xo), yt, a + w + 0.1, MAT.TRIM, 0);
+          this.decor(Math.min(x, x + out * 0.5), yb, a + w / 2 - 0.03, Math.max(x, x + out * 0.5), yt, a + w / 2 + 0.03, MAT.TRIM, 0);
+        };
+        const balconyX = (a: number, z: number, out: number): void => {
+          const y = base + f * FH;
+          this.decor(a - 0.5, y - 0.18, Math.min(z, z + out * 12), a + w + 0.5, y, Math.max(z, z + out * 12), MAT.CONCRETE, 8);
+          const zr = z + out * 12;
+          this.decor(a - 0.5, y, Math.min(zr, zr - out * 0.6), a + w + 0.5, y + 1.0, Math.max(zr, zr - out * 0.6), MAT.METAL, 12);
+        };
+        const extra = (a: number, side: 'x0' | 'x1' | 'z0' | 'z1'): void => {
+          const r = rng.next();
+          if (f > 0 && r < 0.07 && (side === 'z0' || side === 'z1')) balconyX(a, side === 'z0' ? z0 : z1, side === 'z0' ? -0.1 : 0.1);
+          else if (f > 0 && r > 0.9 && (side === 'z0' || side === 'z1') && this.props.length < 900) {
+            const zz = side === 'z0' ? z0 - 0.2 : z1 + 0.2;
+            this.prop('exterior_aircon_unit', a + w / 2, yb - 0.85, zz, side === 'z0' ? 180 : 0, 0.8, { collide: false });
+          }
+        };
         for (let i = 0; i < nX; i++) {
           const a = sX + i * spacing;
-          this.decor(a, yb, z0 - 0.05, a + w, yt, z0, lit());
-          this.decor(a, yb, z1, a + w, yt, z1 + 0.05, lit());
+          this.decor(a, yb, z0 - 0.05, a + w, yt, z0, lit()); frameX(a, z0, -0.09); extra(a, 'z0');
+          this.decor(a, yb, z1, a + w, yt, z1 + 0.05, lit()); frameX(a, z1, 0.09); extra(a, 'z1');
         }
         const nZ = Math.floor((z1 - z0 - 1.6) / spacing), sZ = z0 + (z1 - z0 - nZ * spacing) / 2 + (spacing - w) / 2;
         for (let i = 0; i < nZ; i++) {
           const a = sZ + i * spacing;
-          this.decor(x0 - 0.05, yb, a, x0, yt, a + w, lit());
-          this.decor(x1, yb, a, x1 + 0.05, yt, a + w, lit());
+          this.decor(x0 - 0.05, yb, a, x0, yt, a + w, lit()); frameZ(a, x0, -0.09);
+          this.decor(x1, yb, a, x1 + 0.05, yt, a + w, lit()); frameZ(a, x1, 0.09);
         }
         if (f > 0) this.decor(x0 - 0.08, base + f * FH - 0.12, z0 - 0.08, x1 + 0.08, base + f * FH + 0.08, z1 + 0.08, MAT.TRIM, 0);
       }

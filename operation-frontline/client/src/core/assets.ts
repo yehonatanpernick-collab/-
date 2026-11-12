@@ -23,8 +23,11 @@ export const PROP_MODELS = [
   'street_lamp_01', 'street_lamp_02', 'utility_box_01', 'utility_box_02', 'old_tyre', 'metal_jerrycan_green', 'portable_generator',
   'propane_tank', 'trashbag', 'wooden_crate_01', 'wooden_crate_02', 'old_military_crate', 'wooden_military_crate', 'ammo_box',
   'medical_box', 'cardboard_box_01', 'metal_office_desk', 'plastic_monobloc_chair_01', 'vintage_radio_transceiver', 'water_manhole_cover',
-  'old_military_compressor',
+  'old_military_compressor', 'tank_m1a2', 'tank_t80', 'wreck_cars', 'wreck_sedan', 'van_izh', 'pickup_c10', 'cement_bag',
+  'exterior_aircon_unit',
 ];
+/** Game-ready realistic trees (Sketchfab, CC-BY) used for the map's street trees, by tree kind. */
+export const TREE_MODELS = ['tree_oak_a', 'tree_oak_b', 'tree_leafy'];
 export const WEAPON_MODELS = ['bolt_action_rifle_7_62', 'service_pistol', 'stick_grenade'];
 /** Realistic gun models (Sketchfab, CC-BY), normalised by scripts/build-weapons.mjs. */
 export const REAL_GUNS = ['m4a1', 'akm', 'mp5', 'm249'];
@@ -95,10 +98,12 @@ export class Assets {
       jobs.push(this.loadTexture(`${base}_diff.jpg`, { srgb: true }), this.loadTexture(`${base}_nor.jpg`), this.loadTexture(`${base}_arm.jpg`));
     }
     for (const p of PROP_MODELS) jobs.push(this.loadContainer(p, `assets/models/${p}.glb`));
+    for (const t of TREE_MODELS) jobs.push(this.loadContainer(t, `assets/models/${t}.glb`));
     for (const w of WEAPON_MODELS) jobs.push(this.loadContainer(w, `assets/models/${w}.glb`));
     for (const w of REAL_GUNS) jobs.push(this.loadContainer(`gun_${w}`, `assets/weapons/${w}.glb`));
     jobs.push(this.loadContainer('soldier', 'assets/characters/operator.glb'));
     jobs.push(this.loadContainer('hmmwv', 'assets/vehicles/hmmwv.glb'));
+    jobs.push(this.loadContainer('fpsarms', 'assets/fps/arms.glb'));
     await Promise.all(jobs);
     this.buildMaterials();
   }

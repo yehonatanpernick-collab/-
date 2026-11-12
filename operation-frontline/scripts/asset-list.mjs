@@ -60,6 +60,8 @@ export const POLYHAVEN_MODELS = [
   { id: 'water_manhole_cover', use: 'Street detail', tris: 800, tex: 512 },
   { id: 'old_military_compressor', use: 'Military equipment', tris: 8000, tex: 512 },
   { id: 'modular_fire_escape', use: 'Facade detail', tris: 11322, tex: 512 },
+  { id: 'exterior_aircon_unit', use: 'Facade / roof detail', tris: 2500, tex: 512 },
+  { id: 'cement_bag', use: 'Sandbag-style cover dressing', tris: 1200, tex: 512 },
 ];
 
 export const OTHER_ASSETS = [

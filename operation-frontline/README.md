@@ -100,13 +100,15 @@ Assault rifles, carbine, SMG, LMG, launcher, the vehicle and first-person arms a
 
 ## Realistic models (Sketchfab, CC BY 4.0)
 
-The soldier, the four real-world guns and the HMMWV are CC BY 4.0 models from Sketchfab (authors are credited in `assets/manifest.json` and on the in-game Credits tab). To rebuild them:
+The soldier, first-person arms, the four real-world guns, the HMMWV, the parked tanks, wrecked cars and street trees are CC BY 4.0 models from Sketchfab (authors are credited in `assets/sketchfab-credits.json`, `assets/manifest.json` and on the in-game Credits tab). To rebuild them:
 
 ```bash
 SKETCHFAB_TOKEN=... node scripts/fetch-sketchfab.mjs   # downloads into assets/raw/sketchfab (git-ignored)
 node scripts/build-character.mjs   # soldier + retargeted Mixamo clips -> client/public/assets/characters/operator.glb
 node scripts/build-weapons.mjs     # m4a1 / akm / mp5 / m249 -> client/public/assets/weapons/
 node scripts/build-vehicle.mjs     # HMMWV -> client/public/assets/vehicles/hmmwv.glb
+node scripts/build-arms.mjs        # first-person arms + draw/fire/reload clips -> client/public/assets/fps/arms.glb
+node scripts/build-props.mjs       # tanks, wrecked cars, trees -> client/public/assets/models/
 ```
 
 `client/viewer.html?url=...` previews any GLB with its animation clips.

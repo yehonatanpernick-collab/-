@@ -557,6 +557,21 @@ export function buildKestrel(seed = 20261111): MapData {
   streets(b);
   construction(b);
   boundaryRows(b);
+  // ---------------------------------------------------------------- battlefield dressing: armour and wrecks (mirrored pairs,
+  // placed only where they leave the streets passable and keep clear of objectives / spawns)
+  const dress: [string, number, number, number][] = [
+    ['tank_m1a2', -62, 24, 0], ['tank_m1a2', -62, 30, 2], ['tank_m1a2', -84, 0, 90],
+    ['tank_t80', -40, -41, 92], ['tank_t80', -78, -41, 88],
+    ['wreck_cars', -48, 41, 0], ['wreck_cars', -30, 0, 10], ['wreck_cars', -88, 41, 0],
+    ['wreck_sedan', -6, -41, 97], ['wreck_sedan', -62, -14, 8], ['wreck_sedan', -22, 30, 175],
+    ['van_izh', -22, 18, 4], ['van_izh', -70, 41, 91], ['van_izh', -62, 52, 182],
+    ['pickup_c10', -62, -28, 186], ['pickup_c10', -36, 41, 270], ['pickup_c10', -22, -56, 3],
+  ];
+  for (const [m, x, z, yaw] of dress) b.propPairIfFree(m, x, z, yaw);
+  // one Abrams pair: first free spot from the candidates
+  for (const [x, z, yaw] of [[-42, 2, 90], [-62, -62, 0], [-22, -62, 0], [-62, 62, 0], [-96, -41, 90], [-8, 41, 90], [-50, 41, 90], [-70, -2, 90]]) {
+    if (b.propPairIfFree('tank_m1a2', x, z, yaw, 1, 0.5)) break;
+  }
   b.scatterTrees(9, 34, { x0: -104, z0: -72, x1: 104, z1: 72 });
   // objectives are pushed A, B, C in that order
   b.objectives.sort((p, q) => p.id.localeCompare(q.id));

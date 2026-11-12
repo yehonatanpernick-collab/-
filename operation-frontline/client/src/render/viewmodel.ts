@@ -63,6 +63,95 @@ function buildArm(device: pc.GraphicsDevice, left: boolean): pc.Entity {
   return e;
 }
 
+
+/** Bore height of the arms pack's own rifle in its gun joint's space (scripts/build-arms.mjs -> arms.json). */
+const PACK_BORE_Y = 1.754;
+
+/**
+ * Skinned, animated first-person arms (Sketchfab FPS pack). Every frame the rig is placed so that the pack's
+ * gun joint coincides with the game's gun model: the hands stay on the grip / handguard whatever the gun does,
+ * and the pack's clips (draw, fire, reload) animate the hands relative to the weapon.
+ */
+class SkinnedArms {
+  readonly rig: pc.Entity;
+  private readonly gunJ: pc.GraphNode;
+  private readonly hand: pc.GraphNode;
+  private readonly anim: pc.AnimComponent;
+  private gripZ: number | null = null;
+  private state = '';
+  private readonly m1 = new pc.Mat4();
+  private readonly m2 = new pc.Mat4();
+  private readonly m3 = new pc.Mat4();
+  private readonly v = new pc.Vec3();
+  private readonly q = new pc.Quat();
+
+  constructor(assets: Assets, layer: number) {
+    this.rig = assets.instantiate('fpsarms');
+    this.gunJ = this.rig.findByName('Main_j_049') as pc.GraphNode;
+    this.hand = this.rig.findByName('RightHand_05') as pc.GraphNode;
+    const res = assets.containers.get('fpsarms')?.resource as pc.ContainerResource & { animations: pc.Asset[] };
+    this.rig.addComponent('anim', { activate: true });
+    this.anim = this.rig.anim as pc.AnimComponent;
+    for (const a of res.animations) {
+      const t = a.resource as pc.AnimTrack;
+      this.anim.assignAnimation(t.name, t, undefined, 1, t.name === 'Fire' ? false : false);
+    }
+    this.play('Fire', 0, 0);
+    for (const rc of this.rig.findComponents('render') as pc.RenderComponent[]) {
+      rc.castShadows = false; rc.receiveShadows = false;
+      for (const mi of rc.meshInstances) {
+        mi.cull = false;
+        // matte fabric sleeves instead of the skin's specular sheen
+        if (mi.material?.name === 'Hand_D' || mi.material?.name === 'Glove_D') { const m = (mi.material as pc.StandardMaterial).clone(); m.gloss = 0.35; m.specular = new pc.Color(0.18, 0.18, 0.18); m.update(); mi.material = m; }
+      }
+    }
+    setLayers(this.rig, [layer]);
+  }
+
+  get ok(): boolean { return !!this.gunJ && !!this.hand; }
+
+  play(name: string, speed: number, blend = 0.08): void {
+    const layer = this.anim.baseLayer;
+    if (!layer) return;
+    this.anim.speed = speed;
+    if (this.state === name) { layer.play(name); return; }
+    this.state = name;
+    layer.transition(name, blend, 0);
+  }
+
+  hold(): void { this.anim.speed = Math.max(this.anim.speed, 1); }
+
+  /** Re-seat the rig under the gun model: gun joint == gun frame (origin at the grip, muzzle -Z, metres). */
+  attach(gun: pc.Entity, gripR: pc.Vec3): void {
+    if (this.rig.parent !== gun) { this.rig.parent?.removeChild(this.rig); gun.addChild(this.rig); }
+    // gun joint relative to the rig root
+    this.m1.copy(this.rig.getWorldTransform()).invert();
+    this.m2.mul2(this.m1, this.gunJ.getWorldTransform());
+    const unit = this.m2.getScale(this.v).x; // world metres per joint unit
+    if (this.gripZ === null) {
+      // hand position along the bore in joint units, measured once in the rest/fire pose
+      this.m3.copy(this.gunJ.getWorldTransform()).invert();
+      this.m3.transformPoint(this.hand.getPosition(), this.v);
+      this.gripZ = this.v.z;
+    }
+    const k = 1 / unit;
+    // O: gun frame expressed in joint space (translate to grip on the bore, turn 180 deg, scale metres -> units)
+    this.q.setFromEulerAngles(0, 180, 0);
+    this.m3.setTRS(this.v.set(0, PACK_BORE_Y, this.gripZ - (gripR.z + 0.03) * k), this.q, new pc.Vec3(k, k, k));
+    // rig local = inv(O) * inv(jointRel)
+    this.m3.invert();
+    this.m2.invert();
+    this.m1.mul2(this.m3, this.m2);
+    this.rig.setLocalPosition(this.m1.getTranslation(this.v));
+    const sc = this.m1.getScale(new pc.Vec3());
+    this.rig.setLocalScale(sc);
+    this.m1.data[0] /= sc.x; this.m1.data[1] /= sc.x; this.m1.data[2] /= sc.x;
+    this.m1.data[4] /= sc.y; this.m1.data[5] /= sc.y; this.m1.data[6] /= sc.y;
+    this.m1.data[8] /= sc.z; this.m1.data[9] /= sc.z; this.m1.data[10] /= sc.z;
+    this.rig.setLocalRotation(this.q.setFromMat4(this.m1));
+  }
+}
+
 interface Slot { model: WeaponModel; stats: WeaponStats | null; gadget: GadgetKind | null }
 
 export class ViewModel {
@@ -70,6 +159,8 @@ export class ViewModel {
   private readonly pivot = new pc.Entity('pivot');
   private readonly armL: pc.Entity;
   private readonly armR: pc.Entity;
+  private skinned: SkinnedArms | null = null;
+  private reloadSeen = false;
   private slots: (Slot | null)[] = [null, null, null, null];
   private active = -1;
   private readonly flash: pc.Entity;
@@ -100,6 +191,9 @@ export class ViewModel {
     this.armR = buildArm(engine.device, false);
     this.pivot.addChild(this.armL);
     this.pivot.addChild(this.armR);
+    if (assets.containers.has('fpsarms')) {
+      try { const sa = new SkinnedArms(assets, engine.viewLayerId); if (sa.ok) this.skinned = sa; else sa.rig.destroy(); } catch (e) { console.warn('fps arms', e); }
+    }
 
     // muzzle flash: three crossed additive quads
     const tex = assets.canvasTexture('flash', 128, (ctx, s) => {
@@ -136,6 +230,7 @@ export class ViewModel {
 
   /** (Re)build the four hand-held items for a loadout. */
   setLoadout(ctx: WeaponCtx): void {
+    if (this.skinned) { this.skinned.rig.parent?.removeChild(this.skinned.rig); this.pivot.addChild(this.skinned.rig); this.skinned.rig.enabled = false; }
     for (const s of this.slots) s?.model.root.destroy();
     const make = (model: WeaponModel, stats: WeaponStats | null, gadget: GadgetKind | null): Slot => {
       this.pivot.addChild(model.root);
@@ -162,6 +257,7 @@ export class ViewModel {
     this.kickP.kick((14 + stats.recoil.v * 10) * k);
     this.kickR.kick((Math.random() - 0.5) * 30 * k);
     this.shotT = 0;
+    if (this.skinned && this.current?.model.kind === 'rifle') this.skinned.play('Fire', 1.4, 0.03);
     this.flashT = stats.suppressed ? 0.018 : 0.045;
     const sc = stats.suppressed ? 0.05 : stats.cls === 'sniper' || stats.cls === 'lmg' ? 0.2 : stats.cls === 'pistol' ? 0.11 : 0.15;
     this.flash.setLocalScale(sc * (0.8 + Math.random() * 0.5), sc * (0.8 + Math.random() * 0.5), sc);
@@ -310,6 +406,39 @@ export class ViewModel {
     this.armL.enabled = this.armR.enabled = !scopedOut;
 
     // ---------------------------------------------------------------- arms
+    const sa = this.skinned;
+    if (sa && model.kind === 'rifle') {
+      this.armL.enabled = this.armR.enabled = false;
+      sa.rig.enabled = !scopedOut;
+      // clips: draw on switch, reload (normal / empty) stretched over the reload time
+      if (isGun && s.reloadT > 0) {
+        if (!this.reloadSeen) {
+          const st = stats as WeaponStats;
+          const empty = (s.slot === 0 ? s.ammo0 : s.ammo1) === 0;
+          sa.play(empty ? 'ReloadEmpty' : 'Reload', (empty ? 3.8 : 3.63) / Math.max(0.3, empty ? st.reloadEmptyTime : st.reloadTime), 0.1);
+          this.reloadSeen = true;
+        }
+      } else {
+        this.reloadSeen = false;
+        if (s.switchT > 0 && this.lastSlot !== this.active) { sa.play('Draw', 1.03 / Math.max(0.2, draw), 0.05); }
+      }
+      this.lastSlot = this.active;
+      sa.attach(model.root, model.gripR);
+    } else {
+      if (sa) sa.rig.enabled = false;
+      this.placeProceduralArms(model, slot, leftToMag, scopedOut, isGun);
+    }
+
+    // ---------------------------------------------------------------- muzzle flash
+    if (this.flashT > 0) {
+      this.flashT -= dt;
+      this.flash.enabled = !scopedOut;
+      this.flash.setLocalPosition(model.muzzle.x, model.muzzle.y, model.muzzle.z - 0.02);
+    } else this.flash.enabled = false;
+    void DEG;
+  }
+
+  private placeProceduralArms(model: WeaponModel, slot: Slot, leftToMag: number, scopedOut: boolean, isGun: boolean): void {
     const gr = this.tmpA.copy(model.gripR);
     this.placeArm(this.armR, gr, new pc.Vec3(gr.x + 0.11, gr.y - 0.16, gr.z + 0.3), -70);
     if (model.kind === 'rifle' || slot.gadget === 'rocket') {
@@ -327,13 +456,5 @@ export class ViewModel {
       this.placeArm(this.armL, gl, new pc.Vec3(gl.x - 0.2, gl.y - 0.12, gl.z + 0.24), 70);
       this.armL.enabled = !scopedOut && (isGun || slot.gadget !== 'stim');
     }
-
-    // ---------------------------------------------------------------- muzzle flash
-    if (this.flashT > 0) {
-      this.flashT -= dt;
-      this.flash.enabled = !scopedOut;
-      this.flash.setLocalPosition(model.muzzle.x, model.muzzle.y, model.muzzle.z - 0.02);
-    } else this.flash.enabled = false;
-    void DEG;
   }
 }

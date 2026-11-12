@@ -61,14 +61,14 @@ export const MATERIALS: MaterialDef[] = [
   { id: 12, name: 'wood', tex: 'wood_planks_dirt', uv: 2, surface: 'wood', color: [0.85, 0.8, 0.72] },
   { id: 13, name: 'rust', tex: 'rusty_metal_02', uv: 2, surface: 'metal', color: [0.8, 0.78, 0.76], metalness: 0.7 },
   { id: 14, name: 'glass', tex: null, uv: 1, surface: 'glass', color: [0.55, 0.68, 0.74], gloss: 0.96, opacity: 0.32 },
-  { id: 15, name: 'darkglass', tex: null, uv: 1, surface: 'glass', color: [0.06, 0.075, 0.09], gloss: 0.9 },
+  { id: 15, name: 'darkglass', tex: null, uv: 1, surface: 'glass', color: [0.1, 0.12, 0.14], gloss: 0.95, metalness: 0.55 },
   { id: 16, name: 'sandbag', tex: 'dirt', uv: 1.2, surface: 'dirt', color: [0.78, 0.7, 0.54] },
   { id: 17, name: 'tarp', tex: 'painted_concrete', uv: 3, surface: 'fabric', color: [0.3, 0.36, 0.26] },
   { id: 18, name: 'line', tex: null, uv: 1, surface: 'asphalt', color: [0.86, 0.85, 0.8], gloss: 0.3 },
   { id: 19, name: 'trim', tex: 'concrete_wall_008', uv: 3, surface: 'concrete', color: [0.5, 0.5, 0.52] },
   { id: 20, name: 'lamp', tex: null, uv: 1, surface: 'glass', color: [1, 0.93, 0.78], emissive: 6 },
   { id: 21, name: 'hazard', tex: null, uv: 1, surface: 'metal', color: [0.85, 0.62, 0.08], gloss: 0.45, metalness: 0.2 },
-  { id: 22, name: 'skyglass', tex: null, uv: 1, surface: 'glass', color: [0.2, 0.24, 0.28], gloss: 0.6 },
+  { id: 22, name: 'skyglass', tex: null, uv: 1, surface: 'glass', color: [0.22, 0.27, 0.32], gloss: 0.9, metalness: 0.5 },
 ];
 
 /** Tint palette referenced by Box.tint (index 0 = untinted). */
@@ -121,4 +121,13 @@ export const PROPS: Record<string, PropDef> = {
   water_manhole_cover: { min: [-0.345, -0.029, -0.345], max: [0.345, 0.039, 0.345], solid: false, surface: 'metal' },
   old_military_compressor: { min: [-0.72, 0, -5.053], max: [-0.124, 1.177, -3.383], solid: true, surface: 'metal' },
   modular_fire_escape: { min: [-2.401, -3.649, -0.785], max: [4.26, 6.108, 0.636], solid: false, surface: 'metal' },
+  // realistic Sketchfab props (CC-BY, scripts/build-props.mjs); tank colliders stop below the antennae
+  tank_m1a2: { min: [-1.743, 0, -4.9], max: [1.743, 2.45, 4.9], solid: true, surface: 'metal' },
+  tank_t80: { min: [-1.815, 0, -4.8], max: [1.815, 2.25, 4.8], solid: true, surface: 'metal' },
+  wreck_cars: { min: [-2.362, 0, -2.467], max: [2.362, 1.45, 2.467], solid: true, surface: 'metal' },
+  wreck_sedan: { min: [-1.354, 0, -2.6], max: [1.354, 1.4, 2.6], solid: true, surface: 'metal' },
+  van_izh: { min: [-0.856, 0, -2.05], max: [0.856, 1.705, 2.05], solid: true, surface: 'metal' },
+  pickup_c10: { min: [-1.053, 0, -2.45], max: [1.053, 1.798, 2.45], solid: true, surface: 'metal' },
+  cement_bag: { min: [-0.229, 0.001, -0.348], max: [0.234, 0.181, 0.351], solid: false, surface: 'fabric' },
+  exterior_aircon_unit: { min: [-0.891, -0.32, -0.216], max: [0.905, 0.603, 0.158], solid: false, surface: 'metal' },
 };

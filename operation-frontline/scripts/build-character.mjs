@@ -25,9 +25,9 @@ const CLIPS = [
   { file: join(root, 'client/public/assets/characters/soldier.glb'), clip: 'Idle', name: 'Idle' },
   { file: join(root, 'client/public/assets/characters/soldier.glb'), clip: 'Walk', name: 'Walk' },
   { file: join(root, 'client/public/assets/characters/soldier.glb'), clip: 'Run', name: 'Run' },
-  { file: raw('dbacdbf34f7f4bda802b4e670099cd74'), clip: 0, name: 'RifleIdle' },
+  { file: raw('dbacdbf34f7f4bda802b4e670099cd74'), clip: 0, name: 'RifleIdle', face: 'hands' },
   // (rifle-run clip from 094a698e retargets with a strong forward lean; omitted)
-  { file: raw('9b73b36ba2184bd1bde5b42810752b69'), clip: 0, name: 'Crouch' },
+  { file: raw('9b73b36ba2184bd1bde5b42810752b69'), clip: 0, name: 'Crouch', face: 'hands' },
 ];
 const HEIGHT = 1.8;
 
@@ -36,6 +36,9 @@ await MeshoptSimplifier.ready;
 const norm = (n) => n.replace(/^.*:/, '').replace(/_\d+$/, '');
 
 /** Collect skeleton info: nodes, parents, bind world matrices per normalised joint name. */
+// the joints' rest transforms are what actually place the skinned mesh; inverse bind matrices can sit in a
+// differently rotated / scaled space, so retargeting works in rest space
+const USE_REST = true;
 function skeleton(doc) {
   const nodes = doc.getRoot().listNodes();
   const parent = new Map();
@@ -54,7 +57,7 @@ function skeleton(doc) {
   joints.forEach((j, i) => {
     const m = mat4.multiply(mat4.create(), space, mat4.invert(mat4.create(), ibm.slice(i * 16, i * 16 + 16)));
     const key = norm(j.getName());
-    if (!byName.has(key)) { byName.set(key, j); bind.set(j, m); }
+    if (!byName.has(key)) { byName.set(key, j); bind.set(j, USE_REST ? rest.get(j) : m); }
   });
   return { nodes, parent, joints, bind, byName };
 }
@@ -131,6 +134,7 @@ for (const spec of CLIPS) {
     const dt = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), pos(T, c), pos(T, k)));
     align.set(tj, k === 'Hips' ? quat.create() : quat.rotationTo(quat.create(), dt, ds));
   }
+  const yawFix = quat.create();
   const times = [], rotOut = new Map(pairs.map((p) => [p[2], []])), hipT = [];
   // target joints in hierarchy order (parents first)
   const order = T.joints.filter((j, i, arr) => arr.indexOf(j) === i);
@@ -142,10 +146,24 @@ for (const spec of CLIPS) {
     const ov = new Map();
     for (const [n, ch] of chans) ov.set(n, { t: ch.translation ? sample(ch.translation, t) : undefined, r: ch.rotation ? sample(ch.rotation, t) : undefined });
     const SW = worldMats(S.nodes, S.parent, ov);
+    if (f === 0) {
+      // facing correction: turn the clip about Y so the body (hip axis) or, for rifle poses, the hands face forward
+      const P = (W, n) => mat4.getTranslation(vec3.create(), W.get(S.byName.get(n)));
+      const ang = (v) => Math.atan2(v[0], v[2]);
+      const fwdOf = (W) => { const l = P(W, 'LeftUpLeg'), r = P(W, 'RightUpLeg'); return [r[2] - l[2], 0, -(r[0] - l[0])]; }; // up x (r - l)
+      const want = ang(fwdOf(S.bind));
+      let have = ang(fwdOf(SW));
+      if (spec.face === 'hands') {
+        const lh = P(SW, 'LeftHand'), rh = P(SW, 'RightHand'), ch = P(SW, 'Spine2');
+        have = ang([(lh[0] + rh[0]) / 2 - ch[0], 0, (lh[2] + rh[2]) / 2 - ch[2]]);
+      }
+      quat.setAxisAngle(yawFix, [0, 1, 0], want - have);
+      console.log(`${spec.name}: facing correction ${((want - have) * 57.3).toFixed(1)} deg`);
+    }
     // desired target world rotations
     const desired = new Map();
     for (const [, sj, tj] of pairs) {
-      const delta = quat.multiply(quat.create(), rotOf(SW.get(sj)), quat.invert(quat.create(), rotOf(S.bind.get(sj))));
+      const delta = quat.multiply(quat.create(), yawFix, quat.multiply(quat.create(), rotOf(SW.get(sj)), quat.invert(quat.create(), rotOf(S.bind.get(sj)))));
       const aligned = quat.multiply(quat.create(), align.get(tj), rotOf(T.bind.get(tj)));
       desired.set(tj, quat.normalize(quat.create(), quat.multiply(quat.create(), delta, aligned)));
     }
@@ -160,6 +178,13 @@ for (const spec of CLIPS) {
       const local = quat.normalize(quat.create(), quat.multiply(quat.create(), quat.invert(quat.create(), pr), want));
       tov.set(j, { r: Array.from(local), t: tov.get(j)?.t });
       TW = worldMats(T.nodes, T.parent, tov);
+    }
+    if (f === 0) {
+      const Q = (W, n) => mat4.getTranslation(vec3.create(), W.get(T.byName.get(n)));
+      const ang = (v) => Math.atan2(v[0], v[2]) * 57.3;
+      const fw = (W) => { const l = Q(W, 'LeftUpLeg'), r = Q(W, 'RightUpLeg'); return ang([r[2] - l[2], 0, -(r[0] - l[0])]); };
+      const lh = Q(TW, 'LeftHand'), rh = Q(TW, 'RightHand'), ch = Q(TW, 'Spine2');
+      console.log(`  check ${spec.name}: bind fwd ${fw(TREST).toFixed(0)}, hips fwd ${fw(TW).toFixed(0)}, hands ${ang([(lh[0] + rh[0]) / 2 - ch[0], 0, (lh[2] + rh[2]) / 2 - ch[2]]).toFixed(0)}`);
     }
     for (const [, , tj] of pairs) rotOut.get(tj).push(...(tov.get(tj)?.r ?? tj.getRotation()));
     // hips: world offset from bind, scaled to the target's proportions, horizontal drift removed

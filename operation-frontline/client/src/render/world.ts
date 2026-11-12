@@ -6,7 +6,7 @@ import type { MapData, Zone } from '@shared/world/MapBuilder';
 import { F_GLASS, F_NOCOLLIDE, F_NORENDER } from '@shared/world/World';
 import { MAT, MATERIALS, PROPS, TINTS } from '@shared/world/materials';
 import * as pc from 'playcanvas';
-import type { Assets } from '../core/assets';
+import { type Assets, TREE_MODELS } from '../core/assets';
 import type { Engine } from '../core/engine';
 import { FACE_ALL, FACE_NX, FACE_NY, FACE_NZ, FACE_PX, FACE_PY, FACE_PZ, MeshBuilder } from './meshBuilder';
 
@@ -171,6 +171,28 @@ export class WorldView {
   private buildTrees(): void {
     const trees = this.map.trees;
     if (!trees.length) return;
+    if (TREE_MODELS.every((t) => this.assets.containers.has(t))) {
+      // realistic trees: kind picks the species (models are 7-8 m tall), scaled per tree
+      const height = [0.85, 0.8, 0.9];
+      for (const t of trees) {
+        const kind = Math.min(TREE_MODELS.length - 1, t.kind);
+        const model = this.assets.instantiate(TREE_MODELS[kind]);
+        const k = height[kind] * t.scale;
+        model.setLocalScale(k, k, k);
+        model.setPosition(t.x, t.y - 0.03, t.z);
+        model.setEulerAngles(0, ((t.x * 37 + t.z * 11) % 360 + 360) % 360, 0);
+        for (const r of model.findComponents('render') as pc.RenderComponent[]) {
+          r.castShadows = true; r.receiveShadows = true;
+          for (const mi of r.meshInstances) {
+            const m = mi.material as pc.StandardMaterial;
+            sanitizeMaterial(m);
+            if (m.blendType !== pc.BLEND_NONE || m.opacityMap) { m.blendType = pc.BLEND_NONE; m.alphaTest = Math.max(m.alphaTest, 0.4); m.cull = pc.CULLFACE_NONE; m.depthWrite = true; m.update(); }
+          }
+        }
+        this.root.addChild(model);
+      }
+      return;
+    }
     const trunks = new MeshBuilder(), leaves = new MeshBuilder();
     trees.forEach((t, i) => {
       const s = t.scale;
@@ -224,7 +246,8 @@ export class WorldView {
 
   // ------------------------------------------------------------------ props
   private buildProps(): void {
-    const big = new Set(['covered_car', 'concrete_road_barrier', 'concrete_road_barrier_02', 'old_military_compressor', 'wooden_crate_02', 'Barrel_01', 'barrel_03', 'old_military_crate', 'wooden_military_crate', 'metal_office_desk', 'portable_generator', 'street_lamp_01']);
+    const big = new Set(['covered_car', 'concrete_road_barrier', 'concrete_road_barrier_02', 'old_military_compressor', 'wooden_crate_02', 'Barrel_01', 'barrel_03', 'old_military_crate', 'wooden_military_crate', 'metal_office_desk', 'portable_generator', 'street_lamp_01',
+      'tank_m1a2', 'tank_t80', 'wreck_cars', 'wreck_sedan', 'van_izh', 'pickup_c10']);
     for (const p of this.map.props) {
       const def = PROPS[p.model];
       let model: pc.Entity;

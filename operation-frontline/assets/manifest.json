@@ -434,6 +434,114 @@
       "use": "Facade detail"
     },
     {
+      "name": "tree_small_02",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/tree_small_02",
+      "license": "CC0 1.0",
+      "format": "GLB, 9416 tris (source 2062487), textures ≤1024px, 1600KB",
+      "files": "client/public/assets/models/tree_small_02.glb",
+      "use": "Street tree (photoscanned)"
+    },
+    {
+      "name": "island_tree_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/island_tree_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 12530 tris (source 1599403), textures ≤1024px, 2053KB",
+      "files": "client/public/assets/models/island_tree_01.glb",
+      "use": "Large leafy tree"
+    },
+    {
+      "name": "jacaranda_tree",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/jacaranda_tree",
+      "license": "CC0 1.0",
+      "format": "GLB, 33705 tris (source 3863832), textures ≤1024px, 3040KB",
+      "files": "client/public/assets/models/jacaranda_tree.glb",
+      "use": "Large flowering street tree"
+    },
+    {
+      "name": "pine_tree_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/pine_tree_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 29817 tris (source 17182252), textures ≤1024px, 3578KB",
+      "files": "client/public/assets/models/pine_tree_01.glb",
+      "use": "Pine tree (park / edges)"
+    },
+    {
+      "name": "dead_tree_trunk",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/dead_tree_trunk",
+      "license": "CC0 1.0",
+      "format": "GLB, 4000 tris (source 101802), textures ≤1024px, 559KB",
+      "files": "client/public/assets/models/dead_tree_trunk.glb",
+      "use": "Dead tree / battlefield dressing"
+    },
+    {
+      "name": "shrub_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/shrub_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 2993 tris (source 156012), textures ≤512px, 262KB",
+      "files": "client/public/assets/models/shrub_01.glb",
+      "use": "Planter / verge shrub"
+    },
+    {
+      "name": "shrub_04",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/shrub_04",
+      "license": "CC0 1.0",
+      "format": "GLB, 2889 tris (source 27327), textures ≤512px, 206KB",
+      "files": "client/public/assets/models/shrub_04.glb",
+      "use": "Planter / verge shrub"
+    },
+    {
+      "name": "boulder_01",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/boulder_01",
+      "license": "CC0 1.0",
+      "format": "GLB, 54122 tris (source 66122), textures ≤1024px, 2673KB",
+      "files": "client/public/assets/models/boulder_01.glb",
+      "use": "Rock cover in parks and verges"
+    },
+    {
+      "name": "exterior_aircon_unit",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/exterior_aircon_unit",
+      "license": "CC0 1.0",
+      "format": "GLB, 2498 tris (source 18986), textures ≤512px, 568KB",
+      "files": "client/public/assets/models/exterior_aircon_unit.glb",
+      "use": "Facade / roof detail"
+    },
+    {
+      "name": "modular_street_seating",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/modular_street_seating",
+      "license": "CC0 1.0",
+      "format": "GLB, 9051 tris (source 25156), textures ≤512px, 790KB",
+      "files": "client/public/assets/models/modular_street_seating.glb",
+      "use": "Street furniture"
+    },
+    {
+      "name": "cement_bag",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/cement_bag",
+      "license": "CC0 1.0",
+      "format": "GLB, 844 tris (source 844), textures ≤512px, 80KB",
+      "files": "client/public/assets/models/cement_bag.glb",
+      "use": "Sandbag-style cover dressing"
+    },
+    {
+      "name": "modular_electricity_poles",
+      "type": "3D model",
+      "source": "Poly Haven — https://polyhaven.com/a/modular_electricity_poles",
+      "license": "CC0 1.0",
+      "format": "GLB, 25692 tris (source 200610), textures ≤512px, 1702KB",
+      "files": "client/public/assets/models/modular_electricity_poles.glb",
+      "use": "Utility poles along streets"
+    },
+    {
       "name": "Soldier.glb",
       "type": "3D model",
       "source": "three.js examples (mrdoob/three.js, examples/models/gltf/Soldier.glb) — \"Vanguard\" character and Idle/Walk/Run clips from Adobe Mixamo",
@@ -447,38 +555,43 @@
       "type": "3D model (Sketchfab)",
       "author": "42manako",
       "source": "Sketchfab — https://sketchfab.com/3d-models/german-bundeswehr-soldier-rigged-3d7944fea17b494abf220cc11ddabfd1",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/characters/operator.glb",
-      "use": "Soldier body (all players and bots); Idle/Walk/Run clips retargeted from the Mixamo Vanguard clips"
+      "use": "Soldier body for all players and bots"
     },
     {
       "name": "654230025_ Remy_ Rifle Aiming",
       "type": "3D model (Sketchfab)",
       "author": "Rapat Potongcome",
       "source": "Sketchfab — https://sketchfab.com/3d-models/654230025--remy--rifle-aiming-dbacdbf34f7f4bda802b4e670099cd74",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/characters/operator.glb (RifleIdle clip)",
-      "use": "Rifle-ready idle animation, retargeted"
+      "use": "Rifle-ready idle / upper-body rifle hold, retargeted"
     },
     {
       "name": "Soldier Crouched Alert Anim",
       "type": "3D model (Sketchfab)",
       "author": "britdawgmasterfunk",
       "source": "Sketchfab — https://sketchfab.com/3d-models/soldier-crouched-alert-anim-9b73b36ba2184bd1bde5b42810752b69",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/characters/operator.glb (Crouch clip)",
       "use": "Crouched alert animation, retargeted"
+    },
+    {
+      "name": "M4 - FPS Weapon Animations Pack (v.1)",
+      "type": "3D model (Sketchfab)",
+      "author": "BarcodeGames",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/m4-fps-weapon-animations-pack-v1-662fc74dda2646cfb48fc610705768ef",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/fps/arms.glb",
+      "use": "First-person arms with draw / fire / reload animations"
     },
     {
       "name": "Assault rifle M4A1",
       "type": "3D model (Sketchfab)",
       "author": "bobeer",
       "source": "Sketchfab — https://sketchfab.com/3d-models/assault-rifle-m4a1-1b858701dd7142d9b82bbe3fd121a97b",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/weapons/m4a1.glb",
       "use": "KR-7 Vanguard and AC-8 Carbine"
     },
@@ -487,8 +600,7 @@
       "type": "3D model (Sketchfab)",
       "author": "kennethtzh",
       "source": "Sketchfab — https://sketchfab.com/3d-models/akm-assault-rifle-game-ready-model-8b6ce77441f8446786e0680d61d327db",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/weapons/akm.glb",
       "use": "MX-4 Sentinel"
     },
@@ -497,8 +609,7 @@
       "type": "3D model (Sketchfab)",
       "author": "Daniel Zamary",
       "source": "Sketchfab — https://sketchfab.com/3d-models/hk-mp5-smg-fad0226e1dcf4af180f707a5509d3a4e",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/weapons/mp5.glb",
       "use": "Viper-9 SMG"
     },
@@ -507,8 +618,7 @@
       "type": "3D model (Sketchfab)",
       "author": "AK",
       "source": "Sketchfab — https://sketchfab.com/3d-models/m249-light-machine-gun-75cacc16a52640c7adb100d7294da244",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/weapons/m249.glb",
       "use": "HMG-88 Bulwark"
     },
@@ -517,10 +627,90 @@
       "type": "3D model (Sketchfab)",
       "author": "42manako",
       "source": "Sketchfab — https://sketchfab.com/3d-models/hmmwv-m998a1-soft-top-ffbc4b053628413fb84acf5b89595d96",
-      "license": "CC BY 4.0 (CC Attribution)",
-      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "license": "CC BY 4.0",
       "files": "client/public/assets/vehicles/hmmwv.glb",
       "use": "Light utility vehicle"
+    },
+    {
+      "name": "General Dynamics M1A2 Abrams Main Battle Tank",
+      "type": "3D model (Sketchfab)",
+      "author": "Muhamad Mirza Arrafi",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/general-dynamics-m1a2-abrams-main-battle-tank-10a16c96ca8b4ebc855915f5d5202046",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/tank_m1a2.glb",
+      "use": "Parked M1A2 tank (cover)"
+    },
+    {
+      "name": "Tank T-80U",
+      "type": "3D model (Sketchfab)",
+      "author": "javanilga",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/tank-t-80u-ebf4b55eeabb421cbf2758a2ec948439",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/tank_t80.glb",
+      "use": "Parked T-80U tank (cover)"
+    },
+    {
+      "name": "Burned-out Cars",
+      "type": "3D model (Sketchfab)",
+      "author": "Renafox",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/burned-out-cars-701066df6b914fd08318524c7ccd96a7",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/wreck_cars.glb",
+      "use": "Burned-out cars (cover)"
+    },
+    {
+      "name": "Destroyed Car 03 / Backrooms Car (Gameready ver)",
+      "type": "3D model (Sketchfab)",
+      "author": "Renafox",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/destroyed-car-03-backrooms-car-gameready-ver-efc4dfe2c7284a64bc9281eb4f61d402",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/wreck_sedan.glb",
+      "use": "Destroyed sedan (cover)"
+    },
+    {
+      "name": "Pirozhok Scan Retopo (Free Scan)",
+      "type": "3D model (Sketchfab)",
+      "author": "Renafox",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/pirozhok-scan-retopo-free-scan-07bc48134b364d4f8a43d288b3a0282d",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/van_izh.glb",
+      "use": "Abandoned van (cover)"
+    },
+    {
+      "name": "Low Poly Car - Chevrolet C10 Pickup 1963",
+      "type": "3D model (Sketchfab)",
+      "author": "ROH3D",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/low-poly-car-chevrolet-c10-pickup-1963-679354c151984747bb74310ec5af8995",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/pickup_c10.glb",
+      "use": "Abandoned pickup (cover)"
+    },
+    {
+      "name": "Oak tree",
+      "type": "3D model (Sketchfab)",
+      "author": "massive-graphisme",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/oak-tree-3dc59560f2d24345bdbe65c44636453b",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/tree_oak_a.glb",
+      "use": "Street tree"
+    },
+    {
+      "name": "Oak tree",
+      "type": "3D model (Sketchfab)",
+      "author": "evolveduk",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/oak-tree-6468dd4d3eb240ef902b9057d9913606",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/tree_oak_b.glb",
+      "use": "Street tree"
+    },
+    {
+      "name": "Realistic Tree",
+      "type": "3D model (Sketchfab)",
+      "author": "Daniel",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/realistic-tree-d989c0f801d847b9a74992ec4ddcfdfc",
+      "license": "CC BY 4.0",
+      "files": "client/public/assets/models/tree_leafy.glb",
+      "use": "Street tree"
     }
   ]
 }

@@ -31,7 +31,7 @@ export const ENVIRONMENTS: EnvPreset[] = [
   {
     id: 'day', name: 'Overcast Day', hdr: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_ibl.hdr', sky: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_sky.jpg',
     sun: [-0.404, 0.739, 0.539], minElevation: 0.3, sunColor: [1, 0.95, 0.86], sunIntensity: 3.2, skyIntensity: 2.6, skyVisible: 1.15, ambient: 0.85,
-    fogColor: [0.66, 0.72, 0.78], fogDensity: 0.0052, exposure: 0.8, skyYaw: 28,
+    fogColor: [0.68, 0.73, 0.78], fogDensity: 0.0068, exposure: 0.8, skyYaw: 28,
     grade: { brightness: 1.03, contrast: 1.12, saturation: 1.02, tint: [1, 0.985, 0.955] },
   },
   {

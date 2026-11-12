@@ -201,6 +201,10 @@ for (const o of OTHER_ASSETS) {
 
 if (!only) {
   writeFileSync(join(out, 'models.json'), JSON.stringify(meta, null, 1));
+  // CC BY models from Sketchfab (built by build-character / build-weapons / build-vehicle / build-arms / build-props)
+  for (const c of JSON.parse(readFileSync(join(root, 'assets', 'sketchfab-credits.json'), 'utf8'))) {
+    manifest.push({ name: c.name, type: '3D model (Sketchfab)', author: c.author, source: `Sketchfab — ${c.url}`, license: c.license, files: c.files, use: c.use });
+  }
   writeFileSync(join(root, 'assets', 'manifest.json'), JSON.stringify({ generated: new Date().toISOString().slice(0, 10), assets: manifest }, null, 2));
 }
 const total = (dir) => readdirSync(dir, { withFileTypes: true }).reduce((s, e) => s + (e.isDirectory() ? total(join(dir, e.name)) : statSync(join(dir, e.name)).size), 0);
