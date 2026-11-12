@@ -9,13 +9,31 @@ import type { Engine } from './engine';
  * base64 `.b64.txt` files; they are decoded into blob URLs at load time. Enabled with VITE_B64=1.
  */
 const B64 = (import.meta as unknown as { env: Record<string, string> }).env.VITE_B64 === '1';
+let inFlight = 0;
+const waiters: (() => void)[] = [];
+/** At most 3 base64 downloads / decodes at once: phones run out of memory when the whole game is in flight together. */
+async function slot<T>(fn: () => Promise<T>): Promise<T> {
+  while (inFlight >= 3) await new Promise<void>((r) => waiters.push(r));
+  inFlight++;
+  try { return await fn(); } finally { inFlight--; waiters.shift()?.(); }
+}
 async function resolveUrl(url: string): Promise<string> {
   if (!B64 || !/\.(glb|hdr)$/.test(url)) return url;
-  const text = await (await fetch(`${url}.b64.txt`)).text();
-  const bin = atob(text.trim());
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes]));
+  return slot(async () => {
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(`${url}.b64.txt`);
+        if (!res.ok) throw new Error(`${res.status} ${url}`);
+        const text = await res.text();
+        const bin = atob(text.trim());
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return URL.createObjectURL(new Blob([bytes]));
+      } catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 400 * (attempt + 1))); }
+    }
+    throw lastErr;
+  });
 }
 
 export const PROP_MODELS = [
