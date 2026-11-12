@@ -18,8 +18,14 @@ class Spring {
   v = 0; x = 0;
   constructor(private k: number, private d: number) {}
   step(dt: number, target = 0): number {
-    const a = (target - this.x) * this.k - this.v * this.d;
-    this.v += a * dt; this.x += this.v * dt;
+    // sub-step so the spring stays stable at low frame rates
+    let left = Math.min(dt, 0.25);
+    while (left > 1e-5) {
+      const h = Math.min(left, 1 / 240);
+      this.v += ((target - this.x) * this.k - this.v * this.d) * h;
+      this.x += this.v * h;
+      left -= h;
+    }
     return this.x;
   }
   kick(impulse: number): void { this.v += impulse; }

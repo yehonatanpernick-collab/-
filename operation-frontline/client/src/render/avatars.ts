@@ -81,7 +81,11 @@ class Avatar {
       anim.assignAnimation(track.name, track);
     }
     anim.baseLayer?.transition('Idle', 0);
-    for (const r of this.model.findComponents('render') as pc.RenderComponent[]) { r.castShadows = true; r.receiveShadows = true; }
+    for (const r of this.model.findComponents('render') as pc.RenderComponent[]) {
+      r.castShadows = true; r.receiveShadows = true;
+      // skinned bounds follow the bind pose, so frustum culling would wrongly hide moving soldiers
+      for (const mi of r.meshInstances) mi.cull = false;
+    }
     engine.app.root.addChild(this.root);
     this.root.enabled = false;
   }

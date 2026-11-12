@@ -512,8 +512,11 @@ export class Game {
     const k = Math.exp(-dt * 14);
     this.errX *= k; this.errY *= k; this.errZ *= k;
     this.shake = Math.max(0, this.shake - dt * 1.9);
-    this.landVel += (-this.landDip * 140 - this.landVel * 16) * dt;
-    this.landDip += this.landVel * dt;
+    for (let left = Math.min(dt, 0.25); left > 1e-5; left -= 1 / 240) { // stable at low frame rates
+      const hstep = Math.min(left, 1 / 240);
+      this.landVel += (-this.landDip * 140 - this.landVel * 16) * hstep;
+      this.landDip += this.landVel * hstep;
+    }
     const camC = cam.camera as pc.CameraComponent;
     let targetFov = s.fov;
 

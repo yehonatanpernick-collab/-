@@ -27,6 +27,7 @@ export class ConquestRoom extends Room {
     this.sim = new GameSim(matchOptions);
     void this.sim.nav; // build the navigation grid up-front, not during the first tick
     this.maxMessagesPerSecond = 120;
+    this.seatReservationTimeout = 60; // slow devices need time between matchmaking and opening the socket
     this.patchRate = null;
     // private rooms stay joinable by code (filterBy) but are hidden from the public room list via metadata
     this.updateMeta();
@@ -77,7 +78,7 @@ export class ConquestRoom extends Room {
   override onJoin(client: Client, options: { name?: unknown; loadout?: unknown; level?: unknown; protocol?: unknown }): void {
     if (options?.protocol !== PROTOCOL_VERSION) {
       client.send(S2C.ERROR, 'Your game version does not match the server. Please reload the page.');
-      client.leave(4003);
+      client.leave(4010);
       return;
     }
     const name = typeof options.name === 'string' ? options.name.replace(/[^\w \-.]/g, '').trim().slice(0, 16) || 'Soldier' : 'Soldier';

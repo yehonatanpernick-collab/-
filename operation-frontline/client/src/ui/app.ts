@@ -132,7 +132,13 @@ export class UiApp implements GameUi {
     await this.audio.resume();
     show(this.busy, true);
     try {
-      const session = await NetSession.connect({ ...r, name: this.store.settings.name, loadout: this.store.loadout, level: this.store.level, serverUrl: this.store.settings.serverUrl });
+      const req = { ...r, name: this.store.settings.name, loadout: this.store.loadout, level: this.store.level, serverUrl: this.store.settings.serverUrl };
+      let session: NetSession;
+      // one automatic retry: a slow device can miss the seat reservation window on the first attempt
+      try { session = await NetSession.connect(req); } catch (first) {
+        if (r.mode === 'private-join') throw first;
+        session = await NetSession.connect(r.mode === 'private-create' ? req : { ...req, mode: r.mode === 'join' ? 'join' : 'quick' });
+      }
       await this.onEnvironment(session.options.environment ?? 0);
       this.game.start(session);
       this.enterMatch();
