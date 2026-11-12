@@ -36,7 +36,9 @@ class VehicleView {
   private wasAlive = true;
   smokeT = 0;
 
-  constructor(engine: Engine, team: TeamId) {
+  private real: { mi: pc.MeshInstance; mat: pc.Material }[] = [];
+
+  constructor(engine: Engine, team: TeamId, assets?: Assets) {
     const device = engine.device;
     const paint: [number, number, number] = team === TEAM_A ? [0.2, 0.25, 0.17] : [0.46, 0.38, 0.26];
     const hull = new MeshBuilder(), dark = new MeshBuilder(), glass = new MeshBuilder(), lights = new MeshBuilder();
@@ -117,6 +119,17 @@ class VehicleView {
       this.root.addChild(pivot);
       this.wheels.push(pivot);
     }
+    // realistic HMMWV model (Sketchfab, CC-BY) replaces the procedural hull when it is loaded; the procedural
+    // pieces stay as invisible fallbacks so wheel / damage logic keeps working unchanged
+    if (assets?.containers.has('hmmwv')) {
+      const model = assets.instantiate('hmmwv');
+      for (const c of [...this.root.children]) (c as pc.Entity).enabled = false;
+      this.root.addChild(model);
+      for (const rc of model.findComponents('render') as pc.RenderComponent[]) {
+        rc.castShadows = true; rc.receiveShadows = true;
+        for (const mi of rc.meshInstances) if (mi.material) this.real.push({ mi, mat: mi.material });
+      }
+    }
     engine.app.root.addChild(this.root);
   }
 
@@ -128,6 +141,7 @@ class VehicleView {
       this.wasAlive = v.alive;
       const mi = (this.body.render as pc.RenderComponent).meshInstances[0];
       mi.material = v.alive ? this.bodyMats[0] : this.burnt;
+      for (const r of this.real) r.mi.material = v.alive ? r.mat : this.burnt;
     }
     this.spin += (v.speed / 0.45) * dt;
     for (let i = 0; i < 4; i++) {
@@ -244,7 +258,7 @@ export class EntityViews {
     // ---- vehicles
     for (const v of vehicles) {
       let view = this.vehicles.get(v.id);
-      if (!view) { view = new VehicleView(this.engine, v.id === 0 ? 1 : 2); this.vehicles.set(v.id, view); }
+      if (!view) { view = new VehicleView(this.engine, v.id === 0 ? 1 : 2, this.assets); this.vehicles.set(v.id, view); }
       view.update(dt, v, this.fx);
       audio.engine(v.id, v.x, v.y + 1, v.z, v.speed, v.alive && v.driver >= 0);
     }

@@ -97,3 +97,16 @@ Assault rifles, carbine, SMG, LMG, launcher, the vehicle and first-person arms a
 ## E2E tests
 
 `npm run test:e2e` needs Playwright with Chromium (`npm i -D playwright && npx playwright install chromium`) and a prior `npm run build`. On machines without a GPU run it as `FRONTLINE_GL=llvmpipe xvfb-run -a node tests/e2e/run.mjs`.
+
+## Realistic models (Sketchfab, CC BY 4.0)
+
+The soldier, the four real-world guns and the HMMWV are CC BY 4.0 models from Sketchfab (authors are credited in `assets/manifest.json` and on the in-game Credits tab). To rebuild them:
+
+```bash
+SKETCHFAB_TOKEN=... node scripts/fetch-sketchfab.mjs   # downloads into assets/raw/sketchfab (git-ignored)
+node scripts/build-character.mjs   # soldier + retargeted Mixamo clips -> client/public/assets/characters/operator.glb
+node scripts/build-weapons.mjs     # m4a1 / akm / mp5 / m249 -> client/public/assets/weapons/
+node scripts/build-vehicle.mjs     # HMMWV -> client/public/assets/vehicles/hmmwv.glb
+```
+
+`client/viewer.html?url=...` previews any GLB with its animation clips.

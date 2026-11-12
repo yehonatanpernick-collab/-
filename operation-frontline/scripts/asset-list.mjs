@@ -73,3 +73,18 @@ export const OTHER_ASSETS = [
     use: 'Third-person soldier body for remote players and bots',
   },
 ];
+
+// Realistic models from Sketchfab (CC Attribution 4.0 — attribution in assets/manifest.json and the in-game credits).
+export const SKETCHFAB = [
+  { uid: '1b30188ed90449fea1777bb17637f54c', use: 'candidate soldier' },
+  { uid: 'cc995450452744ec8f852d8bf5f335d6', use: 'candidate soldier' },
+  { uid: '850593a8c7114c188395ba1849a66eb9', use: 'candidate soldier' },
+  { uid: '3d7944fea17b494abf220cc11ddabfd1', use: 'candidate soldier' },
+  { uid: '1b858701dd7142d9b82bbe3fd121a97b', use: 'KR-7 assault rifle' },
+  { uid: '8b6ce77441f8446786e0680d61d327db', use: 'MX-4 battle rifle' },
+  { uid: 'f32fe06215434fb2a159d29343079a1e', use: 'AC-8 carbine' },
+  { uid: '3a5f98f75e804e5888379cbe640cc883', use: 'Viper-9 SMG' },
+  { uid: '533204d3a9f240f78b65973b323cba7c', use: 'HMG-88 LMG' },
+  { uid: 'ffbc4b053628413fb84acf5b89595d96', use: 'LTV vehicle' },
+  { uid: '6801c8b642424558a7d4a6ff9931e110', use: 'LTV vehicle (alt)' },
+];

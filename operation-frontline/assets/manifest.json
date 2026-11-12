@@ -441,6 +441,86 @@
       "format": "GLB (skinned mesh + 4 animation clips), 2110KB",
       "files": "client/public/assets/characters/soldier.glb",
       "use": "Third-person soldier body for remote players and bots"
+    },
+    {
+      "name": "German Bundeswehr soldier - rigged",
+      "type": "3D model (Sketchfab)",
+      "author": "42manako",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/german-bundeswehr-soldier-rigged-3d7944fea17b494abf220cc11ddabfd1",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/characters/operator.glb",
+      "use": "Soldier body (all players and bots); Idle/Walk/Run clips retargeted from the Mixamo Vanguard clips"
+    },
+    {
+      "name": "654230025_ Remy_ Rifle Aiming",
+      "type": "3D model (Sketchfab)",
+      "author": "Rapat Potongcome",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/654230025--remy--rifle-aiming-dbacdbf34f7f4bda802b4e670099cd74",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/characters/operator.glb (RifleIdle clip)",
+      "use": "Rifle-ready idle animation, retargeted"
+    },
+    {
+      "name": "Soldier Crouched Alert Anim",
+      "type": "3D model (Sketchfab)",
+      "author": "britdawgmasterfunk",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/soldier-crouched-alert-anim-9b73b36ba2184bd1bde5b42810752b69",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/characters/operator.glb (Crouch clip)",
+      "use": "Crouched alert animation, retargeted"
+    },
+    {
+      "name": "Assault rifle M4A1",
+      "type": "3D model (Sketchfab)",
+      "author": "bobeer",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/assault-rifle-m4a1-1b858701dd7142d9b82bbe3fd121a97b",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/weapons/m4a1.glb",
+      "use": "KR-7 Vanguard and AC-8 Carbine"
+    },
+    {
+      "name": "AKM Assault Rifle | Game Ready Model",
+      "type": "3D model (Sketchfab)",
+      "author": "kennethtzh",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/akm-assault-rifle-game-ready-model-8b6ce77441f8446786e0680d61d327db",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/weapons/akm.glb",
+      "use": "MX-4 Sentinel"
+    },
+    {
+      "name": "HK MP5 SMG",
+      "type": "3D model (Sketchfab)",
+      "author": "Daniel Zamary",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/hk-mp5-smg-fad0226e1dcf4af180f707a5509d3a4e",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/weapons/mp5.glb",
+      "use": "Viper-9 SMG"
+    },
+    {
+      "name": "M249 light machine gun",
+      "type": "3D model (Sketchfab)",
+      "author": "AK",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/m249-light-machine-gun-75cacc16a52640c7adb100d7294da244",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/weapons/m249.glb",
+      "use": "HMG-88 Bulwark"
+    },
+    {
+      "name": "HMMWV M998A1 (soft top)",
+      "type": "3D model (Sketchfab)",
+      "author": "42manako",
+      "source": "Sketchfab — https://sketchfab.com/3d-models/hmmwv-m998a1-soft-top-ffbc4b053628413fb84acf5b89595d96",
+      "license": "CC BY 4.0 (CC Attribution)",
+      "format": "GLB, normalised and compressed by scripts/build-*.mjs",
+      "files": "client/public/assets/vehicles/hmmwv.glb",
+      "use": "Light utility vehicle"
     }
   ]
 }

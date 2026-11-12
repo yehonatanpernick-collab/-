@@ -130,7 +130,8 @@ export class Avatars {
     for (const r of renders) for (const mi of r.meshInstances) {
       if (!mats[idx]) {
         const m = (mi.material as pc.StandardMaterial).clone();
-        if (team === TEAM_A) m.diffuse = new pc.Color(0.62, 0.74, 0.95); else m.diffuse = new pc.Color(1.0, 0.76, 0.6);
+        // the camouflage texture is dark: lift it a little and give each team a subtle colour cast
+        if (team === TEAM_A) m.diffuse = new pc.Color(1.15, 1.25, 1.45); else m.diffuse = new pc.Color(1.5, 1.3, 1.1);
         m.update();
         mats[idx] = m;
       }
@@ -276,7 +277,8 @@ export class Avatars {
       const twist = Math.max(-1.35, Math.min(1.35, angleDiff(a.bodyYaw, aim)));
 
       // ---- locomotion clip
-      if (spd < 0.45) { a.play('Idle', 0.25); anim.speed = 1; }
+      if (spd < 0.45 && crouch) { a.play('Crouch', 0.3); anim.speed = 1; }
+      else if (spd < 0.45) { a.play('RifleIdle', 0.3); anim.speed = 1; }
       else if (spd < 3.6 || crouch) { a.play('Walk', 0.22); anim.speed = (back ? -1 : 1) * Math.max(0.5, Math.min(1.9, spd / 1.55)); }
       else { a.play('Run', 0.22); anim.speed = (back ? -1 : 1) * Math.max(0.7, Math.min(1.6, spd / 4.6)); }
 
@@ -288,7 +290,7 @@ export class Avatars {
       tmpFwd.set(-sa, 0, -ca);
 
       // ---- crouch: drop the hips and re-plant the feet with leg IK
-      if (a.crouchK > 0.02 && b.Hips && !far) {
+      if (a.crouchK > 0.02 && b.Hips && !far && a.state !== 'Crouch') {
         const bf = a.bodyYaw;
         const fx = -Math.sin(bf), fz = -Math.cos(bf);
         tLf.copy(b.LeftFoot.getPosition()); tRf.copy(b.RightFoot.getPosition());

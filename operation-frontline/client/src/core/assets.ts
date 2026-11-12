@@ -26,6 +26,8 @@ export const PROP_MODELS = [
   'old_military_compressor',
 ];
 export const WEAPON_MODELS = ['bolt_action_rifle_7_62', 'service_pistol', 'stick_grenade'];
+/** Realistic gun models (Sketchfab, CC-BY), normalised by scripts/build-weapons.mjs. */
+export const REAL_GUNS = ['m4a1', 'akm', 'mp5', 'm249'];
 
 export class Assets {
   readonly textures = new Map<string, pc.Texture>();
@@ -94,7 +96,9 @@ export class Assets {
     }
     for (const p of PROP_MODELS) jobs.push(this.loadContainer(p, `assets/models/${p}.glb`));
     for (const w of WEAPON_MODELS) jobs.push(this.loadContainer(w, `assets/models/${w}.glb`));
-    jobs.push(this.loadContainer('soldier', 'assets/characters/soldier.glb'));
+    for (const w of REAL_GUNS) jobs.push(this.loadContainer(`gun_${w}`, `assets/weapons/${w}.glb`));
+    jobs.push(this.loadContainer('soldier', 'assets/characters/operator.glb'));
+    jobs.push(this.loadContainer('hmmwv', 'assets/vehicles/hmmwv.glb'));
     await Promise.all(jobs);
     this.buildMaterials();
   }

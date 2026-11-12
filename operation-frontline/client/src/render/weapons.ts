@@ -358,11 +358,44 @@ function buildPistol(engine: Engine, assets: Assets, att: AttachmentSet): Weapon
 }
 
 /** Build a weapon model. `thirdPerson` models cast shadows and skip tiny first-person-only details. */
+/** Game weapon -> realistic model. Values from client/public/assets/weapons/weapons.json (origin = grip on the bore line). */
+const REAL: Record<string, { file: string; muzzleZ: number; top: number; bottom: number; sightY: number }> = {
+  kr7: { file: 'm4a1', muzzleZ: -0.563, top: 0.075, bottom: -0.203, sightY: 0.058 },
+  ac8: { file: 'm4a1', muzzleZ: -0.563, top: 0.075, bottom: -0.203, sightY: 0.058 },
+  mx4: { file: 'akm', muzzleZ: -0.607, top: 0.108, bottom: -0.24, sightY: 0.085 },
+  viper9: { file: 'mp5', muzzleZ: -0.408, top: 0.05, bottom: -0.226, sightY: 0.04 },
+  bulwark: { file: 'm249', muzzleZ: -0.728, top: 0.108, bottom: -0.433, sightY: 0.085 },
+};
+
+function buildRealGun(engine: Engine, assets: Assets, id: string, att: AttachmentSet): WeaponModel | null {
+  const r = REAL[id];
+  if (!r) return null;
+  let model: pc.Entity;
+  try { model = assets.instantiate(`gun_${r.file}`); } catch { return null; }
+  const root = new pc.Entity('weapon');
+  root.addChild(model);
+  for (const rc of model.findComponents('render') as pc.RenderComponent[]) for (const mi of rc.meshInstances) sanitizeMaterial(mi.material as pc.StandardMaterial);
+  let muzzleZ = r.muzzleZ;
+  if (att.muzzle === 'suppressor') {
+    const sup = new MeshBuilder();
+    sup.cylinder(0, 0, muzzleZ + 0.01, 0, 0, muzzleZ - 0.17, 0.02, 0.02, 14);
+    sup.cylinder(0, 0, muzzleZ - 0.17, 0, 0, muzzleZ - 0.176, 0.02, 0.012, 14);
+    root.addChild(meshEntity(engine.device, 'suppressor', sup, gunMat([0.12, 0.12, 0.13], 0.7, 0.45)));
+    muzzleZ -= 0.176;
+  }
+  return {
+    root, mag: null, bolt: null, boltRest: new pc.Vec3(), boltAxis: new pc.Vec3(0, 0, 1), boltTravel: 0, magRest: new pc.Vec3(),
+    muzzle: new pc.Vec3(0, 0, muzzleZ), sight: new pc.Vec3(0, r.sightY, 0.02),
+    gripL: new pc.Vec3(0, -0.04, muzzleZ * 0.55), gripR: new pc.Vec3(0, -0.075, 0.02), eject: new pc.Vec3(0.03, 0.01, -0.08),
+    reticle: null, kind: 'rifle',
+  };
+}
+
 export function buildWeaponModel(engine: Engine, assets: Assets, weaponId: string, att: AttachmentSet, thirdPerson = false): WeaponModel {
   let model: WeaponModel;
   if (weaponId === 'longbow') model = buildSniper(engine, assets, att);
   else if (weaponId === 'p12') model = buildPistol(engine, assets, att);
-  else model = buildProceduralGun(engine.device, SPECS[weaponId] ?? SPECS.kr7, att, thirdPerson);
+  else model = buildRealGun(engine, assets, weaponId, att) ?? buildProceduralGun(engine.device, SPECS[weaponId] ?? SPECS.kr7, att, thirdPerson);
   if (thirdPerson) for (const r of model.root.findComponents('render') as pc.RenderComponent[]) r.castShadows = true;
   return model;
 }
