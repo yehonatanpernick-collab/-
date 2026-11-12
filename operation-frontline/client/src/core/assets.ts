@@ -4,6 +4,20 @@ import { MATERIALS, type MaterialDef } from '@shared/world/materials';
 import * as pc from 'playcanvas';
 import type { Engine } from './engine';
 
+/**
+ * Static hosts that only serve text-like file types (e.g. the artifact viewer) get binary assets as
+ * base64 `.b64.txt` files; they are decoded into blob URLs at load time. Enabled with VITE_B64=1.
+ */
+const B64 = (import.meta as unknown as { env: Record<string, string> }).env.VITE_B64 === '1';
+async function resolveUrl(url: string): Promise<string> {
+  if (!B64 || !/\.(glb|hdr)$/.test(url)) return url;
+  const text = await (await fetch(`${url}.b64.txt`)).text();
+  const bin = atob(text.trim());
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes]));
+}
+
 export const PROP_MODELS = [
   'Barrel_01', 'barrel_03', 'concrete_road_barrier', 'concrete_road_barrier_02', 'covered_car', 'fire_hydrant', 'metal_trash_can',
   'street_lamp_01', 'street_lamp_02', 'utility_box_01', 'utility_box_02', 'old_tyre', 'metal_jerrycan_green', 'portable_generator',
@@ -33,8 +47,8 @@ export class Assets {
   loadTexture = (url: string, opts: { srgb?: boolean; mipmaps?: boolean } = {}): Promise<pc.Texture> => {
     const cached = this.textures.get(url);
     if (cached) return Promise.resolve(cached);
-    return this.track(url, new Promise<pc.Texture>((resolve, reject) => {
-      const asset = new pc.Asset(url, 'texture', { url }, { srgb: !!opts.srgb, mipmaps: opts.mipmaps ?? true });
+    return this.track(url, resolveUrl(url).then((real) => new Promise<pc.Texture>((resolve, reject) => {
+      const asset = new pc.Asset(url, 'texture', { url: real, filename: url.split('/').pop() }, { srgb: !!opts.srgb, mipmaps: opts.mipmaps ?? true });
       asset.once('load', () => {
         const tex = asset.resource as pc.Texture;
         if (opts.mipmaps !== false) {
@@ -48,19 +62,19 @@ export class Assets {
       asset.once('error', (err: unknown) => reject(new Error(`texture ${url}: ${String(err)}`)));
       this.app.assets.add(asset);
       this.app.assets.load(asset);
-    }));
+    })));
   };
 
   loadContainer(name: string, url: string): Promise<pc.Asset> {
     const cached = this.containers.get(name);
     if (cached) return Promise.resolve(cached);
-    return this.track(url, new Promise<pc.Asset>((resolve, reject) => {
-      const asset = new pc.Asset(name, 'container', { url });
+    return this.track(url, resolveUrl(url).then((real) => new Promise<pc.Asset>((resolve, reject) => {
+      const asset = new pc.Asset(name, 'container', { url: real, filename: url.split('/').pop() });
       asset.once('load', () => { this.containers.set(name, asset); resolve(asset); });
       asset.once('error', (err: unknown) => reject(new Error(`model ${url}: ${String(err)}`)));
       this.app.assets.add(asset);
       this.app.assets.load(asset);
-    }));
+    })));
   }
 
   /** Instantiate a loaded GLB as a render hierarchy. */
