@@ -28,7 +28,8 @@ Nothing here was run on a physical GPU or phone.
 | | Input validation, rate limits | done | T |
 | Destruction | Glass, barrels, crates, decals | done | T (events) |
 | | Interactive doors | not done | — |
-| Vehicle | Enter/exit, drive, collide, health, passenger, sync, repair | done | C (sim runs in tests; driving not screenshot-tested) |
+| Vehicle | Enter/exit, drive, collide, health, chase camera | done | S (drove it in the browser) |
+| | Passenger seat, repair, rocket damage | done | C |
 | Audio | Spatial, attenuation, occlusion, interior reverb, ambience, music | done | C (headless test has no audio output) |
 | UI | Menu (8 sections), lobby, HUD, minimap, scoreboard, deploy, end screen, settings, key binding | done | S, E |
 | Mobile | Touch stick, look, buttons, responsive layout, options | done | E (emulated touch) |

@@ -254,10 +254,10 @@ export class WorldView {
 
       // tall translucent beam so the objective reads from across the map
       const beamB = new MeshBuilder();
-      beamB.cylinder(0, 0, 0, 0, 60, 0, 0.5, 0.5, 10, false);
+      beamB.cylinder(0, 0, 0, 0, 45, 0, 0.3, 0.3, 10, false);
       const beam = new pc.StandardMaterial();
-      beam.diffuse = new pc.Color(0, 0, 0); beam.emissive = new pc.Color(1, 1, 1); beam.emissiveIntensity = 1.2;
-      beam.useLighting = false; beam.cull = pc.CULLFACE_NONE; beam.depthWrite = false; beam.blendType = pc.BLEND_ADDITIVE; beam.opacity = 0.1;
+      beam.diffuse = new pc.Color(0, 0, 0); beam.emissive = new pc.Color(1, 1, 1); beam.emissiveIntensity = 0.6;
+      beam.useLighting = false; beam.cull = pc.CULLFACE_NONE; beam.depthWrite = false; beam.blendType = pc.BLEND_ADDITIVE; beam.opacity = 0.05;
       beam.update();
       const be = new pc.Entity(`beam-${o.id}`);
       be.addComponent('render', { meshInstances: [new pc.MeshInstance(beamB.toMesh(device, false), beam)], castShadows: false, receiveShadows: false });
