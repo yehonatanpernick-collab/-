@@ -1,0 +1,2663 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>City Drive 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #0b1220; color: #f8fafc;
+    font-family: 'Rubik', system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+  [hidden] { display: none !important; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .panel {
+    position: fixed;
+    background: rgba(10, 16, 28, 0.55);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+  }
+
+  #title {
+    top: 16px; right: 16px; padding: 12px 16px; text-align: right;
+  }
+  #title h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  #title p { margin: 4px 0 0; font-size: 12px; color: #94a3b8; }
+
+  #speedPanel {
+    left: 16px; bottom: 16px; padding: 14px 20px 16px; min-width: 190px;
+  }
+  .speed-row { display: flex; align-items: baseline; gap: 8px; direction: ltr; }
+  #speed {
+    font-size: 58px; font-weight: 700; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .unit { font-size: 13px; color: #94a3b8; }
+  .meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: #94a3b8; }
+  #gear {
+    width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    background: rgba(56, 189, 248, 0.18); color: #7dd3fc; font-weight: 700; direction: ltr;
+  }
+  #hand {
+    padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(248, 113, 113, 0.4);
+    color: #fca5a5; opacity: 0.35; transition: opacity 0.15s;
+  }
+  #hand.on { opacity: 1; background: rgba(239, 68, 68, 0.2); }
+  .rev { margin-top: 12px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+  #revBar {
+    height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, #38bdf8, #f97316);
+  }
+
+  #minimap { right: 16px; bottom: 16px; width: 200px; height: 200px; padding: 0; overflow: hidden; border-radius: 50%; }
+  #minimap canvas { width: 100%; height: 100%; display: block; }
+
+  #hint {
+    left: 16px; top: 16px; padding: 10px 14px; font-size: 12px; color: #cbd5e1; line-height: 1.7;
+  }
+  #hint kbd {
+    font-family: inherit; font-size: 11px; padding: 1px 6px; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(ellipse at center, rgba(11, 18, 32, 0.35), rgba(11, 18, 32, 0.8));
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    z-index: 10;
+  }
+  .card {
+    width: min(92vw, 420px); padding: 32px 30px; text-align: center; box-sizing: border-box;
+    background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  }
+  .card h1 {
+    margin: 0 0 6px; font-size: 38px; font-weight: 700; letter-spacing: 0.02em;
+    background: linear-gradient(90deg, #38bdf8, #f97316);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .card .sub { margin: 0 0 22px; color: #94a3b8; font-size: 14px; }
+  .controls { list-style: none; padding: 0; margin: 0 0 26px; text-align: right; font-size: 14px; color: #cbd5e1; }
+  .controls li { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+  .controls kbd {
+    font-family: inherit; font-size: 12px; padding: 2px 8px; border-radius: 6px; direction: ltr;
+    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
+  }
+  .card button {
+    width: 100%; padding: 14px; border: 0; border-radius: 14px; cursor: pointer;
+    font: inherit; font-size: 17px; font-weight: 700; color: #0b1220;
+    background: linear-gradient(90deg, #38bdf8, #fb923c);
+    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.25);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card button:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(56, 189, 248, 0.35); }
+  .card button:active { transform: translateY(1px); }
+
+  .goal { margin-top: 10px; font-size: 12px; color: #e2e8f0; line-height: 1.6; }
+  .toast {
+    position: fixed; top: 84px; left: 50%; transform: translateX(-50%) translateY(-8px);
+    padding: 10px 18px; border-radius: 14px; background: rgba(10, 16, 28, 0.7);
+    border: 1px solid rgba(250, 204, 21, 0.4); color: #fef3c7; font-size: 15px; font-weight: 500;
+    opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; z-index: 6; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* --- Touch controls: shown only on touch devices --- */
+  #touch { display: none; }
+  #rotate {
+    display: none; position: fixed; inset: 0; z-index: 20; place-items: center; text-align: center;
+    background: #0b1220; font-size: 18px; padding: 24px; box-sizing: border-box;
+  }
+  @media (pointer: coarse) {
+    html, body, #game { touch-action: none; -webkit-touch-callout: none; }
+    #touch { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+    .pad { position: fixed; bottom: 18px; display: grid; gap: 12px; pointer-events: auto; }
+    .pad.left { left: 16px; grid-template-columns: repeat(3, auto); align-items: end; }
+    .pad.right { right: 16px; grid-template-columns: repeat(2, auto); align-items: end; }
+    .tb {
+      width: 76px; height: 76px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(15, 23, 42, 0.5); color: #f8fafc; font: inherit; font-size: 24px;
+      display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    .tb.small { width: 60px; height: 60px; font-size: 14px; border-radius: 30px; }
+    .tb.gas { width: 92px; height: 92px; font-size: 30px; background: rgba(56, 189, 248, 0.35); }
+    .tb.pressed { background: rgba(251, 146, 60, 0.6); transform: scale(0.94); }
+    #rotate { display: none; }
+    #hint, #title { display: none; }
+    #speedPanel { top: 16px; left: 16px; bottom: auto; min-width: 150px; padding: 10px 14px; }
+    #speed { font-size: 40px; }
+    #minimap { top: 16px; right: 16px; bottom: auto; width: 120px; height: 120px; }
+    .card { padding: 22px 20px; }
+    .card h1 { font-size: 30px; }
+    .controls { display: none; }
+  }
+  @media (pointer: coarse) and (orientation: portrait) {
+    #rotate { display: grid; }
+  }
+
+  @media (max-width: 720px) {
+    #minimap { width: 130px; height: 130px; }
+    #speed { font-size: 44px; }
+    #hint { display: none; }
+    #title p { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="title" class="panel">
+  <h2>CITY DRIVE 3D</h2>
+  <p>נהיגה חופשית בעיר</p>
+</div>
+
+<div id="hint" class="panel">
+  <kbd>↑ ↓ ← →</kbd> / <kbd>WASD</kbd> נהיגה<br>
+  <kbd>Space</kbd> בלם יד · <kbd>C</kbd> מצלמה<br>
+  <kbd>R</kbd> איפוס · <kbd>P</kbd> השהיה · <kbd>M</kbd> השתקה · <kbd>V</kbd> החלפת רכב
+</div>
+
+<div id="speedPanel" class="panel">
+  <div class="speed-row"><span id="speed">0</span><span class="unit">קמ״ש</span></div>
+  <div class="meta">
+    <span id="vehName">רכב</span>
+    <span id="gear">N</span>
+    <span id="hand">בלם יד</span>
+  </div>
+  <div class="rev"><div id="revBar"></div></div>
+  <div id="goal" class="goal"></div>
+</div>
+
+<div id="minimap" class="panel"><canvas id="minimapCanvas" width="400" height="400"></canvas></div>
+
+<div id="touch">
+  <div class="pad left">
+    <button class="tb" data-key="left" aria-label="שמאלה">◀</button>
+    <button class="tb" data-key="right" aria-label="ימינה">▶</button>
+    <button class="tb small" id="touchPause" aria-label="השהיה">❚❚</button>
+  </div>
+  <div class="pad right">
+    <button class="tb small" id="touchHand" data-key="hand" aria-label="בלם יד">בלם יד</button>
+    <button class="tb small" id="touchCam" aria-label="מצלמה">מצלמה</button>
+    <button class="tb small" id="touchDescend" data-key="descend" aria-label="ירידה" hidden>ירידה</button>
+    <button class="tb small" id="touchVehicle" aria-label="החלפת רכב">רכב ▸</button>
+    <button class="tb" data-key="down" aria-label="בלם או אחורה">▼</button>
+    <button class="tb gas" data-key="up" aria-label="גז">▲</button>
+  </div>
+</div>
+<div id="rotate">סובב את המכשיר לרוחב כדי לנהוג</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="startOverlay" class="overlay">
+  <div class="card">
+    <h1>City Drive 3D</h1>
+    <p class="sub">עיר תלת-ממדית פתוחה. סע לאן שתרצה.</p>
+    <ul class="controls">
+      <li><span>נהיגה</span><kbd>↑ ↓ ← →  /  WASD</kbd></li>
+      <li><span>בלם יד (החלקה)</span><kbd>Space</kbd></li>
+      <li><span>החלפת רכב (רכב, אופנוע, טרקטורון, מסוק)</span><kbd>V</kbd></li>
+    <li><span>מסוק: מעלה / מטה</span><kbd>Space / Shift</kbd></li>
+    <li><span>מטוס: גז, מדחף, כנף</span><kbd>Space / Shift · W S · A D</kbd></li>
+    <li><span>החלפת מצלמה</span><kbd>C</kbd></li>
+      <li><span>איפוס למיקום התחלה</span><kbd>R</kbd></li>
+      <li><span>השהיה</span><kbd>P / Esc</kbd></li>
+    </ul>
+    <button id="startBtn">התחל נסיעה</button>
+  </div>
+</div>
+
+<div id="pauseOverlay" class="overlay" hidden>
+  <div class="card">
+    <h1>הפסקה</h1>
+    <p class="sub">המשחק מושהה</p>
+    <button id="resumeBtn">המשך</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
+
+// ============================================================
+// World layout
+// ============================================================
+const BLOCK = 58;                      // block size, curb to curb
+const ROAD = 14;                       // road width
+const PITCH = BLOCK + ROAD;            // distance between road centrelines
+const SIDEWALK = 3.5;
+const LANE = ROAD / 4;                 // lane centre offset from the road centre
+const NODE_MIN = -4, NODE_MAX = 4;     // intersections sit at i * PITCH
+const CELL_MIN = NODE_MIN, CELL_MAX = NODE_MAX - 1; // blocks sit between two intersections
+const EDGE = NODE_MAX * PITCH;         // position of the outermost roads
+const WORLD_LIMIT = EDGE + ROAD / 2 - 2;
+
+// Vehicle tuning (metres and seconds)
+// Per-vehicle values (top speed, engine, grip, turning, body radius) live in VEHICLES
+const MAX_SPEED = 44;                  // reference speed for the HUD, camera and audio (about 158 km/h)
+const REVERSE_ACCEL = 9;
+const COAST_DRAG = 0.35;
+const HAND_DECEL = 18;
+const RESTITUTION = 0.25;
+
+const SIDEWALK_COLOR = 0xcdc7bb;
+const ASPHALT_COLOR = 0x2d3136;
+const FACADE_PALETTE = [0xe9e4da, 0xc8b79d, 0x9fb2c4, 0x6d7c8d, 0xb76b4f, 0xf4f1ea, 0xd9cfc0, 0x8c9a86];
+
+// ============================================================
+// Helpers
+// ============================================================
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(20240607);       // fixed seed: the same city every time
+const randInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const UP = new THREE.Vector3(0, 1, 0);
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+
+// Remap box UVs from world size so windows keep a constant real-world scale.
+function remapUV(geo, tileW, tileH) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
+  for (let k = 0; k < pos.count; k++) {
+    const nx = nor.getX(k), ny = nor.getY(k);
+    if (Math.abs(ny) > 0.5) {
+      uv.setXY(k, pos.getX(k) / tileW, pos.getZ(k) / tileW);
+    } else {
+      const u = Math.abs(nx) > 0.5 ? pos.getZ(k) : pos.getX(k);
+      uv.setXY(k, u / tileW, pos.getY(k) / tileH);
+    }
+  }
+  uv.needsUpdate = true;
+}
+
+// ============================================================
+// Renderer, scene, camera
+// ============================================================
+// Phones and tablets get lighter settings: smaller shadow maps and capped pixel ratio
+const LOW_END = window.matchMedia('(pointer: coarse)').matches;
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_END ? 1.5 : 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const HORIZON = 0xf0c09a;
+scene.fog = new THREE.Fog(HORIZON, 220, 1000);
+scene.background = makeSkyTexture();
+// Reflections come from a generated sky with a sun glint, so paint and glass reflect a real-looking sky
+const envScene = new THREE.Scene();
+envScene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(50, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      top: { value: new THREE.Color(0x8a9db5) },
+      horizon: { value: new THREE.Color(0xf0c09a) },
+      sunDir: { value: new THREE.Vector3(0.8, 0.38, 0.45).normalize() },
+    },
+    vertexShader: `varying vec3 vDir;
+      void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+      void main() {
+        vec3 c = mix(horizon, top, smoothstep(0.0, 0.6, vDir.y));
+        float s = max(dot(vDir, normalize(sunDir)), 0.0);
+        c += vec3(1.0, 0.85, 0.6) * (pow(s, 64.0) * 6.0 + pow(s, 6.0) * 0.5);
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  }),
+));
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(envScene, 0.02).texture;
+
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.5, 2000);
+
+// Post-processing: HDR render, soft bloom on lights, then tone mapping and SMAA
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+if (!LOW_END) {
+  // Ambient occlusion: soft contact darkening in corners, under cars and between buildings
+  const gtao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
+  gtao.output = GTAOPass.OUTPUT.Default;
+  composer.addPass(gtao);
+}
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.6, 0.95);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const vignette = new ShaderPass(VignetteShader);
+vignette.uniforms.offset.value = 1.1;
+vignette.uniforms.darkness.value = 0.9;
+composer.addPass(vignette);
+
+// Final grade: slight warm shadows, punchier contrast and colour, and a whisper of film grain
+const grade = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    time: { value: 0 },
+    contrast: { value: 1.07 },
+    saturation: { value: 1.1 },
+    warmth: { value: 0.035 },
+    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time; uniform float contrast; uniform float saturation;
+    uniform float warmth; uniform vec2 resolution; varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+      vec3 col = texel.rgb;
+      float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(vec3(luma), col, saturation);
+      col = (col - 0.5) * contrast + 0.5;
+      col += vec3(warmth, warmth * 0.4, -warmth * 0.6) * (1.0 - luma);
+      float grain = hash(vUv * resolution + fract(time) * 100.0) - 0.5;
+      col += grain * 0.022;
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), texel.a);
+    }`,
+});
+composer.addPass(grade);
+composer.addPass(new SMAAPass());
+
+function makeSkyTexture() {
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 512;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0.0, '#3d6fb0');
+  grad.addColorStop(0.5, '#9fb8d6');
+  grad.addColorStop(0.78, '#f3c79e');
+  grad.addColorStop(1.0, '#f0c09a');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// Golden-hour light
+const hemi = new THREE.HemisphereLight(0xcfe3ff, 0x6b6257, 0.55);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffe2b8, 2.6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(LOW_END ? 2048 : 4096, LOW_END ? 2048 : 4096);
+Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 10, far: 420 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.04;
+scene.add(sun, sun.target);
+const SUN_DIR = new THREE.Vector3(0.8, 0.38, 0.45).normalize();   // low evening sun: long shadows
+
+// ============================================================
+// Materials
+// ============================================================
+const facadeTexture = makeWindowGrid(false);
+const facadeNormal = heightCanvasToNormal(makeFacadeHeight(), 5);
+const glowTextures = [0, 1, 2, 3].map(() => makeWindowGrid(true));
+const facadeMats = FACADE_PALETTE.map((color, k) => new THREE.MeshStandardMaterial({
+  color, map: facadeTexture, normalMap: facadeNormal, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.55, metalness: 0.05,
+  emissive: 0xffffff, emissiveMap: glowTextures[k % glowTextures.length], emissiveIntensity: 0.9,
+}));
+const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.85 });
+const acMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.6, metalness: 0.4 });
+const stoneMat = new THREE.MeshStandardMaterial({ color: 0xd9d4c8, roughness: 0.8 });
+const waterMat = new THREE.MeshStandardMaterial({ color: 0x3b8fc4, roughness: 0.15, metalness: 0.1 });
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5b4330, roughness: 0.9 });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+const lineMat = new THREE.MeshStandardMaterial({ color: 0xf5c542, roughness: 0.6 });
+const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf1f1f1, roughness: 0.6 });
+const skylineMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cf, roughness: 0.9 });
+const cornMat = new THREE.MeshStandardMaterial({ color: 0xe4ddd0, roughness: 0.7 });
+const tankMat = new THREE.MeshStandardMaterial({ color: 0x6e4b2f, roughness: 0.8 });
+const shopMat = new THREE.MeshPhysicalMaterial({ color: 0x4a5668, metalness: 0.2, roughness: 0.25, clearcoat: 0.4 });
+// Shop fronts glow warmly from inside, one shared texture for every shop
+const interiorTex = makeInteriorTexture();
+const shopGlowMat = new THREE.MeshStandardMaterial({ map: interiorTex, emissiveMap: interiorTex, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.4 });
+const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.5 });
+const lampLightMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 3 });
+const lampSpots = [];
+const SIGN_NAMES = ['קפה', 'מאפייה', 'SUSHI', 'PHARMACY', 'BOOKS', 'CAFE', 'מכולת', 'BAKERY', 'GYM', 'סופר', 'OPTICS', 'PIZZA', 'מסעדה', 'RESTAURANT', 'BISTRO', 'BARBER'];
+const cafeSpots = [];
+const _parkColor = new THREE.Color();
+const SIGN_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#f8fafc', '#a855f7'];
+const signMats = SIGN_NAMES.map((name, k) => new THREE.MeshBasicMaterial({
+  map: makeSignTexture(name, SIGN_COLORS[k % SIGN_COLORS.length]),
+}));
+const signBoard = new THREE.PlaneGeometry(1, 1.1);
+const awningMats = SIGN_COLORS.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 }));
+
+// One tile holds a 2x2 grid of windows. Glow mode draws lit windows on black, used as emissive light.
+function makeWindowGrid(glow) {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = glow ? '#000000' : '#ffffff';
+  g.fillRect(0, 0, size, size);
+
+  for (let r = 0; r < 2; r++) for (let col = 0; col < 2; col++) {
+    const x = 14 + col * 124, y = 16 + r * 122, w = 104, h = 98;
+    if (glow) {
+      if (Math.random() < 0.4) {
+        const warm = g.createLinearGradient(x, y, x + w, y + h);
+        warm.addColorStop(0, '#ffe2a8');
+        warm.addColorStop(1, '#ff9a4a');
+        g.fillStyle = warm;
+        g.fillRect(x, y, w, h);
+      }
+      continue;
+    }
+    const glass = g.createLinearGradient(x, y, x + w, y + h);
+    glass.addColorStop(0, '#6b8196');
+    glass.addColorStop(0.5, '#243549');
+    glass.addColorStop(1, '#101a2a');
+    g.fillStyle = glass;
+    g.fillRect(x, y, w, h);
+    // soft reflection streak
+    g.fillStyle = 'rgba(255,255,255,0.10)';
+    g.beginPath();
+    g.moveTo(x + w * 0.15, y + h); g.lineTo(x + w * 0.55, y); g.lineTo(x + w * 0.75, y); g.lineTo(x + w * 0.35, y + h);
+    g.closePath(); g.fill();
+    // frame and mullions
+    g.strokeStyle = '#d9dee5'; g.lineWidth = 5;
+    g.strokeRect(x, y, w, h);
+    g.fillStyle = '#d9dee5';
+    g.fillRect(x + w / 2 - 2, y, 4, h);
+    g.fillRect(x, y + h / 2 - 2, w, 4);
+  }
+  if (!glow) {
+    // sill band between the two rows of windows
+    g.fillStyle = '#e6e2da';
+    g.fillRect(0, 116, size, 10);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// ============================================================
+// Ground, roads, sidewalks
+// ============================================================
+// Tiled grain texture for asphalt, so large road surfaces do not look flat
+function makeNoiseTexture(base, grain, repeats) {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = '#' + base.toString(16).padStart(6, '0');
+  g.fillRect(0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size);
+  for (let k = 0; k < img.data.length; k += 4) {
+    const n = (Math.random() - 0.5) * 255 * grain;
+    img.data[k] += n; img.data[k + 1] += n; img.data[k + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeats, repeats);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Normal map from a height canvas: lighting then picks up surface relief
+function heightCanvasToNormal(hc, strength) {
+  const w = hc.width, h = hc.height;
+  const src = hc.getContext('2d').getImageData(0, 0, w, h).data;
+  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const og = out.getContext('2d');
+  const img = og.createImageData(w, h);
+  const d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (H(x - 1, y) - H(x + 1, y)) * strength;
+    const dy = (H(x, y - 1) - H(x, y + 1)) * strength;
+    const len = Math.hypot(dx, dy, 1);
+    const i = (y * w + x) * 4;
+    d[i] = (dx / len * 0.5 + 0.5) * 255;
+    d[i + 1] = (dy / len * 0.5 + 0.5) * 255;
+    d[i + 2] = (0.5 / len + 0.5) * 255;
+    d[i + 3] = 255;
+  }
+  og.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(out);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Tileable grit normal map for asphalt and concrete
+function makeGritNormal(size, strength, repeats) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const img = g.createImageData(size, size);
+  for (let k = 0; k < img.data.length; k += 4) {
+    const v = 128 + (Math.random() - 0.5) * 255;
+    img.data[k] = img.data[k + 1] = img.data[k + 2] = v;
+    img.data[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = heightCanvasToNormal(c, strength);
+  tex.repeat.set(repeats, repeats);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Facade relief: windows sit recessed into the wall, frames stand out
+function makeFacadeHeight() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 256, 256);
+  for (let r = 0; r < 2; r++) for (let col = 0; col < 2; col++) {
+    const x = 14 + col * 124, y = 16 + r * 122, w = 104, h = 98;
+    g.fillStyle = '#202020';
+    g.fillRect(x, y, w, h);
+    g.fillStyle = '#c0c0c0';
+    g.fillRect(x + w / 2 - 2, y, 4, h);
+    g.fillRect(x, y + h / 2 - 2, w, 4);
+  }
+  g.fillStyle = '#d8d8d8';
+  g.fillRect(0, 116, 256, 10);
+  return c;
+}
+
+// Shopfront fascia with a name, drawn once per style and shared by all shops
+function makeSignTexture(text, color) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  g.fillRect(0, 0, 512, 128);
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.fillRect(0, 96, 512, 32);
+  g.fillStyle = color === '#f8fafc' ? '#111827' : '#ffffff';
+  g.font = '700 64px Rubik, Arial, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, 256, 56);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Warm interior seen through shop glass: a lit back wall, shelves with goods, and mullions
+function makeInteriorTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 256;
+  const g = c.getContext('2d');
+  const back = g.createLinearGradient(0, 0, 0, 256);
+  back.addColorStop(0, '#ffe2a8');
+  back.addColorStop(1, '#c98a4a');
+  g.fillStyle = back;
+  g.fillRect(0, 0, 512, 256);
+  g.fillStyle = '#7a4a22';
+  g.fillRect(0, 150, 512, 8);
+  g.fillRect(0, 210, 512, 8);
+  for (let x = 40; x < 512; x += 90) {
+    g.fillStyle = '#5b3414';
+    g.fillRect(x, 120, 30, 30);
+    g.fillStyle = '#f8f0dc';
+    g.fillRect(x + 6, 100, 18, 20);
+  }
+  g.fillStyle = '#3a2412';
+  for (const x of [0, 170, 340]) g.fillRect(x, 0, 10, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function flat(w, h, color, x, y, z, roughness = 0.95) {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshStandardMaterial({ color, roughness }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y, z);
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+
+// Instanced helper: one draw call for many boxes or meshes of the same geometry.
+const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+function instanced(list, geometry, material, castShadow = false) {
+  const im = new THREE.InstancedMesh(geometry, material, list.length);
+  list.forEach((it, k) => {
+    _p.set(it.x, it.y ?? 0, it.z);
+    _q.setFromAxisAngle(UP, it.ry ?? 0);
+    _s.set(it.sx ?? 1, it.sy ?? 1, it.sz ?? 1);
+    _m.compose(_p, _q, _s);
+    im.setMatrixAt(k, _m);
+  });
+  im.instanceMatrix.needsUpdate = true;
+  im.receiveShadow = true;
+  im.castShadow = castShadow;
+  scene.add(im);
+  return im;
+}
+
+// Ground beyond the city, then the asphalt base covering the whole grid.
+flat(4000, 4000, 0xffffff, 0, -0.05, 0).material.map = makeNoiseTexture(0x6f8362, 0.08, 300);
+
+// Terrain: a flat city, then hills and mountains rising beyond the outer roads
+function terrainHeight(x, z) {
+  const d = Math.max(Math.abs(x), Math.abs(z)) - (EDGE + ROAD);
+  // The base sits well below the streets so depth precision never lets the terrain show through them
+  if (d <= 0) return -3;
+  const ridge = Math.sin(x * 0.011) * Math.cos(z * 0.013) + 0.5 * Math.sin(x * 0.027 + z * 0.019) + 0.25 * Math.cos(z * 0.061 - x * 0.04);
+  const mountain = -3 + Math.pow(d, 1.15) * 0.13 * (0.7 + 0.3 * ridge) + Math.max(0, ridge) * Math.min(d, 60) * 0.3;
+  // The main road leaves the city to the east: a corridor that flattens into the road and climbs a hill
+  if (x > EDGE + ROAD / 2) {
+    const w = 1 - smoothstep(25, 60, Math.abs(z));
+    return mountain + (roadProfile(x) - mountain) * w;
+  }
+  // Flat pads for the airport (west) and the village (south-east), with a soft 40 m edge
+  const pad = Math.max(padWeight(x, z, AIRPORT_PAD), padWeight(x, z, VILLAGE_PAD));
+  return mountain * (1 - pad);
+}
+const AIRPORT_PAD = { cx: -800, cz: 0, hx: 420, hz: 200 };
+const VILLAGE_PAD = { cx: 500, cz: -425, hx: 110, hz: 80 };
+function padWeight(x, z, p) {
+  const dx = Math.max(0, Math.abs(x - p.cx) - p.hx);
+  const dz = Math.max(0, Math.abs(z - p.cz) - p.hz);
+  return 1 - smoothstep(0, 40, Math.hypot(dx, dz));
+}
+const HIGHWAY_END = 900;
+// Height of the road over the hill: 0 at the city, a 90 m hill near x = 700, back down past the end
+function roadProfile(x) {
+  return 90 * Math.exp(-((x - 700) ** 2) / (2 * 110 * 110)) * smoothstep(300, 420, x);
+}
+function smoothstep(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+const terrainGeo = new THREE.PlaneGeometry(2600, 2600, 220, 220).rotateX(-Math.PI / 2);
+{
+  const pos = terrainGeo.attributes.position;
+  const cols = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  const grass = new THREE.Color(0x5d7a45), rock = new THREE.Color(0x77695a), snow = new THREE.Color(0xe9eef2);
+  for (let k = 0; k < pos.count; k++) {
+    const y = terrainHeight(pos.getX(k), pos.getZ(k));
+    pos.setY(k, y);
+    c.copy(grass).lerp(rock, Math.min(1, Math.max(0, y / 60)));
+    if (y > 110) c.lerp(snow, Math.min(1, (y - 110) / 40));
+    cols[k * 3] = c.r; cols[k * 3 + 1] = c.g; cols[k * 3 + 2] = c.b;
+  }
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  terrainGeo.computeVertexNormals();
+}
+const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// Forest on the hillsides: pines where the slope is gentle enough and the ground is low enough
+const pines = [];
+for (let k = 0; k < (LOW_END ? 300 : 900); k++) {
+  const x = (Math.random() * 2 - 1) * 1100, z = (Math.random() * 2 - 1) * 1100;
+  if (Math.max(Math.abs(x), Math.abs(z)) < EDGE + ROAD + 12) continue;
+  if (x > 0 && Math.abs(z) < 60) continue;   // keep the main road and its hill clear of trees
+  const y = terrainHeight(x, z);
+  if (y < 1 || y > 95) continue;
+  pines.push({ x, y, z, s: 0.8 + Math.random() * 0.8 });
+}
+// A dense little forest north-east of the city, outside the highway corridor
+for (let k = 0; k < (LOW_END ? 60 : 220); k++) {
+  const x = 120 + Math.random() * 240, z = -380 + Math.random() * 260;
+  const y = terrainHeight(x, z);
+  if (y < 1 || y > 95) continue;
+  pines.push({ x, y, z, s: 0.9 + Math.random() * 0.7 });
+}
+// A few trees around the village
+for (let k = 0; k < 8; k++) {
+  const x = 395 + Math.random() * 210;
+  const z = (Math.random() < 0.5 ? -505 : -345) + Math.random() * 10;   // along the north and south edges of the pad
+  pines.push({ x, y: 0, z, s: 1 });
+}
+const pineTrunkGeo = new THREE.CylinderGeometry(0.25, 0.3, 3, 6).translate(0, 1.5, 0);
+const pineLeafGeo = new THREE.ConeGeometry(2.6, 7, 8).translate(0, 4.5, 0);
+instanced(pines.map(p => ({ x: p.x, y: p.y, z: p.z, sx: p.s, sy: p.s, sz: p.s })), pineTrunkGeo, trunkMat, true);
+const pineLeaves = instanced(pines.map(p => ({ x: p.x, y: p.y, z: p.z, sx: p.s, sy: p.s, sz: p.s })), pineLeafGeo, leafMat, true);
+const pineColor = new THREE.Color();
+pines.forEach((p, k) => {
+  pineColor.setHSL(0.34 + Math.random() * 0.05, 0.5, 0.2 + Math.random() * 0.1);
+  pineLeaves.setColorAt(k, pineColor);
+});
+pineLeaves.instanceColor.needsUpdate = true;
+
+// Speed humps across the roads: cars and traffic ride up and over them
+const ramps = [];
+const rampMat = new THREE.MeshStandardMaterial({ color: 0x8c8478, roughness: 0.8 });
+function addRamp(cx, cz, alongX) {
+  const L = 14, H = 1.3, W = ROAD - 3;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(L / 2, H);
+  shape.lineTo(L, 0);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: W, bevelEnabled: false });
+  geo.translate(-L / 2, 0, -W / 2);
+  const mesh = new THREE.Mesh(geo, rampMat);
+  mesh.position.set(cx, 0, cz);
+  if (!alongX) mesh.rotation.y = Math.PI / 2;
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+  ramps.push({ cx, cz, alongX, L, H, W });
+}
+for (let k = 0; k < 10; k++) {
+  const cell = randInt(CELL_MIN, CELL_MAX), line = randInt(NODE_MIN, NODE_MAX) * PITCH;
+  const mid = cell * PITCH + PITCH / 2;
+  if (Math.random() < 0.5) addRamp(mid, line, true);
+  else addRamp(line, mid, false);
+}
+
+// Height of the drivable surface at a point: the highest hump that covers it
+function rampHeight(r, x, z) {
+  const along = r.alongX ? x - r.cx : z - r.cz;
+  const across = r.alongX ? z - r.cz : x - r.cx;
+  if (Math.abs(along) > r.L / 2 || Math.abs(across) > r.W / 2) return 0;
+  return r.H * (1 - Math.abs(along) / (r.L / 2));
+}
+function surfaceHeight(x, z) {
+  let h = Math.max(0, terrainHeight(x, z));
+  for (const r of ramps) h = Math.max(h, rampHeight(r, x, z));
+  return h;
+}
+
+// A flat strip that follows the terrain: road surface, centre line and edge lines of the main road
+function makeStrip(x0, x1, zc, halfW, lift, mat) {
+  const N = 220, pos = [], idx = [];
+  for (let k = 0; k <= N; k++) {
+    const x = x0 + (x1 - x0) * k / N;
+    const y = Math.max(0, terrainHeight(x, zc)) + lift;
+    pos.push(x, y, zc - halfW, x, y, zc + halfW);
+  }
+  for (let k = 0; k < N; k++) {
+    const a = k * 2, b = a + 1, c = a + 2, d = a + 3;
+    idx.push(a, b, c, c, b, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mat);
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+makeStrip(EDGE + ROAD / 2, HIGHWAY_END, 0, 7, 0.05, new THREE.MeshStandardMaterial({ color: 0x2d3136, roughness: 0.9 }));
+makeStrip(EDGE + ROAD / 2, HIGHWAY_END, 0, 0.18, 0.08, new THREE.MeshStandardMaterial({ color: 0xf5c542, roughness: 0.6 }));
+for (const s of [-1, 1]) {
+  makeStrip(EDGE + ROAD / 2, HIGHWAY_END, s * 6.3, 0.15, 0.08, new THREE.MeshStandardMaterial({ color: 0xf1f1f1, roughness: 0.6 }));
+}
+const asphalt = flat(2 * (EDGE + ROAD / 2), 2 * (EDGE + ROAD / 2), 0xffffff, 0, 0, 0, 0.9);
+asphalt.material.map = makeNoiseTexture(ASPHALT_COLOR, 0.06, 64);
+asphalt.material.normalMap = makeGritNormal(256, 2.0, 64);
+const concreteTex = makeNoiseTexture(SIDEWALK_COLOR, 0.03, 8);
+const concreteNormal = makeGritNormal(256, 2.5, 8);
+
+// ============================================================
+// City blocks: sidewalks, buildings, parks, trees
+// ============================================================
+const obstacles = [];          // axis-aligned boxes the car cannot pass through
+const treeSpots = [];
+const blocks = [];             // for the minimap
+const skylineBase = [];
+
+function addBuilding(x, z, w, h, d) {
+  const mats = facadeMats[Math.floor(rng() * facadeMats.length)];
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    [mats, mats, roofMat, roofMat, mats, mats],
+  );
+  remapUV(body.geometry, 4, 3.6);
+  body.position.set(x, h / 2, z);
+  body.castShadow = body.receiveShadow = true;
+  scene.add(body);
+
+  // Architectural detail: cornice at the roofline and a plinth at street level
+  const cornice = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.9, d + 0.7), cornMat);
+  cornice.position.set(x, h - 0.2, z);
+  cornice.castShadow = cornice.receiveShadow = true;
+  scene.add(cornice);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 0.7, d + 0.5), cornMat);
+  plinth.position.set(x, 0.35, z);
+  plinth.receiveShadow = true;
+  scene.add(plinth);
+
+  if (h < 42 && rng() < 0.2) {
+    // Rooftop water tank
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 2.8, 12), tankMat);
+    tank.position.set(x + (rng() - 0.5) * (w - 6), h + 1.4, z + (rng() - 0.5) * (d - 6));
+    tank.castShadow = true;
+    scene.add(tank);
+  }
+
+  const footprint = { minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, height: h };
+  obstacles.push(footprint);
+
+  if (rng() < 0.6) {
+    // Ground-floor shopfront band
+    const shop = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 3.4, d + 0.4), [shopGlowMat, shopGlowMat, shopMat, shopMat, shopGlowMat, shopGlowMat]);
+    shop.position.set(x, 1.7, z);
+    shop.receiveShadow = true;
+    scene.add(shop);
+
+    // Fascia signs on the front and back of the shop band
+    const signMat = signMats[Math.floor(rng() * signMats.length)];
+    for (const side of [1, -1]) {
+      const board = new THREE.Mesh(signBoard, signMat);
+      board.scale.set(Math.min(w * 0.7, 9), 1, 1);
+      board.position.set(x, 2.7, z + side * (d / 2 + 0.25));
+      board.rotation.y = side > 0 ? 0 : Math.PI;
+      scene.add(board);
+
+      // Striped awning over the shopfront, and sometimes a café table on the sidewalk
+      const awning = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.min(w * 0.9, 10), 0.1, 1.6),
+        awningMats[Math.floor(rng() * awningMats.length)],
+      );
+      awning.position.set(x, 3.7, z + side * (d / 2 + 0.7));
+      awning.rotation.x = -side * 0.2;
+      awning.castShadow = true;
+      scene.add(awning);
+      if (rng() < 0.4) cafeSpots.push({ x: x + (rng() - 0.5) * w * 0.4, z: z + side * (d / 2 + 2.4) });
+    }
+  }
+
+  let top = h;
+  if (h > 42) {
+    // Setback crown on towers: gives the skyline its silhouette.
+    const cw = w * 0.6, cd = d * 0.6, ch = 8 + rng() * 12;
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, cd), [mats, mats, roofMat, roofMat, mats, mats]);
+    remapUV(crown.geometry, 4, 3.6);
+    crown.position.set(x + (rng() - 0.5) * w * 0.1, h + ch / 2, z);
+    crown.castShadow = crown.receiveShadow = true;
+    scene.add(crown);
+    top = h + ch;
+    footprint.height = top;
+    if (rng() < 0.5) {
+      const spireH = 10 + rng() * 14;
+      const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.45, spireH, 6), roofMat);
+      spire.position.set(crown.position.x, top + spireH / 2, z);
+      spire.castShadow = true;
+      scene.add(spire);
+    }
+  } else if (rng() < 0.5) {
+    // Rooftop air-conditioning unit
+    const ac = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.4, 2.6), acMat);
+    ac.position.set(x + (rng() - 0.5) * (w - 5), h + 0.7, z + (rng() - 0.5) * (d - 5));
+    ac.castShadow = true;
+    scene.add(ac);
+  }
+}
+
+function addTreeSpot(x, z, s = 1) {
+  treeSpots.push({ x, z, s });
+  obstacles.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45 });
+}
+
+function makePark(cx, cz, inner) {
+  flat(inner, inner, 0x6f9a52, cx, 0.1, cz);
+  // Fountain
+  const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.8, 32), stoneMat);
+  basin.position.set(cx, 0.4, cz);
+  basin.castShadow = basin.receiveShadow = true;
+  scene.add(basin);
+  const water = flat(5.8, 5.8, 0, cx, 0.82, cz, 0.15);
+  water.material = waterMat;
+  obstacles.push({ minX: cx - 3.4, maxX: cx + 3.4, minZ: cz - 3.4, maxZ: cz + 3.4 });
+  // Trees
+  for (let k = 0; k < 16; k++) {
+    const x = cx + (rng() - 0.5) * (inner - 8);
+    const z = cz + (rng() - 0.5) * (inner - 8);
+    if (Math.hypot(x - cx, z - cz) < 6) continue;
+    addTreeSpot(x, z, 0.9 + rng() * 0.35);
+  }
+}
+
+function makeCityBlock(cx, cz, inner) {
+  const lot = inner / 2;
+  const dist = Math.hypot(cx, cz) / EDGE;          // 0 in the centre, about 1 at the edge
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    if (rng() < 0.08) continue;                    // occasional open plot
+    const lx = cx + sx * lot / 2, lz = cz + sz * lot / 2;
+    const w = lot - 4 - rng() * 4, d = lot - 4 - rng() * 4;
+    const tall = rng() < 0.15 + 0.55 * Math.max(0, 1 - dist * 1.5);
+    const h = tall ? 46 + rng() * 80 : 9 + rng() * 20;
+    addBuilding(lx + (rng() - 0.5) * 2, lz + (rng() - 0.5) * 2, w, h, d);
+  }
+  // Street trees along the four sidewalks
+  const edge = BLOCK / 2 - SIDEWALK / 2;
+  for (const o of [-17, 0, 17]) {
+    addTreeSpot(cx + o, cz - edge);
+    addTreeSpot(cx + o, cz + edge);
+    addTreeSpot(cx - edge, cz + o);
+    addTreeSpot(cx + edge, cz + o);
+  }
+  // Street lamps at the four corners, clear of the trees
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) lampSpots.push({ x: cx + sx * edge, z: cz + sz * edge });
+}
+
+for (let i = CELL_MIN; i <= CELL_MAX; i++) {
+  for (let j = CELL_MIN; j <= CELL_MAX; j++) {
+    const cx = i * PITCH + PITCH / 2;
+    const cz = j * PITCH + PITCH / 2;
+    const walk = flat(BLOCK, BLOCK, 0xffffff, cx, 0.06, cz);
+    walk.material.map = concreteTex;
+    walk.material.normalMap = concreteNormal;
+    const inner = BLOCK - SIDEWALK * 2;
+    const park = rng() < 0.16;
+    blocks.push({ cx, cz, park });
+    if (park) makePark(cx, cz, inner);
+    else makeCityBlock(cx, cz, inner);
+  }
+}
+
+// Trees: one instanced draw for trunks and one for foliage.
+const trunkGeo = new THREE.CylinderGeometry(0.22, 0.3, 2.6, 6);
+trunkGeo.translate(0, 1.3, 0);
+const leafGeo = new THREE.IcosahedronGeometry(2.0, 1);
+leafGeo.translate(0, 4.0, 0);
+instanced(treeSpots.map(t => ({ x: t.x, z: t.z, sx: t.s, sy: t.s, sz: t.s })), trunkGeo, trunkMat, true);
+const leaves = instanced(treeSpots.map(t => ({ x: t.x, z: t.z, sx: t.s, sy: t.s, sz: t.s })), leafGeo, leafMat, true);
+const leafColor = new THREE.Color();
+treeSpots.forEach((t, k) => {
+  leafColor.setHSL(0.24 + rng() * 0.06, 0.45, 0.26 + rng() * 0.12);
+  leaves.setColorAt(k, leafColor);
+});
+leaves.instanceColor.needsUpdate = true;
+
+// Street lamps: instanced poles and glowing heads (the heads feed the bloom pass)
+const lampPole = new THREE.CylinderGeometry(0.1, 0.14, 6, 6);
+lampPole.translate(0, 3, 0);
+const lampHead = new THREE.BoxGeometry(0.9, 0.25, 0.5);
+lampHead.translate(0.3, 6.05, 0);
+instanced(lampSpots, lampPole, lampPoleMat, true);
+instanced(lampSpots, lampHead, lampLightMat);
+
+// Road markings
+const centerLines = [], edgeLines = [], crossings = [];
+for (let n = NODE_MIN; n <= NODE_MAX; n++) {
+  const a = n * PITCH;
+  for (let c = CELL_MIN; c <= CELL_MAX; c++) {
+    const m = c * PITCH + PITCH / 2;
+    // Road running along X
+    centerLines.push({ x: m, y: 0.03, z: a, sx: BLOCK, sy: 0.02, sz: 0.25 });
+    edgeLines.push({ x: m, y: 0.03, z: a - (ROAD / 2 - 0.7), sx: BLOCK, sy: 0.02, sz: 0.2 });
+    edgeLines.push({ x: m, y: 0.03, z: a + (ROAD / 2 - 0.7), sx: BLOCK, sy: 0.02, sz: 0.2 });
+    // Road running along Z
+    centerLines.push({ x: a, y: 0.03, z: m, sx: 0.25, sy: 0.02, sz: BLOCK });
+    edgeLines.push({ x: a - (ROAD / 2 - 0.7), y: 0.03, z: m, sx: 0.2, sy: 0.02, sz: BLOCK });
+    edgeLines.push({ x: a + (ROAD / 2 - 0.7), y: 0.03, z: m, sx: 0.2, sy: 0.02, sz: BLOCK });
+  }
+}
+// Zebra crossings at every intersection arm
+const CW = ROAD / 2 + 2.6;
+for (let i = NODE_MIN; i <= NODE_MAX; i++) for (let j = NODE_MIN; j <= NODE_MAX; j++) {
+  const nx = i * PITCH, nz = j * PITCH;
+  for (let k = 0; k < 6; k++) {
+    const o = (k - 2.5) * 2.0;
+    if (i < NODE_MAX) crossings.push({ x: nx + CW, y: 0.04, z: nz + o, sx: 2.6, sy: 0.02, sz: 0.8 });
+    if (i > NODE_MIN) crossings.push({ x: nx - CW, y: 0.04, z: nz + o, sx: 2.6, sy: 0.02, sz: 0.8 });
+    if (j < NODE_MAX) crossings.push({ x: nx + o, y: 0.04, z: nz + CW, sx: 0.8, sy: 0.02, sz: 2.6 });
+    if (j > NODE_MIN) crossings.push({ x: nx + o, y: 0.04, z: nz - CW, sx: 0.8, sy: 0.02, sz: 2.6 });
+  }
+}
+instanced(centerLines, UNIT_BOX, lineMat);
+instanced(edgeLines, UNIT_BOX, whiteMat);
+instanced(crossings, UNIT_BOX, whiteMat);
+
+// Raised kerbs along both sides of every road segment
+const kerbs = [];
+for (let n = NODE_MIN; n <= NODE_MAX; n++) {
+  const a = n * PITCH;
+  for (let c = CELL_MIN; c <= CELL_MAX; c++) {
+    const m = c * PITCH + PITCH / 2;
+    for (const side of [-1, 1]) {
+      kerbs.push({ x: m, y: 0.09, z: a + side * (ROAD / 2 + 0.25), sx: BLOCK, sy: 0.18, sz: 0.5 });
+      kerbs.push({ x: a + side * (ROAD / 2 + 0.25), y: 0.09, z: m, sx: 0.5, sy: 0.18, sz: BLOCK });
+    }
+  }
+}
+instanced(kerbs, UNIT_BOX, cornMat, true);
+
+// Café tables and chairs on the sidewalks
+instanced(cafeSpots.map(s => ({ x: s.x, y: 0.06, z: s.z })), new THREE.CylinderGeometry(0.05, 0.05, 0.75, 6).translate(0, 0.375, 0), lampPoleMat, true);
+instanced(cafeSpots.map(s => ({ x: s.x, y: 0.8, z: s.z })), new THREE.CylinderGeometry(0.45, 0.45, 0.06, 16), cornMat, true);
+const chairs = cafeSpots.flatMap(s => [{ x: s.x - 0.7, y: 0.06, z: s.z }, { x: s.x + 0.7, y: 0.06, z: s.z }]);
+instanced(chairs, new THREE.BoxGeometry(0.4, 0.5, 0.4).translate(0, 0.25, 0), tankMat, true);
+
+// Parked cars along both kerbs: they are solid, so the driver has to steer around them
+const parked = [];
+for (let n = NODE_MIN; n <= NODE_MAX; n++) {
+  const a = n * PITCH;
+  for (let c = CELL_MIN; c <= CELL_MAX; c++) {
+    const m = c * PITCH + PITCH / 2;
+    for (const side of [-1, 1]) for (const s of [-16, 8]) {
+      if (Math.random() < 0.55) parked.push({ x: m + s, z: a + side * (ROAD / 2 - 1.6), alongX: true });
+      if (Math.random() < 0.55) parked.push({ x: a + side * (ROAD / 2 - 1.6), z: m + s, alongX: false });
+    }
+  }
+}
+const parkedBodies = instanced(parked.map(p => ({ x: p.x, z: p.z, ry: p.alongX ? Math.PI / 2 : 0 })),
+  new THREE.BoxGeometry(1.9, 0.8, 4.2).translate(0, 0.5, 0),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.2 }), true);
+const parkedCabins = instanced(parked.map(p => ({ x: p.x, z: p.z, ry: p.alongX ? Math.PI / 2 : 0 })),
+  new THREE.BoxGeometry(1.6, 0.6, 2.1).translate(0, 1.1, -0.2),
+  new THREE.MeshStandardMaterial({ color: 0x1a2433, roughness: 0.2, metalness: 0.2 }), true);
+const PARKED_COLORS = [0xe5e7eb, 0x1f2937, 0xb91c1c, 0x1d4ed8, 0xf5f5f4, 0x15803d, 0xfacc15, 0x6b7280, 0x0ea5e9, 0x7c2d12];
+parked.forEach((p, k) => {
+  parkedBodies.setColorAt(k, _parkColor.setHex(PARKED_COLORS[k % PARKED_COLORS.length]));
+  const hx = p.alongX ? 2.1 : 1.0, hz = p.alongX ? 1.0 : 2.1;
+  obstacles.push({ minX: p.x - hx, maxX: p.x + hx, minZ: p.z - hz, maxZ: p.z + hz, height: 1.5 });
+});
+parkedBodies.instanceColor.needsUpdate = true;
+
+// Distant skyline silhouettes, softened by fog
+for (let k = 0; k < 90; k++) {
+  const a = rng() * Math.PI * 2;
+  const r = 420 + rng() * 280;
+  skylineBase.push({
+    x: Math.cos(a) * r, y: 0, z: Math.sin(a) * r,
+    sx: 30 + rng() * 40, sy: 60 + rng() * 140, sz: 30 + rng() * 40,
+  });
+}
+skylineBase.forEach(s => { s.y = s.sy / 2; });
+instanced(skylineBase, UNIT_BOX, skylineMat);
+
+// ============================================================
+// Cars
+// ============================================================
+const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0d1620, roughness: 0.08, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05 });
+const trimMat = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.7 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 1, roughness: 0.25 });
+const tyreMat = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.9 });
+const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff1cc, emissiveIntensity: 2 });
+
+// Soft contact shadow under every car (ambient occlusion for the tyres)
+const blobTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(0,0,0,0.8)');
+  grd.addColorStop(0.6, 'rgba(0,0,0,0.35)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+
+// Forward is +Z. The car is built from rounded boxes plus four wheels.
+function makeCar(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.4, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';          // yaw last, so pitch and roll act on the body
+  const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 4.8), blobMat);
+  blob.rotation.x = -Math.PI / 2;
+  blob.position.y = 0.03;
+  group.add(blob);
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+
+  // Sculpted shapes: a side profile extruded across the width, with bevelled edges
+  const sculpt = (shape, width, bevel) => {
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: width, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 16,
+    });
+    geo.translate(0, 0, -width / 2);
+    geo.rotateY(-Math.PI / 2);     // profile x becomes forward (+Z), extrusion becomes width (X)
+    return geo;
+  };
+  const bodyProfile = new THREE.Shape();
+  bodyProfile.moveTo(-2.05, 0.3);
+  bodyProfile.lineTo(2.05, 0.3);
+  bodyProfile.lineTo(2.1, 0.5);
+  bodyProfile.quadraticCurveTo(2.02, 0.84, 1.55, 0.92);     // bonnet to windscreen base
+  bodyProfile.lineTo(0.9, 0.96);
+  bodyProfile.lineTo(-1.45, 0.98);
+  bodyProfile.quadraticCurveTo(-1.95, 0.98, -2.07, 0.72);   // tail
+  bodyProfile.closePath();
+  add(sculpt(bodyProfile, 1.58, 0.11), paint, 0, 0, 0);
+
+  const cabinProfile = new THREE.Shape();
+  cabinProfile.moveTo(1.6, 0.9);
+  cabinProfile.quadraticCurveTo(0.9, 1.52, 0.1, 1.56);      // windscreen
+  cabinProfile.lineTo(-0.9, 1.54);
+  cabinProfile.quadraticCurveTo(-1.55, 1.46, -1.9, 0.92);   // rear window
+  cabinProfile.closePath();
+  add(sculpt(cabinProfile, 1.36, 0.06), glassMat, 0, 0, 0);
+
+  // Interior seen through the glass: dark seats and dashboard
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.42, 0.5, 0.42, 2, 0.12), trimMat, s * 0.36, 0.95, -0.25);
+  add(new RoundedBoxGeometry(1.3, 0.2, 0.3, 2, 0.08), trimMat, 0, 1.0, 0.85);
+
+  // Front and rear details
+  add(new RoundedBoxGeometry(1.1, 0.26, 0.08, 2, 0.04), trimMat, 0, 0.5, 2.08);  // grille
+  add(new THREE.BoxGeometry(1.0, 0.02, 0.04), chromeMat, 0, 0.6, 2.1);          // grille chrome strip
+  add(new THREE.BoxGeometry(1.7, 0.04, 0.25), trimMat, 0, 0.2, 2.02);            // front splitter
+  add(new THREE.BoxGeometry(1.5, 0.16, 0.12), trimMat, 0, 0.25, -2.04);          // rear diffuser
+  for (const s of [-1, 1]) {
+    add(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 10), chromeMat, s * 0.45, 0.22, -2.1).rotation.x = Math.PI / 2;
+  }
+
+  for (const s of [-1, 1]) {
+    add(new RoundedBoxGeometry(0.5, 0.16, 0.08, 2, 0.05), trimMat, s * 0.62, 0.8, 2.02);   // headlight bezel
+    add(new RoundedBoxGeometry(0.44, 0.12, 0.06, 2, 0.05), headMat, s * 0.62, 0.8, 2.07);  // lens
+    add(new THREE.BoxGeometry(0.4, 0.03, 0.04), headMat, s * 0.62, 0.9, 2.08);             // daytime strip
+    add(new RoundedBoxGeometry(0.5, 0.18, 0.08, 2, 0.05), tailMat, s * 0.66, 0.84, -2.02); // tail lamp
+  }
+  add(new THREE.BoxGeometry(1.3, 0.04, 0.03), tailMat, 0, 0.92, -2.06);                   // rear light bar
+
+  // Side mirrors and number plate
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.5 });
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.2, 0.16, 0.3, 2, 0.05), paint, s * 1.0, 1.0, 0.7);
+  // Side skirts and a dark underbody line for depth
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.1, 0.14, 3.2, 2, 0.04), trimMat, s * 0.97, 0.22, 0);
+  add(new THREE.BoxGeometry(1.7, 0.08, 3.9), trimMat, 0, 0.14, 0);
+  add(new THREE.BoxGeometry(0.5, 0.14, 0.02), plateMat, 0, 0.5, -2.09);
+
+  // Dark wheel-arch shadows and door shut lines
+  for (const s of [-1, 1]) for (const z of [1.35, -1.35]) {
+    const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.14, 24), trimMat);
+    arch.rotation.z = Math.PI / 2;
+    arch.position.set(s * 0.88, 0.36, z);
+    group.add(arch);
+  }
+  for (const s of [-1, 1]) for (const z of [0.45, -0.9]) add(new THREE.BoxGeometry(0.02, 0.42, 0.02), trimMat, s * 0.905, 0.66, z);
+
+  // Wheels: tyre, brake disc, alloy barrel and hub cap
+  const discMat = new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.4, metalness: 0.8 });
+  const alloyMat = new THREE.MeshStandardMaterial({ color: 0xa9b2bc, roughness: 0.3, metalness: 0.9 });
+  const wheels = [];
+  for (const [x, z] of [[-0.9, 1.35], [0.9, 1.35], [-0.9, -1.35], [0.9, -1.35]]) {
+    const w = new THREE.Group();
+    w.position.set(x, 0.36, z);
+    w.rotation.order = 'YXZ';            // steering (y) then spin (x)
+    const parts = [
+      [new THREE.CylinderGeometry(0.36, 0.36, 0.26, 24), tyreMat],
+      [new THREE.CylinderGeometry(0.24, 0.24, 0.05, 24), discMat],
+      [new THREE.CylinderGeometry(0.2, 0.2, 0.27, 20), alloyMat],
+      [new THREE.CylinderGeometry(0.06, 0.06, 0.3, 10), chromeMat],
+    ];
+    for (const [geo, mat] of parts) {
+      const part = new THREE.Mesh(geo, mat);
+      part.rotation.z = Math.PI / 2;
+      part.castShadow = true;
+      w.add(part);
+    }
+    group.add(w);
+    wheels.push(w);
+  }
+  return { group, wheels, tailMat };
+}
+
+// Lane offset for right-hand traffic.
+const laneOffset = (dx, dz) => ({ x: -dz * LANE, z: dx * LANE });
+
+// Traffic: each car drives along the grid and picks a random turn at each intersection.
+const traffic = [];
+const TRAFFIC_COLORS = [0xe5e7eb, 0x1f2937, 0xb91c1c, 0x1d4ed8, 0xf5f5f4, 0x15803d, 0xfacc15, 0x6b7280, 0x0ea5e9, 0x7c2d12];
+const inRange = v => v >= NODE_MIN && v <= NODE_MAX;
+
+// The outer ring is the main road: fast traffic there never turns inwards
+const onRing = (i, j) => i === NODE_MIN || i === NODE_MAX || j === NODE_MIN || j === NODE_MAX;
+function chooseTrafficDir(c) {
+  const opts = [[c.dx, c.dz], [-c.dz, c.dx], [c.dz, -c.dx]]; // straight, left, right
+  const r = Math.random();
+  const order = r < 0.6 ? [0, 1, 2] : r < 0.8 ? [1, 0, 2] : [2, 0, 1];
+  for (const k of order) {
+    const [dx, dz] = opts[k];
+    const ni = c.i + dx, nj = c.j + dz;
+    if (inRange(ni) && inRange(nj) && (!c.fast || onRing(ni, nj))) { c.dx = dx; c.dz = dz; return; }
+  }
+  c.dx = -c.dx; c.dz = -c.dz;                       // dead end
+}
+
+for (let k = 0; k < 36; k++) {
+  const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
+  const c = {
+    ...car,
+    i: randInt(NODE_MIN, NODE_MAX), j: randInt(NODE_MIN, NODE_MAX),
+    dx: 1, dz: 0, t: Math.random() * PITCH, speed: 9 + Math.random() * 7, spin: 0,
+  };
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => inRange(c.i + dx) && inRange(c.j + dz));
+  [c.dx, c.dz] = dirs[randInt(0, dirs.length - 1)];
+  c.off = laneOffset(c.dx, c.dz);
+  scene.add(c.group);
+  traffic.push(c);
+}
+
+// Highway traffic: ten cars shuttling along the main road outside the city
+for (let k = 0; k < 10; k++) {
+  const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
+  const c = { ...car, hwy: true, dir: k % 2 ? -1 : 1, x: 320 + Math.random() * (HIGHWAY_END - 340), speed: 24 + Math.random() * 8, spin: 0 };
+  c.group.position.set(c.x, 0, laneOffset(c.dir, 0).z);
+  scene.add(c.group);
+  traffic.push(c);
+}
+
+// Main road: fast cars circle the outer ring in both directions
+for (let k = 0; k < (LOW_END ? 0 : 14); k++) {
+  const car = makeCar(TRAFFIC_COLORS[k % TRAFFIC_COLORS.length]);
+  const c = {
+    ...car, fast: true,
+    i: NODE_MIN, j: randInt(NODE_MIN, NODE_MAX - 1), dx: 0, dz: 1,
+    t: Math.random() * PITCH, speed: 22 + Math.random() * 6, spin: 0,
+  };
+  if (k % 2) {
+    // Half the cars drive the ring the other way round, on the opposite lane
+    c.i = NODE_MAX; c.dx = 0; c.dz = -1; c.j = randInt(NODE_MIN + 1, NODE_MAX);
+  }
+  c.off = laneOffset(c.dx, c.dz);
+  scene.add(c.group);
+  traffic.push(c);
+}
+
+// Traffic lights: the two directions take turns, green, amber, then the other way round
+const LIGHT_CYCLE = 11;   // seconds per full cycle
+let lightTime = 0;
+function lightFor(axisX) {
+  const t = lightTime % LIGHT_CYCLE;
+  if (axisX) return t < 4.5 ? 'g' : t < 5.5 ? 'y' : 'r';
+  return t < 5.5 ? 'r' : t < 10 ? 'g' : 'y';
+}
+const SIGNAL_COLOR = { g: new THREE.Color(0x22c55e), y: new THREE.Color(0xf59e0b), r: new THREE.Color(0xef4444) };
+
+// Signal heads on the four corners of every junction, each showing the phase of the road it faces
+const signalHeads = [];
+for (let i = NODE_MIN; i <= NODE_MAX; i++) for (let j = NODE_MIN; j <= NODE_MAX; j++) {
+  const nx = i * PITCH, nz = j * PITCH;
+  for (const [sx, sz] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    signalHeads.push({ x: nx + sx * (ROAD / 2 + 0.6), z: nz + sz * (ROAD / 2 + 0.6), axisX: sx * sz > 0 });
+  }
+}
+instanced(signalHeads.map(h => ({ x: h.x, y: 2.2, z: h.z })), new THREE.CylinderGeometry(0.12, 0.12, 4.4, 6), lampPoleMat, true);
+const signalMesh = instanced(signalHeads.map(h => ({ x: h.x, y: 4.5, z: h.z, sx: 0.45, sy: 0.9, sz: 0.45 })),
+  UNIT_BOX, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+function updateSignals() {
+  signalHeads.forEach((h, k) => signalMesh.setColorAt(k, SIGNAL_COLOR[lightFor(h.axisX)]));
+  signalMesh.instanceColor.needsUpdate = true;
+}
+
+// Highway traffic: cars run along the main road in both lanes and loop back at the end
+function updateShuttle(c, dt) {
+  c.x += c.dir * c.speed * dt;
+  if (c.x > HIGHWAY_END - 20) c.x = 320;
+  if (c.x < 320) c.x = HIGHWAY_END - 20;
+  const lane = laneOffset(c.dir, 0);
+  c.group.position.set(c.x, surfaceHeight(c.x, lane.z), lane.z);
+  c.group.rotation.y = c.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+  c.spin += c.speed * dt / 0.36;
+  c.wheels.forEach(w => { w.rotation.x = c.spin; });
+}
+
+function updateTraffic(dt) {
+  lightTime += dt;
+  for (const c of traffic) {
+    if (c.hwy) { updateShuttle(c, dt); continue; }
+    c.cruise ??= c.speed;
+    // Car following: slow down behind a slower car in the same lane
+    let lead = null, gap = Infinity;
+    for (const o of traffic) {
+      if (o === c || o.dx !== c.dx || o.dz !== c.dz) continue;
+      const ddx = o.group.position.x - c.group.position.x;
+      const ddz = o.group.position.z - c.group.position.z;
+      const ahead = ddx * c.dx + ddz * c.dz;
+      const side = Math.abs(ddx * c.dz - ddz * c.dx);
+      if (ahead > 0 && side < 2.5 && ahead < gap) { gap = ahead; lead = o; }
+    }
+    // Stop short of a junction when this direction is not green
+    const rem = PITCH - c.t;
+    const redLight = lightFor(c.dx !== 0) !== 'g' && rem < 16 && rem > 2;
+    const wantSpeed = redLight ? 0 : lead && gap < 14 ? Math.min(c.cruise, lead.speed) : c.cruise;
+    c.speed += (wantSpeed - c.speed) * Math.min(1, dt * 2);
+    c.t += c.speed * dt;
+    while (c.t >= PITCH) {
+      c.t -= PITCH;
+      c.i += c.dx; c.j += c.dz;
+      chooseTrafficDir(c);
+    }
+    const target = laneOffset(c.dx, c.dz);
+    const k = Math.min(1, dt * 4);
+    c.off.x += (target.x - c.off.x) * k;
+    c.off.z += (target.z - c.off.z) * k;
+    const tx = c.i * PITCH + c.dx * c.t + c.off.x;
+    const tz = c.j * PITCH + c.dz * c.t + c.off.z;
+    c.group.position.set(tx, surfaceHeight(tx, tz), tz);
+    c.group.rotation.y = Math.atan2(c.dx, c.dz);
+    c.spin += c.speed * dt / 0.36;
+    c.wheels.forEach(w => { w.rotation.x = c.spin; });
+  }
+}
+
+// ============================================================
+// Player car
+// ============================================================
+// Motorcycles and ATVs: procedural models with the same wheel, light and tail interface as the car
+function makeWheel(radius, width) {
+  const discMat = new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.4, metalness: 0.8 });
+  const alloyMat = new THREE.MeshStandardMaterial({ color: 0xa9b2bc, roughness: 0.3, metalness: 0.9 });
+  const w = new THREE.Group();
+  w.rotation.order = 'YXZ';
+  const parts = [
+    [new THREE.CylinderGeometry(radius, radius, width, 24), tyreMat],
+    [new THREE.CylinderGeometry(radius * 0.66, radius * 0.66, 0.04, 24), discMat],
+    [new THREE.CylinderGeometry(radius * 0.55, radius * 0.55, width + 0.01, 20), alloyMat],
+  ];
+  for (const [geo, mat] of parts) {
+    const part = new THREE.Mesh(geo, mat);
+    part.rotation.z = Math.PI / 2;
+    part.castShadow = true;
+    w.add(part);
+  }
+  return w;
+}
+
+function makeMotorcycle(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.4, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(0.22, 0.2, 1.1, 3, 0.07), trimMat, 0, 0.55, -0.1);   // frame
+  add(new RoundedBoxGeometry(0.34, 0.22, 0.6, 3, 0.1), paint, 0, 0.78, 0.15);    // tank
+  add(new RoundedBoxGeometry(0.26, 0.14, 0.7, 3, 0.08), trimMat, 0, 0.7, -0.5);  // seat
+  add(new RoundedBoxGeometry(0.32, 0.45, 0.5, 3, 0.12), paint, 0, 0.75, 0.7).rotation.x = -0.25; // fairing
+  add(new RoundedBoxGeometry(0.3, 0.3, 0.36, 2, 0.05), trimMat, 0, 0.35, 0);     // engine
+  add(new THREE.SphereGeometry(0.1, 12, 8), headMat, 0, 0.82, 1.0);             // headlight
+  const tail = add(new RoundedBoxGeometry(0.12, 0.08, 0.04, 2, 0.02), tailMat, 0, 0.78, -0.92);
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), chromeMat, 0, 1.1, 0.7).rotation.z = Math.PI / 2; // handlebar
+  add(new THREE.CapsuleGeometry(0.16, 0.45, 4, 8), trimMat, 0, 1.05, -0.2).rotation.x = -0.5;          // rider torso
+  add(new THREE.SphereGeometry(0.16, 12, 10), paint, 0, 1.45, -0.1);                                    // helmet
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.14, 0.45, 0.16, 2, 0.05), trimMat, s * 0.13, 0.7, 0.25); // legs
+
+  const front = makeWheel(0.34, 0.16);
+  front.position.set(0, 0.34, 0.85);
+  const rear = makeWheel(0.34, 0.2);
+  rear.position.set(0, 0.34, -0.8);
+  group.add(front, rear);
+  return { group, wheels: [front, rear], tailMat: tail.material };
+}
+
+function makeAtv(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.2, roughness: 0.6 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(1.0, 0.35, 1.5, 3, 0.12), paint, 0, 0.5, 0);          // body
+  add(new RoundedBoxGeometry(0.42, 0.14, 0.7, 3, 0.07), trimMat, 0, 0.78, -0.25);  // seat
+  add(new THREE.BoxGeometry(0.9, 0.04, 0.04), chromeMat, 0, 1.0, 0.65);            // handlebar
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.5, 0.06), chromeMat, s * 0.42, 0.9, 0.65); // bar posts
+  add(new RoundedBoxGeometry(0.9, 0.1, 0.6, 2, 0.04), trimMat, 0, 0.66, -1.0);   // rear rack
+  for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.09, 10, 8), headMat, s * 0.3, 0.6, 0.78); // headlights
+  add(new RoundedBoxGeometry(0.2, 0.1, 0.04, 2, 0.02), tailMat, 0, 0.66, -0.78);    // tail
+
+  const wheels = [];
+  for (const [x, z] of [[-0.6, 0.95], [0.6, 0.95], [-0.6, -0.95], [0.6, -0.95]]) {
+    const w = makeWheel(0.33, 0.3);
+    w.position.set(x, 0.33, z);
+    group.add(w);
+    wheels.push(w);
+  }
+  return { group, wheels, tailMat };
+}
+
+// One physics model, three tunings. Car: the default. Moto: faster, leans into turns. ATV: slow and grippy.
+// Formula 1 car: a low wide body, a nose, a front wing, a rear wing and four exposed wheels
+function makeF1(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.3, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const carbon = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5, metalness: 0.2 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x6b0f0f, emissive: 0xff1f1f, emissiveIntensity: 0.6 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(0.9, 0.28, 3.6, 3, 0.1), paint, 0, 0.42, 0.1);      // main body
+  add(new RoundedBoxGeometry(0.5, 0.18, 1.7, 3, 0.08), paint, 0, 0.35, 2.0);     // nose
+  add(new RoundedBoxGeometry(0.62, 0.22, 1.0, 3, 0.08), carbon, 0, 0.6, -0.3);   // engine cover
+  add(new RoundedBoxGeometry(0.4, 0.2, 0.9, 2, 0.06), carbon, 0, 0.58, 0.35);    // cockpit
+  add(new THREE.SphereGeometry(0.2, 14, 10), paint, 0, 0.8, 0.3);                // helmet
+  for (const s of [-1, 1]) add(new RoundedBoxGeometry(0.38, 0.3, 1.5, 2, 0.08), paint, s * 0.5, 0.36, -0.2); // side pods
+  add(new THREE.BoxGeometry(2.1, 0.05, 0.5), carbon, 0, 0.2, 2.85);             // front wing
+  add(new THREE.BoxGeometry(1.5, 0.05, 0.42), carbon, 0, 1.05, -1.9);           // rear wing
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.05, 0.4, 0.5), carbon, s * 0.75, 0.9, -1.9);
+  add(new THREE.BoxGeometry(0.12, 0.1, 0.1), tailMat, 0, 0.9, -1.95);          // brake light
+  // Wheels: front pair first, since the steering reads wheels[0] and wheels[1]
+  const wheels = [];
+  for (const [x, z] of [[-1.0, 1.7], [1.0, 1.7], [-1.1, -1.4], [1.1, -1.4]]) {
+    const w = makeWheel(0.36, 0.36);
+    w.position.set(x, 0.36, z);
+    group.add(w);
+    wheels.push(w);
+  }
+  return { group, wheels, tailMat };
+}
+const f1Model = makeF1(0xe10600);
+const carModel = makeCar(0xff6a1a);
+const motoModel = makeMotorcycle(0xff6a1a);
+const atvModel = makeAtv(0x3f6b2a);
+const VEHICLES = {
+  car:  { name: 'רכב',      model: carModel,  maxSpeed: 44, maxReverse: 11, engine: 24, brake: 36, grip: 7.5, handGrip: 1.4, turn: 2.3, radius: 1.05, axle: 1.2, rear: 1.35, front: 2.1, steerWheels: 2 },
+  moto: { name: 'אופנוע',   model: motoModel, maxSpeed: 58, maxReverse: 6,  engine: 30, brake: 34, grip: 9.0, handGrip: 2.2, turn: 3.6, radius: 0.55, axle: 1.0, rear: 1.05, front: 1.3, steerWheels: 1, lean: 0.35 },
+  atv:  { name: 'טרקטורון', model: atvModel,  maxSpeed: 26, maxReverse: 8,  engine: 15, brake: 22, grip: 4.5, handGrip: 1.0, turn: 3.0, radius: 0.95, axle: 1.0, rear: 1.05, front: 1.4, steerWheels: 2 },
+  f1:   { name: 'פורמולה 1', model: f1Model, maxSpeed: 68, maxReverse: 8, engine: 30, brake: 45, grip: 9.5, handGrip: 2.0, turn: 2.8, radius: 0.95, axle: 1.3, rear: 1.5, front: 2.5, steerWheels: 2 },
+};
+let vehicle = 'car';
+let playerCar = carModel;
+scene.add(carModel.group, motoModel.group, atvModel.group);
+motoModel.group.visible = false;
+atvModel.group.visible = false;
+scene.add(f1Model.group);
+f1Model.group.visible = false;
+
+// Helicopter: a procedural model with a spinning main rotor and a tail rotor
+function makeHelicopter(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.3, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(new RoundedBoxGeometry(1.5, 1.3, 2.4, 4, 0.4), paint, 0, 1.3, 0.3);          // cabin
+  add(new THREE.SphereGeometry(0.72, 20, 14), glassMat, 0, 1.35, 1.45);            // bubble
+  add(new THREE.CylinderGeometry(0.22, 0.14, 3.6, 10), paint, 0, 1.45, -2.6).rotation.x = Math.PI / 2; // tail boom
+  add(new RoundedBoxGeometry(0.1, 0.9, 0.6, 2, 0.04), paint, 0, 2.2, -4.2);        // tail fin
+  const tailRotor = add(new THREE.BoxGeometry(0.06, 0.9, 0.12), trimMat, 0.25, 1.55, -4.3);
+  for (const s of [-1, 1]) {
+    add(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 8), trimMat, s * 0.75, 0.2, 0.3).rotation.x = Math.PI / 2; // skids
+    add(new THREE.BoxGeometry(0.08, 0.9, 0.08), trimMat, s * 0.7, 0.7, 0.3);                                    // struts
+  }
+  const rotor = new THREE.Group();
+  rotor.position.set(0, 2.35, 0.2);
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.04, 0.32), trimMat);
+    blade.rotation.y = a;
+    blade.castShadow = true;
+    rotor.add(blade);
+  }
+  group.add(rotor);
+
+  // Rotor disc: a faint ring so the spinning blades read as motion
+  const blur = new THREE.Mesh(new THREE.CircleGeometry(3.7, 32), new THREE.MeshBasicMaterial({ color: 0xc8d0da, transparent: true, opacity: 0.12, depthWrite: false }));
+  blur.rotation.x = -Math.PI / 2;
+  rotor.add(blur);
+
+  // Navigation lights: red on the left, green on the right, blinking
+  const navLights = [
+    add(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2020 }), -1.4, 1.5, 0.3),
+    add(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0x20ff60 }), 1.4, 1.5, 0.3),
+  ];
+  return { group, rotor, tailRotor, navLights };
+}
+const heliModel = makeHelicopter(0x2a3a4a);
+heliModel.group.visible = false;
+scene.add(heliModel.group);
+
+// ============================================================
+// Airplane: a light single-engine plane, about 8.4 m long, with a lathe fuselage,
+// a swept tail, a two-blade propeller, glass canopy and retractable-looking gear
+// ============================================================
+function makeAirplane(color) {
+  const paint = new THREE.MeshPhysicalMaterial({ color, metalness: 0.3, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  const add = (geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    group.add(m);
+    return m;
+  };
+  // Fuselage: the lathe axis is Y, rotated onto Z so the nose points forward (+Z)
+  const profile = [[0, -4.2], [0.35, -4.1], [0.55, -3.6], [0.62, -2.5], [0.62, 1.6], [0.5, 3.0], [0.3, 3.9], [0, 4.2]]
+    .map(([r, y]) => new THREE.Vector2(r, y));
+  const fuselage = new THREE.Mesh(new THREE.LatheGeometry(profile, 24).rotateX(Math.PI / 2), paint);
+  fuselage.position.y = 0.9;
+  fuselage.castShadow = true;
+  group.add(fuselage);
+  add(new THREE.BoxGeometry(10.8, 0.12, 1.5), paint, 0, 1.0, 0.4);        // main wing
+  add(new THREE.BoxGeometry(3.6, 0.1, 0.9), paint, 0, 1.5, -3.6);         // tailplane
+  add(new THREE.BoxGeometry(0.1, 1.6, 1.1), paint, 0, 2.2, -3.7);         // fin
+  add(new THREE.CylinderGeometry(0.5, 0.6, 1.0, 16), trimMat, 0, 0.9, 4.5).rotation.x = Math.PI / 2; // engine cowl
+  add(new THREE.SphereGeometry(0.75, 16, 12), glassMat, 0, 1.55, 0.8).scale.set(0.9, 0.6, 1.5);     // canopy
+  // Propeller: two blades and a faint disc, spun in code
+  const prop = new THREE.Group();
+  prop.position.set(0, 0.9, 5.05);
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.05), trimMat);
+    blade.rotation.z = a;
+    prop.add(blade);
+  }
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color: 0xc8d0da, transparent: true, opacity: 0.1, depthWrite: false }));
+  prop.add(disc);
+  group.add(prop);
+  // Landing gear: two main wheels under the wing and a nose wheel
+  const wheels = [];
+  for (const [x, z, r] of [[-1.4, 0.6, 0.3], [1.4, 0.6, 0.3], [0, 3.0, 0.22]]) {
+    const w = makeWheel(r, 0.22);
+    w.position.set(x, r, z);
+    group.add(w);
+    wheels.push(w);
+  }
+  // Navigation lights: red on the left wing, green on the right, blinking
+  const navLights = [
+    add(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2020 }), -5.4, 1.0, 0.4),
+    add(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x20ff60 }), 5.4, 1.0, 0.4),
+  ];
+  return { group, prop, wheels, navLights };
+}
+
+// Airport: a 700 m runway with markings and edge lights, taxiway, apron, terminal, tower and hangars
+function buildAirport() {
+  const x0 = -1150, x1 = -450;
+  const runwayMat = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.85 });
+  makeStrip(x0, x1, 0, 22.5, 0.06, runwayMat);
+  // Centreline dashes and threshold bars
+  const dashes = [];
+  for (let x = x0 + 20; x < x1 - 20; x += 30) dashes.push({ x: x + 7, y: 0.08, z: 0, sx: 14, sy: 0.02, sz: 0.6 });
+  instanced(dashes, UNIT_BOX, whiteMat);
+  const thresholds = [];
+  for (const x of [x0 + 15, x1 - 15]) {
+    for (let k = -4; k <= 4; k++) thresholds.push({ x, y: 0.08, z: k * 4.5, sx: 26, sy: 0.02, sz: 1.2 });
+  }
+  instanced(thresholds, UNIT_BOX, whiteMat);
+  // Runway edge lights: small glowing markers along both edges
+  const edgeLights = [];
+  for (let x = x0; x <= x1; x += 40) {
+    for (const z of [-23.5, 23.5]) edgeLights.push({ x, y: 0.25, z, sx: 0.6, sy: 0.3, sz: 0.6 });
+  }
+  instanced(edgeLights, UNIT_BOX, new THREE.MeshBasicMaterial({ color: 0xfff3c4 }));
+  // Taxiway from the runway to the apron, then the apron itself
+  flat(14, 110, 0x4b5160, -560, 0.03, 75, 0.9);
+  flat(160, 90, 0x5a606b, -520, 0.03, 120, 0.9);
+  // Terminal with warm glass, a control tower and two hangars
+  const terminal = new THREE.Mesh(new THREE.BoxGeometry(70, 9, 22), [shopGlowMat, shopGlowMat, roofMat, roofMat, shopGlowMat, shopGlowMat]);
+  terminal.position.set(-520, 4.5, 175);
+  terminal.castShadow = terminal.receiveShadow = true;
+  scene.add(terminal);
+  obstacles.push({ minX: -555, maxX: -485, minZ: 164, maxZ: 186, height: 9.6 });
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.4, 28, 16), cornMat);
+  tower.position.set(-420, 14, 175);
+  tower.castShadow = true;
+  scene.add(tower);
+  const cab = new THREE.Mesh(new THREE.CylinderGeometry(4, 3.2, 3.2, 16), glassMat);
+  cab.position.set(-420, 29.6, 175);
+  scene.add(cab);
+  obstacles.push({ minX: -423, maxX: -417, minZ: 172, maxZ: 178, height: 31 });
+  for (const hx of [-640, -700]) {
+    const hangar = new THREE.Mesh(new THREE.BoxGeometry(50, 12, 30), shopMat);
+    hangar.position.set(hx, 6, 215);
+    hangar.castShadow = hangar.receiveShadow = true;
+    scene.add(hangar);
+    obstacles.push({ minX: hx - 25, maxX: hx + 25, minZ: 200, maxZ: 230, height: 12 });
+  }
+  // Windsock on a pole, at the runway's west end
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6, 6), lampPoleMat);
+  pole.position.set(-1000, 3, 60);
+  scene.add(pole);
+  const sock = new THREE.Mesh(new THREE.ConeGeometry(0.6, 3, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xff6a1a, side: THREE.DoubleSide }));
+  sock.rotation.z = Math.PI / 2;
+  sock.position.set(-998.5, 6, 60);
+  scene.add(sock);
+}
+buildAirport();
+
+// Parked planes on the apron, and one plane that circles the airport in the air
+const parkedPlanes = [0xe7ecf2, 0x1d4ed8, 0xb91c1c].map((c, k) => {
+  const pl = makeAirplane(c);
+  pl.group.position.set(-600 + k * 60, 0, 130 + (k % 2) * 15);
+  pl.group.rotation.y = Math.PI / 2;
+  scene.add(pl.group);
+  return pl;
+});
+const circuitPlane = makeAirplane(0xf5f5f4);
+scene.add(circuitPlane.group);
+let circuitPhase = 0;
+function updateAirTraffic(dt) {
+  circuitPhase += dt * 0.1;
+  const rx = 420, rz = 260;
+  const x = -800 + rx * Math.cos(circuitPhase), z = rz * Math.sin(circuitPhase);
+  const tx = -rx * Math.sin(circuitPhase), tz = rz * Math.cos(circuitPhase);
+  circuitPlane.group.position.set(x, 130, z);
+  circuitPlane.group.rotation.set(0, Math.atan2(tx, tz), 0);
+  circuitPlane.prop.rotation.z -= dt * 60;
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  circuitPlane.navLights.forEach(m => { m.visible = blink; });
+}
+
+// Village: eight small houses and a church with a spire on the south-east pad
+function buildVillage() {
+  const walls = ['#e8dcc4', '#c9b79c', '#f2e6d2', '#d9cbb5'].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+  for (const x of [425, 475, 575]) for (const z of [-455, -395]) {
+    const house = new THREE.Mesh(new THREE.BoxGeometry(9, 4, 7), walls[Math.abs(x + z) % walls.length]);
+    house.position.set(x, 2, z);
+    house.castShadow = house.receiveShadow = true;
+    scene.add(house);
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 6.4, 3, 4), roofMat);
+    roof.rotation.y = Math.PI / 4;
+    roof.position.set(x, 5.5, z);
+    roof.castShadow = true;
+    scene.add(roof);
+    obstacles.push({ minX: x - 4.5, maxX: x + 4.5, minZ: z - 3.5, maxZ: z + 3.5, height: 7.5 });
+  }
+  const church = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 12), cornMat);
+  church.position.set(520, 3, -425);
+  church.castShadow = church.receiveShadow = true;
+  scene.add(church);
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(4, 12, 4), cornMat);
+  tower.position.set(520, 9, -439);
+  tower.castShadow = true;
+  scene.add(tower);
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(2.8, 8, 4), roofMat);
+  spire.rotation.y = Math.PI / 4;
+  spire.position.set(520, 19, -439);
+  spire.castShadow = true;
+  scene.add(spire);
+  obstacles.push({ minX: 515.5, maxX: 524.5, minZ: -431, maxZ: -419, height: 6 });
+  obstacles.push({ minX: 518, maxX: 522, minZ: -441, maxZ: -437, height: 15 });
+}
+buildVillage();
+
+// The player's plane: flies with throttle, pitch and bank. Takeoff needs about 26 m/s on the runway.
+const planeModel = makeAirplane(0xe7ecf2);
+planeModel.group.visible = false;
+scene.add(planeModel.group);
+const plane = { x: 0, y: 0, z: 0, heading: 0, speed: 0, vy: 0, throttle: 0, pitch: 0, bank: 0, airborne: false, crashed: false };
+const PLANE_MAX = 60, PLANE_ROTATE = 26, PLANE_STALL = 22;
+const PLANE_START = { x: -1120, z: 0, heading: Math.PI / 2 };
+function resetPlane() {
+  Object.assign(plane, { x: PLANE_START.x, z: PLANE_START.z, heading: PLANE_START.heading, y: 0, speed: 0, vy: 0, throttle: 0, pitch: 0, bank: 0, airborne: false, crashed: false });
+}
+resetPlane();
+// Touchdown on the runway is normal; anywhere else, or too hard, is a crash
+const onRunway = (x, z) => x > -1150 && x < -450 && Math.abs(z) < 22.5;
+
+function updatePlane(dt) {
+  const p = plane;
+  if (input.hand) p.throttle = Math.min(1, p.throttle + dt * 0.5);   // Space: more power
+  if (input.descend) p.throttle = Math.max(0, p.throttle - dt * 0.7); // Shift: less power
+  const pitchIn = (input.down ? 1 : 0) - (input.up ? 1 : 0);          // S pulls up, W pushes down
+  const bankIn = (input.left ? 1 : 0) - (input.right ? 1 : 0);        // A banks left, D banks right
+  const ground = surfaceHeight(p.x, p.z);
+  const onGround = p.y <= ground + 0.01 && !p.airborne;
+
+  if (!p.crashed) {
+    // Pitch: the tail stays low until rotation speed on the ground, and the nose returns to level when released
+    const pitchTarget = pitchIn !== 0 ? clamp(p.pitch + pitchIn * dt * 0.35, -0.25, 0.35) : p.pitch * (1 - dt * 0.8);
+    p.pitch = onGround && p.speed < PLANE_ROTATE ? Math.min(pitchTarget, 0.05) : pitchTarget;
+    p.bank = bankIn !== 0 ? clamp(p.bank + bankIn * dt * 1.2, -0.6, 0.6) : p.bank * (1 - dt * 1.5);
+  }
+
+  // Forward speed: thrust against quadratic drag, plus rolling resistance on the ground
+  const thrust = p.throttle * 3.0;
+  let acc = p.crashed ? -2 : thrust - 0.0006 * p.speed * p.speed;
+  if (onGround && p.speed > 0) acc -= 0.3;
+  p.speed = clamp(p.speed + acc * dt, 0, PLANE_MAX);
+
+  // Lift grows with speed squared and with angle of attack; below the stall speed the plane sinks
+  const lift = p.speed > PLANE_ROTATE || p.airborne ? 0.0132 * p.speed * p.speed * Math.max(0, 0.9 + 2 * p.pitch) : 0;
+  if (onGround && lift > 9.81) {
+    p.airborne = true;          // lift now exceeds the weight: the wheels leave the runway
+    p.vy = 0.5;
+  }
+  if (p.airborne) {
+    p.vy += (lift - 9.81) * dt;
+    if (p.speed < PLANE_STALL) p.vy -= 3 * dt;   // below the stall speed the plane sinks
+    p.vy = clamp(p.vy, -15, 8);   // about 1600 ft/min at most, like a light plane
+  }
+
+  // Heading: on the ground the nose wheel steers; in the air the bank turns the plane
+  const turn = onGround ? bankIn * 0.6 * clamp(p.speed / 10, 0, 1) : p.bank * 0.45 * clamp(p.speed / 35, 0.2, 1);
+  p.heading += turn * dt;
+
+  // Move forward, then settle vertically against the ground
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  p.x += fx * p.speed * dt;
+  p.z += fz * p.speed * dt;
+  const newGround = surfaceHeight(p.x, p.z);
+  const newY = p.y + p.vy * dt;
+  if (newY <= newGround) {
+    if (p.airborne) {
+      // Touchdown: a hard landing, a steep nose or a rough surface wrecks the plane
+      const sink = -p.vy;
+      if (sink > 4.5 || (!onRunway(p.x, p.z) && p.speed > 14) || Math.abs(p.pitch) > 0.2 || Math.abs(p.bank) > 0.3) {
+        p.crashed = true;
+        crash(20);
+      }
+      p.airborne = false;
+    }
+    p.y = newGround;
+    p.vy = 0;
+  } else {
+    p.airborne = true;
+    p.y = newY;
+  }
+  if (p.crashed) p.speed = 0;
+
+  // Visuals: pitch up is a negative x rotation, bank uses the same sign as the helicopter
+  planeModel.group.position.set(p.x, p.y, p.z);
+  planeModel.group.rotation.set(-p.pitch, p.heading, -p.bank);
+  planeModel.prop.rotation.z -= dt * (40 + p.throttle * 120);
+  if (p.speed > 0.1 && !p.airborne) planeModel.wheels.forEach(w => { w.rotation.x += p.speed * dt / 0.3; });
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  planeModel.navLights.forEach(m => { m.visible = blink; });
+
+  // Mirror into the player so the HUD and the camera follow the plane
+  Object.assign(player, { x: p.x, z: p.z, heading: p.heading, fwd: p.speed, lat: 0, steer: 0, alt: p.y });
+  document.getElementById('vehName').textContent = p.crashed ? 'מטוס: נחיתה קשה (R לאיפוס)' : VEHICLE_LABEL.plane;
+}
+
+// ============================================================
+// Goals: timed deliveries, plane rings and the highway time trial
+// ============================================================
+const goal = { score: 0, mission: null, cooldown: 2, ringIndex: 0, ringTime: 0, ringBest: null, trial: null, highwayBest: null };
+try {
+  const saved = Number(localStorage.getItem('car-game-highway-best'));
+  goal.highwayBest = saved > 0 ? saved : null;
+} catch (e) { goal.highwayBest = null; }   // storage may be blocked: the best time just is not kept
+const goalEl = document.getElementById('goal');
+const toastEl = document.getElementById('toast');
+let toastTimer = 0;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+function saveHighwayBest(t) {
+  try { localStorage.setItem('car-game-highway-best', String(t)); } catch (e) { /* blocked storage: nothing to do */ }
+}
+
+// Missions: pick up at one place, deliver to another, before the timer runs out
+const MISSION_TIME = 75;
+const missionMarker = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.2, 1.2, 60, 16, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }),
+);
+missionMarker.visible = false;
+scene.add(missionMarker);
+const cityBlocks = blocks.filter(b => !b.park);
+function randomMissionSpot() {
+  const k = Math.random();
+  if (k < 0.3) return { x: 500 + (Math.random() - 0.5) * 160, z: -425 + (Math.random() - 0.5) * 100, name: 'הכפר' };
+  if (k < 0.5) return { x: -560 + (Math.random() - 0.5) * 120, z: 140, name: 'מגרש המטוסים' };
+  if (k < 0.7) return { x: 400 + Math.random() * 420, z: (Math.random() - 0.5) * 6, name: 'הכביש המהיר' };
+  const b = cityBlocks[Math.floor(Math.random() * cityBlocks.length)];
+  return { x: b.cx, z: b.cz, name: 'העיר' };
+}
+function startMission() {
+  const pickup = randomMissionSpot();
+  let drop = randomMissionSpot();
+  while (Math.hypot(pickup.x - drop.x, pickup.z - drop.z) < 150) drop = randomMissionSpot();
+  goal.mission = { pickup, drop, stage: 'pickup', time: MISSION_TIME };
+  toast(`משימה חדשה: לאסוף ב${pickup.name}`);
+}
+function updateMission(dt) {
+  if (!goal.mission) {
+    goal.cooldown -= dt;
+    if (goal.cooldown <= 0) startMission();
+    missionMarker.visible = false;
+    return;
+  }
+  const m = goal.mission;
+  const target = m.stage === 'pickup' ? m.pickup : m.drop;
+  m.time -= dt;
+  const dist = Math.hypot(player.x - target.x, player.z - target.z);
+  if (dist < 14) {
+    if (m.stage === 'pickup') {
+      m.stage = 'drop';
+      goal.score += 50;
+      toast(`נאסף! לקחת את החבילה ל${m.drop.name}`);
+    } else {
+      goal.score += 100 + Math.round(m.time * 4);
+      toast(`נמסר! +${100 + Math.round(m.time * 4)} נקודות`);
+      goal.mission = null;
+      goal.cooldown = 3;
+      missionMarker.visible = false;
+      return;
+    }
+  } else if (m.time <= 0) {
+    goal.score = Math.max(0, goal.score - 20);
+    toast('נגמר הזמן! -20 נקודות');
+    goal.mission = null;
+    goal.cooldown = 3;
+    missionMarker.visible = false;
+    return;
+  }
+  const t = m.stage === 'pickup' ? m.pickup : m.drop;
+  missionMarker.visible = true;
+  missionMarker.position.set(t.x, surfaceHeight(t.x, t.z) + 30, t.z);
+  missionMarker.material.color.setHex(m.stage === 'pickup' ? 0xfacc15 : 0x22c55e);
+}
+
+// Plane rings: fly through them in order, around the city and the airport
+const RING_SPOTS = [
+  { x: -200, y: 70, z: -150 }, { x: -120, y: 55, z: 120 }, { x: 60, y: 80, z: -40 }, { x: -280, y: 60, z: 220 },
+  { x: -600, y: 50, z: -60 }, { x: -900, y: 60, z: -140 }, { x: -950, y: 45, z: 90 }, { x: -700, y: 50, z: 260 },
+  { x: -420, y: 65, z: -200 }, { x: -150, y: 60, z: -300 },
+];
+const rings = RING_SPOTS.map((s, k) => {
+  const next = RING_SPOTS[(k + 1) % RING_SPOTS.length];
+  const yaw = Math.atan2(next.x - s.x, next.z - s.z);   // the ring faces the next ring
+  const mat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.5, roughness: 0.4 });
+  const mesh = new THREE.Mesh(new THREE.TorusGeometry(9, 0.7, 8, 32), mat);
+  mesh.position.set(s.x, s.y, s.z);
+  mesh.rotation.y = yaw;
+  scene.add(mesh);
+  return { x: s.x, y: s.y, z: s.z, yaw, mesh, mat, prevD: null };
+});
+function updateRings(dt) {
+  if (vehicle !== 'plane') return;
+  const p = plane;
+  for (let k = 0; k < rings.length; k++) {
+    const r = rings[k];
+    const nx = Math.sin(r.yaw), nz = Math.cos(r.yaw);
+    const dx = p.x - r.x, dy = p.y - r.y, dz = p.z - r.z;
+    const d = dx * nx + dz * nz;                                  // signed distance along the ring's normal
+    const lateral = Math.hypot(dx - nx * d, dy, dz - nz * d);
+    if (r.prevD !== null && (r.prevD < 0) !== (d < 0) && lateral < 8.5) {   // crossed the ring's plane inside its hoop
+      if (k === goal.ringIndex) {
+        goal.ringIndex++;
+        r.mat.color.setHex(0x22c55e);
+        r.mat.emissive.setHex(0x22c55e);
+        goal.score += 25;
+        if (goal.ringIndex === rings.length) {
+          const lap = goal.ringTime;
+          goal.score += 200;
+          if (goal.ringBest === null || lap < goal.ringBest) goal.ringBest = lap;
+          toast(`סיבוב הושלם: ${lap.toFixed(1)} שנ' +200`);
+          goal.ringIndex = 0;
+          goal.ringTime = 0;
+          for (const rr of rings) { rr.mat.color.setHex(0xfacc15); rr.mat.emissive.setHex(0xfacc15); }
+        }
+      }
+    }
+    r.prevD = d;
+  }
+  if (goal.ringIndex > 0) goal.ringTime += dt;
+}
+
+// Highway time trial: from the city edge to the far end of the hill, as fast as you can
+const HW_START = 330, HW_FINISH = HIGHWAY_END - 20;
+let hwPrevX = null;
+function updateHighwayTrial(dt) {
+  const x = player.x;
+  const onLane = Math.abs(player.z) < 8 && vehicle !== 'plane' && vehicle !== 'heli';
+  if (hwPrevX === null) hwPrevX = x;
+  if (goal.trial) goal.trial.time += dt;
+  if (!goal.trial && onLane && hwPrevX < HW_START && x >= HW_START) {
+    goal.trial = { time: 0 };
+    toast('שעון הכביש המהיר התחיל!');
+  } else if (goal.trial && onLane && hwPrevX < HW_FINISH && x >= HW_FINISH) {
+    const t = goal.trial.time;
+    goal.trial = null;
+    if (goal.highwayBest === null || t < goal.highwayBest) {
+      goal.highwayBest = t;
+      saveHighwayBest(t);
+      toast(`שיא חדש בכביש המהיר: ${t.toFixed(1)} שנ'`);
+    } else {
+      toast(`סיום: ${t.toFixed(1)} שנ' (השיא ${goal.highwayBest.toFixed(1)})`);
+    }
+    goal.score += 60;
+  } else if (goal.trial && x < HW_START - 30) {
+    goal.trial = null;   // turned back before the start: the run is void
+  }
+  hwPrevX = x;
+}
+
+// The objective line under the speed panel
+function updateGoalHud() {
+  const m = goal.mission;
+  const mission = m
+    ? `${m.stage === 'pickup' ? 'איסוף' : 'מסירה'}: ${Math.ceil(m.time)} שנ' · ${Math.round(Math.hypot(player.x - (m.stage === 'pickup' ? m.pickup : m.drop).x, player.z - (m.stage === 'pickup' ? m.pickup : m.drop).z))} מ'`
+    : 'ממתין למשימה';
+  const rings_ = `טבעות ${goal.ringIndex}/${rings.length}`;
+  const trial = goal.trial ? ` · כביש: ${goal.trial.time.toFixed(1)} שנ'` : '';
+  const best = goal.highwayBest !== null ? ` · שיא כביש ${goal.highwayBest.toFixed(1)}` : '';
+  goalEl.textContent = `${mission} · נקודות ${goal.score}${vehicle === 'plane' ? ` · ${rings_}` : ''}${trial}${best}`;
+}
+
+function updateGoals(dt) {
+  updateMission(dt);
+  updateRings(dt);
+  updateHighwayTrial(dt);
+  updateGoalHud();
+}
+
+// Vehicle cycle: car, motorcycle, ATV, F1 car, helicopter, plane (V key or the touch button)
+const VEHICLE_ORDER = ['car', 'moto', 'atv', 'f1', 'heli', 'plane'];
+function switchVehicle() {
+  const prev = vehicle;
+  vehicle = VEHICLE_ORDER[(VEHICLE_ORDER.indexOf(vehicle) + 1) % VEHICLE_ORDER.length];
+  if (prev === 'heli') {
+    // Land where the helicopter is
+    Object.assign(player, { x: heli.x, z: heli.z, heading: heli.heading, fwd: 0, lat: 0, alt: 0 });
+  }
+  if (prev === 'plane') {
+    // Get out where the plane is, on the ground
+    Object.assign(player, { x: plane.x, z: plane.z, heading: plane.heading, fwd: 0, lat: 0, alt: 0 });
+  }
+  if (vehicle === 'heli') {
+    Object.assign(heli, { x: player.x, z: player.z, heading: player.heading, speed: 0, vy: 0, steer: 0, y: surfaceHeight(player.x, player.z) + 1 });
+  }
+  if (vehicle === 'plane') resetPlane();   // the plane always starts on the runway
+  planeModel.group.visible = vehicle === 'plane';
+  playerCar.group.visible = false;
+  heliModel.group.visible = vehicle === 'heli';
+  if (vehicle !== 'heli' && vehicle !== 'plane') {
+    playerCar = VEHICLES[vehicle].model;
+    playerCar.group.visible = true;
+  }
+  updateVehicleUi();
+}
+
+// Names and button labels follow the current vehicle, so phone players see what each button does
+const VEHICLE_LABEL = { car: 'רכב', moto: 'אופנוע', atv: 'טרקטורון', f1: 'פורמולה 1', heli: 'מסוק', plane: 'מטוס' };
+function updateVehicleUi() {
+  const isHeli = vehicle === 'heli', isPlane = vehicle === 'plane';
+  document.getElementById('vehName').textContent = VEHICLE_LABEL[vehicle];
+  document.getElementById('touchHand').textContent = isHeli ? 'עלייה' : isPlane ? 'גז +' : 'בלם יד';
+  document.getElementById('touchDescend').textContent = isPlane ? 'גז -' : 'ירידה';
+  document.getElementById('touchDescend').hidden = !(isHeli || isPlane);
+}
+
+// Helicopter flight: forward tilt, yaw, climb and descend. It flies over the city with no collisions.
+const heli = { x: 0, y: 0, z: 0, heading: 0, speed: 0, vy: 0, steer: 0, pitch: 0, roll: 0 };
+const HELI_MAX_SPEED = 42;
+const HELI_CEILING = 320;
+// Height the helicopter can land on: the ground, or a roof it is over
+function roofOrGround(x, z) {
+  let g = surfaceHeight(x, z);
+  for (const b of obstacles) {
+    if (b.height && x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ) g = Math.max(g, b.height);
+  }
+  return g;
+}
+
+// Below a building's roof the helicopter is pushed out through the nearest face
+function pushOutOfBox(h, b) {
+  const m = 1.5;
+  const x0 = b.minX - m, x1 = b.maxX + m, z0 = b.minZ - m, z1 = b.maxZ + m;
+  if (h.x < x0 || h.x > x1 || h.z < z0 || h.z > z1) return;
+  const dl = h.x - x0, dr = x1 - h.x, dd = h.z - z0, du = z1 - h.z;
+  const near = Math.min(dl, dr, dd, du);
+  if (near === dl) h.x = x0;
+  else if (near === dr) h.x = x1;
+  else if (near === dd) h.z = z0;
+  else h.z = z1;
+  h.speed *= 0.2;
+}
+
+function updateHeli(dt) {
+  const h = heli;
+  const steerT = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+  h.steer += (steerT - h.steer) * Math.min(1, dt * 4);
+  h.heading += h.steer * 1.4 * dt;
+  const fwdT = input.up ? HELI_MAX_SPEED : input.down ? -HELI_MAX_SPEED * 0.5 : 0;
+  h.speed += (fwdT - h.speed) * Math.min(1, dt * 1.2);
+  const climbT = (input.hand ? 12 : 0) - (input.descend ? 10 : 0);
+  h.vy += (climbT - h.vy) * Math.min(1, dt * 2.5);
+  const ground = roofOrGround(h.x, h.z);
+  h.y = clamp(h.y + h.vy * dt, ground + 0.8, HELI_CEILING);
+  if (h.y <= ground + 0.8) h.vy = Math.max(0, h.vy);
+  const fx = Math.sin(h.heading), fz = Math.cos(h.heading);
+  h.x += fx * h.speed * dt;
+  h.z += fz * h.speed * dt;
+  for (const b of obstacles) {
+    if (b.height && h.y < b.height + 1) pushOutOfBox(h, b);
+  }
+  h.pitch += ((input.up ? 0.2 : input.down ? -0.12 : 0) - h.pitch) * Math.min(1, dt * 4);
+  h.roll += (-h.steer * 0.3 - h.roll) * Math.min(1, dt * 4);
+
+  // Keep the HUD and the camera following the helicopter
+  Object.assign(player, { x: h.x, z: h.z, heading: h.heading, fwd: h.speed, lat: 0, steer: h.steer, alt: h.y });
+  heliModel.group.position.set(h.x, h.y, h.z);
+  heliModel.group.rotation.set(h.pitch, h.heading, h.roll);
+  heliModel.rotor.rotation.y += dt * 38;
+  heliModel.tailRotor.rotation.x += dt * 38;
+  const blink = Math.floor(performance.now() / 500) % 2 === 0;
+  heliModel.navLights.forEach(m => { m.visible = blink; });
+}
+
+// Headlight beams: real spotlights in front of the player car (no shadows, for speed)
+const headBeam = new THREE.SpotLight(0xfff0d0, 30, 70, Math.PI / 6, 0.6, 1.4);
+const headTarget = new THREE.Object3D();
+scene.add(headBeam, headTarget);
+headBeam.target = headTarget;
+
+const SPAWN = { x: PITCH * 0.5, z: LANE, heading: Math.PI / 2 };
+const player = { x: 0, z: 0, heading: 0, fwd: 0, lat: 0, steer: 0, spin: 0 };
+function resetCar() {
+  if (vehicle === 'plane') { resetPlane(); return; }   // R puts the plane back on the runway
+  Object.assign(player, { x: SPAWN.x, z: SPAWN.z, heading: SPAWN.heading, fwd: 0, lat: 0, steer: 0 });
+}
+resetCar();
+
+const input = { up: false, down: false, left: false, right: false, hand: false, descend: false };
+let shake = 0;
+
+// Resolve a contact: push the car out along n and bounce its velocity.
+function applyContact(nx, nz, pen) {
+  const p = player;
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  const rx = -fz, rz = fx;
+  p.x += nx * pen; p.z += nz * pen;
+  const vx = fx * p.fwd + rx * p.lat, vz = fz * p.fwd + rz * p.lat;
+  const vn = vx * nx + vz * nz;
+  if (vn < 0) {
+    const jx = vx - nx * vn * (1 + RESTITUTION), jz = vz - nz * vn * (1 + RESTITUTION);
+    p.fwd = jx * fx + jz * fz;
+    p.lat = jx * rx + jz * rz;
+    if (-vn > 6) crash(-vn);
+  }
+}
+
+function updatePlayer(dt) {
+  const p = player;
+  const V = VEHICLES[vehicle];
+
+  // Steering: smooth, speed-sensitive
+  const steerTarget = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+  p.steer += (steerTarget - p.steer) * Math.min(1, dt * 7);
+
+  // Longitudinal
+  let accel = 0;
+  if (input.up) {
+    accel += p.fwd < -1 ? V.brake : V.engine * Math.max(0.12, 1 - Math.max(p.fwd, 0) / V.maxSpeed);
+  }
+  if (input.down) accel += p.fwd > 1 ? -V.brake : -REVERSE_ACCEL;
+  if (!input.up && !input.down) accel -= p.fwd * COAST_DRAG;
+  if (input.hand) accel -= Math.sign(p.fwd) * HAND_DECEL;
+  p.fwd = clamp(p.fwd + accel * dt, -V.maxReverse, V.maxSpeed);
+
+  // Yaw: turning needs movement and gets sharper with less speed
+  const grip = input.hand ? V.handGrip : V.grip;
+  const rate = V.turn * (input.hand ? 1.35 : 1) / (1 + Math.abs(p.fwd) / 35);
+  const dyaw = p.steer * rate * clamp(Math.abs(p.fwd) / 4, 0, 1) * Math.sign(p.fwd) * dt;
+  p.heading += dyaw;
+  p.lat += p.fwd * dyaw;                        // momentum lags behind the turn, so the car slips
+
+  // Grip: lateral velocity decays, faster with grip, slower when the handbrake slides the car
+  p.lat *= Math.exp(-grip * dt);
+
+  // Integrate
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  const rx = -fz, rz = fx;
+  p.x += (fx * p.fwd + rx * p.lat) * dt;
+  p.z += (fz * p.fwd + rz * p.lat) * dt;
+
+  // Collide with buildings, trees and fountains (two circles along the car)
+  for (let pass = 0; pass < 2; pass++) {
+    for (const o of [V.axle, -V.axle]) {
+      for (const b of obstacles) {
+        const cx = p.x + fx * o, cz = p.z + fz * o;
+        const qx = clamp(cx, b.minX, b.maxX), qz = clamp(cz, b.minZ, b.maxZ);
+        const dx = cx - qx, dz = cz - qz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= V.radius * V.radius) continue;
+        if (d2 < 1e-8) {
+          // Centre inside the box: exit through the nearest face
+          const m = Math.min(cx - b.minX, b.maxX - cx, cz - b.minZ, b.maxZ - cz);
+          let nx = 0, nz = 0;
+          if (m === cx - b.minX) nx = -1;
+          else if (m === b.maxX - cx) nx = 1;
+          else if (m === cz - b.minZ) nz = -1;
+          else nz = 1;
+          applyContact(nx, nz, m + V.radius);
+        } else {
+          const d = Math.sqrt(d2);
+          applyContact(dx / d, dz / d, V.radius - d);
+        }
+      }
+    }
+    // Traffic cars
+    for (const t of traffic) {
+      const tx = t.group.position.x, tz = t.group.position.z;
+      for (const o of [V.axle, -V.axle]) {
+        const cx = p.x + fx * o, cz = p.z + fz * o;
+        const dx = cx - tx, dz = cz - tz;
+        const d = Math.hypot(dx, dz), minD = V.radius + 1.9;
+        if (d < minD && d > 1e-4) applyContact(dx / d, dz / d, minD - d);
+      }
+    }
+  }
+
+  // Invisible city limits
+  if (p.x < -WORLD_LIMIT) { p.x = -WORLD_LIMIT; applyContact(1, 0, 0); }
+  const onHighway = Math.abs(p.z) < 40 && p.x > 0;
+  if (p.x > WORLD_LIMIT && !onHighway) { p.x = WORLD_LIMIT; applyContact(-1, 0, 0); }
+  if (p.x > HIGHWAY_END) { p.x = HIGHWAY_END; applyContact(-1, 0, 0); }
+  if (p.z < -WORLD_LIMIT) { p.z = -WORLD_LIMIT; applyContact(0, 1, 0); }
+  if (p.z > WORLD_LIMIT) { p.z = WORLD_LIMIT; applyContact(0, -1, 0); }
+
+  // Visuals
+  // Ride the humps: height from the surface, nose tilted to match the slope ahead
+  const hx0 = Math.sin(p.heading), hz0 = Math.cos(p.heading);
+  const groundY = surfaceHeight(p.x, p.z);
+  player.alt = groundY;   // the camera follows the car up and down hills and humps
+  const slope = Math.atan2(surfaceHeight(p.x + hx0 * 2, p.z + hz0 * 2) - surfaceHeight(p.x - hx0 * 2, p.z - hz0 * 2), 4);
+  playerCar.group.position.set(p.x, groundY, p.z);
+  // Suspension: the nose dips under braking and lifts under acceleration; the body leans in corners
+  p.pitch ??= 0;
+  p.roll ??= 0;
+  const pitchT = clamp(-accel * 0.004, -0.04, 0.04);
+  // A motorcycle leans into the corner; cars and ATVs roll on their suspension
+  const rollT = V.lean
+    ? clamp(-p.steer * Math.min(Math.abs(p.fwd), 25) / 25 * V.lean, -V.lean, V.lean)
+    : clamp(-p.steer * Math.min(Math.abs(p.fwd), 30) * 0.0016, -0.05, 0.05);
+  p.pitch += (pitchT - p.pitch) * Math.min(1, dt * 6);
+  p.roll += (rollT - p.roll) * Math.min(1, dt * 6);
+  playerCar.group.rotation.set(p.pitch - slope, p.heading, p.roll);
+  p.spin += p.fwd * dt / 0.36;
+  playerCar.wheels.forEach((w, k) => {
+    w.rotation.x = p.spin;
+    if (k < V.steerWheels) w.rotation.y = p.steer * 0.42;   // front wheels turn
+  });
+  const braking = (input.down && p.fwd > 0.5) || input.hand;
+  playerCar.tailMat.emissiveIntensity = braking ? 3 : 0.6;
+
+  const hx = Math.sin(p.heading), hz = Math.cos(p.heading);
+  headBeam.position.set(p.x + hx * V.front, groundY + 0.9, p.z + hz * V.front);
+  headTarget.position.set(p.x + hx * 30, 0, p.z + hz * 30);
+}
+
+// ============================================================
+// Pedestrians: a crowd walking along the sidewalks, with a simple gait bob
+// ============================================================
+const PEDS = LOW_END ? 120 : 260;
+const PED_SHIRTS = [0x1f2937, 0x7c2d12, 0x0f766e, 0xb45309, 0x4338ca, 0xbe185d, 0x365314, 0xe5e7eb, 0xf59e0b, 0x0ea5e9];
+const PED_PANTS = [0x111827, 0x374151, 0x1e3a8a, 0x44403c, 0xd6d3d1];
+const PED_SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0x5c3a21, 0xffdbac];
+// A person is four instanced parts: torso, head, and two legs that swing as they walk
+const pedParts = {
+  torso: new THREE.CapsuleGeometry(0.2, 0.55, 4, 8),
+  head: new THREE.SphereGeometry(0.15, 12, 10),
+  legL: new THREE.CapsuleGeometry(0.09, 0.6, 4, 6).translate(0, -0.3, 0),
+  legR: new THREE.CapsuleGeometry(0.09, 0.6, 4, 6).translate(0, -0.3, 0),
+};
+const pedOffsets = { torso: [0, 1.1, 0], head: [0, 1.62, 0], legL: [-0.12, 0.92, 0], legR: [0.12, 0.92, 0] };
+const pedMeshes = {};
+for (const name of Object.keys(pedParts)) {
+  pedMeshes[name] = new THREE.InstancedMesh(pedParts[name], new THREE.MeshStandardMaterial({ roughness: 0.75 }), PEDS);
+  pedMeshes[name].castShadow = true;
+  // The bounds come from one copy of the geometry, not the whole crowd, so culling must be off
+  pedMeshes[name].frustumCulled = false;
+  scene.add(pedMeshes[name]);
+}
+const pedColor = new THREE.Color();
+const pedList = [];
+for (let k = 0; k < PEDS; k++) {
+  const alongX = Math.random() < 0.5;
+  const line = randInt(NODE_MIN, NODE_MAX) * PITCH + (Math.random() < 0.5 ? -1 : 1) * (ROAD / 2 + SIDEWALK / 2);
+  pedList.push({
+    alongX, line, start: randInt(CELL_MIN, CELL_MAX) * PITCH + ROAD / 2,
+    t: Math.random() * BLOCK, dir: Math.random() < 0.5 ? -1 : 1,
+    speed: 1.1 + Math.random() * 0.6, phase: Math.random() * 10,
+  });
+  pedMeshes.torso.setColorAt(k, pedColor.setHex(PED_SHIRTS[randInt(0, PED_SHIRTS.length - 1)]));
+  const pants = pedColor.setHex(PED_PANTS[randInt(0, PED_PANTS.length - 1)]);
+  pedMeshes.legL.setColorAt(k, pants);
+  pedMeshes.legR.setColorAt(k, pants);
+  pedMeshes.head.setColorAt(k, pedColor.setHex(PED_SKIN[randInt(0, PED_SKIN.length - 1)]));
+}
+for (const m of Object.values(pedMeshes)) m.instanceColor.needsUpdate = true;
+
+// A quarter of the crowd crosses the roads at junctions, waiting for the red light
+for (let k = 0; k < PEDS / 4; k++) {
+  const i = randInt(NODE_MIN, NODE_MAX), j = randInt(NODE_MIN, NODE_MAX);
+  const crossesXRoad = Math.random() < 0.5;     // true: walks across the road that runs along X
+  const opts = [-1, 1].filter(s => crossesXRoad ? (s > 0 ? i < NODE_MAX : i > NODE_MIN) : (s > 0 ? j < NODE_MAX : j > NODE_MIN));
+  const s = opts[randInt(0, opts.length - 1)];
+  pedList[k] = {
+    kind: 'cross', state: 'wait', progress: 0, rest: 0, dir: Math.random() < 0.5 ? -1 : 1,
+    axisWalk: crossesXRoad ? 'z' : 'x', redAxisX: crossesXRoad,
+    node: crossesXRoad ? j * PITCH : i * PITCH,
+    fixed: (crossesXRoad ? i * PITCH : j * PITCH) + s * CW,
+    speed: 4, phase: Math.random() * 10,
+  };
+}
+
+const _pRoot = new THREE.Matrix4(), _pLocal = new THREE.Matrix4(), _pFinal = new THREE.Matrix4(), _pRot = new THREE.Matrix4();
+const _pq = new THREE.Quaternion(), _pp = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1), _pe = new THREE.Euler();
+// Walkers stay on their sidewalk and go round the block
+function walkerPose(p, dt) {
+  p.t = (p.t + p.dir * p.speed * dt + BLOCK) % BLOCK;
+  const along = p.start + p.t;
+  return {
+    x: p.alongX ? along : p.line,
+    z: p.alongX ? p.line : along,
+    yaw: p.alongX ? (p.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI),
+  };
+}
+
+// Seconds of red left for traffic on the road along X (axisX) or along Z; 0 when it is not red
+function redTimeLeft(axisX) {
+  const t = lightTime % LIGHT_CYCLE;
+  if (axisX) return t >= 5.5 ? LIGHT_CYCLE - t : 0;
+  return t < 5.5 ? 5.5 - t : 0;
+}
+
+// Crossers wait at the kerb, cross when the traffic is red with time to spare, then rest on the far kerb
+const CROSS_SPAN = 17.5, CROSS_TIME = 4.4;
+function crosserPose(p, dt) {
+  if (p.state === 'wait') {
+    if (redTimeLeft(p.redAxisX) >= CROSS_TIME + 0.5) { p.state = 'walk'; p.progress = 0; }
+  } else if (p.state === 'walk') {
+    p.progress += dt / CROSS_TIME;
+    if (p.progress >= 1) { p.progress = 1; p.state = 'rest'; p.rest = 1.5 + Math.random() * 2; }
+  } else {
+    p.rest -= dt;
+    if (p.rest <= 0) { p.state = 'wait'; p.progress = 0; p.dir = -p.dir; }
+  }
+  const q = p.dir > 0 ? p.progress : 1 - p.progress;
+  const along = p.node - CROSS_SPAN / 2 + CROSS_SPAN * q;
+  if (p.axisWalk === 'z') {
+    return { x: p.fixed, z: along, yaw: p.dir > 0 ? 0 : Math.PI };
+  }
+  return { x: along, z: p.fixed, yaw: p.dir > 0 ? Math.PI / 2 : -Math.PI / 2 };
+}
+
+function updatePeds(dt, now) {
+  pedList.forEach((p, k) => {
+    const { x, z, yaw } = p.kind === 'cross' ? crosserPose(p, dt) : walkerPose(p, dt);
+    _pq.setFromAxisAngle(UP, yaw);
+    _pRoot.compose(_pp.set(x, 0, z), _pq, _ps);
+    const moving = p.kind !== 'cross' || p.state === 'walk';
+    const swing = moving ? Math.sin(now * 0.001 * p.speed * 5 + p.phase) * 0.45 : 0;   // gait
+    for (const name in pedOffsets) {
+      const o = pedOffsets[name];
+      const angle = name === 'legL' ? swing : name === 'legR' ? -swing : 0;
+      _pRot.makeRotationFromEuler(_pe.set(angle, 0, 0));
+      _pLocal.makeTranslation(o[0], o[1], o[2]).multiply(_pRot);
+      _pFinal.multiplyMatrices(_pRoot, _pLocal);
+      pedMeshes[name].setMatrixAt(k, _pFinal);
+    }
+  });
+  for (const m of Object.values(pedMeshes)) m.instanceMatrix.needsUpdate = true;
+}
+
+// ============================================================
+// Skid marks: a pool of dark decals under the rear tyres while sliding
+// ============================================================
+const SKID_MAX = 700;
+// No polygon offset here: a negative offset pulled the decals' depth past the road and made it show grass through them
+// Opaque and raised a little: blended decals on the road were showing the grass through them
+const skidMat = new THREE.MeshBasicMaterial({ color: 0x15181c });
+const skids = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), skidMat, SKID_MAX);
+// Unused slots are zero-scaled so they stay invisible
+const _hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+for (let i = 0; i < SKID_MAX; i++) skids.setMatrixAt(i, _hidden);
+skids.frustumCulled = false;
+scene.add(skids);
+let skidIdx = 0, skidTimer = 0;
+const _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sp = new THREE.Vector3(), _ss = new THREE.Vector3();
+
+function addSkid(x, z, yaw) {
+  _sp.set(x, 0.08, z);
+  _sq.setFromAxisAngle(UP, yaw);
+  _ss.set(0.3, 1, 0.55);
+  _sm.compose(_sp, _sq, _ss);
+  skids.setMatrixAt(skidIdx, _sm);
+  skidIdx = (skidIdx + 1) % SKID_MAX;
+}
+
+function updateSkids(dt) {
+  if (vehicle === 'heli' || vehicle === 'plane') return;
+  const p = player;
+  const V = VEHICLES[vehicle];
+  const slipping = Math.abs(p.lat) > 3.5 || (input.hand && Math.abs(p.fwd) > 6);
+  skidTimer -= dt;
+  if (!slipping || skidTimer > 0) return;
+  skidTimer = 0.035;
+  const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+  const rx = -fz, rz = fx;
+  for (const s of [-1, 1]) {
+    addSkid(p.x - fx * V.rear + rx * s * 0.9, p.z - fz * V.rear + rz * s * 0.9, p.heading);
+  }
+  skids.instanceMatrix.needsUpdate = true;
+}
+
+// ============================================================
+// Camera
+// ============================================================
+const CAM_MODES = [
+  { dist: 8.5, height: 3.4, look: 2.0, fov: 62 },
+  { dist: 5.0, height: 2.0, look: 3.5, fov: 68 },
+];
+let camMode = 0;
+const camPos = new THREE.Vector3();
+const camLook = new THREE.Vector3();
+let camReady = false;
+
+function updateCamera(dt) {
+  const m = CAM_MODES[camMode];
+  const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
+  const alt = player.alt || 0;
+  const back = m.dist * (vehicle === 'plane' ? 2.4 : 1);   // a plane needs more room behind it
+  const target = new THREE.Vector3(player.x - fx * back, m.height + alt, player.z - fz * back);
+  const look = new THREE.Vector3(player.x + fx * m.look, 1.0 + alt, player.z + fz * m.look);
+  if (!camReady) { camPos.copy(target); camLook.copy(look); camReady = true; }
+  const k = 1 - Math.exp(-dt * 6);
+  const kl = 1 - Math.exp(-dt * 10);
+  camPos.lerp(target, k);
+  camLook.lerp(look, kl);
+
+  shake = Math.max(0, shake - dt * 2.5);
+  const s = shake * 0.25;
+  camera.position.set(camPos.x + (Math.random() - 0.5) * s, camPos.y + (Math.random() - 0.5) * s, camPos.z);
+  camera.lookAt(camLook);
+
+  // Portrait screens are narrow: widen the field of view so the car stays in frame
+  const narrow = camera.aspect < 1 ? 14 : 0;
+  const speedT = Math.min(1, Math.abs(player.fwd) / MAX_SPEED);
+  camera.fov += (m.fov + speedT * 10 + narrow - camera.fov) * k;
+  camera.updateProjectionMatrix();
+}
+
+function updateSun() {
+  sun.position.set(player.x, 0, player.z).addScaledVector(SUN_DIR, 160);
+  sun.target.position.set(player.x, 0, player.z);
+}
+
+// ============================================================
+// Audio (WebAudio, no files)
+// ============================================================
+let audio = null;
+let muted = false;
+
+function initAudio() {
+  if (audio) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain();
+  master.gain.value = muted ? 0 : 0.8;
+  master.connect(ctx.destination);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 400;
+  const engineGain = ctx.createGain();
+  engineGain.gain.value = 0;
+  osc.connect(filter); filter.connect(engineGain); engineGain.connect(master);
+  osc.start();
+
+  const noise = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+  const data = noise.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 2;
+
+  audio = { ctx, master, osc, filter, engineGain, noise };
+}
+
+function updateAudio() {
+  if (!audio) return;
+  const v = Math.abs(player.fwd);
+  const t = audio.ctx.currentTime;
+  const running = state === 'playing';
+  audio.osc.frequency.setTargetAtTime(38 + v * 2.2 + (input.up ? 10 : 0), t, 0.08);
+  audio.filter.frequency.setTargetAtTime(300 + v * 18, t, 0.1);
+  audio.engineGain.gain.setTargetAtTime(running ? 0.02 + clamp(v / MAX_SPEED, 0, 1) * 0.05 : 0, t, 0.1);
+}
+
+function crash(strength) {
+  shake = Math.min(1, shake + strength / 20);
+  if (!audio) return;
+  const src = audio.ctx.createBufferSource();
+  src.buffer = audio.noise;
+  const g = audio.ctx.createGain();
+  g.gain.value = Math.min(0.6, strength / 25);
+  src.connect(g); g.connect(audio.master);
+  src.start();
+}
+
+function toggleMute() {
+  muted = !muted;
+  if (audio) audio.master.gain.setTargetAtTime(muted ? 0 : 0.8, audio.ctx.currentTime, 0.05);
+}
+
+// ============================================================
+// HUD and minimap
+// ============================================================
+const speedEl = document.getElementById('speed');
+const gearEl = document.getElementById('gear');
+const handEl = document.getElementById('hand');
+const revEl = document.getElementById('revBar');
+const miniCanvas = document.getElementById('minimapCanvas');
+const mctx = miniCanvas.getContext('2d');
+const MAP_RANGE = 130;   // world units from the centre to the minimap edge
+let lastKmh = -1, lastGear = '';
+
+function updateHud() {
+  const kmh = Math.round(Math.abs(player.fwd) * 3.6);
+  if (kmh !== lastKmh) { speedEl.textContent = kmh; lastKmh = kmh; }
+  const gear = player.fwd > 0.5 ? 'D' : player.fwd < -0.5 ? 'R' : 'N';
+  if (gear !== lastGear) { gearEl.textContent = gear; lastGear = gear; }
+  handEl.classList.toggle('on', input.hand);
+  revEl.style.width = (clamp(Math.abs(player.fwd) / MAX_SPEED, 0, 1) * 100).toFixed(1) + '%';
+}
+
+function drawMinimap() {
+  const S = miniCanvas.width, half = S / 2, s = half / MAP_RANGE;
+  const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
+  // Map to screen: forward points up, the car stays in the centre
+  const toScreen = (x, z) => {
+    const dx = x - player.x, dz = z - player.z;
+    return [half + (dx * -fz + dz * fx) * s, half - (dx * fx + dz * fz) * s];
+  };
+  const quad = (cx, cz, hw, color) => {
+    const pts = [[cx - hw, cz - hw], [cx + hw, cz - hw], [cx + hw, cz + hw], [cx - hw, cz + hw]].map(([x, z]) => toScreen(x, z));
+    mctx.fillStyle = color;
+    mctx.beginPath();
+    pts.forEach(([x, y], k) => (k ? mctx.lineTo(x, y) : mctx.moveTo(x, y)));
+    mctx.closePath();
+    mctx.fill();
+  };
+
+  mctx.save();
+  mctx.beginPath();
+  mctx.arc(half, half, half, 0, Math.PI * 2);
+  mctx.clip();
+  mctx.fillStyle = '#1e2633';
+  mctx.fillRect(0, 0, S, S);
+  for (const b of blocks) quad(b.cx, b.cz, BLOCK / 2, b.park ? '#3f7a3b' : '#4b5567');
+
+  for (const t of traffic) {
+    const [x, y] = toScreen(t.group.position.x, t.group.position.z);
+    mctx.fillStyle = '#94a3b8';
+    mctx.beginPath(); mctx.arc(x, y, 3, 0, Math.PI * 2); mctx.fill();
+  }
+
+  // Player arrow
+  mctx.fillStyle = '#fb923c';
+  mctx.beginPath();
+  mctx.moveTo(half, half - 9);
+  mctx.lineTo(half + 6, half + 7);
+  mctx.lineTo(half - 6, half + 7);
+  mctx.closePath();
+  mctx.fill();
+  mctx.restore();
+
+  mctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  mctx.lineWidth = 2;
+  mctx.beginPath(); mctx.arc(half, half, half - 1, 0, Math.PI * 2); mctx.stroke();
+}
+
+// ============================================================
+// Input and game states
+// ============================================================
+const KEYMAP = {
+  ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'hand', ShiftLeft: 'descend', ShiftRight: 'descend',
+};
+const startOverlay = document.getElementById('startOverlay');
+const pauseOverlay = document.getElementById('pauseOverlay');
+let state = 'menu';   // menu | playing | paused
+
+function startGame() {
+  initAudio();
+  if (audio && audio.ctx.state === 'suspended') audio.ctx.resume();
+  startOverlay.hidden = true;
+  state = 'playing';
+}
+
+function togglePause() {
+  if (state === 'playing') {
+    state = 'paused';
+    pauseOverlay.hidden = false;
+  } else if (state === 'paused') {
+    state = 'playing';
+    pauseOverlay.hidden = true;
+  }
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('resumeBtn').addEventListener('click', togglePause);
+
+// Touch controls: hold a button to act, release to stop
+document.querySelectorAll('#touch .tb[data-key]').forEach(btn => {
+  const key = btn.dataset.key;
+  const press = e => { e.preventDefault(); input[key] = true; btn.classList.add('pressed'); };
+  const release = e => { e.preventDefault(); input[key] = false; btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', press);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+});
+document.getElementById('touchCam').addEventListener('click', () => { camMode = (camMode + 1) % CAM_MODES.length; });
+document.getElementById('touchVehicle').addEventListener('click', switchVehicle);
+document.getElementById('touchPause').addEventListener('click', () => { if (state !== 'menu') togglePause(); });
+
+window.addEventListener('keydown', e => {
+  if (KEYMAP[e.code]) { input[KEYMAP[e.code]] = true; e.preventDefault(); }
+  if (e.repeat) return;
+  if (e.code === 'Enter' && state === 'menu') startGame();
+  if (e.code === 'KeyC') camMode = (camMode + 1) % CAM_MODES.length;
+  if (e.code === 'KeyR') resetCar();
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'menu') togglePause(); }
+  if (e.code === 'KeyM') toggleMute();
+  if (e.code === 'KeyV') switchVehicle();
+});
+window.addEventListener('keyup', e => {
+  if (KEYMAP[e.code]) input[KEYMAP[e.code]] = false;
+});
+window.addEventListener('blur', () => {
+  for (const k in input) input[k] = false;
+  if (state === 'playing') togglePause();
+});
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ============================================================
+// Main loop
+// ============================================================
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (state === 'playing') {
+    if (vehicle === 'heli') updateHeli(dt);
+    else if (vehicle === 'plane') updatePlane(dt);
+    else updatePlayer(dt);
+    updateTraffic(dt);
+    updateSkids(dt);
+    updateAirTraffic(dt);
+    updateGoals(dt);
+  } else {
+    updateTraffic(0);
+  }
+  updatePeds(dt, now);
+  updateSignals();
+  updateCamera(dt);
+  updateSun();
+  updateAudio();
+  updateHud();
+  grade.uniforms.time.value = now * 0.001;
+  composer.render();
+  drawMinimap();
+  requestAnimationFrame(frame);
+}
+
+// Start the scene at the camera position before the first frame
+updateTraffic(0);
+updateCamera(0);
+updateVehicleUi();
+composer.render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
