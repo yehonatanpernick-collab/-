@@ -28,10 +28,10 @@ export interface BotSkill {
 }
 
 export const BOT_SKILLS: BotSkill[] = [
-  { name: 'Recruit', reaction: 0.8, aimErr: 4.6, turn: 170, view: 55, recoilComp: 0.25, tactics: 0.25 },
-  { name: 'Regular', reaction: 0.52, aimErr: 2.9, turn: 260, view: 75, recoilComp: 0.5, tactics: 0.5 },
-  { name: 'Veteran', reaction: 0.34, aimErr: 1.7, turn: 380, view: 95, recoilComp: 0.7, tactics: 0.75 },
-  { name: 'Elite', reaction: 0.2, aimErr: 0.95, turn: 540, view: 120, recoilComp: 0.88, tactics: 0.95 },
+  { name: 'Recruit', reaction: 0.7, aimErr: 3.2, turn: 200, view: 55, recoilComp: 0.25, tactics: 0.25 },
+  { name: 'Regular', reaction: 0.45, aimErr: 1.9, turn: 300, view: 75, recoilComp: 0.5, tactics: 0.5 },
+  { name: 'Veteran', reaction: 0.3, aimErr: 1.1, turn: 420, view: 95, recoilComp: 0.7, tactics: 0.75 },
+  { name: 'Elite', reaction: 0.18, aimErr: 0.6, turn: 560, view: 120, recoilComp: 0.88, tactics: 0.95 },
 ];
 
 const NAMES = [
@@ -377,7 +377,7 @@ export class BotBrain {
         this.errT = rng.range(0.18, 0.4);
         const settle = clamp(1.8 - this.seenT * 1.2, 0.6, 1.8);
         const moving = Math.hypot(t.s.vx, t.s.vz) > 2 ? 1.35 : 1;
-        let mag = this.skill.aimErr * DEG * (0.55 + d / 55) * settle * moving * (s.ads > 0.5 ? 0.8 : 1.15);
+        let mag = this.skill.aimErr * DEG * (0.3 + d / 100) * Math.min(1.5, settle) * moving * (s.ads > 0.5 ? 0.75 : 1.0);
         // a scoped, settled marksman holds a much steadier aim
         if (w.cls === 'sniper' && s.ads > 0.9) mag *= this.seenT > 0.9 ? 0.22 : 0.5;
         this.errGoalYaw = rng.range(-mag, mag); this.errGoalPitch = rng.range(-mag, mag) * 0.7;
@@ -397,7 +397,8 @@ export class BotBrain {
         : Math.max(1.3 * DEG, Math.atan2(0.42, d)) * 1.6 + this.skill.aimErr * DEG * 0.5;
       const ready = this.seenT >= this.skill.reaction * (0.7 + d / 90) && s.switchT <= 0 && s.reloadT <= 0;
       const scopedIn = w.cls !== 'sniper' || s.ads > 0.92 || d < 9;
-      if (ready && scopedIn && offYaw < tol && offPitch < tol * 1.2) {
+      const inRange = w.cls === 'sniper' || d <= w.rangeEnd * 1.1; // do not waste ammunition far outside effective range
+      if (ready && scopedIn && inRange && offYaw < tol && offPitch < tol * 1.2) {
         if (w.auto) {
           if (this.burstPause > 0) this.burstPause -= dt;
           else {

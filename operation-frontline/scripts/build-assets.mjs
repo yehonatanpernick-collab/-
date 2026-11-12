@@ -128,11 +128,11 @@ for (const h of POLYHAVEN_HDRIS) {
   if (!fresh(hdr)) console.log(`${h.id}: IBL sun clamp at luminance ${makeIblHdr(join(raw, 'hdri', `${h.id}_1k.hdr`), hdr).toFixed(2)}`);
   if (!fresh(sky)) {
     await sharp(join(raw, 'hdri', `${h.id}_tonemapped.jpg`), { limitInputPixels: false })
-      .resize(4096, 2048, { fit: 'fill' }).jpeg({ quality: 84, mozjpeg: true }).toFile(sky);
+      .resize(2048, 1024, { fit: 'fill' }).jpeg({ quality: 84, mozjpeg: true }).toFile(sky);
   }
   manifest.push({
     name: h.id, type: 'HDRI', source: `Poly Haven — https://polyhaven.com/a/${h.id}`, license: 'CC0 1.0',
-    format: `Radiance HDR 512x256, sun clamped for IBL (${kb(hdr)}KB) + tonemapped JPEG 4k (${kb(sky)}KB)`, files: `client/public/assets/hdri/${h.id}_*`, use: h.use,
+    format: `Radiance HDR 512x256, sun clamped for IBL (${kb(hdr)}KB) + tonemapped JPEG 2k (${kb(sky)}KB)`, files: `client/public/assets/hdri/${h.id}_*`, use: h.use,
   });
 }
 

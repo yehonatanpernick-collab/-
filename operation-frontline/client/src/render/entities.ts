@@ -62,7 +62,33 @@ class VehicleView {
       else { glass.quad(x, 1.34, 0.35, x, 1.34, -0.7, x, 1.76, -0.38, x, 1.76, 0.35); glass.quad(x, 1.34, 1.25, x, 1.34, 0.45, x, 1.76, 0.45, x, 1.76, 1.25); }
     }
     for (const sx of [-0.7, 0.7]) { lights.box(sx - 0.16, 0.98, -2.34, sx + 0.16, 1.1, -2.3); }
-    const bm = mat(paint, 0.25, 0.42), dm = mat([0.06, 0.06, 0.065], 0.5, 0.35), gm = mat([0.05, 0.07, 0.09], 0.4, 0.92);
+    // ---- extra detail: bumper bar, door seams, handles, mirrors, rear lamps, plate, exhaust, roof gear
+    const red = new MeshBuilder();
+    for (const sx of [-0.7, 0.7]) {
+      dark.box(sx - 0.2, 0.93, -2.385, sx + 0.2, 1.15, -2.33);            // headlamp bezel
+      red.box(sx - 0.14, 1.04, 2.3, sx + 0.14, 1.14, 2.34);              // tail lamps
+      dark.cylinder(sx * 0.6, 0.42, 2.38, sx * 0.6, 0.42, 2.7, 0.045, 0.04, 8); // exhaust tips
+    }
+    dark.box(-0.95, 0.62, -2.5, 0.95, 0.78, -2.4);                        // bull bar
+    for (const sx of [-1, 1]) dark.box(sx * 0.62 - 0.03, 0.7, -2.52, sx * 0.62 + 0.03, 1.12, -2.44);
+    for (const sx of [-1, 1]) {
+      const x = sx * 1.0;
+      dark.box(x - 0.012, 0.6, -0.7, x + 0.012, 1.7, -0.66);               // door seams
+      dark.box(x - 0.012, 0.6, 0.35, x + 0.012, 1.7, 0.39);
+      dark.box(x - 0.012, 0.6, 1.3, x + 0.012, 1.7, 1.34);
+      dark.box(x - 0.025, 1.45, -0.3, x + 0.025, 1.5, -0.1);                // handles
+      dark.box(x - 0.025, 1.45, 0.65, x + 0.025, 1.5, 0.85);
+      dark.box(x - 0.2 * sx, 1.55, -1.18, x + 0.05 * sx, 1.7, -1.05);       // mirrors
+      dark.box(x - 0.012, 0.48, -1.9, x + 0.012, 0.58, 1.9);                // side step shadow line
+    }
+    dark.box(-0.3, 0.74, 2.395, 0.3, 0.9, 2.42);                           // plate
+    dark.box(-0.5, 1.84, -0.22, 0.5, 1.9, -0.18);                          // roof rail end
+    dark.cylinder(0.85, 1.9, 1.5, 0.85, 2.7, 1.5, 0.012, 0.006, 6);         // antenna
+    dark.cylinder(-0.45, 1.95, 0.5, 0.45, 1.95, 0.5, 0.03, 0.03, 8);       // roll bar tube
+    dark.box(-0.2, 1.9, 0.7, 0.2, 2.15, 1.2, 0, 0, 0);                    // roof cargo box
+    hull.box(-0.55, 1.28, -1.86, 0.55, 1.36, -1.3, 255, 255, 255);          // hood bulge
+    hull.box(-0.18, 1.3, -2.1, 0.18, 1.34, -1.65, 140, 140, 140);          // hood vent
+    const bm = mat(paint, 0.35, 0.55), dm = mat([0.06, 0.06, 0.065], 0.5, 0.35), gm = mat([0.05, 0.07, 0.09], 0.4, 0.92);
     this.bodyMats = [bm];
     this.burnt = mat([0.03, 0.03, 0.03], 0.3, 0.15);
     this.body = ent(device, 'hull', hull, bm);
@@ -70,10 +96,16 @@ class VehicleView {
     this.root.addChild(ent(device, 'chassis', dark, dm));
     this.root.addChild(ent(device, 'glass', glass, gm, false));
     this.root.addChild(ent(device, 'lights', lights, mat([1, 0.95, 0.8], 0, 0.5, 3), false));
+    this.root.addChild(ent(device, 'tail', red, mat([1, 0.1, 0.06], 0, 0.5, 2.2), false));
     // wheels
     const wb = new MeshBuilder();
     wb.cylinder(-0.17, 0, 0, 0.17, 0, 0, 0.45, 0.45, 18);
     wb.cylinder(-0.19, 0, 0, 0.19, 0, 0, 0.24, 0.24, 10);
+    for (const sx of [-1, 1]) { // wheel faces: rim lip, spokes, hub
+      wb.cylinder(sx * 0.17, 0, 0, sx * 0.2, 0, 0, 0.3, 0.3, 14);
+      for (let a = 0; a < 6; a++) { const t = (a / 6) * Math.PI * 2; wb.cylinder(sx * 0.205, 0, 0, sx * 0.205, Math.sin(t) * 0.25, Math.cos(t) * 0.25, 0.02, 0.016, 5); }
+      wb.cylinder(sx * 0.2, 0, 0, sx * 0.235, 0, 0, 0.07, 0.055, 8);
+    }
     const wmesh = wb.toMesh(device, false);
     const wm = mat([0.045, 0.045, 0.05], 0.1, 0.25);
     for (const [x, z] of [[-0.93, -1.45], [0.93, -1.45], [-0.93, 1.45], [0.93, 1.45]]) {

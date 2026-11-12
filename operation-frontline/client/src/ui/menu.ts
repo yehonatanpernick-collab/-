@@ -3,8 +3,9 @@ import { CLASSES, GADGETS, levelProgress, rankName } from '@shared/classes';
 import { DIFFICULTY_NAMES, type MatchOptions } from '@shared/types';
 import { ATTACHMENTS, ATTACHMENT_SLOTS, type AttachmentSlot, WEAPON_BY_ID, resolveWeapon } from '@shared/weapons';
 import type { Input } from '../core/input';
-import { ACTION_LABELS, type Action, DEFAULT_BINDINGS, type QualityLevel, type Store, keyLabel } from '../core/settings';
+import { ACTION_LABELS, type Action, DEFAULT_BINDINGS, QUALITY_LEVELS, type Store, keyLabel } from '../core/settings';
 import { type JoinRequest, type RoomInfo, fetchRooms } from '../net/session';
+import { getLang, rankLabel, setLang } from '../core/i18n';
 import { esc, h } from './dom';
 
 export interface MenuActions {
@@ -16,6 +17,13 @@ export interface MenuActions {
 
 const TABS = ['play', 'multiplayer', 'training', 'loadout', 'classes', 'settings', 'profile', 'credits'] as const;
 type Tab = (typeof TABS)[number];
+const QUALITY_HINT: Record<string, string> = {
+  minimal: 'Minimal: no shadows, tiny sky, shortest view distance — for weak phones and old laptops.',
+  low: 'Low: basic shadows, no post-processing.',
+  medium: 'Medium: good shadows, bloom, local lights.',
+  high: 'High: soft cascaded shadows, ambient occlusion, anti-aliasing.',
+  ultra: 'Ultra: sharpest shadows, full-resolution effects, longest view distance.',
+};
 const SLOT_NAMES: Record<AttachmentSlot, string> = { optic: 'Optic', muzzle: 'Muzzle', grip: 'Underbarrel', mag: 'Magazine', barrel: 'Barrel' };
 
 export class Menu {
@@ -36,10 +44,19 @@ export class Menu {
       h('div', { class: 'menu-side' },
         h('div', { class: 'logo' }, h('span', { text: 'OPERATION' }), h('b', { text: 'FRONTLINE' }), h('em', { text: 'KESTREL CROSSING — CONQUEST 8v8' })),
         this.nav,
+        h('div', { class: 'lang' }, this.langBtn('he', 'עברית'), this.langBtn('en', 'English')),
         h('div', { class: 'menu-foot', text: 'v1.0 — PlayCanvas · Colyseus · TypeScript' })),
       this.content);
     parent.append(this.root);
     this.render();
+  }
+
+  private langBtn(lang: 'he' | 'en', label: string): HTMLElement {
+    return h('button', { class: `lang-btn${getLang() === lang ? ' active' : ''}`, onclick: () => {
+      if (getLang() === lang) return;
+      setLang(lang);
+      location.reload(); // every screen is rebuilt in the new language
+    } }, label);
   }
 
   show(on: boolean, tab?: Tab): void {
@@ -83,8 +100,10 @@ export class Menu {
       h('div', {}, h('label', { text: 'CALLSIGN' }), h('b', { text: this.store.settings.name })),
       h('div', {}, h('label', { text: 'CLASS' }), h('b', { text: cls.name })),
       h('div', {}, h('label', { text: 'PRIMARY' }), h('b', { text: WEAPON_BY_ID[this.store.loadout.primary].name })),
-      h('div', {}, h('label', { text: 'RANK' }), h('b', { text: `${rankName(this.store.level)} · LVL ${this.store.level}` })),
-    ), h('p', { class: 'hint', html: 'Desktop: <b>WASD</b> move · <b>Mouse</b> aim · <b>LMB</b> fire · <b>RMB</b> aim · <b>Shift</b> sprint · <b>C</b> crouch/slide · <b>E</b> vehicle · <b>G</b> grenade · <b>Tab</b> scoreboard. Mobile: on-screen controls.' }));
+      h('div', {}, h('label', { text: 'RANK' }), h('b', { text: `${rankLabel(rankName(this.store.level))} · ${getLang() === 'he' ? 'רמה' : 'LVL'} ${this.store.level}` })),
+    ), h('p', { class: 'hint', html: getLang() === 'he'
+      ? 'מחשב: <b>WASD</b> תנועה · <b>עכבר</b> כיוון · <b>לחיצה שמאלית</b> ירי · <b>לחיצה ימנית</b> כיוון בכוונת · <b>Shift</b> ריצה · <b>C</b> כריעה/החלקה · <b>E</b> רכב · <b>G</b> רימון · <b>Tab</b> לוח תוצאות. כל המקשים ניתנים לשינוי בהגדרות. מובייל: כפתורים על המסך.'
+      : 'Desktop: <b>WASD</b> move · <b>Mouse</b> aim · <b>LMB</b> fire · <b>RMB</b> aim · <b>Shift</b> sprint · <b>C</b> crouch/slide · <b>E</b> vehicle · <b>G</b> grenade · <b>Tab</b> scoreboard. Every key can be changed in Settings. Mobile: on-screen controls.' }));
   }
 
   // ------------------------------------------------------------------ multiplayer lobby
@@ -200,11 +219,13 @@ export class Menu {
     const p = h('div', { class: 'panel' });
     c.append(p);
     if (this.settingsTab === 'video') {
-      p.append(h('div', { class: 'field' }, h('label', { text: 'GRAPHICS QUALITY' }), h('div', { class: 'seg' }, ...(['low', 'medium', 'high', 'ultra'] as QualityLevel[]).map((q) =>
+      p.append(h('div', { class: 'field' }, h('label', { text: 'LANGUAGE' }), h('div', { class: 'seg' }, this.langBtn('he', 'עברית'), this.langBtn('en', 'English'))),
+        h('div', { class: 'field' }, h('label', { text: 'GRAPHICS QUALITY' }), h('div', { class: 'seg' }, ...QUALITY_LEVELS.map((q) =>
         this.btn(q.toUpperCase(), () => { s.quality = q; save(); this.render(); }, `seg-btn${s.quality === q ? ' active' : ''}`)))),
       h('div', { class: 'field' }, h('label', { text: 'RENDERER' }), h('div', { class: 'seg' },
         this.btn('AUTO (WebGPU → WebGL 2)', () => { s.renderer = 'auto'; save(); this.render(); }, `seg-btn${s.renderer === 'auto' ? ' active' : ''}`),
         this.btn('WebGL 2', () => { s.renderer = 'webgl2'; save(); this.render(); }, `seg-btn${s.renderer === 'webgl2' ? ' active' : ''}`))),
+      h('p', { class: 'hint', text: QUALITY_HINT[s.quality] }),
       check('ADAPTIVE RESOLUTION', () => s.adaptiveResolution, (v) => { s.adaptiveResolution = v; }),
       slider('FIELD OF VIEW', 60, 105, 1, () => s.fov, (v) => { s.fov = v; }, (v) => `${v}°`),
       check('SHOW FPS', () => s.showFps, (v) => { s.showFps = v; }),
@@ -219,11 +240,20 @@ export class Menu {
         const b = h('button', { class: 'bind', text: keyLabel(s.bindings[a]) });
         b.addEventListener('click', () => {
           b.textContent = 'PRESS A KEY…'; b.classList.add('listening');
-          this.input.captureNext((code) => { if (code !== 'Escape' || a === 'menu') s.bindings[a] = code; save(); this.render(); });
+          this.input.captureNext((code) => {
+            if (code !== 'Escape' || a === 'menu') {
+              // a key can only do one thing: if another control already uses it, the two swap keys
+              const clash = (Object.keys(s.bindings) as Action[]).find((o) => o !== a && s.bindings[o] === code);
+              if (clash) s.bindings[clash] = s.bindings[a];
+              s.bindings[a] = code;
+              this.input.releaseAll();
+            }
+            save(); this.render();
+          });
         });
         binds.append(h('div', { class: 'bind-row' }, h('span', { text: ACTION_LABELS[a] }), b));
       }
-      p.append(h('h3', { text: 'KEY BINDINGS' }), binds, h('div', { class: 'row' }, this.btn('RESET BINDINGS', () => { s.bindings = { ...DEFAULT_BINDINGS }; save(); this.render(); })));
+      p.append(h('h3', { text: 'KEY BINDINGS' }), h('p', { class: 'hint', text: 'Click a control, then press any keyboard key or mouse button to assign it. If the key is already used, the two controls swap. Esc cancels.' }), binds, h('div', { class: 'row' }, this.btn('RESET BINDINGS', () => { s.bindings = { ...DEFAULT_BINDINGS }; save(); this.render(); })));
     } else if (this.settingsTab === 'audio') {
       const pct = (v: number): string => `${Math.round(v * 100)}%`;
       p.append(slider('MASTER VOLUME', 0, 1, 0.01, () => s.masterVolume, (v) => { s.masterVolume = v; }, pct),
@@ -244,7 +274,7 @@ export class Menu {
     name.addEventListener('change', () => { this.store.settings.name = name.value.trim().slice(0, 16) || 'Soldier'; this.store.saveSettings(); });
     const cell = (l: string, v: string): HTMLElement => h('div', { class: 'cell' }, h('label', { text: l }), h('b', { text: v }));
     c.append(h('div', { class: 'field' }, h('label', { text: 'CALLSIGN' }), name),
-      h('div', { class: 'rank' }, h('b', { text: `${rankName(lp.level).toUpperCase()} — LEVEL ${lp.level}` }), h('div', { class: 'stat-bar' }, h('i', { style: `width:${(lp.into / lp.need) * 100}%` })), h('span', { text: `${lp.into} / ${lp.need} XP` })),
+      h('div', { class: 'rank' }, h('b', { text: `${rankLabel(rankName(lp.level)).toUpperCase()} — ${getLang() === 'he' ? 'רמה' : 'LEVEL'} ${lp.level}` }), h('div', { class: 'stat-bar' }, h('i', { style: `width:${(lp.into / lp.need) * 100}%` })), h('span', { text: `${lp.into} / ${lp.need} XP` })),
       h('div', { class: 'grid' }, cell('MATCHES', String(p.matches)), cell('WINS', String(p.wins)), cell('KILLS', String(p.kills)), cell('DEATHS', String(p.deaths)),
         cell('K/D', (p.kills / Math.max(1, p.deaths)).toFixed(2)), cell('ASSISTS', String(p.assists)), cell('CAPTURES', String(p.captures)), cell('HEADSHOTS', String(p.headshots)),
         cell('BEST SCORE', String(p.bestScore)), cell('TIME PLAYED', `${Math.floor(p.playSeconds / 3600)}h ${Math.floor((p.playSeconds % 3600) / 60)}m`)),

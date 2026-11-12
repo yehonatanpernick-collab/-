@@ -11,6 +11,7 @@ import type { Input } from '../core/input';
 import { IS_MOBILE, type Store } from '../core/settings';
 import type { Game, GameUi } from '../game/game';
 import { type JoinRequest, LocalSession, NetSession } from '../net/session';
+import { getLang, rankLabel, t as tr } from '../core/i18n';
 import { fmtTime, h, show } from './dom';
 import { Hud } from './hud';
 import { Menu } from './menu';
@@ -95,7 +96,7 @@ export class UiApp implements GameUi {
   }
 
   private say(text: string): void {
-    this.toast.textContent = text;
+    this.toast.textContent = tr(text);
     show(this.toast, true);
     window.setTimeout(() => show(this.toast, false), 5000);
   }
@@ -201,7 +202,7 @@ export class UiApp implements GameUi {
     this.boardT -= dt;
     if (board && this.boardT <= 0) { this.boardT = 0.3; this.board.replaceChildren(this.table(v.roster, v.myId, v.myTeam, `${fmtTime(v.timeLeft)} — KESTREL CROSSING`)); }
     if (ended && !this.endShown && v.result) this.showEnd();
-    if (ended) { const t = this.end.querySelector('.next'); if (t) t.textContent = `NEXT MATCH IN ${Math.ceil(v.timeLeft)}`; }
+    if (ended) { const t = this.end.querySelector('.next'); if (t) t.textContent = tr(`NEXT MATCH IN ${Math.ceil(v.timeLeft)}`); }
     if (!v.alive || ended) this.input.clearPressed();
   }
 
@@ -234,7 +235,7 @@ export class UiApp implements GameUi {
     if (this.deployInfo.dataset.k !== info) { this.deployInfo.dataset.k = info; this.deployInfo.innerHTML = info; }
     const wait = v.phase === 'warmup' ? Math.ceil(v.timeLeft) : Math.ceil(v.respawnT);
     const label = v.phase === 'warmup' ? `MATCH STARTS IN ${wait}` : wait > 0 ? `DEPLOY IN ${wait}` : 'DEPLOY';
-    if (this.deployBtn.textContent !== label) this.deployBtn.textContent = label;
+    if (this.deployBtn.dataset.k !== label) { this.deployBtn.dataset.k = label; this.deployBtn.textContent = tr(label); }
     this.deployBtn.classList.toggle('disabled', v.phase === 'warmup');
   }
 
@@ -274,7 +275,7 @@ export class UiApp implements GameUi {
       h('p', { class: 'sub', text: `${TEAM_NAMES[TEAM_A]} ${res.tickets[0]} — ${res.tickets[1]} ${TEAM_NAMES[TEAM_B]}  ·  ${fmtTime(res.duration)}` }),
       me ? h('div', { class: 'grid' }, cell('KILLS', String(me.kills)), cell('DEATHS', String(me.deaths)), cell('ASSISTS', String(me.assists)), cell('CAPTURES', String(me.captures)),
         cell('SCORE', String(me.score)), cell('XP EARNED', `+${xp}`)) : null,
-      h('div', { class: 'rank' }, h('b', { text: `${rankName(lp.level).toUpperCase()} — LEVEL ${lp.level}` }), h('div', { class: 'stat-bar' }, h('i', { style: `width:${(lp.into / lp.need) * 100}%` })), h('span', { text: `${lp.into} / ${lp.need} XP` })),
+      h('div', { class: 'rank' }, h('b', { text: `${rankLabel(rankName(lp.level)).toUpperCase()} — ${getLang() === 'he' ? 'רמה' : 'LEVEL'} ${lp.level}` }), h('div', { class: 'stat-bar' }, h('i', { style: `width:${(lp.into / lp.need) * 100}%` })), h('span', { text: `${lp.into} / ${lp.need} XP` })),
       this.table(res.roster, v.myId, v.myTeam, 'FINAL SCOREBOARD'),
       h('div', { class: 'row' }, h('span', { class: 'next' }), h('button', { class: 'btn primary', onclick: () => this.leave() }, 'RETURN TO MENU'))));
     show(this.end, true);

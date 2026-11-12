@@ -188,6 +188,14 @@ function buildProceduralGun(device: pc.GraphicsDevice, spec: GunSpec, att: Attac
     for (const sx of [-1, 1]) metal.cylinder(sx * 0.012, hgBot - 0.012, -(hgEnd - 0.03), sx * 0.02, hgBot - 0.02, -(hgEnd - 0.26), 0.005, 0.005, 6);
     metal.box(-0.02, hgBot - 0.018, -(hgEnd - 0.01), 0.02, hgBot - 0.006, -(hgEnd - 0.04));
   }
+  // ---- fine detail: gas tube, vent slots, stock buttpad ridges, magazine ribs, selector, bolt release, grip stipple, sling loops
+  metal.cylinder(0, top - 0.012, -(front + 0.02), 0, top - 0.012, -(hgEnd - 0.02), 0.006, 0.006, 6);
+  for (let f = front + 0.05; f < hgEnd - 0.06; f += 0.055) for (const sx of [-1, 1]) metal.box(sx * (hgW + 0.0005) - 0.001, 0.0, -(f + 0.03), sx * (hgW + 0.0005) + 0.001, 0.02, -f);
+  metal.box(hw, bottom + 0.022, -(rear + 0.05), hw + 0.006, bottom + 0.03, -(rear + 0.01));                  // selector
+  metal.box(hw, bottom + 0.012, -(front - 0.03), hw + 0.004, bottom + 0.02, -(front - 0.005));               // bolt release
+  metal.box(-0.003, bottom - 0.005, -(front - 0.05), 0.003, bottom + 0.004, -(front - 0.03));
+  for (let k = 0; k < 6; k++) poly.box(-0.0165, bottom - 0.098 + k * 0.016, -0.115 + k * 0.012 - 0.002, 0.0165, bottom - 0.094 + k * 0.016, -0.052 - k * 0.002 + 0.002); // grip stipple
+  metal.cylinder(hw + 0.002, 0.0, -(front - 0.09), hw + 0.016, 0.0, -(front - 0.09), 0.007, 0.007, 8);       // sling loop
   // grip attachments
   const gripF = front + hgLen * 0.55;
   if (att.grip === 'vertical') poly.cylinder(0, hgBot - 0.008, -gripF, 0, hgBot - 0.1, -(gripF - 0.008), 0.014, 0.0125, 10);
@@ -242,6 +250,7 @@ function buildProceduralGun(device: pc.GraphicsDevice, spec: GunSpec, att: Attac
   const furn = meshEntity(device, 'furniture', poly, gunMat(spec.furniture, 0.05, 0.38), tp);
   const mag = meshEntity(device, 'mag', magB, gunMat(spec.mag === 'box' ? [0.22, 0.25, 0.19] : [0.19, 0.19, 0.2], spec.mag === 'box' ? 0.1 : 0.5, 0.4), tp);
   mag.setLocalPosition(magRest);
+  { const r = new MeshBuilder(); for (let k = 0; k < 7; k++) r.box(-0.0135, -0.025 - k * 0.018, -(mwF1 + 0.002), 0.0135, -0.022 - k * 0.018, -(mwF0 + 0.005)); mag.addChild(meshEntity(device, 'ribs', r, gunMat([0.1, 0.1, 0.11], 0.6, 0.4), tp)); }
   const bolt = meshEntity(device, 'bolt', boltB, gunMat([0.16, 0.16, 0.17], 0.95, 0.65), tp);
   bolt.setLocalPosition(boltRest);
   root.addChild(body); root.addChild(furn); root.addChild(mag); root.addChild(bolt);

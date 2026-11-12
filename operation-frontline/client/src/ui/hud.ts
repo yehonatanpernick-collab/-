@@ -8,6 +8,7 @@ import * as pc from 'playcanvas';
 import type { Engine } from '../core/engine';
 import { IS_MOBILE, type Store, keyLabel } from '../core/settings';
 import type { GameView } from '../game/game';
+import { t as tr } from '../core/i18n';
 import { fmtTime, h, setText, show, toggle } from './dom';
 import { type MapLayer, Minimap, TEAM_CSS } from './minimap';
 
@@ -108,7 +109,7 @@ export class Hud {
 
   notice(text: string, tone: string): void {
     const n = this.el.notice;
-    n.textContent = text;
+    n.textContent = tr(text);
     n.className = `notice show ${tone}`;
     clearTimeout(this.noticeTimer);
     this.noticeTimer = window.setTimeout(() => n.classList.remove('show'), 3800);
@@ -192,9 +193,9 @@ export class Hud {
     toggle(e.ammo, 'low', gun && (s.slot === 0 ? s.ammo0 : s.ammo1) <= w.magSize * 0.25);
     const b = st.bindings;
     const items = `<span class="${s.slot === 0 ? 'on' : ''}">${keyLabel(b.primary)} ${view.ctx.primary.name}</span><span class="${s.slot === 1 ? 'on' : ''}">${keyLabel(b.secondary)} ${view.ctx.secondary.name}</span>`
-      + `<span class="${s.slot === 2 ? 'on' : ''}">${keyLabel(b.gadget1)} ${g0.name}${g0.ammo > 0 ? ` ×${s.gadget0}` : ''}</span>`
-      + (g1 ? `<span class="${s.slot === 3 ? 'on' : ''}">${keyLabel(b.gadget2)} ${g1.name}${g1.ammo > 0 ? ` ×${s.gadget1}` : ''}</span>` : '')
-      + `<span>${keyLabel(b.grenade)} Frag ×${s.grenades}</span>`;
+      + `<span class="${s.slot === 2 ? 'on' : ''}">${keyLabel(b.gadget1)} ${tr(g0.name)}${g0.ammo > 0 ? ` ×${s.gadget0}` : ''}</span>`
+      + (g1 ? `<span class="${s.slot === 3 ? 'on' : ''}">${keyLabel(b.gadget2)} ${tr(g1.name)}${g1.ammo > 0 ? ` ×${s.gadget1}` : ''}</span>` : '')
+      + `<span>${keyLabel(b.grenade)} ${tr('Frag')} ×${s.grenades}</span>`;
     if (e.items.dataset.t !== items) { e.items.dataset.t = items; e.items.innerHTML = items; }
     e.tacFill.style.width = `${(s.tacT / 3.2) * 100}%`;
     // vehicle

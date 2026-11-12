@@ -9,9 +9,11 @@ import { Input } from './core/input';
 import { Store } from './core/settings';
 import { Game } from './game/game';
 import { UiApp } from './ui/app';
+import { applyDocumentLang, t as tr } from './core/i18n';
 import { h } from './ui/dom';
 
 async function boot(): Promise<void> {
+  applyDocumentLang();
   const ui = document.getElementById('ui') as HTMLElement;
   const bar = h('i');
   const text = h('div', { class: 'load-text', text: 'INITIALISING' });
@@ -21,13 +23,13 @@ async function boot(): Promise<void> {
   const store = new Store();
   const params = new URLSearchParams(location.search);
   const q = params.get('quality');
-  if (q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') store.settings.quality = q;
+  if (q === 'minimal' || q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') store.settings.quality = q;
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   const engine = await Engine.create(canvas, store.settings);
   const assets = new Assets(engine);
-  assets.onProgress = (f) => { bar.style.width = `${Math.round(f * 100)}%`; text.textContent = `LOADING ASSETS ${Math.round(f * 100)}%`; };
+  assets.onProgress = (f) => { bar.style.width = `${Math.round(f * 100)}%`; text.textContent = tr(`LOADING ASSETS ${Math.round(f * 100)}%`); };
   await assets.loadGameAssets();
-  text.textContent = 'BUILDING BATTLEFIELD';
+  text.textContent = tr('BUILDING BATTLEFIELD');
   let envIndex = Number(params.get('env') ?? 0);
   await engine.setEnvironment(envIndex, assets.loadTexture);
   const map = buildKestrel();

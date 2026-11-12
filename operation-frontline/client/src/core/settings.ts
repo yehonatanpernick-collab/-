@@ -2,7 +2,8 @@
 import { CLASSES, defaultLoadout, levelFromXp, sanitizeLoadout } from '@shared/classes';
 import type { Loadout } from '@shared/weapons';
 
-export type QualityLevel = 'low' | 'medium' | 'high' | 'ultra';
+export type QualityLevel = 'minimal' | 'low' | 'medium' | 'high' | 'ultra';
+export const QUALITY_LEVELS: QualityLevel[] = ['minimal', 'low', 'medium', 'high', 'ultra'];
 export type RendererPref = 'auto' | 'webgl2';
 
 export interface QualityPreset {
@@ -19,13 +20,19 @@ export interface QualityPreset {
   anisotropy: number;
   renderScale: number;
   decals: number;
+  shadows: boolean;
+  /** Sky cubemap face size (pixels). */
+  skyRes: number;
+  /** Draw distance in metres (fog hides the cut-off). */
+  farClip: number;
 }
 
 export const QUALITY: Record<QualityLevel, QualityPreset> = {
-  low: { pixelRatio: 1, shadowRes: 1024, shadowDistance: 55, cascades: 1, ssao: false, bloom: false, msaa: 1, particles: 0.45, localLights: 0, propDistance: 70, anisotropy: 1, renderScale: 0.8, decals: 64 },
-  medium: { pixelRatio: 1, shadowRes: 2048, shadowDistance: 80, cascades: 2, ssao: false, bloom: true, msaa: 1, particles: 0.7, localLights: 24, propDistance: 110, anisotropy: 4, renderScale: 1, decals: 128 },
-  high: { pixelRatio: 1.5, shadowRes: 2048, shadowDistance: 110, cascades: 3, ssao: true, bloom: true, msaa: 4, particles: 1, localLights: 80, propDistance: 170, anisotropy: 8, renderScale: 1, decals: 256 },
-  ultra: { pixelRatio: 2, shadowRes: 4096, shadowDistance: 150, cascades: 4, ssao: true, bloom: true, msaa: 4, particles: 1.3, localLights: 120, propDistance: 260, anisotropy: 16, renderScale: 1, decals: 384 },
+  minimal: { pixelRatio: 1, shadowRes: 512, shadowDistance: 30, cascades: 1, ssao: false, bloom: false, msaa: 1, particles: 0.25, localLights: 0, propDistance: 45, anisotropy: 1, renderScale: 0.6, decals: 24, shadows: false, skyRes: 128, farClip: 260 },
+  low: { pixelRatio: 1, shadowRes: 1024, shadowDistance: 45, cascades: 1, ssao: false, bloom: false, msaa: 1, particles: 0.45, localLights: 0, propDistance: 70, anisotropy: 1, renderScale: 0.8, decals: 64, shadows: true, skyRes: 256, farClip: 380 },
+  medium: { pixelRatio: 1, shadowRes: 2048, shadowDistance: 80, cascades: 2, ssao: false, bloom: true, msaa: 1, particles: 0.7, localLights: 24, propDistance: 110, anisotropy: 4, renderScale: 1, decals: 128, shadows: true, skyRes: 512, farClip: 600 },
+  high: { pixelRatio: 1.5, shadowRes: 2048, shadowDistance: 110, cascades: 3, ssao: true, bloom: true, msaa: 4, particles: 1, localLights: 80, propDistance: 170, anisotropy: 8, renderScale: 1, decals: 256, shadows: true, skyRes: 512, farClip: 900 },
+  ultra: { pixelRatio: 2, shadowRes: 4096, shadowDistance: 150, cascades: 4, ssao: true, bloom: true, msaa: 4, particles: 1.3, localLights: 120, propDistance: 260, anisotropy: 16, renderScale: 1, decals: 384, shadows: true, skyRes: 1024, farClip: 900 },
 };
 
 export type Action =

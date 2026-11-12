@@ -43,12 +43,23 @@ function buildArm(device: pc.GraphicsDevice, left: boolean): pc.Entity {
     glove.extrude([[-0.02, 0.024], [-0.052, 0.02], [-0.066, -0.004], [-0.052, -0.03], [-0.02, -0.036], [-0.02, -0.02], [-0.04, -0.016], [-0.045, -0.002], [-0.036, 0.008], [-0.02, 0.008]], x - 0.0095, x + 0.0095, 0.003);
   }
   glove.cylinder(s * 0.04, 0.012, 0.03, s * 0.03, 0.03, -0.035, 0.0125, 0.01, 8, true); // thumb
+  glove.cylinder(s * 0.032, 0.03, -0.035, s * 0.026, 0.036, -0.058, 0.0105, 0.009, 8, true); // thumb tip
+  // knuckle guard + finger joint seams + wrist strap + rolled cuff + elbow pad
+  const trim = new MeshBuilder();
+  trim.box(-0.044, 0.024, -0.03, 0.044, 0.031, 0.01);
+  for (let i = 0; i < 4; i++) { const x = -0.034 + i * 0.0225; trim.box(x - 0.0098, 0.0225, -0.036, x + 0.0098, 0.0245, -0.034); trim.box(x - 0.0098, -0.0345, -0.037, x + 0.0098, -0.0325, -0.035); }
+  trim.box(-0.046, -0.02, 0.05, 0.046, 0.026, 0.085);
+  sleeve.cylinder(0, 0, 0.14, 0, 0, 0.125, 0.056, 0.054, 12, true);
+  sleeve.cylinder(0, 0, 0.38, 0, 0, 0.3, 0.056, 0.05, 12, true);
+  for (let i = 0; i < 3; i++) sleeve.cylinder(0, 0, 0.17 + i * 0.07, 0, 0, 0.175 + i * 0.07, 0.049 + i * 0.0015, 0.049 + i * 0.0015, 12, false); // fabric folds
   const e = new pc.Entity(left ? 'armL' : 'armR');
   const sm = new pc.StandardMaterial();
-  sm.diffuse = new pc.Color(0.2, 0.23, 0.16); sm.gloss = 0.2; sm.useMetalness = true; sm.metalness = 0; sm.update();
+  sm.diffuse = new pc.Color(0.27, 0.31, 0.21); sm.gloss = 0.25; sm.useMetalness = true; sm.metalness = 0; sm.update();
   const gm = new pc.StandardMaterial();
-  gm.diffuse = new pc.Color(0.055, 0.055, 0.06); gm.gloss = 0.35; gm.useMetalness = true; gm.metalness = 0; gm.update();
-  e.addComponent('render', { meshInstances: [new pc.MeshInstance(sleeve.toMesh(device, false), sm), new pc.MeshInstance(glove.toMesh(device, false), gm)], castShadows: false, receiveShadows: false });
+  gm.diffuse = new pc.Color(0.1, 0.1, 0.11); gm.gloss = 0.4; gm.useMetalness = true; gm.metalness = 0; gm.update();
+  const tm = new pc.StandardMaterial();
+  tm.diffuse = new pc.Color(0.3, 0.27, 0.2); tm.gloss = 0.3; tm.useMetalness = true; tm.metalness = 0; tm.update();
+  e.addComponent('render', { meshInstances: [new pc.MeshInstance(sleeve.toMesh(device, false), sm), new pc.MeshInstance(glove.toMesh(device, false), gm), new pc.MeshInstance(trim.toMesh(device, false), tm)], castShadows: false, receiveShadows: false });
   return e;
 }
 

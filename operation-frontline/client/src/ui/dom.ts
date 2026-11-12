@@ -1,5 +1,7 @@
 // Minimal DOM helpers for the HTML/CSS user interface.
 
+import { t } from '../core/i18n';
+
 type Attrs = Record<string, string | number | boolean | undefined | ((e: Event) => void)>;
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: (Node | string | null | undefined | false)[]): HTMLElementTagNameMap[K] {
@@ -9,10 +11,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
     if (typeof v === 'function') el.addEventListener(k.replace(/^on/, '').toLowerCase(), v as EventListener);
     else if (k === 'class') el.className = String(v);
     else if (k === 'html') el.innerHTML = String(v);
-    else if (k === 'text') el.textContent = String(v);
+    else if (k === 'text') el.textContent = t(String(v));
+    else if (k === 'title' || k === 'placeholder') el.setAttribute(k, t(String(v)));
     else el.setAttribute(k, v === true ? '' : String(v));
   }
-  for (const c of children) { if (c === null || c === undefined || c === false) continue; el.append(c); }
+  for (const c of children) { if (c === null || c === undefined || c === false) continue; el.append(typeof c === 'string' ? t(c) : c); }
   return el;
 }
 
@@ -20,7 +23,7 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '
 
 /** Sets textContent only when it changed (avoids needless layout work in per-frame HUD updates). */
 export function setText(el: HTMLElement, text: string): void {
-  if (el.dataset.t !== text) { el.dataset.t = text; el.textContent = text; }
+  if (el.dataset.t !== text) { el.dataset.t = text; el.textContent = t(text); }
 }
 
 export function toggle(el: HTMLElement, cls: string, on: boolean): void {

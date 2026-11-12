@@ -47,6 +47,7 @@ function twoBoneIK(upper: pc.Entity, lower: pc.Entity, end: pc.Entity, target: p
 class Avatar {
   readonly root = new pc.Entity('avatar');
   readonly model: pc.Entity;
+  readonly rig = new pc.Entity('rig');
   readonly bones = {} as Record<BoneName, pc.Entity>;
   readonly weaponHolder = new pc.Entity('weapon-holder');
   weapons: [WeaponModel | null, WeaponModel | null] = [null, null];
@@ -66,7 +67,10 @@ class Avatar {
 
   constructor(readonly id: number, engine: Engine, assets: Assets) {
     this.model = assets.instantiate('soldier');
-    this.root.addChild(this.model);
+    // glTF characters face +Z while the game's forward is -Z: turn the whole rig half a revolution
+    this.rig.setLocalEulerAngles(0, 180, 0);
+    this.rig.addChild(this.model);
+    this.root.addChild(this.rig);
     this.root.addChild(this.weaponHolder);
     for (const n of BONES) {
       const e = this.model.findByName(`mixamorig:${n}`) as pc.Entity | null;
@@ -156,8 +160,9 @@ export class Avatars {
     const a = this.list.get(id);
     if (!a) return;
     a.alive = true; a.deadT = 0; a.has = false;
-    a.model.setLocalEulerAngles(0, 0, 0);
-    a.model.setLocalPosition(0, 0, 0);
+    // NB: the 'Character' node carries the model's own -90 degree rotation; only the outer rig is touched
+    a.rig.setLocalEulerAngles(0, 180, 0);
+    a.rig.setLocalPosition(0, 0, 0);
     (a.model.anim as pc.AnimComponent).speed = 1;
     a.weaponHolder.enabled = true;
   }
@@ -227,8 +232,8 @@ export class Avatars {
         a.deadT += dt;
         const t = Math.min(1, a.deadT / 0.55);
         const e = 1 - (1 - t) * (1 - t);
-        a.model.setLocalEulerAngles(-86 * e, 0, 8 * e);
-        a.model.setLocalPosition(0, 0.12 * e, 0);
+        a.rig.setLocalRotation(new pc.Quat().setFromEulerAngles(86 * e, 0, 0).mul(new pc.Quat().setFromEulerAngles(0, 180, 0)));
+        a.rig.setLocalPosition(0, 0.12 * e, 0);
         anim.speed = 0;
         continue;
       }
@@ -253,7 +258,8 @@ export class Avatars {
       const fwd = new pc.Vec3(0, 0, -1); yawQ.transformVector(fwd, fwd);
 
       // ---- crouch: drop the hips and re-plant the feet with leg IK
-      if (a.crouchK > 0.02 && b.Hips && !far) {
+      const dbg = (window as unknown as { __av?: Record<string, boolean> }).__av ?? {};
+      if (a.crouchK > 0.02 && b.Hips && !far && !dbg.noCrouch) {
         const lf = new pc.Vec3().copy(b.LeftFoot.getPosition()), rf = new pc.Vec3().copy(b.RightFoot.getPosition());
         const hp = b.Hips.getPosition();
         b.Hips.setPosition(hp.x - fwd.x * 0.06 * a.crouchK, hp.y - 0.46 * a.crouchK, hp.z - fwd.z * 0.06 * a.crouchK);
@@ -265,7 +271,7 @@ export class Avatars {
 
       // ---- aim pitch through the spine
       const pitchDeg = p.pitch * pc.math.RAD_TO_DEG * (1 - a.sprintK);
-      if (b.Spine1 && b.Spine2) {
+      if (b.Spine1 && b.Spine2 && !dbg.noPitch) {
         qa.setFromAxisAngle(rightC, pitchDeg * 0.3);
         b.Spine1.setRotation(qb.mul2(qa, b.Spine1.getRotation()));
         b.Spine2.setRotation(qb.mul2(qa, b.Spine2.getRotation()));
@@ -288,7 +294,7 @@ export class Avatars {
         const hx = pistol ? 0.06 : 0.11 - ads * 0.03, hy = shoulderY - (pistol ? 0.02 : 0.03) - sk * 0.28, hz = pistol ? -0.48 : -0.2 - ads * 0.02;
         a.weaponHolder.setLocalPosition(hx + sk * 0.05, hy, hz + sk * 0.06);
         a.weaponHolder.setLocalEulerAngles(pitchDeg - sk * 38, sk * 28, sk * 10);
-        if (!far) {
+        if (!far && !dbg.noIK) {
           const wm = w.root.getWorldTransform();
           const rt = new pc.Vec3(); wm.transformPoint(w.gripR, rt);
           const lt = new pc.Vec3(); wm.transformPoint(pistol ? new pc.Vec3(w.gripR.x - 0.03, w.gripR.y, w.gripR.z) : w.gripL, lt);

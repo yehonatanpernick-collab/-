@@ -145,6 +145,7 @@ export class Engine {
     this.app.resizeCanvas();
 
     const light = this.sun.light as pc.LightComponent;
+    light.castShadows = q.shadows;
     light.shadowResolution = q.shadowRes;
     light.shadowDistance = q.shadowDistance;
     light.numCascades = q.cascades;
@@ -152,6 +153,7 @@ export class Engine {
     light.shadowType = q.cascades >= 3 ? pc.SHADOW_PCF5_32F : pc.SHADOW_PCF3_32F;
 
     (this.camera.camera as pc.CameraComponent).fov = s.fov;
+    (this.camera.camera as pc.CameraComponent).farClip = q.farClip;
     const f = this.frame;
     if (f) {
       f.rendering.toneMapping = pc.TONEMAP_ACES2;
@@ -195,13 +197,14 @@ export class Engine {
       // so the visible sky image is pre-dimmed by the same factor to keep its original brightness.
       const src = sky.getSource() as unknown as CanvasImageSource & { width: number; height: number };
       const cv = document.createElement('canvas');
-      cv.width = IS_MOBILE ? 2048 : 4096; cv.height = cv.width / 2;
+      // the visible sky only needs to be as sharp as the cubemap built from it: keep it small (it was the heaviest asset)
+      cv.width = Math.min(2048, this.preset.skyRes * 4); cv.height = cv.width / 2;
       const ctx = cv.getContext('2d') as CanvasRenderingContext2D;
       ctx.filter = `brightness(${(env.skyVisible / env.skyIntensity).toFixed(3)})`;
       ctx.drawImage(src, 0, 0, cv.width, cv.height);
       const dim = new pc.Texture(this.device, { name: 'sky-dim', width: cv.width, height: cv.height, format: pc.PIXELFORMAT_SRGBA8, mipmaps: false, projection: pc.TEXTUREPROJECTION_EQUIRECT });
       dim.setSource(cv);
-      const skybox = pc.EnvLighting.generateSkyboxCubemap(dim, IS_MOBILE ? 1024 : 2048);
+      const skybox = pc.EnvLighting.generateSkyboxCubemap(dim, IS_MOBILE ? Math.min(256, this.preset.skyRes) : this.preset.skyRes);
       dim.destroy();
       scene.envAtlas = atlas;
       scene.skybox = skybox;

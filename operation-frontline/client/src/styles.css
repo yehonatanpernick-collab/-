@@ -196,3 +196,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .hud-br { right: 10px; bottom: auto; top: 60px; } .feed { top: 150px; font-size: 11px; } .end-box h1 { font-size: 44px; }
 }
 @media (max-width: 560px) { .cards, .cards.four, .loadout-grid, .teams { grid-template-columns: 1fr; } }
+
+/* ---------- language ---------- */
+.lang { display: flex; gap: 6px; margin-top: auto; padding-bottom: 10px; }
+.lang-btn { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); padding: 6px 14px; font-size: 14px; letter-spacing: 0.04em; }
+.lang-btn.active { background: var(--amber); color: #14110a; border-color: var(--amber); font-weight: 700; }
+.nav-btn { text-align: start; border-left: none; border-inline-start: 3px solid transparent; }
+.nav-btn.active { border-inline-start-color: var(--amber); }
+html[dir="rtl"] body { letter-spacing: 0; }
+html[dir="rtl"] .nav-btn, html[dir="rtl"] .btn, html[dir="rtl"] .seg-btn, html[dir="rtl"] label, html[dir="rtl"] .logo span, html[dir="rtl"] .logo em, html[dir="rtl"] .cta, html[dir="rtl"] .room.head, html[dir="rtl"] .trow.head { letter-spacing: 0; }
+html[dir="rtl"] .menu { background: linear-gradient(270deg, rgba(7, 9, 11, 0.94) 0, rgba(7, 9, 11, 0.8) 38%, rgba(7, 9, 11, 0.35) 100%); }
+html[dir="rtl"] .nav-btn.active { background: linear-gradient(270deg, rgba(255, 178, 62, 0.16), transparent); }
+html[dir="rtl"] .menu-side { padding: 44px 44px 24px 0; }
+html[dir="rtl"] .hud, html[dir="rtl"] .touch, html[dir="rtl"] .deploy-map, html[dir="rtl"] .mini { direction: ltr; }
+html[dir="rtl"] .val { text-align: left; }
+html[dir="rtl"] .close-menu { right: auto; left: 28px; }
+html[dir="rtl"] .field { grid-template-columns: 210px 1fr 70px; }
+@media (max-width: 900px), (max-height: 520px) { html[dir="rtl"] .menu-side { padding: 10px 14px 0; } }
