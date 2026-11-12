@@ -3,6 +3,7 @@
 // arm IK onto the weapon, crouch (leg IK), sprint carry pose and a death fall.
 import { TEAM_A } from '@shared/config';
 import { PF_ADS, PF_ALIVE, PF_CROUCH, PF_INVEHICLE, PF_SLIDE, PF_SPRINT, type RosterEntry } from '@shared/types';
+import { angleDiff } from '@shared/math';
 import { WEAPONS, defaultAttachments } from '@shared/weapons';
 import * as pc from 'playcanvas';
 import type { Assets } from '../core/assets';
@@ -16,6 +17,8 @@ type BoneName = (typeof BONES)[number];
 
 const va = new pc.Vec3(), vb = new pc.Vec3(), vc = new pc.Vec3(), vd = new pc.Vec3(), ve = new pc.Vec3(), vf = new pc.Vec3();
 const qa = new pc.Quat(), qb = new pc.Quat();
+const tmpRight = new pc.Vec3(), tmpFwd = new pc.Vec3(), tLf = new pc.Vec3(), tRf = new pc.Vec3(), tPoleA = new pc.Vec3(), tPoleB = new pc.Vec3(), tRt = new pc.Vec3(), tLt = new pc.Vec3(), tTmp = new pc.Vec3(), tMp = new pc.Vec3();
+const deathQ = new pc.Quat(), deathBase = new pc.Quat().setFromEulerAngles(0, 180, 0);
 
 /** Analytic two-bone IK in world space: moves `end` to `target`, bending towards `pole`. */
 function twoBoneIK(upper: pc.Entity, lower: pc.Entity, end: pc.Entity, target: pc.Vec3, pole: pc.Vec3): void {
@@ -57,6 +60,7 @@ class Avatar {
   alive = false;
   deadT = 0;
   speed = 0;
+  vx = 0; vz = 0; bodyYaw = 0; init = false;
   lastX = 0; lastZ = 0;
   crouchK = 0;
   sprintK = 0;
@@ -232,47 +236,79 @@ export class Avatars {
         a.deadT += dt;
         const t = Math.min(1, a.deadT / 0.55);
         const e = 1 - (1 - t) * (1 - t);
-        a.rig.setLocalRotation(new pc.Quat().setFromEulerAngles(86 * e, 0, 0).mul(new pc.Quat().setFromEulerAngles(0, 180, 0)));
+        a.rig.setLocalRotation(deathQ.setFromEulerAngles(86 * e, 0, 0).mul(deathBase));
         a.rig.setLocalPosition(0, 0.12 * e, 0);
         anim.speed = 0;
         continue;
       }
       a.root.setPosition(p.x, p.y, p.z);
-      a.root.setEulerAngles(0, p.yaw * pc.math.RAD_TO_DEG, 0);
-      const moved = Math.hypot(p.x - a.lastX, p.z - a.lastZ);
+      // ---- smoothed velocity (interpolated positions are noisy frame to frame)
+      if (dt > 0) {
+        const k = Math.min(1, dt * 9);
+        a.vx += ((p.x - a.lastX) / dt - a.vx) * k;
+        a.vz += ((p.z - a.lastZ) / dt - a.vz) * k;
+      }
       a.lastX = p.x; a.lastZ = p.z;
-      if (dt > 0) a.speed += (Math.min(9, moved / dt) - a.speed) * Math.min(1, dt * 10);
+      const spd = Math.min(9, Math.hypot(a.vx, a.vz));
+      a.speed = spd;
       const crouch = (p.flags & (PF_CROUCH | PF_SLIDE)) !== 0;
       const sprint = (p.flags & PF_SPRINT) !== 0;
       a.crouchK += ((crouch ? 1 : 0) - a.crouchK) * Math.min(1, dt * 9);
       a.sprintK += ((sprint ? 1 : 0) - a.sprintK) * Math.min(1, dt * 8);
-      if (a.speed < 0.5) { a.play('Idle'); anim.speed = 1; }
-      else if (a.speed < 3.3 || crouch) { a.play('Walk'); anim.speed = Math.max(0.6, Math.min(1.8, a.speed / 1.7)); }
-      else { a.play('Run'); anim.speed = Math.max(0.75, Math.min(1.5, a.speed / 5.2)); }
+
+      // ---- body orientation: legs face the direction of travel, the torso twists to follow the aim
+      const aim = p.yaw;
+      let back = false;
+      let target = a.bodyYaw;
+      if (spd > 0.9) {
+        const moveYaw = Math.atan2(-a.vx, -a.vz);
+        let d = angleDiff(aim, moveYaw);
+        if (Math.abs(d) > 1.9) { back = true; d = angleDiff(aim, moveYaw + Math.PI); }
+        target = aim + Math.max(-1.2, Math.min(1.2, sprint ? d : d * 0.85));
+      } else {
+        const off = angleDiff(a.bodyYaw, aim);
+        target = Math.abs(off) > 0.85 ? aim : a.bodyYaw; // plant the feet until the aim swings far enough
+      }
+      const turn = angleDiff(a.bodyYaw, target);
+      a.bodyYaw += turn * Math.min(1, dt * (spd > 0.9 ? 11 : 7));
+      if (!a.init) { a.bodyYaw = aim; a.init = true; }
+      a.root.setEulerAngles(0, a.bodyYaw * pc.math.RAD_TO_DEG, 0);
+      const twist = Math.max(-1.35, Math.min(1.35, angleDiff(a.bodyYaw, aim)));
+
+      // ---- locomotion clip
+      if (spd < 0.45) { a.play('Idle', 0.25); anim.speed = 1; }
+      else if (spd < 3.6 || crouch) { a.play('Walk', 0.22); anim.speed = (back ? -1 : 1) * Math.max(0.5, Math.min(1.9, spd / 1.55)); }
+      else { a.play('Run', 0.22); anim.speed = (back ? -1 : 1) * Math.max(0.7, Math.min(1.6, spd / 4.6)); }
 
       const far = Math.hypot(p.x - cam.x, p.z - cam.z) > 70;
       const b = a.bones;
-      const yawQ = a.root.getRotation();
-      const right = va.set(1, 0, 0); yawQ.transformVector(right, right);
-      const rightC = new pc.Vec3().copy(right);
-      const fwd = new pc.Vec3(0, 0, -1); yawQ.transformVector(fwd, fwd);
+      // aim-space axes (the body root is yawed by the legs, the weapon by the aim)
+      const ca = Math.cos(aim), sa = Math.sin(aim);
+      tmpRight.set(ca, 0, -sa);
+      tmpFwd.set(-sa, 0, -ca);
 
       // ---- crouch: drop the hips and re-plant the feet with leg IK
-      const dbg = (window as unknown as { __av?: Record<string, boolean> }).__av ?? {};
-      if (a.crouchK > 0.02 && b.Hips && !far && !dbg.noCrouch) {
-        const lf = new pc.Vec3().copy(b.LeftFoot.getPosition()), rf = new pc.Vec3().copy(b.RightFoot.getPosition());
+      if (a.crouchK > 0.02 && b.Hips && !far) {
+        const bf = a.bodyYaw;
+        const fx = -Math.sin(bf), fz = -Math.cos(bf);
+        tLf.copy(b.LeftFoot.getPosition()); tRf.copy(b.RightFoot.getPosition());
         const hp = b.Hips.getPosition();
-        b.Hips.setPosition(hp.x - fwd.x * 0.06 * a.crouchK, hp.y - 0.46 * a.crouchK, hp.z - fwd.z * 0.06 * a.crouchK);
-        const poleL = new pc.Vec3(lf.x + fwd.x * 0.9, lf.y + 0.6, lf.z + fwd.z * 0.9);
-        const poleR = new pc.Vec3(rf.x + fwd.x * 0.9, rf.y + 0.6, rf.z + fwd.z * 0.9);
-        twoBoneIK(b.LeftUpLeg, b.LeftLeg, b.LeftFoot, lf, poleL);
-        twoBoneIK(b.RightUpLeg, b.RightLeg, b.RightFoot, rf, poleR);
+        b.Hips.setPosition(hp.x - fx * 0.06 * a.crouchK, hp.y - 0.46 * a.crouchK, hp.z - fz * 0.06 * a.crouchK);
+        tPoleA.set(tLf.x + fx * 0.9, tLf.y + 0.6, tLf.z + fz * 0.9);
+        tPoleB.set(tRf.x + fx * 0.9, tRf.y + 0.6, tRf.z + fz * 0.9);
+        twoBoneIK(b.LeftUpLeg, b.LeftLeg, b.LeftFoot, tLf, tPoleA);
+        twoBoneIK(b.RightUpLeg, b.RightLeg, b.RightFoot, tRf, tPoleB);
       }
 
-      // ---- aim pitch through the spine
+      // ---- torso twist + aim pitch through the spine
       const pitchDeg = p.pitch * pc.math.RAD_TO_DEG * (1 - a.sprintK);
-      if (b.Spine1 && b.Spine2 && !dbg.noPitch) {
-        qa.setFromAxisAngle(rightC, pitchDeg * 0.3);
+      if (b.Spine && b.Spine1 && b.Spine2) {
+        const tw = twist * pc.math.RAD_TO_DEG * (1 - a.sprintK * 0.6);
+        const spineBones = [b.Spine, b.Spine1, b.Spine2];
+        const share = [0.2, 0.3, 0.3];
+        for (let i = 0; i < 3; i++) { qa.setFromAxisAngle(pc.Vec3.UP, tw * share[i]); spineBones[i].setRotation(qb.mul2(qa, spineBones[i].getRotation())); }
+        if (b.Head) { qa.setFromAxisAngle(pc.Vec3.UP, tw * 0.2); b.Head.setRotation(qb.mul2(qa, b.Head.getRotation())); }
+        qa.setFromAxisAngle(tmpRight, pitchDeg * 0.3);
         b.Spine1.setRotation(qb.mul2(qa, b.Spine1.getRotation()));
         b.Spine2.setRotation(qb.mul2(qa, b.Spine2.getRotation()));
         if (b.Head) b.Head.setRotation(qb.mul2(qa, b.Head.getRotation()));
@@ -291,25 +327,29 @@ export class Avatars {
         const shoulderY = 1.43 - 0.5 * a.crouchK;
         const sk = a.sprintK;
         const ads = (p.flags & PF_ADS) !== 0 ? 1 : 0;
-        const hx = pistol ? 0.06 : 0.11 - ads * 0.03, hy = shoulderY - (pistol ? 0.02 : 0.03) - sk * 0.28, hz = pistol ? -0.48 : -0.2 - ads * 0.02;
-        a.weaponHolder.setLocalPosition(hx + sk * 0.05, hy, hz + sk * 0.06);
-        a.weaponHolder.setLocalEulerAngles(pitchDeg - sk * 38, sk * 28, sk * 10);
-        if (!far && !dbg.noIK) {
+        const breathe = Math.sin(performance.now() * 0.0018 + a.id) * 0.004;
+        const hx = (pistol ? 0.06 : 0.11 - ads * 0.03) + sk * 0.05, hy = shoulderY - (pistol ? 0.02 : 0.03) - sk * 0.28 + breathe, hz = (pistol ? -0.48 : -0.2 - ads * 0.02) + sk * 0.06;
+        // the holder pivots about the body axis so it points where the soldier aims, not where the legs point
+        const ct = Math.cos(twist), st = Math.sin(twist);
+        a.weaponHolder.setLocalPosition(hx * ct + hz * st, hy, -hx * st + hz * ct);
+        a.weaponHolder.setLocalEulerAngles(pitchDeg - sk * 38, twist * pc.math.RAD_TO_DEG + sk * 28, sk * 10);
+        if (!far) {
           const wm = w.root.getWorldTransform();
-          const rt = new pc.Vec3(); wm.transformPoint(w.gripR, rt);
-          const lt = new pc.Vec3(); wm.transformPoint(pistol ? new pc.Vec3(w.gripR.x - 0.03, w.gripR.y, w.gripR.z) : w.gripL, lt);
+          wm.transformPoint(w.gripR, tRt);
+          if (pistol) tTmp.set(w.gripR.x - 0.03, w.gripR.y, w.gripR.z); else tTmp.copy(w.gripL);
+          wm.transformPoint(tTmp, tLt);
           const rs = b.RightArm.getPosition(), ls = b.LeftArm.getPosition();
-          const poleR = new pc.Vec3(rs.x + rightC.x * 0.5, rs.y - 0.6, rs.z + rightC.z * 0.5);
-          const poleL = new pc.Vec3(ls.x - rightC.x * 0.5, ls.y - 0.7, ls.z - rightC.z * 0.5);
-          twoBoneIK(b.RightArm, b.RightForeArm, b.RightHand, rt, poleR);
-          twoBoneIK(b.LeftArm, b.LeftForeArm, b.LeftHand, lt, poleL);
+          tPoleA.set(rs.x + tmpRight.x * 0.5, rs.y - 0.6, rs.z + tmpRight.z * 0.5);
+          tPoleB.set(ls.x - tmpRight.x * 0.5, ls.y - 0.7, ls.z - tmpRight.z * 0.5);
+          twoBoneIK(b.RightArm, b.RightForeArm, b.RightHand, tRt, tPoleA);
+          twoBoneIK(b.LeftArm, b.LeftForeArm, b.LeftHand, tLt, tPoleB);
         }
         if (a.flashT > 0) {
           a.flashT -= dt;
           const f = this.ensureFlash(a);
           f.enabled = true;
-          const mp = new pc.Vec3(); w.root.getWorldTransform().transformPoint(w.muzzle, mp);
-          f.setPosition(mp);
+          w.root.getWorldTransform().transformPoint(w.muzzle, tMp);
+          f.setPosition(tMp);
           f.lookAt(cam);
           f.rotateLocal(90, 0, Math.random() * 360);
           const sc = 0.35 + Math.random() * 0.25;

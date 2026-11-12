@@ -113,6 +113,8 @@ export class Game {
   private errX = 0; private errY = 0; private errZ = 0;
   private eyeH: number = PLAYER.EYE;
   private vehicleBoxes: DynBox[] = [];
+  // previous predicted position: the camera is interpolated between the two so motion stays smooth at any display rate
+  private prevX = 0; private prevY = 0; private prevZ = 0;
 
   // snapshots
   private snaps: Snapshot[] = [];
@@ -250,6 +252,7 @@ export class Game {
     this.viewmodel.setLoadout(this.ctx);
     this.viewmodel.setVisible(true);
     copyPlayerState(this.pred, me.state);
+    this.prevX = me.state.x; this.prevY = me.state.y; this.prevZ = me.state.z;
     this.pending.length = 0;
     this.viewYaw = me.state.yaw; this.viewPitch = 0;
     this.wantSlot = 0; this.crouchToggle = false; this.adsToggle = false; this.stimT = 0;
@@ -380,6 +383,7 @@ export class Game {
     const cmd: Cmd = { seq: ++this.seq, buttons, mx: axes.x, mz: axes.z, yaw: this.viewYaw, pitch: this.viewPitch, slot: this.wantSlot, viewTick: rt };
     const inVehicle = this.view.inVehicle;
     if (!inVehicle) {
+      this.prevX = this.pred.x; this.prevY = this.pred.y; this.prevZ = this.pred.z;
       const wasGround = this.pred.grounded;
       const stats = activeWeapon(this.pred, this.ctx);
       this.simulate(cmd, this.out);
@@ -548,7 +552,10 @@ export class Game {
       const sh = this.shake * this.shake;
       const t = this.clock * 37;
       const shX = Math.sin(t * 1.3) * sh * 0.8, shY = Math.cos(t * 1.7) * sh * 0.8, shR = Math.sin(t * 2.1) * sh * 1.6;
-      cam.setPosition(p.x + this.errX, p.y + this.errY + this.eyeH + bobY + this.landDip * 0.05, p.z + this.errZ);
+      const al = clamp(this.cmdAcc / SIM.CMD_DT, 0, 1);
+      const jump = Math.hypot(p.x - this.prevX, p.z - this.prevZ) > 1.5 || Math.abs(p.y - this.prevY) > 1.2; // teleports / respawns are not interpolated
+      const rx = jump ? p.x : this.prevX + (p.x - this.prevX) * al, ry = jump ? p.y : this.prevY + (p.y - this.prevY) * al, rz = jump ? p.z : this.prevZ + (p.z - this.prevZ) * al;
+      cam.setPosition(rx + this.errX, ry + this.errY + this.eyeH + bobY + this.landDip * 0.05, rz + this.errZ);
       const slideRoll = p.slideT > 0 ? -3.5 : 0;
       cam.setEulerAngles((this.viewPitch + p.recoilP) / DEG + shX, (this.viewYaw + p.recoilY) / DEG + shY, bobRoll + shR + slideRoll);
       const w = activeWeapon(p, this.ctx);

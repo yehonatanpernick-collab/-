@@ -41,6 +41,7 @@ export class WorldView {
   constructor(private readonly engine: Engine, private readonly assets: Assets, readonly map: MapData) {
     engine.app.root.addChild(this.root);
     this.buildStatic();
+    this.buildTrees();
     this.buildGlass();
     this.buildProps();
     this.buildLights();
@@ -80,7 +81,8 @@ export class WorldView {
       // never visible: undersides resting on the base ground and the bottom of deep foundations
       if (b.minY <= -3.9) faces &= ~FACE_NY;
       if (!(b.flags & F_NOCOLLIDE) && b.minY === -0.6 && b.maxY <= 0.16 && !this.overTunnel(b.minX, b.minZ, b.maxX, b.maxZ)) faces &= ~FACE_NY;
-      mb.box(b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ, t[0] * 255, t[1] * 255, t[2] * 255, faces, shade);
+      const wallLike = b.mat !== MAT.ASPHALT && b.mat !== MAT.SIDEWALK && b.mat !== MAT.DIRT && b.mat !== MAT.LINE && !(b.flags & F_NOCOLLIDE && b.maxY - b.minY < 0.3);
+      mb.box(b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ, t[0] * 255, t[1] * 255, t[2] * 255, faces, shade, wallLike);
     }
 
     // ramps and stairs
@@ -163,6 +165,34 @@ export class WorldView {
       if (zn.maxY < 0 && x0 < zn.maxX + 1 && x1 > zn.minX - 1 && z0 < zn.maxZ + 6 && z1 > zn.minZ - 6) return true;
     }
     return false;
+  }
+
+  // ------------------------------------------------------------------ street trees
+  private buildTrees(): void {
+    const trees = this.map.trees;
+    if (!trees.length) return;
+    const trunks = new MeshBuilder(), leaves = new MeshBuilder();
+    trees.forEach((t, i) => {
+      const s = t.scale;
+      trunks.cylinder(t.x, t.y, t.z, t.x + 0.12 * s, t.y + 2.9 * s, t.z, 0.17 * s, 0.09 * s, 7, false, 92, 70, 52);
+      trunks.cylinder(t.x + 0.05, t.y + 1.8 * s, t.z, t.x + 0.9 * s, t.y + 3.5 * s, t.z + 0.3 * s, 0.06 * s, 0.03 * s, 5, false, 92, 70, 52);
+      trunks.cylinder(t.x + 0.05, t.y + 2.0 * s, t.z, t.x - 0.8 * s, t.y + 3.6 * s, t.z - 0.4 * s, 0.06 * s, 0.03 * s, 5, false, 92, 70, 52);
+      const gr = t.kind === 0 ? [78, 86, 22] : t.kind === 1 ? [96, 92, 24] : [62, 80, 30];
+      const blobs: [number, number, number, number][] = [[0.1, 3.6, 0, 1.7], [-1.0, 3.2, 0.5, 1.25], [1.0, 3.3, -0.4, 1.3], [0.2, 4.4, 0.3, 1.15], [-0.3, 3.0, -1.0, 1.1], [0.6, 3.1, 1.0, 1.05]];
+      blobs.forEach((bl, k) => leaves.sphere(t.x + bl[0] * s, t.y + bl[1] * s, t.z + bl[2] * s, bl[3] * s, 10, gr[0], gr[1], gr[2], i * 7 + k));
+    });
+    const device = this.engine.device;
+    const mk = (name: string, mb: MeshBuilder, gloss: number): void => {
+      const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(1, 1, 1); m.diffuseVertexColor = true; m.useMetalness = true; m.metalness = 0; m.gloss = gloss;
+      m.cull = pc.CULLFACE_NONE; m.update();
+      const e = new pc.Entity(name);
+      e.addComponent('render', { meshInstances: [new pc.MeshInstance(mb.toMesh(device, false), m)], castShadows: true, receiveShadows: true });
+      this.root.addChild(e);
+      this.triangles += mb.idx.length / 3;
+    };
+    mk('tree-trunks', trunks, 0.15);
+    mk('tree-leaves', leaves, 0.12);
   }
 
   // ------------------------------------------------------------------ glass (hardware instanced)

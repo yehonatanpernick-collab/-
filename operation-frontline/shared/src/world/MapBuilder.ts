@@ -13,6 +13,7 @@ export interface BaseDef { team: TeamId; name: string; x: number; z: number; spa
 export type DynKind = 'glass' | 'barrel' | 'crate' | 'door';
 export interface DynEntity { id: number; kind: DynKind; boxes: number[]; x: number; y: number; z: number; hp: number; prop: number }
 export interface LightDef { x: number; y: number; z: number; color: [number, number, number]; range: number; intensity: number }
+export interface TreeInst { x: number; y: number; z: number; scale: number; kind: number }
 export interface Zone { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }
 export interface Rect { x0: number; z0: number; x1: number; z1: number }
 
@@ -28,6 +29,7 @@ export interface MapData {
   lights: LightDef[];
   interiors: Zone[];
   overwatch: SpawnPoint[];
+  trees: TreeInst[];
 }
 
 export interface Opening { a0: number; a1: number; y0: number; y1: number; glass?: boolean }
@@ -81,6 +83,7 @@ export class MapBuilder {
   readonly objectives: ObjectiveDef[] = [];
   readonly bases: BaseDef[] = [];
   readonly overwatch: SpawnPoint[] = [];
+  readonly trees: TreeInst[] = [];
   readonly rng: Rng;
 
   constructor(seed: number) { this.rng = new Rng(seed); }
@@ -394,12 +397,55 @@ export class MapBuilder {
     }
   }
 
+  /**
+   * Scatter street trees on free sidewalk. Must run after all other geometry so overlap tests see everything.
+   * Each tree gets a small solid trunk collider.
+   */
+  scatterTrees(spacing: number, max: number, bounds: Rect): void {
+    const boxes = this.world.boxes;
+    const groundAt = (x: number, z: number): { top: number; mat: number } => {
+      let top = -Infinity, mat = -1;
+      for (const b of boxes) {
+        if (b.flags & F_NOCOLLIDE) continue;
+        if (x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ && b.minY <= 0.01 && b.maxY > top) { top = b.maxY; mat = b.mat; }
+      }
+      return { top, mat };
+    };
+    const free = (x: number, z: number, r: number): boolean => {
+      for (const b of boxes) {
+        if (!(b.flags & F_SOLID) || b.enabled === false) continue;
+        if (b.maxY < 0.4) continue;
+        if (b.minX < x + r && b.maxX > x - r && b.minZ < z + r && b.maxZ > z - r) return false;
+      }
+      return true;
+    };
+    const keepClear: { x: number; z: number; r: number }[] = [
+      ...this.objectives.map((o) => ({ x: o.x, z: o.z, r: o.radius + 3 })),
+      ...this.bases.flatMap((bs) => bs.spawns.map((sp) => ({ x: sp.x, z: sp.z, r: 4 }))),
+    ];
+    const w = { minX: bounds.x0, maxX: bounds.x1, minZ: bounds.z0, maxZ: bounds.z1 };
+    let n = 0;
+    for (let tries = 0; tries < 2500 && n < max; tries++) {
+      const x = this.rng.range(w.minX + 6, w.maxX - 6), z = this.rng.range(w.minZ + 6, w.maxZ - 6);
+      const g = groundAt(x, z);
+      if (g.mat !== MAT.SIDEWALK || Math.abs(g.top - 0.15) > 0.02) continue;
+      if (!free(x, z, 1.3)) continue;
+      if (keepClear.some((k) => Math.hypot(x - k.x, z - k.z) < k.r)) continue;
+      if (this.trees.some((t) => Math.hypot(t.x - x, t.z - z) < spacing)) continue;
+      // keep the street edge readable: stay at least 1.2 m off the kerb
+      if (groundAt(x + 1.2, z).mat !== MAT.SIDEWALK || groundAt(x - 1.2, z).mat !== MAT.SIDEWALK || groundAt(x, z + 1.2).mat !== MAT.SIDEWALK || groundAt(x, z - 1.2).mat !== MAT.SIDEWALK) continue;
+      this.trees.push({ x, y: 0.15, z, scale: this.rng.range(0.85, 1.25), kind: this.rng.int(0, 2) });
+      this.box(x - 0.2, 0.15, z - 0.2, x + 0.2, 3.2, z + 0.2, MAT.METAL, F_WALL | F_NORENDER);
+      n++;
+    }
+  }
+
   finish(id: string, name: string, tagline: string, bounds: Rect): MapData {
     this.world.setBounds(bounds.x0, bounds.z0, bounds.x1, bounds.z1);
     this.world.finalize();
     return {
       id, name, tagline, world: this.world, props: this.props, objectives: this.objectives, bases: this.bases,
-      dyn: this.dyn, lights: this.lights, interiors: this.interiors, overwatch: this.overwatch,
+      dyn: this.dyn, lights: this.lights, interiors: this.interiors, overwatch: this.overwatch, trees: this.trees,
     };
   }
 }

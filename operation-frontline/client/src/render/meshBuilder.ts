@@ -54,19 +54,44 @@ export class MeshBuilder {
 
   /** Axis aligned box. `shade(face, cx, cy, cz, nx, ny, nz)` may return a brightness factor per face. */
   box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, r = 255, g = 255, b = 255, faces = FACE_ALL,
-    shade?: (cx: number, cy: number, cz: number, nx: number, ny: number, nz: number) => number): void {
+    shade?: (cx: number, cy: number, cz: number, nx: number, ny: number, nz: number) => number, grad = false): void {
     const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, mz = (z0 + z1) / 2;
     const f = (cx: number, cy: number, cz: number, nx: number, ny: number, nz: number): [number, number, number] => {
       const k = shade ? shade(cx, cy, cz, nx, ny, nz) : 1;
       return [Math.min(255, r * k), Math.min(255, g * k), Math.min(255, b * k)];
     };
     let c: [number, number, number];
-    if (faces & FACE_PX) { c = f(x1, my, mz, 1, 0, 0); this.quad(x1, y0, z1, x1, y0, z0, x1, y1, z0, x1, y1, z1, c[0], c[1], c[2]); }
-    if (faces & FACE_NX) { c = f(x0, my, mz, -1, 0, 0); this.quad(x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0, c[0], c[1], c[2]); }
+    // vertical gradient on wall faces: darker towards the ground (fake ambient occlusion / grime), lighter at the top
+    const hgt = y1 - y0;
+    const lo = grad && hgt > 0.6 ? 0.56 + 0.16 * Math.min(1, hgt / 10) : 1, hi = grad && hgt > 0.6 ? 1.06 : 1;
+    const side = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, cx: number, cy: number, cz: number, dx: number, dy: number, dz: number, col: [number, number, number]): void =>
+      this.quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, Math.min(255, col[0] * lo), Math.min(255, col[1] * lo), Math.min(255, col[2] * lo), Math.min(255, col[0] * hi), Math.min(255, col[1] * hi), Math.min(255, col[2] * hi));
+    if (faces & FACE_PX) { c = f(x1, my, mz, 1, 0, 0); side(x1, y0, z1, x1, y0, z0, x1, y1, z0, x1, y1, z1, c); }
+    if (faces & FACE_NX) { c = f(x0, my, mz, -1, 0, 0); side(x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0, c); }
     if (faces & FACE_PY) { c = f(mx, y1, mz, 0, 1, 0); this.quad(x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0, c[0], c[1], c[2]); }
     if (faces & FACE_NY) { c = f(mx, y0, mz, 0, -1, 0); this.quad(x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, c[0], c[1], c[2]); }
-    if (faces & FACE_PZ) { c = f(mx, my, z1, 0, 0, 1); this.quad(x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, c[0], c[1], c[2]); }
-    if (faces & FACE_NZ) { c = f(mx, my, z0, 0, 0, -1); this.quad(x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0, c[0], c[1], c[2]); }
+    if (faces & FACE_PZ) { c = f(mx, my, z1, 0, 0, 1); side(x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, c); }
+    if (faces & FACE_NZ) { c = f(mx, my, z0, 0, 0, -1); side(x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0, c); }
+  }
+
+  /** Lumpy low-poly sphere with per-vertex colour variation (tree canopies, bushes). */
+  sphere(cx: number, cy: number, cz: number, rad: number, seg: number, r: number, g: number, b: number, seed = 1): void {
+    const base = this.vertexCount, rings = Math.max(3, seg >> 1);
+    const hash = (i: number, j: number): number => { const x = Math.sin(i * 127.1 + j * 311.7 + seed * 74.7) * 43758.5453; return x - Math.floor(x); };
+    for (let j = 0; j <= rings; j++) {
+      const v = j / rings, phi = v * Math.PI;
+      for (let i = 0; i <= seg; i++) {
+        const u = i / seg, th = u * Math.PI * 2;
+        const nx = Math.sin(phi) * Math.cos(th), ny = Math.cos(phi), nz = Math.sin(phi) * Math.sin(th);
+        const lump = 1 + (hash(i % seg, j) - 0.5) * 0.28;
+        const shade = 0.78 + 0.3 * (ny * 0.5 + 0.5) + (hash(i % seg, j + 9) - 0.5) * 0.18;
+        this.vert(cx + nx * rad * lump, cy + ny * rad * lump * 0.9, cz + nz * rad * lump, nx, ny, nz, u, v, Math.min(255, r * shade), Math.min(255, g * shade), Math.min(255, b * shade));
+      }
+    }
+    for (let j = 0; j < rings; j++) for (let i = 0; i < seg; i++) {
+      const a = base + j * (seg + 1) + i, c2 = a + seg + 1;
+      this.idx.push(a, a + 1, c2, a + 1, c2 + 1, c2);
+    }
   }
 
   /** Cylinder along an arbitrary axis between two points. */

@@ -506,13 +506,13 @@ function boundaryRows(b: MapBuilder): void {
   for (let i = 0; i < 26; i++) {
     const along = -130 + i * 10.5 + rng.range(-2, 2);
     const h = rng.range(22, 58);
-    sky(along, -112 - rng.range(0, 26), rng.range(10, 18), rng.range(12, 20), h, rng.int(1, 8));
-    sky(along, 92 + rng.range(0, 26), rng.range(10, 18), rng.range(12, 20), rng.range(22, 58), rng.int(1, 8));
+    sky(along, -112 - rng.range(0, 26), rng.range(10, 18), rng.range(12, 20), h, rng.pick([2, 6, 8, 12]));
+    sky(along, 92 + rng.range(0, 26), rng.range(10, 18), rng.range(12, 20), rng.range(22, 58), rng.pick([2, 6, 8, 12]));
   }
   for (let i = 0; i < 16; i++) {
     const along = -95 + i * 12.5 + rng.range(-2, 2);
-    sky(-150 - rng.range(0, 20), along, rng.range(12, 20), rng.range(10, 16), rng.range(20, 50), rng.int(1, 8));
-    sky(122 + rng.range(0, 20), along, rng.range(12, 20), rng.range(10, 16), rng.range(20, 50), rng.int(1, 8));
+    sky(-150 - rng.range(0, 20), along, rng.range(12, 20), rng.range(10, 16), rng.range(20, 50), rng.pick([2, 6, 8, 12]));
+    sky(122 + rng.range(0, 20), along, rng.range(12, 20), rng.range(10, 16), rng.range(20, 50), rng.pick([2, 6, 8, 12]));
   }
 }
 
@@ -557,6 +557,7 @@ export function buildKestrel(seed = 20261111): MapData {
   streets(b);
   construction(b);
   boundaryRows(b);
+  b.scatterTrees(9, 34, { x0: -104, z0: -72, x1: 104, z1: 72 });
   // objectives are pushed A, B, C in that order
   b.objectives.sort((p, q) => p.id.localeCompare(q.id));
 

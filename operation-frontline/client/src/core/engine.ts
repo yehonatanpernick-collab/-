@@ -31,14 +31,14 @@ export const ENVIRONMENTS: EnvPreset[] = [
   {
     id: 'day', name: 'Overcast Day', hdr: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_ibl.hdr', sky: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_sky.jpg',
     sun: [-0.404, 0.739, 0.539], minElevation: 0.3, sunColor: [1, 0.95, 0.86], sunIntensity: 3.2, skyIntensity: 2.6, skyVisible: 1.15, ambient: 0.85,
-    fogColor: [0.66, 0.72, 0.78], fogDensity: 0.0042, exposure: 0.8, skyYaw: 28,
-    grade: { brightness: 1.0, contrast: 1.06, saturation: 0.92, tint: [1, 0.99, 0.97] },
+    fogColor: [0.66, 0.72, 0.78], fogDensity: 0.0052, exposure: 0.8, skyYaw: 28,
+    grade: { brightness: 1.03, contrast: 1.12, saturation: 1.02, tint: [1, 0.985, 0.955] },
   },
   {
     id: 'dusk', name: 'Dusk Assault', hdr: 'assets/hdri/industrial_sunset_puresky_ibl.hdr', sky: 'assets/hdri/industrial_sunset_puresky_sky.jpg',
     sun: [-0.638, 0.061, 0.768], minElevation: 0.27, sunColor: [1, 0.66, 0.4], sunIntensity: 3.4, skyIntensity: 2.8, skyVisible: 1.25, ambient: 0.9,
-    fogColor: [0.62, 0.5, 0.44], fogDensity: 0.0058, exposure: 0.9, skyYaw: 28,
-    grade: { brightness: 1.0, contrast: 1.08, saturation: 0.96, tint: [1.03, 0.98, 0.93] },
+    fogColor: [0.62, 0.5, 0.44], fogDensity: 0.0068, exposure: 0.9, skyYaw: 28,
+    grade: { brightness: 1.02, contrast: 1.14, saturation: 1.05, tint: [1.04, 0.975, 0.92] },
   },
 ];
 

@@ -70,6 +70,8 @@ export class BotBrain {
   private stuckCount = 0;
   private lastX = 0; private lastZ = 0;
   private jumpT = 0;
+  private mvX = 0; private mvZ = 0;
+  private glanceT = 2; private glanceYaw = 0; private glanceHold = 0;
 
   // goal
   private goalKind: GoalKind = 'objective';
@@ -514,10 +516,32 @@ export class BotBrain {
     }
     if (this.jumpT > 0) buttons |= BTN_JUMP;
 
+    // --------------------------------------------------------------- natural movement: steer smoothly, keep apart from teammates
+    if (moveX !== 0 || moveZ !== 0) {
+      for (const o of sim.players) {
+        if (o === me || !o.alive || o.team !== me.team || Math.abs(o.s.y - s.y) > 1.5) continue;
+        const dx = s.x - o.s.x, dz = s.z - o.s.z, d2 = dx * dx + dz * dz;
+        if (d2 < 2.8 && d2 > 1e-4) { const d = Math.sqrt(d2), push = (1.7 - d) * 0.9; moveX += (dx / d) * push; moveZ += (dz / d) * push; }
+      }
+      const ml = Math.hypot(moveX, moveZ);
+      if (ml > 1) { moveX /= ml; moveZ /= ml; }
+    }
+    const steer = Math.min(1, dt * (this.visible ? 9 : 6));
+    this.mvX += (moveX - this.mvX) * steer; this.mvZ += (moveZ - this.mvZ) * steer;
+    moveX = Math.abs(this.mvX) < 0.03 ? 0 : this.mvX; moveZ = Math.abs(this.mvZ) < 0.03 ? 0 : this.mvZ;
+    // glance around now and then while travelling without a target
+    if (!this.visible && !this.target && travelling) {
+      this.glanceT -= dt;
+      if (this.glanceT <= 0 && this.glanceHold <= 0) { this.glanceHold = rng.range(0.5, 1.1); this.glanceYaw = rng.range(-0.8, 0.8); this.glanceT = rng.range(2.5, 5); }
+      if (this.glanceHold > 0) { this.glanceHold -= dt; wantYaw += this.glanceYaw; wantPitch *= 0.5; }
+    }
+
     // --------------------------------------------------------------- aim smoothing
     const maxTurn = this.skill.turn * DEG * dt * (this.visible ? 1 : 0.7);
-    this.aimYaw += clamp(angleDiff(this.aimYaw, wantYaw), -maxTurn, maxTurn);
-    this.aimPitch += clamp(wantPitch - this.aimPitch, -maxTurn, maxTurn);
+    // eased: fast when far from the target, gentle when close (reads as a hand settling onto the target)
+    const ease = Math.min(1, dt * (this.visible ? 14 : 8));
+    this.aimYaw += clamp(angleDiff(this.aimYaw, wantYaw) * ease, -maxTurn, maxTurn);
+    this.aimPitch += clamp((wantPitch - this.aimPitch) * ease, -maxTurn, maxTurn);
     this.aimPitch = clamp(this.aimPitch, -1.4, 1.4);
 
     // --------------------------------------------------------------- convert to command axes

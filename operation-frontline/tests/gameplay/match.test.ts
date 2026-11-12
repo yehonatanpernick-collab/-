@@ -33,9 +33,13 @@ describe('conquest with bots (offline training simulation)', () => {
   it('harder bots beat easier humans-free teams more often (difficulty matters)', () => {
     // same seed, different skill: elite bots land a higher share of their shots
     const acc = (d: 0 | 3): number => {
-      const sim = new GameSim({ warmup: 1, seed: 21, botDifficulty: d });
-      const c = runSim(sim, 90);
-      return (c.hit ?? 0) / Math.max(1, c.shot ?? 1);
+      let hits = 0, shots = 0;
+      for (const seed of [21, 5, 33]) {
+        const sim = new GameSim({ warmup: 1, seed, botDifficulty: d });
+        const c = runSim(sim, 60);
+        hits += c.hit ?? 0; shots += c.shot ?? 0;
+      }
+      return hits / Math.max(1, shots);
     };
     expect(acc(3)).toBeGreaterThan(acc(0));
   }, 120000);
