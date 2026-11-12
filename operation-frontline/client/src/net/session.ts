@@ -143,7 +143,7 @@ export class NetSession implements Session {
     const opts = { name: req.name, loadout: req.loadout, level: req.level, protocol: PROTOCOL_VERSION, code: req.code };
     let room: Room;
     if (req.mode === 'join' && req.roomId) room = await client.joinById(req.roomId, opts);
-    else if (req.mode === 'private-create') room = await client.create(ROOM_CONQUEST, { ...opts, private: true });
+    else if (req.mode === 'private-create') room = await client.create(ROOM_CONQUEST, { ...opts, private: true, code: Math.random().toString(36).slice(2, 8).toUpperCase() });
     else if (req.mode === 'private-join') room = await client.join(ROOM_CONQUEST, { ...opts, private: true });
     else room = await client.joinOrCreate(ROOM_CONQUEST, opts);
     const session = new NetSession(room);

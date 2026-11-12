@@ -202,11 +202,14 @@ export class GameSim {
       } else {
         target = o.fillBots ? o.teamSize : 0;
       }
-      const total = this.teamCount(team), humans = this.teamCount(team, true);
-      if (total < target) {
+      let total = this.teamCount(team);
+      const humans = this.teamCount(team, true);
+      while (total < target) {
         const serial = this.botSerial++;
         this.addPlayer({ name: botName(serial), bot: true, team, loadout: botLoadout(serial, this.rng) });
-      } else if (total > Math.max(target, humans)) {
+        total++;
+      }
+      if (total > Math.max(target, humans)) {
         // prefer removing a dead bot
         const bots = this.players.filter((p) => p.bot && p.team === team);
         const victim = bots.find((b) => !b.alive) ?? bots[bots.length - 1];
