@@ -36,7 +36,7 @@ const HE: Record<string, string> = {
   'Server address (blank = default)': 'כתובת שרת (ריק = ברירת מחדל)', WARMUP: 'חימום', LIVE: 'פעיל', ENDED: 'הסתיים',
   // ---- training
   'ENEMY DIFFICULTY': 'קושי האויב', 'ENEMY SOLDIERS': 'חיילי אויב', 'FRIENDLY SOLDIERS': 'חיילים ידידותיים', TICKETS: 'כרטיסים', 'TIME OF DAY': 'שעת היום',
-  'Overcast Day': 'יום מעונן', 'Dusk Assault': 'מתקפת בין ערביים', VEHICLES: 'רכבים', On: 'פועל', Off: 'כבוי',
+  'Golden Hour': 'שעת זהב', 'Clear Day': 'יום בהיר', 'Sunset': 'שקיעה', 'Dusk Assault': 'מתקפת בין ערביים', VEHICLES: 'רכבים', On: 'פועל', Off: 'כבוי',
   Recruit: 'טירון', Regular: 'רגיל', Veteran: 'ותיק', Elite: 'עילית',
   'Tip: set enemy soldiers to 1 and difficulty to Recruit for a relaxed firing range, or 8 Elite for a full battle.': 'טיפ: חייל אויב אחד ברמת טירון נותן מטווח רגוע; 8 חיילי עילית נותנים קרב מלא.',
   // ---- loadout / classes

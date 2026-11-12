@@ -146,7 +146,7 @@ export class Menu {
       pick('ENEMY SOLDIERS', [1, 2, 4, 6, 8].map((n) => [String(n), n]), () => t.enemyBots, (v) => { t.enemyBots = v as number; }),
       pick('FRIENDLY SOLDIERS', [0, 1, 3, 5, 7].map((n) => [String(n), n]), () => t.friendlyBots, (v) => { t.friendlyBots = v as number; }),
       pick('TICKETS', [75, 150, 300].map((n) => [String(n), n]), () => t.tickets, (v) => { t.tickets = v as number; }),
-      pick('TIME OF DAY', [['Overcast Day', 0], ['Dusk Assault', 1]], () => t.environment, (v) => { t.environment = v as number; }),
+      pick('TIME OF DAY', [['Golden Hour', 0], ['Clear Day', 1], ['Sunset', 2], ['Dusk Assault', 3]], () => t.environment, (v) => { t.environment = v as number; }),
       pick('VEHICLES', [['On', true], ['Off', false]], () => t.vehicles, (v) => { t.vehicles = v as boolean; }),
       h('div', { class: 'row' }, this.btn('START TRAINING', () => this.act.training(t), 'btn primary')),
       h('p', { class: 'hint', text: 'Tip: set enemy soldiers to 1 and difficulty to Recruit for a relaxed firing range, or 8 Elite for a full battle.' }));

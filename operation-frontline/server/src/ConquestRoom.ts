@@ -23,7 +23,7 @@ export class ConquestRoom extends Room {
   override onCreate(options: { private?: boolean; code?: string }): void {
     const isPrivate = options?.private === true;
     this.code = isPrivate && typeof options.code === 'string' ? options.code.slice(0, 6).toUpperCase() : '';
-    const matchOptions: Partial<MatchOptions> = { seed: Math.floor(Math.random() * 1e9), environment: Math.random() < 0.35 ? 1 : 0, fillBots: true };
+    const matchOptions: Partial<MatchOptions> = { seed: Math.floor(Math.random() * 1e9), environment: Math.floor(Math.random() * 4), fillBots: true };
     this.sim = new GameSim(matchOptions);
     void this.sim.nav; // build the navigation grid up-front, not during the first tick
     this.maxMessagesPerSecond = 120;

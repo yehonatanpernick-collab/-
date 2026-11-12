@@ -24,6 +24,8 @@ export const POLYHAVEN_TEXTURES = [
 export const POLYHAVEN_HDRIS = [
   { id: 'kloofendal_48d_partly_cloudy_puresky', use: 'Environment lighting + sky ("Overcast Day" preset)' },
   { id: 'industrial_sunset_puresky', use: 'Environment lighting + sky ("Dusk Assault" preset)' },
+  { id: 'lonely_road_afternoon_puresky', use: 'Environment lighting + sky ("Golden Hour" preset)' },
+  { id: 'evening_road_01_puresky', use: 'Environment lighting + sky ("Sunset" preset)' },
 ];
 
 // tris = triangle budget after simplification, tex = max texture edge after resize

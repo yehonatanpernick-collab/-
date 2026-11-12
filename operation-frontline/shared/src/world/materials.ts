@@ -46,8 +46,8 @@ export const MAT = {
 } as const;
 
 export const MATERIALS: MaterialDef[] = [
-  { id: 0, name: 'asphalt', tex: 'asphalt_02', uv: 5, surface: 'asphalt', color: [0.62, 0.62, 0.64], gloss: 0.62 },
-  { id: 1, name: 'sidewalk', tex: 'concrete_pavement', uv: 3.2, surface: 'concrete', color: [0.86, 0.85, 0.82], gloss: 0.5 },
+  { id: 0, name: 'asphalt', tex: 'asphalt_02', uv: 5, surface: 'asphalt', color: [0.7, 0.69, 0.68], gloss: 0.5 },
+  { id: 1, name: 'sidewalk', tex: 'concrete_pavement', uv: 3.2, surface: 'concrete', color: [0.92, 0.9, 0.86], gloss: 0.5 },
   { id: 2, name: 'concrete', tex: 'concrete_wall_008', uv: 4, surface: 'concrete', color: [0.82, 0.82, 0.8] },
   { id: 3, name: 'brick', tex: 'brick_wall_001', uv: 2.4, surface: 'brick', color: [1.0, 0.95, 0.92] },
   { id: 4, name: 'plaster', tex: 'plastered_wall_04', uv: 3.4, surface: 'concrete', color: [0.95, 0.93, 0.88] },
@@ -74,18 +74,18 @@ export const MATERIALS: MaterialDef[] = [
 /** Tint palette referenced by Box.tint (index 0 = untinted). */
 export const TINTS: [number, number, number][] = [
   [1, 1, 1],
-  [0.86, 0.78, 0.66], // sand
-  [0.72, 0.76, 0.8],  // cool grey
-  [0.82, 0.64, 0.52], // terracotta
-  [0.62, 0.7, 0.66],  // sage
-  [0.9, 0.86, 0.74],  // cream
-  [0.58, 0.6, 0.66],  // slate
-  [0.7, 0.56, 0.5],   // rose brick
-  [0.45, 0.47, 0.5],  // dark concrete
-  [0.34, 0.4, 0.3],   // olive drab
-  [0.55, 0.3, 0.24],  // oxide red
-  [0.24, 0.34, 0.5],  // container blue
-  [0.3, 0.3, 0.32],   // charcoal
+  [0.95, 0.84, 0.68], // warm sand stone
+  [0.8, 0.82, 0.85],  // cool concrete
+  [0.92, 0.64, 0.48], // terracotta
+  [0.76, 0.8, 0.74],  // weathered sage plaster
+  [0.98, 0.93, 0.82], // cream
+  [0.64, 0.67, 0.74], // slate
+  [0.86, 0.62, 0.54], // rose brick
+  [0.5, 0.52, 0.55],  // dark concrete
+  [0.4, 0.45, 0.34],  // olive drab
+  [0.6, 0.32, 0.26],  // oxide red
+  [0.26, 0.38, 0.55], // container blue
+  [0.32, 0.32, 0.35], // charcoal
 ];
 
 /** Static prop models (GLB) and their bounds in model space, used for colliders. */

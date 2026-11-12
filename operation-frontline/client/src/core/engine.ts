@@ -29,16 +29,29 @@ export interface EnvPreset {
 
 export const ENVIRONMENTS: EnvPreset[] = [
   {
-    id: 'day', name: 'Overcast Day', hdr: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_ibl.hdr', sky: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_sky.jpg',
-    sun: [-0.404, 0.739, 0.539], minElevation: 0.3, sunColor: [1, 0.95, 0.86], sunIntensity: 3.2, skyIntensity: 2.6, skyVisible: 1.15, ambient: 0.85,
-    fogColor: [0.68, 0.73, 0.78], fogDensity: 0.0068, exposure: 0.8, skyYaw: 28,
-    grade: { brightness: 1.03, contrast: 1.12, saturation: 1.02, tint: [1, 0.985, 0.955] },
+    // low warm sun, long soft shadows, hazy golden air: the default look
+    id: 'golden', name: 'Golden Hour', hdr: 'assets/hdri/lonely_road_afternoon_puresky_ibl.hdr', sky: 'assets/hdri/lonely_road_afternoon_puresky_sky.jpg',
+    sun: [-0.58, 0.163, 0.798], minElevation: 0.42, sunColor: [1, 0.8, 0.58], sunIntensity: 4.2, skyIntensity: 2.6, skyVisible: 2.1, ambient: 1.35,
+    fogColor: [0.82, 0.74, 0.66], fogDensity: 0.0072, exposure: 0.88, skyYaw: 28,
+    grade: { brightness: 1.06, contrast: 1.05, saturation: 1.1, tint: [1.03, 0.995, 0.94] },
+  },
+  {
+    id: 'day', name: 'Clear Day', hdr: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_ibl.hdr', sky: 'assets/hdri/kloofendal_48d_partly_cloudy_puresky_sky.jpg',
+    sun: [-0.404, 0.739, 0.539], minElevation: 0.55, sunColor: [1, 0.93, 0.8], sunIntensity: 4.0, skyIntensity: 2.7, skyVisible: 2.2, ambient: 1.3,
+    fogColor: [0.76, 0.82, 0.9], fogDensity: 0.0058, exposure: 0.82, skyYaw: 28,
+    grade: { brightness: 1.05, contrast: 1.05, saturation: 1.08, tint: [1, 0.99, 0.96] },
+  },
+  {
+    id: 'sunset', name: 'Sunset', hdr: 'assets/hdri/evening_road_01_puresky_ibl.hdr', sky: 'assets/hdri/evening_road_01_puresky_sky.jpg',
+    sun: [-0.622, 0.252, 0.741], minElevation: 0.3, sunColor: [1, 0.66, 0.42], sunIntensity: 4.4, skyIntensity: 2.8, skyVisible: 1.1, ambient: 1.2,
+    fogColor: [0.74, 0.58, 0.5], fogDensity: 0.0078, exposure: 0.9, skyYaw: 28,
+    grade: { brightness: 1.05, contrast: 1.06, saturation: 1.12, tint: [1.04, 0.98, 0.92] },
   },
   {
     id: 'dusk', name: 'Dusk Assault', hdr: 'assets/hdri/industrial_sunset_puresky_ibl.hdr', sky: 'assets/hdri/industrial_sunset_puresky_sky.jpg',
-    sun: [-0.638, 0.061, 0.768], minElevation: 0.27, sunColor: [1, 0.66, 0.4], sunIntensity: 3.4, skyIntensity: 2.8, skyVisible: 1.25, ambient: 0.9,
+    sun: [-0.638, 0.061, 0.768], minElevation: 0.27, sunColor: [1, 0.62, 0.38], sunIntensity: 3.8, skyIntensity: 2.8, skyVisible: 1.25, ambient: 0.9,
     fogColor: [0.62, 0.5, 0.44], fogDensity: 0.0068, exposure: 0.9, skyYaw: 28,
-    grade: { brightness: 1.02, contrast: 1.14, saturation: 1.05, tint: [1.04, 0.975, 0.92] },
+    grade: { brightness: 1.05, contrast: 1.06, saturation: 1.08, tint: [1.04, 0.975, 0.92] },
   },
 ];
 
@@ -200,8 +213,30 @@ export class Engine {
       // the visible sky only needs to be as sharp as the cubemap built from it: keep it small (it was the heaviest asset)
       cv.width = Math.min(2048, this.preset.skyRes * 4); cv.height = cv.width / 2;
       const ctx = cv.getContext('2d') as CanvasRenderingContext2D;
-      ctx.filter = `brightness(${(env.skyVisible / env.skyIntensity).toFixed(3)})`;
+      ctx.filter = `brightness(${(env.skyVisible / env.skyIntensity).toFixed(3)}) saturate(0.8)`;
       ctx.drawImage(src, 0, 0, cv.width, cv.height);
+      ctx.filter = 'none';
+      // atmosphere: the horizon dissolves into the distance haze (same colour as the fog, so far buildings melt into it),
+      // the zenith stays deep, and nothing below the horizon is left black
+      const fc = env.fogColor.map((c) => Math.round(Math.min(1, c * 1.1) * 255));
+      const hz = ctx.createLinearGradient(0, 0, 0, cv.height);
+      hz.addColorStop(0, `rgba(${fc},0)`); hz.addColorStop(0.24, `rgba(${fc},0.03)`); hz.addColorStop(0.36, `rgba(${fc},0.28)`); hz.addColorStop(0.43, `rgba(${fc},0.6)`);
+      hz.addColorStop(0.5, `rgba(${fc},0.92)`); hz.addColorStop(0.58, `rgba(${fc},1)`); hz.addColorStop(1, `rgba(${fc},1)`);
+      ctx.fillStyle = hz; ctx.fillRect(0, 0, cv.width, cv.height);
+      // sun glow where the light comes from (equirect: u from azimuth, v from elevation)
+      {
+        const sv = env.sun, el = Math.asin(Math.max(-1, Math.min(1, sv[1]))), az = Math.atan2(-sv[0], sv[2]);
+        const gx = (0.5 + az / (2 * Math.PI)) * cv.width, gy = (0.5 - el / Math.PI) * cv.height;
+        const sc = env.sunColor.map((c) => Math.round(Math.min(1, c) * 255));
+        for (const [r, a] of [[0.22, 0.38], [0.09, 0.55], [0.03, 0.95]] as const) {
+          const rr = r * cv.width * 0.5;
+          const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, rr);
+          g.addColorStop(0, `rgba(${sc[0]},${Math.min(255, sc[1] + 40)},${Math.min(255, sc[2] + 70)},${a})`); g.addColorStop(1, `rgba(${sc},0)`);
+          ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(gx - rr, gy - rr, rr * 2, rr * 2);
+          if (gx - rr < 0) ctx.fillRect(gx - rr + cv.width, gy - rr, rr * 2, rr * 2);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
       const dim = new pc.Texture(this.device, { name: 'sky-dim', width: cv.width, height: cv.height, format: pc.PIXELFORMAT_SRGBA8, mipmaps: false, projection: pc.TEXTUREPROJECTION_EQUIRECT });
       dim.setSource(cv);
       const skybox = pc.EnvLighting.generateSkyboxCubemap(dim, IS_MOBILE ? Math.min(256, this.preset.skyRes) : this.preset.skyRes);
@@ -217,7 +252,7 @@ export class Engine {
     // facing exactly -Z sampled the atlas seam and lost their ambient term.
     const skyRot = new pc.Quat().setFromEulerAngles(0, env.skyYaw, 0);
     scene.skyboxRotation = skyRot;
-    scene.ambientLight = new pc.Color(env.ambient * 0.5, env.ambient * 0.52, env.ambient * 0.56);
+    scene.ambientLight = new pc.Color(env.ambient * 0.55, env.ambient * 0.54, env.ambient * 0.52);
     scene.exposure = env.exposure;
     scene.fog.type = pc.FOG_EXP2;
     scene.fog.color = new pc.Color(env.fogColor[0], env.fogColor[1], env.fogColor[2]);

@@ -146,6 +146,33 @@
       "use": "Environment lighting + sky (\"Dusk Assault\" preset)"
     },
     {
+      "name": "lonely_road_afternoon_puresky",
+      "type": "HDRI",
+      "source": "Poly Haven — https://polyhaven.com/a/lonely_road_afternoon_puresky",
+      "license": "CC0 1.0",
+      "format": "Radiance HDR 512x256, sun clamped for IBL (517KB) + tonemapped JPEG 2k (36KB)",
+      "files": "client/public/assets/hdri/lonely_road_afternoon_puresky_*",
+      "use": "Environment lighting + sky (\"Golden Hour\" preset)"
+    },
+    {
+      "name": "kloppenheim_05_puresky",
+      "type": "HDRI",
+      "source": "Poly Haven — https://polyhaven.com/a/kloppenheim_05_puresky",
+      "license": "CC0 1.0",
+      "format": "Radiance HDR 512x256, sun clamped for IBL (517KB) + tonemapped JPEG 2k (50KB)",
+      "files": "client/public/assets/hdri/kloppenheim_05_puresky_*",
+      "use": "Environment lighting + sky (\"Clear Day\" preset)"
+    },
+    {
+      "name": "evening_road_01_puresky",
+      "type": "HDRI",
+      "source": "Poly Haven — https://polyhaven.com/a/evening_road_01_puresky",
+      "license": "CC0 1.0",
+      "format": "Radiance HDR 512x256, sun clamped for IBL (517KB) + tonemapped JPEG 2k (102KB)",
+      "files": "client/public/assets/hdri/evening_road_01_puresky_*",
+      "use": "Environment lighting + sky (\"Sunset\" preset)"
+    },
+    {
       "name": "bolt_action_rifle_7_62",
       "type": "3D model",
       "source": "Poly Haven — https://polyhaven.com/a/bolt_action_rifle_7_62",
@@ -434,78 +461,6 @@
       "use": "Facade detail"
     },
     {
-      "name": "tree_small_02",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/tree_small_02",
-      "license": "CC0 1.0",
-      "format": "GLB, 9416 tris (source 2062487), textures ≤1024px, 1600KB",
-      "files": "client/public/assets/models/tree_small_02.glb",
-      "use": "Street tree (photoscanned)"
-    },
-    {
-      "name": "island_tree_01",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/island_tree_01",
-      "license": "CC0 1.0",
-      "format": "GLB, 12530 tris (source 1599403), textures ≤1024px, 2053KB",
-      "files": "client/public/assets/models/island_tree_01.glb",
-      "use": "Large leafy tree"
-    },
-    {
-      "name": "jacaranda_tree",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/jacaranda_tree",
-      "license": "CC0 1.0",
-      "format": "GLB, 33705 tris (source 3863832), textures ≤1024px, 3040KB",
-      "files": "client/public/assets/models/jacaranda_tree.glb",
-      "use": "Large flowering street tree"
-    },
-    {
-      "name": "pine_tree_01",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/pine_tree_01",
-      "license": "CC0 1.0",
-      "format": "GLB, 29817 tris (source 17182252), textures ≤1024px, 3578KB",
-      "files": "client/public/assets/models/pine_tree_01.glb",
-      "use": "Pine tree (park / edges)"
-    },
-    {
-      "name": "dead_tree_trunk",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/dead_tree_trunk",
-      "license": "CC0 1.0",
-      "format": "GLB, 4000 tris (source 101802), textures ≤1024px, 559KB",
-      "files": "client/public/assets/models/dead_tree_trunk.glb",
-      "use": "Dead tree / battlefield dressing"
-    },
-    {
-      "name": "shrub_01",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/shrub_01",
-      "license": "CC0 1.0",
-      "format": "GLB, 2993 tris (source 156012), textures ≤512px, 262KB",
-      "files": "client/public/assets/models/shrub_01.glb",
-      "use": "Planter / verge shrub"
-    },
-    {
-      "name": "shrub_04",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/shrub_04",
-      "license": "CC0 1.0",
-      "format": "GLB, 2889 tris (source 27327), textures ≤512px, 206KB",
-      "files": "client/public/assets/models/shrub_04.glb",
-      "use": "Planter / verge shrub"
-    },
-    {
-      "name": "boulder_01",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/boulder_01",
-      "license": "CC0 1.0",
-      "format": "GLB, 54122 tris (source 66122), textures ≤1024px, 2673KB",
-      "files": "client/public/assets/models/boulder_01.glb",
-      "use": "Rock cover in parks and verges"
-    },
-    {
       "name": "exterior_aircon_unit",
       "type": "3D model",
       "source": "Poly Haven — https://polyhaven.com/a/exterior_aircon_unit",
@@ -515,15 +470,6 @@
       "use": "Facade / roof detail"
     },
     {
-      "name": "modular_street_seating",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/modular_street_seating",
-      "license": "CC0 1.0",
-      "format": "GLB, 9051 tris (source 25156), textures ≤512px, 790KB",
-      "files": "client/public/assets/models/modular_street_seating.glb",
-      "use": "Street furniture"
-    },
-    {
       "name": "cement_bag",
       "type": "3D model",
       "source": "Poly Haven — https://polyhaven.com/a/cement_bag",
@@ -531,15 +477,6 @@
       "format": "GLB, 844 tris (source 844), textures ≤512px, 80KB",
       "files": "client/public/assets/models/cement_bag.glb",
       "use": "Sandbag-style cover dressing"
-    },
-    {
-      "name": "modular_electricity_poles",
-      "type": "3D model",
-      "source": "Poly Haven — https://polyhaven.com/a/modular_electricity_poles",
-      "license": "CC0 1.0",
-      "format": "GLB, 25692 tris (source 200610), textures ≤512px, 1702KB",
-      "files": "client/public/assets/models/modular_electricity_poles.glb",
-      "use": "Utility poles along streets"
     },
     {
       "name": "Soldier.glb",
