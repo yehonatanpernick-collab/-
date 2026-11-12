@@ -1,0 +1,17 @@
+import { launch } from './launch.mjs';
+const url = process.argv[2];
+const browser = await launch();
+const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+page.on('pageerror', (e) => console.log('[pageerror]', String(e).slice(0, 300)));
+await page.goto(url);
+await page.waitForFunction('window.__ready || window.__error', null, { timeout: 90000 });
+const measure = (label) => page.evaluate(`new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; const el = performance.now() - t0; if (el > 4000) r('${label}: ' + (el / n).toFixed(0) + ' ms/frame, draws ' + __engine.app.stats.drawCalls.total + ', tris ' + __engine.app.stats.frame.triangles + ', shaders ' + __engine.app.stats.shaders.linked); else requestAnimationFrame(f); }; requestAnimationFrame(f); })`);
+await page.waitForTimeout(8000);
+console.log(await measure('baseline'));
+await page.evaluate('__engine.sun.light.castShadows = false'); console.log(await measure('no shadows'));
+await page.evaluate('__engine.frame.enabled = false'); console.log(await measure('no cameraframe'));
+await page.evaluate('for (const c of __world.root.children) if (c.name.startsWith("prop-")) c.enabled = false; __world.update = () => {}'); console.log(await measure('no props'));
+await page.evaluate('for (const c of __world.root.children) if (c.name === "lamp") c.enabled = false'); console.log(await measure('no lamps'));
+await page.evaluate('__engine.app.scene.skybox = null'); console.log(await measure('no skybox'));
+await page.evaluate('for (const c of __world.root.children) if (c.name.startsWith("chunk-")) c.enabled = false'); console.log(await measure('no chunks'));
+await browser.close();

@@ -4,7 +4,7 @@
 //  * HDRIs           -> 1k .hdr for lighting + 4k tonemapped JPEG for the visible sky
 //  * Poly Haven glTF -> simplified, texture-resized, single-file GLB
 // and writes assets/manifest.json + client/public/assets/models.json (bounds, triangle counts).
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -44,18 +44,95 @@ for (const t of POLYHAVEN_TEXTURES) {
 }
 
 // ---------------------------------------------------------------- hdri
+// Radiance .hdr reader / writer. The image-based-lighting copy has the sun disc clamped so the
+// environment only provides sky fill light – direct sunlight comes from the shadow casting light.
+function readHdr(buf) {
+  let o = 0, line = '';
+  const lines = [];
+  for (;;) {
+    const c = buf[o++];
+    if (c === 10) { lines.push(line); if (/^-Y \d+ \+X \d+$/.test(line)) break; line = ''; } else line += String.fromCharCode(c);
+  }
+  const m = /^-Y (\d+) \+X (\d+)$/.exec(lines[lines.length - 1]);
+  const H = +m[1], W = +m[2];
+  const rgb = new Float32Array(W * H * 3);
+  const scan = new Uint8Array(W * 4);
+  for (let y = 0; y < H; y++) {
+    if (buf[o] === 2 && buf[o + 1] === 2 && ((buf[o + 2] << 8) | buf[o + 3]) === W) {
+      o += 4;
+      for (let ch = 0; ch < 4; ch++) {
+        let x = 0;
+        while (x < W) {
+          let n = buf[o++];
+          if (n > 128) { n -= 128; const v = buf[o++]; while (n--) scan[x++ * 4 + ch] = v; }
+          else while (n--) scan[x++ * 4 + ch] = buf[o++];
+        }
+      }
+    } else { scan.set(buf.subarray(o, o + W * 4)); o += W * 4; }
+    for (let x = 0; x < W; x++) {
+      const e = scan[x * 4 + 3];
+      const f = e ? Math.pow(2, e - 136) : 0;
+      const k = (y * W + x) * 3;
+      rgb[k] = scan[x * 4] * f; rgb[k + 1] = scan[x * 4 + 1] * f; rgb[k + 2] = scan[x * 4 + 2] * f;
+    }
+  }
+  return { W, H, rgb };
+}
+function writeHdr(W, H, rgb) {
+  const head = Buffer.from(`#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y ${H} +X ${W}\n`, 'ascii');
+  const rows = [];
+  for (let y = 0; y < H; y++) {
+    const ch = [new Uint8Array(W), new Uint8Array(W), new Uint8Array(W), new Uint8Array(W)];
+    for (let x = 0; x < W; x++) {
+      const k = (y * W + x) * 3;
+      const r = rgb[k], g = rgb[k + 1], b = rgb[k + 2];
+      const mx = Math.max(r, g, b);
+      if (mx < 1e-32) continue;
+      const e = Math.ceil(Math.log2(mx) + 1e-9);
+      const f = 256 / Math.pow(2, e);
+      ch[0][x] = Math.min(255, r * f); ch[1][x] = Math.min(255, g * f); ch[2][x] = Math.min(255, b * f); ch[3][x] = e + 128;
+    }
+    const outRow = [2, 2, W >> 8, W & 255];
+    for (const c of ch) for (let x = 0; x < W; x += 128) { const n = Math.min(128, W - x); outRow.push(n); for (let i = 0; i < n; i++) outRow.push(c[x + i]); }
+    rows.push(Buffer.from(outRow));
+  }
+  return Buffer.concat([head, ...rows]);
+}
+function makeIblHdr(src, dst) {
+  const { W, H, rgb } = readHdr(readFileSync(src));
+  const lum = (k) => 0.2126 * rgb[k] + 0.7152 * rgb[k + 1] + 0.0722 * rgb[k + 2];
+  const upper = [];
+  for (let y = 0; y < H / 2; y++) for (let x = 0; x < W; x += 3) upper.push(lum((y * W + x) * 3));
+  upper.sort((a, b) => a - b);
+  const cap = upper[Math.floor(upper.length * 0.9)] * 2.2;
+  const w2 = W >> 1, h2 = H >> 1;
+  const outRgb = new Float32Array(w2 * h2 * 3);
+  for (let y = 0; y < h2; y++) for (let x = 0; x < w2; x++) {
+    const acc = [0, 0, 0];
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      const k = ((y * 2 + dy) * W + x * 2 + dx) * 3;
+      const l = lum(k), s = l > cap ? cap / l : 1;
+      acc[0] += rgb[k] * s; acc[1] += rgb[k + 1] * s; acc[2] += rgb[k + 2] * s;
+    }
+    const o = (y * w2 + x) * 3;
+    outRgb[o] = acc[0] / 4; outRgb[o + 1] = acc[1] / 4; outRgb[o + 2] = acc[2] / 4;
+  }
+  writeFileSync(dst, writeHdr(w2, h2, outRgb));
+  return cap;
+}
+
 for (const h of POLYHAVEN_HDRIS) {
-  const hdr = join(out, 'hdri', `${h.id}_1k.hdr`);
+  const hdr = join(out, 'hdri', `${h.id}_ibl.hdr`);
   const sky = join(out, 'hdri', `${h.id}_sky.jpg`);
   ensure(hdr);
-  if (!fresh(hdr)) copyFileSync(join(raw, 'hdri', `${h.id}_1k.hdr`), hdr);
+  if (!fresh(hdr)) console.log(`${h.id}: IBL sun clamp at luminance ${makeIblHdr(join(raw, 'hdri', `${h.id}_1k.hdr`), hdr).toFixed(2)}`);
   if (!fresh(sky)) {
     await sharp(join(raw, 'hdri', `${h.id}_tonemapped.jpg`), { limitInputPixels: false })
       .resize(4096, 2048, { fit: 'fill' }).jpeg({ quality: 84, mozjpeg: true }).toFile(sky);
   }
   manifest.push({
     name: h.id, type: 'HDRI', source: `Poly Haven — https://polyhaven.com/a/${h.id}`, license: 'CC0 1.0',
-    format: `Radiance HDR 1k (${kb(hdr)}KB) + tonemapped JPEG 4k (${kb(sky)}KB)`, files: `client/public/assets/hdri/${h.id}_*`, use: h.use,
+    format: `Radiance HDR 512x256, sun clamped for IBL (${kb(hdr)}KB) + tonemapped JPEG 4k (${kb(sky)}KB)`, files: `client/public/assets/hdri/${h.id}_*`, use: h.use,
   });
 }
 

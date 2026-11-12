@@ -165,7 +165,9 @@ function centralBuilding(f: Flip, floors: number, mat: number, tint: number): vo
   f.box(-3.35, G, -18, -3, G + 1.0, -10, MAT.CONCRETE, F_WALL, 8);
   f.box(3, G, -18, 3.35, G + 1.0, -10, MAT.CONCRETE, F_WALL, 8);
   f.box(-3.35, G, -10, 3.35, G + 1.0, -9.65, MAT.CONCRETE, F_WALL, 8);
-  f.decor(-3.5, G + 1.0, -18.1, 3.5, G + 1.06, -9.6, MAT.HAZARD);
+  f.decor(-3.4, G + 1.0, -18.05, -2.95, G + 1.05, -9.6, MAT.HAZARD);
+  f.decor(2.95, G + 1.0, -18.05, 3.4, G + 1.05, -9.6, MAT.HAZARD);
+  f.decor(-3.4, G + 1.0, -10.05, 3.4, G + 1.05, -9.6, MAT.HAZARD);
 }
 
 // ------------------------------------------------------------------ team base (west, mirrored to east)
@@ -497,8 +499,9 @@ function boundaryRows(b: MapBuilder): void {
   }
   // far skyline (render only)
   const sky = (x0: number, z0: number, w: number, d: number, h: number, tint: number): void => {
-    b.decor(x0, 0, z0, x0 + w, h, z0 + d, MAT.PAINTED, tint);
-    for (let y = 4; y < h - 2; y += 3.6) b.decor(x0 - 0.06, y, z0 - 0.06, x0 + w + 0.06, y + 1.5, z0 + d + 0.06, MAT.DARKGLASS);
+    b.decor(x0, 0, z0, x0 + w, h, z0 + d, MAT.CONCRETE, tint);
+    for (let y = 4.4; y < h - 2; y += 3.6) b.decor(x0 - 0.05, y, z0 - 0.05, x0 + w + 0.05, y + 1.1, z0 + d + 0.05, MAT.SKYGLASS);
+    b.decor(x0 + w * 0.3, h, z0 + d * 0.3, x0 + w * 0.7, h + 2.2, z0 + d * 0.7, MAT.CONCRETE, 8);
   };
   for (let i = 0; i < 26; i++) {
     const along = -130 + i * 10.5 + rng.range(-2, 2);
@@ -525,7 +528,7 @@ export function buildKestrel(seed = 20261111): MapData {
     if (az < 5 || (az > 37 && az < 45) || (ax > 18 && ax < 26) || (ax > 58 && ax < 66)) return { mat: MAT.ASPHALT, top: 0 };
     if (cx > 26 && cx < 58 && cz > -37 && cz < -5) return { mat: MAT.DIRT, top: G };
     if ((cx < -66 && cz > 5 && cz < 37) || (cx > 66 && cz < -5 && cz > -37)) return { mat: MAT.FLOOR, top: G };
-    if (ax < 18 && az < 37) return { mat: MAT.TILES, top: G, tint: 2 };
+    if (ax < 18 && az < 37) return { mat: MAT.SIDEWALK, top: G, tint: 5 };
     return { mat: MAT.SIDEWALK, top: G };
   });
 

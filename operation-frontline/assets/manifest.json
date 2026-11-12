@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-11",
+  "generated": "2026-11-12",
   "assets": [
     {
       "name": "asphalt_02",
@@ -132,7 +132,7 @@
       "type": "HDRI",
       "source": "Poly Haven — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
       "license": "CC0 1.0",
-      "format": "Radiance HDR 1k (1401KB) + tonemapped JPEG 4k (283KB)",
+      "format": "Radiance HDR 512x256, sun clamped for IBL (517KB) + tonemapped JPEG 4k (283KB)",
       "files": "client/public/assets/hdri/kloofendal_48d_partly_cloudy_puresky_*",
       "use": "Environment lighting + sky (\"Overcast Day\" preset)"
     },
@@ -141,7 +141,7 @@
       "type": "HDRI",
       "source": "Poly Haven — https://polyhaven.com/a/industrial_sunset_puresky",
       "license": "CC0 1.0",
-      "format": "Radiance HDR 1k (1131KB) + tonemapped JPEG 4k (172KB)",
+      "format": "Radiance HDR 512x256, sun clamped for IBL (517KB) + tonemapped JPEG 4k (172KB)",
       "files": "client/public/assets/hdri/industrial_sunset_puresky_*",
       "use": "Environment lighting + sky (\"Dusk Assault\" preset)"
     },

@@ -42,17 +42,18 @@ export const MAT = {
   TRIM: 19,
   LAMP: 20,
   HAZARD: 21,
+  SKYGLASS: 22,
 } as const;
 
 export const MATERIALS: MaterialDef[] = [
   { id: 0, name: 'asphalt', tex: 'asphalt_02', uv: 5, surface: 'asphalt', color: [0.62, 0.62, 0.64] },
   { id: 1, name: 'sidewalk', tex: 'concrete_pavement', uv: 3.2, surface: 'concrete', color: [0.86, 0.85, 0.82] },
   { id: 2, name: 'concrete', tex: 'concrete_wall_008', uv: 4, surface: 'concrete', color: [0.82, 0.82, 0.8] },
-  { id: 3, name: 'brick', tex: 'brick_wall_001', uv: 2.6, surface: 'brick', color: [0.92, 0.86, 0.82] },
+  { id: 3, name: 'brick', tex: 'brick_wall_001', uv: 2.4, surface: 'brick', color: [1.0, 0.95, 0.92] },
   { id: 4, name: 'plaster', tex: 'plastered_wall_04', uv: 3.4, surface: 'concrete', color: [0.95, 0.93, 0.88] },
   { id: 5, name: 'painted', tex: 'painted_concrete', uv: 3.4, surface: 'concrete', color: [0.9, 0.92, 0.94] },
   { id: 6, name: 'floor', tex: 'concrete_floor_worn_001', uv: 3.5, surface: 'concrete', color: [0.8, 0.8, 0.8] },
-  { id: 7, name: 'tiles', tex: 'floor_tiles_06', uv: 2.4, surface: 'tile', color: [0.9, 0.9, 0.9] },
+  { id: 7, name: 'tiles', tex: 'floor_tiles_06', uv: 1.6, surface: 'tile', color: [0.8, 0.8, 0.8] },
   { id: 8, name: 'corrugated', tex: 'corrugated_iron', uv: 2.2, surface: 'metal', color: [0.78, 0.8, 0.82], metalness: 0.75 },
   { id: 9, name: 'metal', tex: 'metal_plate', uv: 2.2, surface: 'metal', color: [0.6, 0.62, 0.64], metalness: 0.9 },
   { id: 10, name: 'rubble', tex: 'rubble', uv: 3, surface: 'concrete', color: [0.85, 0.83, 0.8] },
@@ -60,13 +61,14 @@ export const MATERIALS: MaterialDef[] = [
   { id: 12, name: 'wood', tex: 'wood_planks_dirt', uv: 2, surface: 'wood', color: [0.85, 0.8, 0.72] },
   { id: 13, name: 'rust', tex: 'rusty_metal_02', uv: 2, surface: 'metal', color: [0.8, 0.78, 0.76], metalness: 0.7 },
   { id: 14, name: 'glass', tex: null, uv: 1, surface: 'glass', color: [0.55, 0.68, 0.74], gloss: 0.96, opacity: 0.32 },
-  { id: 15, name: 'darkglass', tex: null, uv: 1, surface: 'glass', color: [0.05, 0.07, 0.09], gloss: 0.94, metalness: 0.4 },
+  { id: 15, name: 'darkglass', tex: null, uv: 1, surface: 'glass', color: [0.06, 0.075, 0.09], gloss: 0.9 },
   { id: 16, name: 'sandbag', tex: 'dirt', uv: 1.2, surface: 'dirt', color: [0.78, 0.7, 0.54] },
   { id: 17, name: 'tarp', tex: 'painted_concrete', uv: 3, surface: 'fabric', color: [0.3, 0.36, 0.26] },
   { id: 18, name: 'line', tex: null, uv: 1, surface: 'asphalt', color: [0.86, 0.85, 0.8], gloss: 0.3 },
   { id: 19, name: 'trim', tex: 'concrete_wall_008', uv: 3, surface: 'concrete', color: [0.5, 0.5, 0.52] },
   { id: 20, name: 'lamp', tex: null, uv: 1, surface: 'glass', color: [1, 0.93, 0.78], emissive: 6 },
   { id: 21, name: 'hazard', tex: null, uv: 1, surface: 'metal', color: [0.85, 0.62, 0.08], gloss: 0.45, metalness: 0.2 },
+  { id: 22, name: 'skyglass', tex: null, uv: 1, surface: 'glass', color: [0.2, 0.24, 0.28], gloss: 0.6 },
 ];
 
 /** Tint palette referenced by Box.tint (index 0 = untinted). */
