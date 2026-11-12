@@ -46,8 +46,8 @@ export const MAT = {
 } as const;
 
 export const MATERIALS: MaterialDef[] = [
-  { id: 0, name: 'asphalt', tex: 'asphalt_02', uv: 5, surface: 'asphalt', color: [0.62, 0.62, 0.64] },
-  { id: 1, name: 'sidewalk', tex: 'concrete_pavement', uv: 3.2, surface: 'concrete', color: [0.86, 0.85, 0.82] },
+  { id: 0, name: 'asphalt', tex: 'asphalt_02', uv: 5, surface: 'asphalt', color: [0.62, 0.62, 0.64], gloss: 0.62 },
+  { id: 1, name: 'sidewalk', tex: 'concrete_pavement', uv: 3.2, surface: 'concrete', color: [0.86, 0.85, 0.82], gloss: 0.5 },
   { id: 2, name: 'concrete', tex: 'concrete_wall_008', uv: 4, surface: 'concrete', color: [0.82, 0.82, 0.8] },
   { id: 3, name: 'brick', tex: 'brick_wall_001', uv: 2.4, surface: 'brick', color: [1.0, 0.95, 0.92] },
   { id: 4, name: 'plaster', tex: 'plastered_wall_04', uv: 3.4, surface: 'concrete', color: [0.95, 0.93, 0.88] },

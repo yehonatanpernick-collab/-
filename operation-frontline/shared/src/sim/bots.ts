@@ -21,6 +21,8 @@ export interface BotSkill {
   turn: number;
   /** View distance in metres. */
   view: number;
+  /** Damage multiplier against human players (keeps fights survivable; bots are numerous). */
+  dmg: number;
   /** Fraction of recoil the bot compensates. */
   recoilComp: number;
   /** Chance per decision to use tactical options (cover, grenades, strafing). */
@@ -28,10 +30,10 @@ export interface BotSkill {
 }
 
 export const BOT_SKILLS: BotSkill[] = [
-  { name: 'Recruit', reaction: 0.7, aimErr: 3.2, turn: 200, view: 55, recoilComp: 0.25, tactics: 0.25 },
-  { name: 'Regular', reaction: 0.45, aimErr: 1.9, turn: 300, view: 75, recoilComp: 0.5, tactics: 0.5 },
-  { name: 'Veteran', reaction: 0.3, aimErr: 1.1, turn: 420, view: 95, recoilComp: 0.7, tactics: 0.75 },
-  { name: 'Elite', reaction: 0.18, aimErr: 0.6, turn: 560, view: 120, recoilComp: 0.88, tactics: 0.95 },
+  { name: 'Recruit', reaction: 0.7, aimErr: 3.2, dmg: 0.4, turn: 200, view: 55, recoilComp: 0.25, tactics: 0.25 },
+  { name: 'Regular', reaction: 0.45, aimErr: 1.9, dmg: 0.55, turn: 300, view: 75, recoilComp: 0.5, tactics: 0.5 },
+  { name: 'Veteran', reaction: 0.3, aimErr: 1.1, dmg: 0.72, turn: 420, view: 95, recoilComp: 0.7, tactics: 0.75 },
+  { name: 'Elite', reaction: 0.18, aimErr: 0.6, dmg: 0.92, turn: 560, view: 120, recoilComp: 0.88, tactics: 0.95 },
 ];
 
 const NAMES = [
@@ -217,7 +219,7 @@ export class BotBrain {
     }
     this.goalObj = best;
     const def = sim.map.objectives[best];
-    this.goalT = rng.range(7, 12);
+    this.goalT = rng.range(5, 9);
     this.arrived = false;
     this.overwatchIdx = -1;
     if (role === 'recon' && rng.chance(0.75)) {
@@ -331,7 +333,7 @@ export class BotBrain {
       if (Math.hypot(lx, lz) > 0.8) { wantYaw = yawTo(lx, lz); wantPitch = clamp(pitchTo(lx, nav.nodeY[la] - s.y, lz) * 0.5, -0.4, 0.4); }
     } else if (!this.arrived) {
       this.arrived = Math.hypot(this.goalX - s.x, this.goalZ - s.z) < 2.5;
-      if (this.arrived) this.holdT = this.goalKind === 'overwatch' ? 999 : this.goalKind === 'cover' ? this.holdT : rng.range(1.5, 4.5);
+      if (this.arrived) this.holdT = this.goalKind === 'overwatch' ? 999 : this.goalKind === 'cover' ? this.holdT : rng.range(0.3, 1.1);
       else if (this.repathT <= 0) this.pathTo(this.goalX, this.goalY, this.goalZ);
     }
 
@@ -442,9 +444,11 @@ export class BotBrain {
           if (rng.chance(1 - this.skill.tactics * 0.8)) this.strafeDir = 0;
           if (d > 16 && rng.chance(w.cls === 'lmg' ? 0.6 : 0.25)) this.crouchT = rng.range(1, 2.5);
         }
+        // push forward while firing unless the weapon wants distance; retreat when too close
+        const adv = d > rMin + 6 && w.cls !== 'sniper' && w.cls !== 'lmg' && this.crouchT <= 0 ? 0.55 : 0;
         const back = d < rMin ? -1 : 0;
-        moveX = -toZ * this.strafeDir + toX * back * 0.9;
-        moveZ = toX * this.strafeDir + toZ * back * 0.9;
+        moveX = -toZ * this.strafeDir + toX * back * 0.9 + toX * adv;
+        moveZ = toX * this.strafeDir + toZ * back * 0.9 + toZ * adv;
         if (this.crouchT > 0) { buttons |= BTN_CROUCH; if (w.cls === 'lmg' || w.cls === 'sniper') { moveX = 0; moveZ = 0; } }
         // do not strafe off ledges / into walls: validate the step on the nav grid
         if ((moveX !== 0 || moveZ !== 0) && !nav.traversable(s.x, s.y, s.z, s.x + moveX * 0.9, s.y, s.z + moveZ * 0.9)) {

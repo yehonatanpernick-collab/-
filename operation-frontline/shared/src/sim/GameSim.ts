@@ -595,6 +595,7 @@ export class GameSim {
   damage(victim: SimPlayer, amount: number, attacker: SimPlayer | null, weapon: number, head: boolean, fx: number, fz: number): number {
     if (!victim.alive || victim.protectT > 0 || this.phase !== 'live') return 0;
     if (attacker && attacker !== victim && attacker.team === victim.team) return 0;
+    if (attacker && attacker.bot && !victim.bot && attacker.brain) amount *= attacker.brain.skill.dmg;
     const dmg = Math.max(1, Math.round(amount));
     victim.health -= dmg;
     victim.hurtT = 0;
