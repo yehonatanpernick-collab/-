@@ -112,7 +112,11 @@ export class MeshBuilder {
    * Extrude a 2D outline (in the Z-Y plane: [z, y] pairs, counter-clockwise with z right / y up) along X
    * between x0 and x1, with a chamfer on the long edges. Used for weapon / vehicle silhouettes.
    */
-  extrude(outline: readonly [number, number][], x0: number, x1: number, bevel = 0, r = 255, g = 255, b = 255): void {
+  extrude(points: readonly [number, number][], x0: number, x1: number, bevel = 0, r = 255, g = 255, b = 255): void {
+    // normalise winding to counter-clockwise
+    let area = 0;
+    for (let i = 0; i < points.length; i++) { const j = (i + 1) % points.length; area += points[i][0] * points[j][1] - points[j][0] * points[i][1]; }
+    const outline = area >= 0 ? points : [...points].reverse();
     const n = outline.length;
     const cz = outline.reduce((s, p) => s + p[0], 0) / n, cy = outline.reduce((s, p) => s + p[1], 0) / n;
     const inset = (p: readonly [number, number]): [number, number] => {
