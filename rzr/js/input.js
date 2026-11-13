@@ -6,6 +6,9 @@ export class Input {
     this.mouse = { dx: 0, dy: 0, wheel: 0, dragging: false };
     this.state = { throttle: 0, brake: 0, steer: 0, handbrake: 0, boost: 0 };
     this.enabled = true;
+    this.touch = { axis: 0, gas: 0, brake: 0, hb: 0, boost: 0 };
+    this.isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+    if (this.isTouch) import('./touch.js').then(m => { this.controls = new m.TouchControls(this); });
     addEventListener('keydown', (e) => {
       if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
@@ -15,9 +18,15 @@ export class Input {
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
     const cv = document.getElementById('view');
-    cv.addEventListener('pointerdown', (e) => { this.mouse.dragging = true; cv.setPointerCapture(e.pointerId); });
-    cv.addEventListener('pointerup', () => { this.mouse.dragging = false; });
-    cv.addEventListener('pointermove', (e) => { if (this.mouse.dragging) { this.mouse.dx += e.movementX; this.mouse.dy += e.movementY; } });
+    let lx = 0, ly = 0, fingers = 0;
+    cv.addEventListener('pointerdown', (e) => { fingers++; this.mouse.dragging = fingers === 1; lx = e.clientX; ly = e.clientY; cv.setPointerCapture(e.pointerId); });
+    const release = () => { fingers = Math.max(0, fingers - 1); if (!fingers) this.mouse.dragging = false; };
+    cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+    cv.addEventListener('pointermove', (e) => {
+      // client deltas, not movementX (which is 0 for touch in several browsers)
+      if (this.mouse.dragging) { this.mouse.dx += e.clientX - lx; this.mouse.dy += e.clientY - ly; }
+      lx = e.clientX; ly = e.clientY;
+    });
     cv.addEventListener('wheel', (e) => { this.mouse.wheel += Math.sign(e.deltaY); e.preventDefault(); }, { passive: false });
   }
 
@@ -30,7 +39,12 @@ export class Input {
     const lf = k.has('KeyA') || k.has('ArrowLeft'), rt = k.has('KeyD') || k.has('ArrowRight');
     let thr = up ? 1 : 0, brk = dn ? 1 : 0, steer = (lf ? 1 : 0) - (rt ? 1 : 0);
     let hb = k.has('Space') ? 1 : 0, boost = (k.has('ShiftLeft') || k.has('ShiftRight')) ? 1 : 0;
+    if (this.touch.gas) thr = 1;
+    if (this.touch.brake) brk = 1;
+    if (this.touch.hb) hb = 1;
+    if (this.touch.boost) boost = 1;
     let analog = false;
+    if (this.touch.axis) { steer = this.touch.axis; analog = true; }
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const p of pads) {
       if (!p) continue;

@@ -229,6 +229,7 @@ try {
   }
   const begin = () => {
     $('loading').hidden = true; $('hud').hidden = false;
+    document.body.classList.add('playing');
     game.audio?.start?.();
     let last = performance.now();
     const loop = (t) => { game.frame((t - last) / 1000); last = t; requestAnimationFrame(loop); };
