@@ -80,7 +80,7 @@ const upY = (ph) => new THREE.Vector3(0, 1, 0).applyQuaternion(ph.quat).y;
 }
 // 4d. rough real terrain: meadow + hillside with aggressive steering at speed
 {
-  const spots = [['meadow west of drift', -2150, 2800, Math.PI / 2], ['hillside above village', -300, 700, 2.2], ['forest valley floor', -2300, 150, 3.14]];
+  const spots = [['meadow west of drift', -2150, 2800, Math.PI / 2], ['hillside above village', -300, 700, 2.2], ['forest valley floor', -1750, 660, 2.0]];
   for (const [name, x, z, h] of spots) {
     for (const target of [70, 100]) {
       const ph = new VehiclePhysics(col); ph.reset(x, z, h); sim(ph, 1.5);

@@ -10,7 +10,7 @@ export const SURFACES = {
   rock: { mu: 0.86, rr: 0.015, dust: [0.6, 0.58, 0.55], dusty: 0.5, label: 'rock' },
   scree: { mu: 0.62, rr: 0.045, dust: [0.6, 0.58, 0.55], dusty: 0.9, label: 'scree' },
   forest: { mu: 0.66, rr: 0.035, dust: [0.35, 0.28, 0.2], dusty: 0.4, label: 'forest floor' },
-  snow: { mu: 0.36, rr: 0.05, dust: [0.95, 0.96, 1.0], dusty: 1.0, snow: 1, label: 'snow' },
+  snow: { mu: 0.46, rr: 0.05, dust: [0.95, 0.96, 1.0], dusty: 1.0, snow: 1, label: 'snow' },
   ice: { mu: 0.12, rr: 0.008, dust: [0.9, 0.95, 1.0], dusty: 0.2, snow: 1, label: 'ice' },
   water: { mu: 0.55, rr: 0.11, dust: [0.8, 0.85, 0.9], dusty: 0, water: 1, label: 'water' },
   wood: { mu: 0.7, rr: 0.015, dust: [0.5, 0.4, 0.3], dusty: 0, label: 'bridge' },
@@ -156,7 +156,8 @@ export class WorldCollision {
 export function bridgeRailColliders(meta) {
   const out = [];
   for (const b of meta.bridges || []) {
-    const P = b.pts;
+    // only along the flat deck (the 4 extra samples at each end are carved approach road)
+    const P = b.pts.length > 9 ? b.pts.slice(4, b.pts.length - 4) : b.pts;
     for (let i = 0; i < P.length - 1; i++) {
       const a = P[i], c = P[i + 1];
       const dx = c[0] - a[0], dz = c[2] - a[2], L = Math.hypot(dx, dz) || 1;

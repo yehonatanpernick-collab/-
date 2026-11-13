@@ -3,11 +3,11 @@
 import { ATMO } from './render/atmosphere.js';
 
 const STATES = {
-  clear: { cover: 0.28, dark: 0.0, fog: 1.0, precip: 0, wind: 0.5 },
-  cloudy: { cover: 0.62, dark: 0.35, fog: 1.6, precip: 0, wind: 0.9 },
-  fog: { cover: 0.7, dark: 0.45, fog: 9.0, precip: 0, wind: 0.3 },
-  rain: { cover: 0.9, dark: 0.8, fog: 3.2, precip: 1, wind: 1.4 },
-  snow: { cover: 0.88, dark: 0.65, fog: 3.6, precip: 1, wind: 1.0, forceSnow: 1 },
+  clear: { cover: 0.56, dark: 0.0, fog: 1.0, precip: 0, wind: 0.5 },
+  cloudy: { cover: 0.88, dark: 0.35, fog: 1.6, precip: 0, wind: 0.9 },
+  fog: { cover: 0.92, dark: 0.45, fog: 9.0, precip: 0, wind: 0.3 },
+  rain: { cover: 1.0, dark: 0.8, fog: 3.2, precip: 1, wind: 1.4 },
+  snow: { cover: 1.0, dark: 0.65, fog: 3.6, precip: 1, wind: 1.0, forceSnow: 1 },
 };
 const ORDER = ['clear', 'cloudy', 'fog', 'rain', 'snow'];
 
@@ -17,6 +17,7 @@ class Weather {
     this.mode = game.params.get('weather') || 'clear';
     this.state = this.mode === 'auto' ? 'clear' : this.mode;
     this.cur = { ...STATES[this.state] };
+    game.sky.weather.cover = this.cur.cover; game.sky._cloudInit = false;
     this.rain = 0; this.snow = 0; this.wetness = 0; this.snowCover = 0; this.windSpeed = 1;
     this.autoTimer = 240;
     if (game.params.has('weather')) this.cur = { ...STATES[this.state] };

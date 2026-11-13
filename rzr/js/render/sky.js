@@ -20,10 +20,10 @@ float noise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y); }
 float fbm(vec2 p) { float s = 0.0, a = 0.5; mat2 m = mat2(1.6, 1.2, -1.2, 1.6); for (int i = 0; i < 6; i++) { s += a * noise(p); p = m * p; a *= 0.5; } return s; }
 float density(vec2 p) {
-  float base = fbm(p * 0.00011 + uWind * uTime * 0.00001);
-  float det = fbm(p * 0.0006 - uWind * uTime * 0.00003);
-  float d = base * 0.75 + det * 0.35;
-  return smoothstep(1.0 - uCover, 1.0 - uCover + 0.32, d);
+  float base = fbm(p * 0.00016 + uWind * uTime * 0.00001);
+  float det = fbm(p * 0.0009 - uWind * uTime * 0.00003);
+  float d = clamp((base * 0.75 + det * 0.35 - 0.22) / 0.4, 0.0, 1.0);
+  return smoothstep(1.0 - uCover, 1.0 - uCover + 0.16, d);
 }
 void main() {
   vec3 dir = normalize(vW - cameraPosition);
@@ -35,7 +35,9 @@ void main() {
   float s1 = density(vW.xz + toSun), s2 = density(vW.xz + toSun * 2.2);
   float light = exp(-(s1 + s2 * 0.7) * 1.6);
   float silver = pow(max(dot(dir, uSunDir), 0.0), 12.0) * 1.2;
-  vec3 col = uAmb * (0.75 + 0.25 * (1.0 - d)) + uSunCol * (light * 0.85 + silver * (1.0 - d));
+  // lit tops are near-white, thick cores fall to a grey-blue base, edges catch silver lining
+  vec3 shade = mix(uAmb * 0.8 + vec3(0.12), uAmb * 0.7 + uSunCol * 1.05, light);
+  vec3 col = shade * (0.85 + 0.25 * (1.0 - d)) + uSunCol * silver * (1.0 - d);
   col *= mix(1.0, 0.45, uDark);
   float horizonFade = smoothstep(0.0, 0.08, dir.y);
   gl_FragColor = vec4(col, d * horizonFade * 0.96);
@@ -165,7 +167,8 @@ export class SkySystem {
 
     // clouds
     this.cloudUniforms.uTime.value += dt;
-    this.cloudUniforms.uCover.value = THREE.MathUtils.lerp(this.cloudUniforms.uCover.value, this.weather.cover, Math.min(1, dt * 0.2));
+    this.cloudUniforms.uCover.value = this._cloudInit ? THREE.MathUtils.lerp(this.cloudUniforms.uCover.value, this.weather.cover, Math.min(1, dt * 0.2)) : this.weather.cover;
+    this._cloudInit = true;
     this.cloudUniforms.uDark.value = this.weather.dark;
     this.cloudUniforms.uSunCol.value.copy(this.sunColor).multiplyScalar(1.4 * dayK + 0.05);
     this.cloudUniforms.uAmb.value.copy(hz).multiplyScalar(0.85).lerp(zn, 0.3);

@@ -115,13 +115,17 @@ vec2 rot2(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(c * p.x -
 
 // two-scale sample to break tiling
 void sampleLayer(int L, vec2 p, float far, float mixN, out vec3 alb, out vec3 nrm, out vec3 arm) {
+  // texel density follows distance: fine tile up close blended into the same scan at 5x scale
+  // (two fixed-scale samples, so nothing swims as the camera moves)
+  float mid = smoothstep(50.0, 380.0, vDist);
   float t = TILE[L];
   vec2 uv1 = p / t;
+  vec2 uvF = rot2(p, 1.9) / (t * 5.0);
   vec2 uv2 = rot2(p, 0.73) / (t * 3.7);
-  vec3 a1 = texture(uAlbedo, vec3(uv1, float(L))).rgb;
+  vec3 a1 = mix(texture(uAlbedo, vec3(uv1, float(L))).rgb, texture(uAlbedo, vec3(uvF, float(L))).rgb, mid);
   vec3 a2 = texture(uAlbedo, vec3(uv2, float(L))).rgb;
-  vec3 n1 = texture(uNormal, vec3(uv1, float(L))).rgb * 2.0 - 1.0;
-  vec3 m1 = texture(uARM, vec3(uv1, float(L))).rgb;
+  vec3 n1 = mix(texture(uNormal, vec3(uv1, float(L))).rgb, texture(uNormal, vec3(uvF, float(L))).rgb, mid) * 2.0 - 1.0;
+  vec3 m1 = mix(texture(uARM, vec3(uv1, float(L))).rgb, texture(uARM, vec3(uvF, float(L))).rgb, mid);
   vec3 m2 = texture(uARM, vec3(uv2, float(L))).rgb;
   float k = mix(0.35, 0.65, mixN);
   alb = mix(a1, a2 * (dot(a1, vec3(0.333)) / max(dot(a2, vec3(0.333)), 0.02)), k * 0.6);
@@ -186,7 +190,7 @@ void terrainSplat(out vec3 albedoOut) {
   // in the far ring there are no baked masks: derive snow/rock from altitude & slope
   float snowBase = ma.a;
   if (cw < 1.0) {
-    float s2 = smoothstep(2900.0, 3300.0, h + n1 * 300.0) * (1.0 - smoothstep(0.42, 0.62, slope));
+    float s2 = smoothstep(2600.0, 3000.0, h + n1 * 300.0) * (1.0 - smoothstep(0.45, 0.68, slope));
     snowBase = mix(s2, snowBase, cw);
   }
   float w[8];
@@ -233,6 +237,17 @@ void terrainSplat(out vec3 albedoOut) {
   // large-scale tonal variation (sun-bleached vs. damp patches) breaks uniformity at range
   float macroV = vnoiseD(p * 0.0035 + 77.0).x * 0.6 + vnoiseD(p * 0.011 + 13.0).x * 0.4;
   alb *= 0.82 + 0.36 * macroV;
+  // glaciers: blue ice tongues in the high drainage lines, crevasses running across the flow
+  float glacier = smoothstep(2620.0, 2850.0, h + (n1 - 0.5) * 220.0) * smoothstep(0.5, 0.8, ma.r) * (1.0 - smoothstep(0.32, 0.55, slope)) * cw;
+  if (glacier > 0.01) {
+    vec2 down = normalize(N.xz + 1e-4);
+    float ph = dot(p, down) * 0.32 + vnoiseD(p * 0.02 + 9.0).x * 6.0;
+    float crev = smoothstep(0.82, 0.97, sin(ph) * 0.5 + 0.5) * smoothstep(0.12, 0.3, slope);
+    vec3 ice = mix(vec3(0.58, 0.74, 0.86), vec3(0.85, 0.9, 0.94), vnoiseD(p * 0.05).x * 0.6);
+    ice = mix(ice, vec3(0.12, 0.2, 0.3), crev * 0.8);
+    alb = mix(alb, ice, glacier);
+    rough = mix(rough, 0.22, glacier);
+  }
   // distant forests read as canopy colour beyond the impostor range
   float canopy = ma.b * smoothstep(1300.0, 1900.0, vDist) * cw;
   alb = mix(alb, vec3(0.045, 0.07, 0.04), canopy * 0.9);

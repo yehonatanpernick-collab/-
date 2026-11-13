@@ -73,16 +73,18 @@ const NODES = {
   forestMouth: [-500, 900], forestMid: [-2200, 280], forestLake: [-2500, -560], forestHead: [-3150, -2050],
   meadowWest: [-2700, 2800], tarn: [2700, -2620], highTraverse: [1600, -3360],
   silberfall: [-760, -330], forestSaddle: [-2350, 1500],
+  glacier: [-450, -3880], kazbekCol: [-1500, -2550], weisshornAlp: [350, -1900], meadowHigh: [-3100, 2250],
 };
 const ROUTES = [
   ['village', 'lakeJct', 'valley'], ['lakeJct', 'greenNorth', 'valley'], ['greenNorth', 'valleyHead', 'valley'], ['valleyHead', 'icePass', 'mountain'],
   ['lakeJct', 'lakeWest', 'valley'], ['lakeWest', 'lakeSouth', 'trail'], ['lakeSouth', 'lakeEast', 'trail'], ['lakeEast', 'lakeNorth', 'trail'], ['lakeNorth', 'lakeWest', 'trail'],
   ['village', 'forestMouth', 'valley'], ['forestMouth', 'greenSouth', 'valley'], ['greenSouth', 'driftJct', 'valley'], ['driftJct', 'drift', 'valley'], ['drift', 'meadowWest', 'trail'],
   ['greenSouth', 'gorge', 'extreme'], ['gorge', 'gorgeEnd', 'extreme'],
-  ['forestMouth', 'forestMid', 'forest'], ['forestMid', 'forestLake', 'forest'], ['forestLake', 'forestHead', 'forest'], ['forestMid', 'forestSaddle', 'extreme'], ['forestSaddle', 'meadowWest', 'extreme'],
+  ['forestMouth', 'forestMid', 'forest'], ['forestMid', 'forestLake', 'forest'], ['forestLake', 'forestHead', 'forest'], 
   ['lakeSouth', 'rockGarden', 'extreme'], ['rockGarden', 'ridge', 'extreme'], ['ridge', 'greenSouth', 'extreme'],
   ['icePass', 'highTraverse', 'extreme'], ['highTraverse', 'tarn', 'extreme'],
   ['lakeJct', 'silberfall', 'trail'],
+  ['lakeNorth', 'tarn', 'extreme'], ['icePass', 'glacier', 'extreme'], ['valleyHead', 'kazbekCol', 'extreme'],
 ];
 const CLASSES = {
   valley: { w: 3.4, gmax: 0.13, surface: 'gravel', side: 3.0 },
@@ -215,9 +217,18 @@ function macroHeight(x, z) {
   const fl = floorAt(x, z);
   const above = Math.max(0, carve - fl);
   const wallK = smoothstep(8, 140, above) * Math.min(1, above / 260 + 0.25);
-  const spur = 150 * fbm(S1, x / 520 + 11, z / 520 - 4, 4) + 75 * (ridged(S3, x / 260, z / 260, 4) - 0.45);
+  // rugged walls: buttresses, spurs, couloirs and blocky outcrops at several scales
+  const spur = 230 * fbm(S1, x / 520 + 11, z / 520 - 4, 4) + 170 * (ridged(S3, x / 230, z / 230, 5) - 0.45) + 45 * (ridged(S5, x / 70, z / 70, 3) - 0.5);
   carve += floorN * (1 - wallK) + spur * wallK;
-  return smin(M, carve, 110);
+  let h = smin(M, carve, 70);
+  // benches & ledges on high walls (bedding planes), so walls read as tiers of rock, not a curtain
+  const hf = h - fl;
+  if (fl < 1e8 && hf > 40) {
+    const k = smoothstep(40, 220, hf) * 0.5 * (0.55 + 0.45 * fbm(S2, x / 900 - 3, z / 900 + 8, 2));
+    const step = 48 + 22 * S3(x / 1300, z / 1300);
+    h = lerp(h, terrace(h + 30 * S5(x / 210, z / 210), step), k);
+  }
+  return h;
 }
 
 // ---------------------------------------------------------------- compose grids
@@ -259,8 +270,8 @@ const flow = new Float32Array(N * N), depo = new Float32Array(N * N);
     const d = Math.hypot(dx, dz); if (d <= R) { brushI.push([dx, dz]); const w = 1 - d / R; brushW.push(w); wsum += w; }
   }
   for (let k = 0; k < brushW.length; k++) brushW[k] /= wsum;
-  const inertia = 0.22, capF = 3.0, minCap = 0.002, depS = 0.25, eroS = 0.3, evap = 0.02, grav = 4, life = 60, maxStep = 0.06;
-  const DROPS = 1500000;
+  const inertia = 0.35, capF = 3.0, minCap = 0.002, depS = 0.25, eroS = 0.3, evap = 0.02, grav = 4, life = 60, maxStep = 0.06;
+  const DROPS = 1000000;
   const grad = (x, y) => {
     const i = x | 0, j = y | 0, u = x - i, v = y - j, k = j * N + i;
     const a = hs[k], b = hs[k + 1], c = hs[k + N], d = hs[k + N + 1];
@@ -725,9 +736,9 @@ const masks = new Uint8Array(N * N * 8);
       road = Math.max(road, 1 - smoothstep(DRIFT.width * 0.5, DRIFT.width * 0.5 + 10, dd)); }
     const water = 1 - smoothstep(0, 40, wd[k]);
     // snow: altitude, aspect, slope, wind noise; lingering patches in wet hollows
-    const snowline = 2660 + 190 * nz + 120 * fbm(S3, x / 700, z / 700, 3) - 90 * wet[k];
+    const snowline = 2480 + 200 * nz + 120 * fbm(S3, x / 700, z / 700, 3) - 90 * wet[k];
     let snow = smoothstep(snowline - 120, snowline + 160, h) * (1 - smoothstep(0.95, 1.6, slope));
-    snow = Math.max(snow, smoothstep(2350, 2550, h) * smoothstep(0.55, 0.9, wet[k]) * (nz < 0 ? 1 : 0.4) * (1 - smoothstep(0.6, 1.0, slope)));
+    snow = Math.max(snow, smoothstep(2150, 2400, h) * smoothstep(0.45, 0.85, wet[k]) * (nz < 0 ? 1 : 0.4) * (1 - smoothstep(0.6, 1.0, slope)));
     // forest: montane band, moderate slopes, patchy; denser in the Dark Forest valley
     const treeline = 2140 + 110 * fbm(S2, x / 900, z / 900, 3) + 60 * nz;
     const fv = VALLEYS.forest;
