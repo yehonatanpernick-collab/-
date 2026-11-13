@@ -78,7 +78,27 @@ class Vegetation {
     this.nearR = 75 * Math.sqrt(this.q.trees);
     this.farR = this.q.treeDist;
     this.time = 0;
+    // keep clearings around the spawn, buildings and route junctions
+    const m = game.world.meta;
+    this.clear = [[m.spawn.x, m.spawn.z, 55], ...m.buildings.map(b => [b.x, b.z, Math.max(b.w, b.d) + 10]), ...Object.values(m.nodes).map(([x, z]) => [x, z, 14])];
   }
+  // nearest spot with no trunk or boulder within ~4.5 m (used by teleports / map clicks)
+  clearSpot(x, z) {
+    for (let r = 0; r < 60; r += 3) for (let a = 0; a < (r ? 12 : 1); a++) {
+      const px = x + Math.cos(a / 12 * Math.PI * 2) * r, pz = z + Math.sin(a / 12 * Math.PI * 2) * r;
+      const cell = this._cell(Math.floor(px / CELL), Math.floor(pz / CELL));
+      const near = [...cell.trees, ...cell.props.filter(p => p.kind === 'moss' || p.kind === 'pebble' || p.kind === 'cliff')];
+      let ok = true;
+      for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+        if (!ok) break;
+        const c = this._cell(Math.floor(px / CELL) + dx, Math.floor(pz / CELL) + dz);
+        for (const t of [...c.trees, ...c.props]) if (!t.small && Math.hypot(t.x - px, t.z - pz) < 4.5 + (t.kind === 'cliff' ? 6 : 0)) { ok = false; break; }
+      }
+      if (ok && near) return [px, pz];
+    }
+    return [x, z];
+  }
+  _blocked(x, z) { for (const [cx, cz, r] of this.clear) if (Math.abs(x - cx) < r && Math.abs(z - cz) < r && Math.hypot(x - cx, z - cz) < r) return true; return false; }
 
   async init(progress) {
     const g = this.game;
@@ -221,6 +241,7 @@ class Vegetation {
       let p = Math.pow(forest, 1.15) * 0.9;
       if (y < 2150 && snow < 0.3) p += 0.006; // scattered lone trees
       if (h3 > p) continue;
+      if (this._blocked(x, z)) continue;
       // slope check (cheap 2-tap)
       const sx = f.baseHeight(x + 2, z) - y, sz = f.baseHeight(x, z + 2) - y;
       if (Math.hypot(sx, sz) / 2 > 0.95) continue;
@@ -241,7 +262,7 @@ class Vegetation {
       const ix = cx * m + gx + 50000, iz = cz * m + gz + 50000;
       const x = cx * CELL + (gx + hash2(ix, iz)) * RS, z = cz * CELL + (gz + hash2(iz, ix)) * RS;
       const rock = f.mask(x, z, 7), sed = f.mask(x, z, 1), water = f.mask(x, z, 5), forest = f.mask(x, z, 2), road = f.mask(x, z, 4), wet = f.mask(x, z, 0);
-      if (road > 0.15) continue;
+      if (road > 0.15 || this._blocked(x, z)) continue;
       const y = f.baseHeight(x, z);
       const pr = hash2(ix + 3, iz + 8);
       const rockGarden = Math.hypot(x - 2830, z - 1300) < 650 ? 0.35 : 0;

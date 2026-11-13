@@ -137,6 +137,11 @@ export function makeTreeMaterials(textures, weatherUniform) {
     twig.onBeforeCompile = (s) => {
       sway(s, 0.0009);
       // light through needles when looking toward the sun
+      // dissolve needles right in front of the camera so the car stays visible in forests
+      s.fragmentShader = s.fragmentShader.replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
+        { float cd = length(vViewPosition);
+          float nz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+          if (cd < 4.0 && nz > (cd - 1.2) / 2.8) discard; }`);
       s.fragmentShader = s.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         reflectedLight.indirectDiffuse += diffuseColor.rgb * 0.18;`);
       twig.userData.shader = s;

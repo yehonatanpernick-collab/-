@@ -124,10 +124,8 @@ export class WorldCollision {
       return L ? 'ice' : 'water';
     }
     const dr = this.drift;
-    if (dr && Math.hypot((x - dr.x) / 1.25, (z - dr.z) / 0.9) < 160) {
-      // drift pad: compacted dirt everywhere on the pad
-      if (Math.hypot((x - dr.x) / 1.25, (z - dr.z) / 0.9) < 150) return 'track';
-    }
+    // drift circuit: the compacted ring band (baked into the road mask), not the infield
+    if (dr && Math.hypot((x - dr.x) / 1.25, (z - dr.z) / 0.9) < 160 && f.mask(x, z, 4) > 0.45) return 'track';
     const road = this.roadAt(x, z);
     const snow = f.mask(x, z, 3);
     if (road) {

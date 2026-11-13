@@ -51,6 +51,18 @@ export class DriveCamera {
         const s = target.clone().addScaledVector(dir, t);
         const g = this.col.ground(s.x, s.z, s.y, this._g);
         if (s.y < g.h + 0.5) { ok = Math.max(2, t - 0.6); break; }
+        // trunks and buildings block the view too
+        const obs = this.col.near(s.x, s.z);
+        let hit = false;
+        if (obs) for (const o of obs) {
+          if (o.type === 'cyl' && s.y < o.y + o.h && Math.hypot(s.x - o.x, s.z - o.z) < o.r + 0.35) hit = true;
+          else if (o.type === 'box' && !o.rail && s.y < o.y + o.hy) {
+            const c = Math.cos(o.rot), sn = Math.sin(o.rot);
+            const lx = (s.x - o.x) * c - (s.z - o.z) * sn, lz = (s.x - o.x) * sn + (s.z - o.z) * c;
+            if (Math.abs(lx) < o.hx + 0.3 && Math.abs(lz) < o.hz + 0.3) hit = true;
+          }
+        }
+        if (hit) { ok = Math.max(2.2, t - 0.5); break; }
       }
       desired.copy(target).addScaledVector(dir, ok);
       const g = this.col.ground(desired.x, desired.z, desired.y, this._g);

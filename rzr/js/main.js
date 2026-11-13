@@ -135,7 +135,11 @@ class Game {
     if (x === undefined) {
       const f = new THREE.Vector3(0, 0, 1).applyQuaternion(p.quat);
       p.reset(p.pos.x, p.pos.z, Math.atan2(f.x, f.z));
-    } else p.reset(x, z, heading);
+    } else {
+      if (this.vegetation) [x, z] = this.vegetation.clearSpot(x, z);
+      p.reset(x, z, heading);
+      this.vegetation?._rebuildColliders(p.pos);
+    }
     this.syncRender(1);
     this.driveCam.initialized = false;
   }

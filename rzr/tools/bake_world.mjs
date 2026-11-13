@@ -793,7 +793,7 @@ for (let j = 0; j < MN; j++) for (let i = 0; i < MN; i++) for (let c = 0; c < 8;
     const ii = clamp(i * 2 + a, 0, N - 1), jj = clamp(j * 2 + b, 0, N - 1), w = (a ? 1 : 2) * (b ? 1 : 2);
     s += masks[(jj * N + ii) * 8 + c] * w; n += w;
   }
-  masksLo[(j * MN + i) * 8 + c] = Math.round(s / n / 4) * 4;
+  masksLo[(j * MN + i) * 8 + c] = Math.min(255, Math.round(s / n / 4) * 4.048); // never wrap 256 -> 0
 }
 fs.writeFileSync(OUT + 'masks.bin.gz', zlib.gzipSync(Buffer.from(masksLo.buffer), { level: 9 }));
 

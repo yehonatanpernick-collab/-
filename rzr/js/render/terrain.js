@@ -145,8 +145,8 @@ void sampleRockTri(vec3 P, vec3 N, float far, out vec3 alb, out vec3 nrm, out ve
   float geo = vnoiseD(P.xz * 0.0016 + 3.0).x * 0.7 + vnoiseD(P.xz * 0.006 - 9.0).x * 0.3;
   alb *= mix(vec3(0.3, 0.29, 0.28), vec3(0.62, 0.6, 0.57), smoothstep(0.25, 0.75, geo));
   // horizontal strata (limestone bedding) give walls ledge structure at range
-  float strata = sin(P.y * 0.21 + vnoiseD(P.xz * 0.01 + 40.0).x * 6.0) * 0.5 + 0.5;
-  alb *= 0.86 + 0.22 * strata;
+  float strata = sin(P.y * 0.17 + vnoiseD(P.xz * 0.012 + 40.0).x * 9.0 + vnoiseD(P.xz * 0.05 + 3.0).x * 2.0) * 0.5 + 0.5;
+  alb *= 0.93 + 0.1 * strata;
   alb = mix(alb, uLayerAvg[3], far);
   vec3 nx = texture(uNormal, vec3(P.zy * t, 3.0)).rgb * 2.0 - 1.0, ny = texture(uNormal, vec3(P.xz * t, 3.0)).rgb * 2.0 - 1.0, nz = texture(uNormal, vec3(P.xy * t, 3.0)).rgb * 2.0 - 1.0;
   vec3 mx = texture(uARM, vec3(P.zy * t, 3.0)).rgb, my = texture(uARM, vec3(P.xz * t, 3.0)).rgb, mz = texture(uARM, vec3(P.xy * t, 3.0)).rgb;
