@@ -147,9 +147,20 @@ void sampleRockTri(vec3 P, vec3 N, float far, out vec3 alb, out vec3 nrm, out ve
   alb = mix(aL, aS * (dot(aL, vec3(0.333)) / max(dot(aS, vec3(0.333)), 0.03)), 0.65 * nearK);
   // pale limestone <-> darker granite bands at the kilometre scale
   float geo = vnoiseD(P.xz * 0.0016 + 3.0).x * 0.7 + vnoiseD(P.xz * 0.006 - 9.0).x * 0.3;
-  alb *= mix(vec3(0.24, 0.235, 0.23), vec3(0.52, 0.5, 0.47), smoothstep(0.25, 0.75, geo));
-  // dark water-stain streaks running down limestone walls (stretched vertically)
+  alb *= mix(vec3(0.19, 0.185, 0.18), vec3(0.44, 0.42, 0.395), smoothstep(0.25, 0.75, geo));
   float sx = P.x * 0.9 + P.z * 0.43;
+  // erosion gullies / ribs running down the wall: relief (normal) + cavity (albedo), several scales
+  float wallK = smoothstep(0.35, 0.75, 1.0 - abs(N.y));
+  vec3 g1 = vnoiseD(vec2(sx * 0.045, P.y * 0.008) + 21.0);
+  vec3 g2 = vnoiseD(vec2(sx * 0.16, P.y * 0.03) - 5.0);
+  vec3 g3 = vnoiseD(vec2(sx * 0.55, P.y * 0.12) + 70.0);
+  float rib = g1.x * 0.5 + g2.x * 0.32 + g3.x * 0.18;
+  float ribD = g1.y * 0.045 * 0.5 + g2.y * 0.16 * 0.32 + g3.y * 0.55 * 0.18;   // d(rib)/d(sx)
+  vec3 tang = normalize(cross(N, vec3(0.0, 1.0, 0.0)) + 1e-5);
+  alb *= mix(1.0, 0.62 + 0.55 * rib, wallK);
+  // overhang shadows under ledges: darker where the wall turns away from the sky
+  alb *= mix(1.0, 0.8, wallK * smoothstep(0.55, 0.85, vnoiseD(vec2(sx * 0.02, P.y * 0.05) + 3.0).x));
+  // dark water-stain streaks running down limestone walls (stretched vertically)
   float st = vnoiseD(vec2(sx * 0.07, P.y * 0.006) + 11.0).x * 0.65 + vnoiseD(vec2(sx * 0.21, P.y * 0.015) - 7.0).x * 0.35;
   alb *= 1.0 - 0.45 * smoothstep(0.52, 0.8, st) * smoothstep(0.25, 0.5, 1.0 - abs(N.y));
   // lichen / weathering tint
@@ -162,6 +173,7 @@ void sampleRockTri(vec3 P, vec3 N, float far, out vec3 alb, out vec3 nrm, out ve
   vec3 mx = texture(uARM, vec3(P.zy * t, 3.0)).rgb, my = texture(uARM, vec3(P.xz * t, 3.0)).rgb, mz = texture(uARM, vec3(P.xy * t, 3.0)).rgb;
   vec3 wx = vec3(0.0, nx.y, nx.x) * sign(N.x), wy = vec3(ny.x, 0.0, ny.y) * sign(N.y), wz = vec3(nz.x, nz.y, 0.0) * sign(N.z);
   nrm = (wx * bw.x + wy * bw.y + wz * bw.z) * (1.0 - far * 0.8) * (0.4 + 0.6 * nearK);
+  nrm += tang * (-ribD * 9.0) * wallK * (1.0 - far * 0.6);
   arm = mx * bw.x + my * bw.y + mz * bw.z;
 }
 

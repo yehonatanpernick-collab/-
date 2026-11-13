@@ -51,3 +51,10 @@ grass_medium_01 clump atlas.
   integrated with simple wander/flee AI. Searching: https://sketchfab.com/search?features=downloadable&licenses=322a749bcfa841b29dff1e8a1bb74b0b&q=deer&type=models
 * **Quixel Megascans:** requires an Epic/Fab account and its licence restricts use to
   Unreal Engine projects unless otherwise licensed — not used.
+
+## Code libraries
+
+| Library | Version | Licence | Use |
+|---|---|---|---|
+| three.js | r160 | MIT | renderer, post-processing passes (`vendor/three`) |
+| N8AO | 1.9.4 | ISC (`vendor/n8ao/LICENSE`) | screen-space ambient occlusion on High/Ultra. The unused `postprocessing` (pmndrs) import is stubbed out in the vendored file; the `Pass` import points at the vendored three.js addon. |

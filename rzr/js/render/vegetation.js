@@ -57,7 +57,7 @@ void main() {
   // dithered cross-fade with the full-detail trees near the camera
   float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   if (c.a < 0.45 || n > vFade) discard;
-  vec3 col = c.rgb * (uAmb + uSunCol * 0.55) * (0.85 + 0.3 * vTint);
+  vec3 col = c.rgb * (uAmb + uSunCol * 0.55 * terrSunShadow(vW)) * (0.85 + 0.3 * vTint);
   vec4 atm = atmosphere(cameraPosition, vW);
   col = mix(col, atm.rgb, atm.a);
   gl_FragColor = vec4(col, 1.0);

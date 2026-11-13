@@ -14,6 +14,18 @@ export const ATMO = {
   misc: { x: 0, y: 0, z: 0, w: 0 }, // x: time (s), y: wetness, z: snow cover, w: wind
 };
 
+// terrain sun-shadow targets live here so they exist before any program clones its uniforms
+function shadowRT(n) {
+  const rt = new THREE.WebGLRenderTarget(n, n, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, depthBuffer: false });
+  rt.texture.minFilter = rt.texture.magFilter = THREE.LinearFilter;
+  rt.texture.generateMipmaps = false;
+  // uniform cloning nulls render-target textures and copies others: keep every clone on the live target
+  rt.texture.isRenderTargetTexture = false;
+  rt.texture.clone = function () { return this; };
+  return rt;
+}
+export const TERRAIN_SHADOW_RT = [shadowRT(1024), shadowRT(512)];
+
 export const atmoUniforms = {
   uFogParams: { value: ATMO.params },
   uFogSunDir: { value: ATMO.sunDir },
@@ -21,9 +33,21 @@ export const atmoUniforms = {
   uFogHorizon: { value: ATMO.horizon },
   uFogZenith: { value: ATMO.zenith },
   uMisc: { value: ATMO.misc },
+  uTerrShadowCore: { value: TERRAIN_SHADOW_RT[0].texture },
+  uTerrShadowFar: { value: TERRAIN_SHADOW_RT[1].texture },
 };
 
 export const FOG_GLSL = /* glsl */`
+uniform sampler2D uTerrShadowCore;
+uniform sampler2D uTerrShadowFar;
+// world-wide terrain sun shadow (1 lit, 0 in a mountain's shadow)
+float terrSunShadow(vec3 wp) {
+  vec2 a = abs(wp.xz);
+  float wc = 1.0 - smoothstep(3700.0, 4000.0, max(a.x, a.y));
+  float sf = texture2D(uTerrShadowFar, (wp.xz + 20480.0) / 40960.0).r;
+  float sc = wc > 0.0 ? texture2D(uTerrShadowCore, (wp.xz + 4096.0) / 8192.0).r : 1.0;
+  return mix(sf, sc, wc);
+}
 uniform vec4 uFogParams;
 uniform vec3 uFogSunDir;
 uniform vec3 uFogSunColor;
@@ -61,6 +85,13 @@ export function installAtmosphere() {
   THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG\n varying vec3 vFogView;\n#endif`;
   THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG\n vFogView = mvPosition.xyz;\n#endif`;
   THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG\n uniform vec3 fogColor;\n varying vec3 vFogView;\n ${FOG_GLSL}\n#endif`;
+  // terrain shadow attenuates the sun/moon only (headlights and other lights are unaffected)
+  THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin.replace(
+    'getDirectionalLightInfo( directionalLight, directLight );',
+    `getDirectionalLightInfo( directionalLight, directLight );
+    #ifdef USE_FOG
+    directLight.color *= terrSunShadow(cameraPosition + transpose(mat3(viewMatrix)) * vFogView);
+    #endif`);
   THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
     vec3 fogWorld = cameraPosition + transpose(mat3(viewMatrix)) * vFogView;
     vec4 atm = atmosphere(cameraPosition, fogWorld);

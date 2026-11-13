@@ -79,6 +79,11 @@ export class DriveCamera {
       this.cam.position.copy(this.pos);
       this.cam.up.set(0, 1, 0);
       this.cam.lookAt(this.look);
+      // lean into corners (yaw rate x speed), eased so it reads as weight, not wobble
+      const yawRate = phys.angVel ? phys.angVel.y : 0;
+      const leanT = THREE.MathUtils.clamp(-yawRate * Math.min(1, speed / 25) * 0.05, -0.07, 0.07);
+      this.lean = (this.lean || 0) + (leanT - (this.lean || 0)) * Math.min(1, dt * 3);
+      this.cam.rotateZ(this.lean);
     } else {
       const local = this.mode === 1 ? new THREE.Vector3(0, 1.05, 1.75) : new THREE.Vector3(0.34, 1.32, -0.12);
       const pos = local.applyQuaternion(model.root.quaternion).add(model.root.position);
@@ -91,7 +96,9 @@ export class DriveCamera {
       this.cam.position.x += (Math.random() - 0.5) * shakeAmt;
       this.cam.position.y += (Math.random() - 0.5) * shakeAmt;
     }
-    const fov = this.baseFov + Math.min(20, speed * 0.38) + (this.mode === 2 ? 6 : 0);
+    const boosting = phys.boost ? 1 : 0;
+    this.boostK = (this.boostK || 0) + (boosting - (this.boostK || 0)) * Math.min(1, dt * (boosting ? 4 : 1.5));
+    const fov = this.baseFov + Math.min(20, speed * 0.38) + (this.mode === 2 ? 6 : 0) + this.boostK * 9;
     if (Math.abs(this.cam.fov - fov) > 0.05) { this.cam.fov += (fov - this.cam.fov) * Math.min(1, dt * 3); this.cam.updateProjectionMatrix(); }
   }
 }

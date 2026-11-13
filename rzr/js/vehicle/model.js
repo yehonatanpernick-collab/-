@@ -53,10 +53,26 @@ export class VehicleModel {
       if (!o.isMesh) return;
       o.castShadow = true; o.receiveShadow = true;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
+      const out = mats.map((m) => {
         for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap']) if (m[k]) m[k].anisotropy = Math.min(8, aniso);
-        m.envMapIntensity = 0.8;
-      }
+        if (!m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || m.transparent) { m.envMapIntensity = 0.9; return m; }
+        // physical paint: a lacquer clearcoat on the bright painted panels (not on tyres,
+        // plastics or the dark chassis, picked from the albedo), sky reflections on top
+        const p = new THREE.MeshPhysicalMaterial();
+        THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+        p.defines = { STANDARD: '', PHYSICAL: '' };   // Standard.copy drops the PHYSICAL define
+        p.clearcoat = 0.85; p.clearcoatRoughness = 0.12; p.envMapIntensity = 1.15;
+        p.roughness = Math.min(1, m.roughness) * 0.9;
+        p.onBeforeCompile = (sh) => {
+          sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+            float paintK = smoothstep(0.1, 0.32, dot(diffuseColor.rgb, vec3(0.333)));
+            material.clearcoat *= paintK;
+            material.roughness = mix(material.roughness, max(0.28, material.roughness * 0.6), paintK);`);
+        };
+        p.customProgramCacheKey = () => 'rzr-paint';
+        return p;
+      });
+      o.material = Array.isArray(o.material) ? out : out[0];
     });
     const find = (re) => { let r = null; scene.traverse(o => { if (!r && re.test(o.name)) r = o; }); return r; };
     const findAll = (re) => { const r = []; scene.traverse(o => { if (re.test(o.name)) r.push(o); }); return r; };

@@ -5,6 +5,7 @@ import { WorldCollision } from './world/collision.js';
 import { installAtmosphere, ATMO } from './render/atmosphere.js';
 import { Terrain, loadArrayTexture } from './render/terrain.js';
 import { SkySystem } from './render/sky.js';
+import { TerrainShadow } from './render/terrainShadow.js';
 import { Roads } from './render/roads.js';
 import { Water } from './render/water.js';
 import { VehiclePhysics } from './vehicle/physics.js';
@@ -20,8 +21,8 @@ const loadText = (t, f) => { $('load-text').textContent = t; if (f !== undefined
 export const QUALITY = {
   low: { pixelRatio: 0.75, range0: 44, shadows: false, shadowSize: 1024, post: false, grass: 0.35, trees: 0.55, treeDist: 900 },
   medium: { pixelRatio: 1, range0: 52, shadows: true, shadowSize: 1024, msaa: 0, bloom: false, grass: 0.6, trees: 0.8, treeDist: 1300 },
-  high: { pixelRatio: Math.min(1.5, devicePixelRatio), range0: 58, shadows: true, shadowSize: 2048, grass: 1, trees: 1, treeDist: 1700 },
-  ultra: { pixelRatio: Math.min(2, devicePixelRatio), range0: 68, shadows: true, shadowSize: 4096, grass: 1.4, trees: 1.25, treeDist: 2200 },
+  high: { pixelRatio: Math.min(1.5, devicePixelRatio), ao: 'half', range0: 58, shadows: true, shadowSize: 2048, grass: 1, trees: 1, treeDist: 1700 },
+  ultra: { pixelRatio: Math.min(2, devicePixelRatio), ao: 'full', range0: 68, shadows: true, shadowSize: 4096, grass: 1.4, trees: 1.25, treeDist: 2200 },
 };
 
 const DT = 1 / 200;
@@ -30,7 +31,8 @@ class Game {
   constructor() {
     this.params = params;
     this.qualityName = params.get('q') || store.get('rzr.quality', 'high');
-    this.quality = QUALITY[this.qualityName] || QUALITY.high;
+    this.quality = { ...(QUALITY[this.qualityName] || QUALITY.high) };
+    if (params.has('noao')) this.quality.ao = false;
     const canvas = $('view');
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(this.quality.pixelRatio);
@@ -86,6 +88,7 @@ class Game {
     });
     this.scene.add(this.terrain.mesh);
     this.sky = new SkySystem(this.renderer, this.scene);
+    this.terrShadow = new TerrainShadow(this.renderer, this.terrain);
     if (this.quality.post !== false) {
       try { const { Post } = await import('./render/post.js'); this.post = new Post(this.renderer, this.scene, this.camera, this.quality); }
       catch (e) { console.warn('post-processing unavailable', e); }
@@ -116,7 +119,7 @@ class Game {
 
     // optional systems: a failure in one never blocks driving
     loadText('Growing forests…', 0.8);
-    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['flowers', './render/flowers.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
+    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['flowers', './render/flowers.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['stunts', './stunts.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
       try {
         const mod = await import(path);
         const sys = await mod.create(this, (t) => loadText(t));
@@ -188,6 +191,7 @@ class Game {
 
   step() {
     Object.assign(this.phys.input, this.input.state);
+    if (this.stunts && !this.stunts.canBoost) this.phys.input.boost = 0;
     if (this.autopilot) this.autopilot(this.phys, this.simTime);
     this.prevPos.copy(this.phys.pos); this.prevQuat.copy(this.phys.quat);
     this.phys.step(DT);
@@ -216,10 +220,11 @@ class Game {
     this.syncRender(this.acc / DT);
     this.model.update(this.phys, this.renderPos, this.renderQuat, dt, this.headlights || this.sky.night > 0.6);
     this.camView = this.camView || { forwardSpeed: () => this.phys.forwardSpeed() };
-    Object.assign(this.camView, { pos: this.renderPos, quat: this.renderQuat, vel: this.phys.vel, wheels: this.phys.wheels, impacts: this.phys.impacts });
+    Object.assign(this.camView, { pos: this.renderPos, quat: this.renderQuat, vel: this.phys.vel, wheels: this.phys.wheels, impacts: this.phys.impacts, angVel: this.phys.angVel, boost: this.phys.input.boost && this.phys.input.throttle > 0.1 });
     this.driveCam.update(dt, this.camView, this.model, this.input);
     const st = this.sky.update(dt, this.camera, this.renderPos);
     this.sky.night = st.night;
+    this.terrShadow.update(this.sky.lightDir);
     ATMO.misc.x += dt;
     this.camera.updateMatrixWorld();
     this.terrain.update(this.camera);
