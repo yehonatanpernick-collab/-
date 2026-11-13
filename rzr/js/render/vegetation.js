@@ -431,7 +431,7 @@ class Vegetation {
         vec4 R4 = ci == 0 ? vec4(0.2, 0.06, 0.49, 0.5) : ci == 1 ? vec4(0.59, 0.06, 0.79, 0.46) : ci == 2 ? vec4(0.02, 0.6, 0.2, 0.94) : ci == 3 ? vec4(0.25, 0.6, 0.49, 0.94) : vec4(0.58, 0.6, 0.8, 0.96);
         vGUv0 = vec2(mix(R4.x, R4.z, uv.x), 1.0 - mix(R4.w, R4.y, uv.y));
         vGTint = h4;
-        vGFlower = (h1 < mb.b * 0.22) ? fract(h2 * 7.0) + 0.01 : 0.0;`)
+        vGFlower = (h1 < mb.b * 0.12) ? fract(h2 * 7.0) + 0.01 : 0.0;`)
         .replace('#include <uv_vertex>', '');
       s.vertexShader = s.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vMapUv = vGUv0;');
       s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vGTint; varying float vGFlower;')
@@ -440,7 +440,7 @@ class Vegetation {
           if (vGFlower > 0.0 && vMapUv.y > 0.0) {
             vec3 fc = vGFlower < 0.3 ? vec3(1.0, 0.85, 0.15) : vGFlower < 0.55 ? vec3(0.95, 0.95, 0.9) : vGFlower < 0.8 ? vec3(0.55, 0.35, 0.85) : vec3(0.3, 0.45, 0.95);
             float top = smoothstep(0.55, 0.8, fract(vMapUv.y * 4.0));
-            diffuseColor.rgb = mix(diffuseColor.rgb, fc, top * 0.6);
+            diffuseColor.rgb = mix(diffuseColor.rgb, fc * 0.8, top * 0.35);
           }`);
     };
     mat.customProgramCacheKey = () => 'gpu-grass';

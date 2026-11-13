@@ -143,7 +143,7 @@ void sampleRockTri(vec3 P, vec3 N, float far, out vec3 alb, out vec3 nrm, out ve
   alb = mix(aL, aS * (dot(aL, vec3(0.333)) / max(dot(aS, vec3(0.333)), 0.03)), 0.65 * nearK);
   // pale limestone <-> darker granite bands at the kilometre scale
   float geo = vnoiseD(P.xz * 0.0016 + 3.0).x * 0.7 + vnoiseD(P.xz * 0.006 - 9.0).x * 0.3;
-  alb *= mix(vec3(0.42, 0.41, 0.4), vec3(0.8, 0.78, 0.74), smoothstep(0.25, 0.75, geo));
+  alb *= mix(vec3(0.3, 0.29, 0.28), vec3(0.62, 0.6, 0.57), smoothstep(0.25, 0.75, geo));
   // horizontal strata (limestone bedding) give walls ledge structure at range
   float strata = sin(P.y * 0.21 + vnoiseD(P.xz * 0.01 + 40.0).x * 6.0) * 0.5 + 0.5;
   alb *= 0.86 + 0.22 * strata;
@@ -186,7 +186,7 @@ void terrainSplat(out vec3 albedoOut) {
   float w[8];
   w[3] = smoothstep(0.12, 0.26, slope + (n1 - 0.5) * 0.1) * 1.3 + mb.a * 0.6 * smoothstep(0.05, 0.16, slope);   // rock
   w[4] = (ma.g * 1.4 + smoothstep(2250.0, 2750.0, h) * 0.5 * smoothstep(0.06, 0.2, slope)) * (1.0 - smoothstep(0.3, 0.45, slope)); // scree
-  w[6] = clamp(snowBase * 1.3 + uWeather.y * smoothstep(1500.0, 2100.0, h + n1 * 200.0), 0.0, 1.2) * (1.0 - smoothstep(0.4, 0.62, slope));
+  w[6] = clamp(snowBase * 1.3 + uWeather.y * smoothstep(1500.0, 2100.0, h + n1 * 200.0), 0.0, 1.2) * (1.0 - smoothstep(0.24, 0.42, slope));
   w[2] = ma.b * 1.3;                                               // forest floor
   w[5] = (smoothstep(0.72, 0.92, ma.r + uWeather.w * 0.1) * 1.2 * (1.0 - smoothstep(0.1, 0.3, slope)) + mb.r * ma.b * 0.6);   // mud
   w[7] = smoothstep(0.8, 0.98, mb.g) * 1.4;                        // riverbed / shore

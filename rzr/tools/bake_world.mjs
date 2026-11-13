@@ -717,7 +717,12 @@ const masks = new Uint8Array(N * N * 8);
     const slope = Math.hypot(gx, gz);
     const nz = -gz / Math.hypot(gx, gz, 1); // + => facing south (+z), - => facing north
     const rd = roadDist[k];
-    const road = rd < 1e8 ? 1 - smoothstep(2.0, 14, rd) : 0;
+    let road = rd < 1e8 ? 1 - smoothstep(2.0, 14, rd) : 0;
+    // drift track ring counts as road surface (no grass, dirt splat, shows on the map)
+    { const ex = (x - DRIFT.x) / 1.25, ez = (z - DRIFT.z) / 0.9, a = Math.atan2(ez, ex);
+      const rr = DRIFT.R * (1 + 0.2 * Math.sin(2 * a + 0.4) + 0.1 * Math.cos(3 * a) + 0.05 * Math.sin(5 * a + 1));
+      const dd = Math.abs(Math.hypot(ex, ez) - rr) * 1.1;
+      road = Math.max(road, 1 - smoothstep(DRIFT.width * 0.5, DRIFT.width * 0.5 + 10, dd)); }
     const water = 1 - smoothstep(0, 40, wd[k]);
     // snow: altitude, aspect, slope, wind noise; lingering patches in wet hollows
     const snowline = 2660 + 190 * nz + 120 * fbm(S3, x / 700, z / 700, 3) - 90 * wet[k];
