@@ -1,0 +1,13 @@
+{
+  "name": "rzr-tools",
+  "private": true,
+  "type": "module",
+  "description": "Offline asset/world bake tools for the RZR mountain wilderness sim (not needed to play)",
+  "devDependencies": {
+    "@gltf-transform/core": "^4.1.0",
+    "@gltf-transform/extensions": "^4.1.0",
+    "@gltf-transform/functions": "^4.1.0",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.33.5"
+  }
+}

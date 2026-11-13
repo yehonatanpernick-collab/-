@@ -1,0 +1,77 @@
+{
+ "layers": [
+  {
+   "name": "grass",
+   "source": "rocky_terrain_02",
+   "avg": [
+    0.3137,
+    0.3059,
+    0.1098
+   ]
+  },
+  {
+   "name": "tundra",
+   "source": "aerial_grass_rock",
+   "avg": [
+    0.4471,
+    0.3804,
+    0.1412
+   ]
+  },
+  {
+   "name": "forest",
+   "source": "forest_leaves_04",
+   "avg": [
+    0.5098,
+    0.3725,
+    0.2314
+   ]
+  },
+  {
+   "name": "rock",
+   "source": "marble_cliff_05",
+   "avg": [
+    0.5765,
+    0.549,
+    0.5137
+   ]
+  },
+  {
+   "name": "scree",
+   "source": "rocks_ground_02",
+   "avg": [
+    0.4275,
+    0.3686,
+    0.2745
+   ]
+  },
+  {
+   "name": "mud",
+   "source": "brown_mud_rocks_01",
+   "avg": [
+    0.3176,
+    0.2745,
+    0.2118
+   ]
+  },
+  {
+   "name": "snow",
+   "source": "snow_02",
+   "avg": [
+    0.6471,
+    0.6471,
+    0.6549
+   ]
+  },
+  {
+   "name": "riverbed",
+   "source": "river_small_rocks",
+   "avg": [
+    0.4745,
+    0.4235,
+    0.3569
+   ]
+  }
+ ],
+ "size": 1024
+}

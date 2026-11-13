@@ -1,0 +1,110 @@
+[
+ {
+  "name": "rock_moss_set_01",
+  "before": 63127,
+  "after": 8992,
+  "kb": 727
+ },
+ {
+  "name": "rock_moss_set_02",
+  "before": 57647,
+  "after": 8990,
+  "kb": 889
+ },
+ {
+  "name": "rock_09",
+  "before": 12416,
+  "after": 3000,
+  "kb": 616
+ },
+ {
+  "name": "rock_07",
+  "before": 14844,
+  "after": 3000,
+  "kb": 650
+ },
+ {
+  "name": "stone_01",
+  "before": 53520,
+  "after": 1998,
+  "kb": 298
+ },
+ {
+  "name": "mountainside",
+  "before": 153472,
+  "after": 14000,
+  "kb": 1380
+ },
+ {
+  "name": "rock_face_01",
+  "before": 20174,
+  "after": 5000,
+  "kb": 975
+ },
+ {
+  "name": "dead_tree_trunk",
+  "before": 101802,
+  "after": 4996,
+  "kb": 932
+ },
+ {
+  "name": "dead_tree_trunk_02",
+  "before": 83128,
+  "after": 5991,
+  "kb": 1158
+ },
+ {
+  "name": "tree_stump_01",
+  "before": 41046,
+  "after": 2498,
+  "kb": 392
+ },
+ {
+  "name": "tree_stump_02",
+  "before": 62345,
+  "after": 2500,
+  "kb": 362
+ },
+ {
+  "name": "fern_02",
+  "before": 6232,
+  "after": 6232,
+  "kb": 280
+ },
+ {
+  "name": "shrub_03",
+  "before": 8287,
+  "after": 4994,
+  "kb": 268
+ },
+ {
+  "name": "shrub_04",
+  "before": 27327,
+  "after": 4835,
+  "kb": 257
+ },
+ {
+  "name": "pine_roots",
+  "before": 162693,
+  "after": 5995,
+  "kb": 2264
+ },
+ {
+  "name": "dry_branches_medium_01",
+  "before": 16803,
+  "after": 3444,
+  "kb": 424
+ },
+ {
+  "name": "celandine_01",
+  "before": 8966,
+  "after": 8966,
+  "kb": 437
+ },
+ {
+  "name": "dandelion_01",
+  "before": 54764,
+  "after": 6314,
+  "kb": 414
+ }
+]

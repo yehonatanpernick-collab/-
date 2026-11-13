@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Alpine RZR Wilderness</title>
+<meta name="description" content="Open-world mountain off-road UTV simulator built with three.js">
+<link rel="stylesheet" href="css/hud.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="loading">
+  <div class="load-card">
+    <h1>Alpine RZR Wilderness</h1>
+    <p class="sub">64 km² of mountains, valleys, lakes and trails</p>
+    <div class="bar"><div id="load-fill"></div></div>
+    <p id="load-text">Starting…</p>
+    <button id="start" hidden>Drive</button>
+    <p class="hint">W/S throttle·brake · A/D steer · Space handbrake · Shift boost · C camera · R reset · M map · H help</p>
+  </div>
+</div>
+
+<div id="hud" hidden>
+  <div id="speedo">
+    <div id="speed">0</div><div class="unit">km/h</div>
+    <div id="rpm-bar"><div id="rpm-fill"></div></div>
+    <div id="drive-info"><span id="gear">D</span> · <span id="awd">AWD</span> · <span id="surface">gravel</span></div>
+  </div>
+  <div id="location"><div id="region">—</div><div id="coords">—</div></div>
+  <div id="compass"><div id="compass-strip"></div><div class="needle"></div></div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="toast"></div>
+  <div id="fps"></div>
+</div>
+
+<div id="bigmap" hidden><canvas id="bigmap-canvas"></canvas><div class="close">M to close · click to teleport</div></div>
+
+<div id="help" hidden>
+  <h2>Controls</h2>
+  <table>
+    <tr><td>W / ↑</td><td>Throttle</td></tr>
+    <tr><td>S / ↓</td><td>Brake / reverse</td></tr>
+    <tr><td>A D / ← →</td><td>Steer</td></tr>
+    <tr><td>Space</td><td>Handbrake (drift)</td></tr>
+    <tr><td>Shift</td><td>Turbo (more power)</td></tr>
+    <tr><td>Q</td><td>Toggle AWD / 2WD</td></tr>
+    <tr><td>C</td><td>Chase / bumper / cockpit camera</td></tr>
+    <tr><td>Mouse drag · wheel</td><td>Orbit · zoom camera</td></tr>
+    <tr><td>L</td><td>Headlights</td></tr>
+    <tr><td>R</td><td>Reset vehicle upright</td></tr>
+    <tr><td>T / Y</td><td>Time of day − / +</td></tr>
+    <tr><td>G</td><td>Cycle weather</td></tr>
+    <tr><td>M</td><td>World map (click to teleport)</td></tr>
+    <tr><td>1–9</td><td>Jump to points of interest</td></tr>
+    <tr><td>O</td><td>Settings</td></tr>
+  </table>
+  <p>Gamepad supported (right trigger/left trigger, left stick).</p>
+</div>
+
+<div id="settings" hidden>
+  <h2>Settings</h2>
+  <label>Quality <select id="set-quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high" selected>High</option><option value="ultra">Ultra</option></select></label>
+  <label>Vehicle <select id="set-vehicle"><option value="a">RZR XP 1000 (CC-BY)</option><option value="b">RZR XP 1000 High Lifter (CC-BY-NC-SA)</option></select></label>
+  <label>Time of day <input id="set-time" type="range" min="0" max="24" step="0.1"></label>
+  <label>Weather <select id="set-weather"><option value="clear">Clear</option><option value="cloudy">Cloudy</option><option value="fog">Fog</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="auto">Changing</option></select></label>
+  <label>Units <select id="set-units"><option value="kmh">km/h</option><option value="mph">mph</option></select></label>
+  <label><input id="set-sound" type="checkbox" checked> Sound</label>
+  <p class="small">O to close</p>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

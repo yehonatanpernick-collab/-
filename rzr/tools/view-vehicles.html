@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#888}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const r=new THREE.WebGLRenderer({antialias:true});r.setSize(1600,700);document.body.appendChild(r.domElement);
+r.toneMapping=THREE.ACESFilmicToneMapping;
+const s=new THREE.Scene();s.background=new THREE.Color(0x9fb4c8);
+s.add(new THREE.HemisphereLight(0xdde8ff,0x554433,1.2));const d=new THREE.DirectionalLight(0xffffff,2.5);d.position.set(3,6,4);s.add(d);
+const g=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:0x777777}));g.rotation.x=-Math.PI/2;s.add(g);
+const c=new THREE.PerspectiveCamera(30,1600/700,0.1,100);c.position.set(0,2.6,9.5);c.lookAt(0,0.6,0);
+const L=new GLTFLoader();const out={};
+for(const [i,f] of ['rzr_xp1000_ccby.glb','rzr_xp1000_highlifter_ccbyncsa.glb'].entries()){
+ const gl=await L.loadAsync('../assets/vehicles/'+f);const m=gl.scene;if(i)m.scale.setScalar(100);const hide=new URLSearchParams(location.search).has('hide');m.traverse(o=>{if(hide&&/skinned_mesh/.test(o.name))o.visible=false});m.updateMatrixWorld(true);
+ const b=new THREE.Box3().setFromObject(m);out[f]={min:b.min.toArray().map(v=>+v.toFixed(3)),max:b.max.toArray().map(v=>+v.toFixed(3))};
+ const w={};m.traverse(o=>{if(/^(WheelFL|WheelFR|WheelBL|WheelBR)$/.test(o.name)||/WheelFL_tyre_WheelFL_tyre_None$/.test(o.name)||/WheelFR_tyre_WheelFR_tyre_None$/.test(o.name)){const bb=new THREE.Box3().setFromObject(o);const cc=bb.getCenter(new THREE.Vector3());w[o.name.slice(-30)]=cc.toArray().map(v=>+v.toFixed(3));}});
+ out[f].wheels=w;
+ m.position.x=(i?1:-1)*1.3;m.rotation.y=(i?0.6:-0.6)+(new URLSearchParams(location.search).has('back')?Math.PI:0);s.add(m);
+}
+r.render(s,c);window.__out=out;document.title='done';
+</script></body></html>
