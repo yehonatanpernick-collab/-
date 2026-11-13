@@ -63,7 +63,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f12; col
 
 #view { touch-action: none; }
 #touch { display: none; }
-body.touch.playing #touch { display: block; }
+body.touch.playing #touch, body.touch #hud:not([hidden]) ~ #touch { display: block; }
 #touch button, #t-wheel { font: 700 13px/1.15 system-ui; letter-spacing: .05em; color: var(--ink); background: rgba(14,18,20,.5); border: 2px solid rgba(255,255,255,.32); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; padding: 0; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
 #touch button.on, #t-wheel.on { background: rgba(240,166,64,.55); border-color: #f0a640; }
 #touch button small { display: block; font-weight: 500; font-size: 9px; opacity: .75; letter-spacing: 0; margin-top: 2px; }
@@ -83,7 +83,8 @@ body.touch.playing #touch { display: block; }
 /* utility bar along the top edge, clear of the minimap and speedometer */
 #t-bar { position: fixed; top: max(8px, env(safe-area-inset-top, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); display: flex; gap: 6px; z-index: 6; }
 #t-bar button { min-width: 52px; height: 34px; padding: 0 8px; border-radius: 10px; font-size: 10px; }
-#t-rotate { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(8,10,12,.92); font: 600 18px system-ui; }
+#t-rotate { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 30; max-width: 80vw; text-align: center; padding: 10px 16px; border-radius: 12px; background: rgba(8,10,12,.8); font: 600 14px system-ui; pointer-events: none; animation: tfade 6s forwards; }
+@keyframes tfade { 0%,70% { opacity: 1 } 100% { opacity: 0; visibility: hidden } }
 /* telemetry moves out from under the thumbs */
 body.touch #minimap { width: 110px; height: 110px; left: max(10px, env(safe-area-inset-left, 0px)); top: max(8px, env(safe-area-inset-top, 0px)); bottom: auto; }
 body.touch #speedo { right: auto; left: 50%; bottom: max(10px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); min-width: 120px; padding: 6px 12px; }
@@ -93,6 +94,20 @@ body.touch #location { top: max(54px, calc(env(safe-area-inset-top, 0px) + 48px)
 body.touch #fps, body.touch #compass { display: none; }
 body.touch .hint { display: none; }
 @media (max-height: 420px) { #t-wheel { height: 76px; width: min(34vw, 300px); } #t-wheel-thumb { width: 54px; height: 54px; margin: -27px 0 0 -27px; } #t-gas { width: 92px; height: 112px; } #t-brake { width: 74px; height: 82px; } #t-aux { bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 124px); } #t-aux button { height: 46px; } }
+
+/* portrait phones: everything fits in the width, telemetry goes to the top */
+@media (orientation: portrait) {
+  #t-wheel { width: 46vw; height: 80px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
+  #t-wheel-thumb { width: 56px; height: 56px; margin: -28px 0 0 -28px; }
+  #t-gas { width: 84px; height: 124px; } #t-brake { width: 70px; height: 92px; font-size: 12px; }
+  #t-pedals { gap: 10px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
+  #t-aux { bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 140px); }
+  #t-bar { left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); top: calc(max(8px, env(safe-area-inset-top, 0px)) + 120px); flex-wrap: wrap; justify-content: center; }
+  #t-bar button { min-width: 0; flex: 1 1 22%; }
+  body.touch #minimap { width: 96px; height: 96px; }
+  body.touch #speedo { bottom: auto; top: max(8px, env(safe-area-inset-top, 0px)); }
+  body.touch #location { display: none; }
+}
 
 </style>
 <script type="importmap">

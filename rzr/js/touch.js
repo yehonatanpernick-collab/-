@@ -23,7 +23,7 @@ export class TouchControls {
         <button data-k="KeyG">WEATHER</button><button data-k="KeyL">LIGHTS</button><button data-k="KeyQ">AWD</button>
         <button data-a="tilt" id="t-tilt">TILT</button><button data-a="full">⛶</button>
       </div>
-      <div id="t-rotate" hidden>Rotate your phone to landscape to drive</div>`;
+      <div id="t-rotate" hidden>Tip: landscape gives more room</div>`;
     document.body.appendChild(this.root);
     document.body.classList.add('touch');
     this._wheel(); this._buttons(); this._canvasGestures(); this._orientation();
@@ -114,7 +114,7 @@ export class TouchControls {
 
   _orientation() {
     const r = this.root.querySelector('#t-rotate');
-    const f = () => { r.hidden = innerWidth >= innerHeight; };
+    const f = () => { r.hidden = innerWidth >= innerHeight ? true : false; };
     addEventListener('resize', f); f();
   }
 }
