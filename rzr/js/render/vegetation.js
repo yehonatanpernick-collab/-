@@ -11,6 +11,7 @@ import { buildConifer, makeTreeMaterials } from './trees.js';
 import { HEIGHT_GLSL } from './glsl.js';
 import { FOG_GLSL, atmoUniforms, ATMO } from './atmosphere.js';
 import { hash2 } from '../world/heightfield.js';
+import { assetUrl } from '../util.js';
 
 const CELL = 64;
 const texLoader = new THREE.TextureLoader();
@@ -190,7 +191,7 @@ class Vegetation {
 
   async _loadProps() {
     const loader = new GLTFLoader();
-    const load = async (name) => { try { return (await loader.loadAsync(`assets/models/${name}.glb`)).scene; } catch (e) { console.warn('prop', name, e); return null; } };
+    const load = async (name) => { try { return (await loader.loadAsync(assetUrl(`assets/models/${name}.glb`))).scene; } catch (e) { console.warn('prop', name, e); return null; } };
     const names = ['rock_moss_set_01', 'rock_moss_set_02', 'rock_07', 'rock_09', 'stone_01', 'rock_face_01', 'mountainside', 'dead_tree_trunk', 'dead_tree_trunk_02', 'tree_stump_01', 'tree_stump_02', 'pine_roots', 'dry_branches_medium_01', 'fern_02', 'shrub_03', 'shrub_04'];
     const scenes = await Promise.all(names.map(load));
     this.props = {};

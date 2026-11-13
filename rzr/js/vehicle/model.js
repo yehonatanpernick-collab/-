@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SPEC } from './physics.js';
+import { assetUrl } from '../util.js';
 
 const WHEELS = ['FL', 'FR', 'BL', 'BR'];
 
@@ -41,7 +42,7 @@ export class VehicleModel {
 
   async load(variant, renderer) {
     const url = variant === 'b' ? 'assets/vehicles/rzr_xp1000_highlifter_ccbyncsa.glb' : 'assets/vehicles/rzr_xp1000_ccby.glb';
-    const gltf = await new GLTFLoader().loadAsync(url);
+    const gltf = await new GLTFLoader().loadAsync(assetUrl(url));
     const scene = gltf.scene;
     if (variant === 'b') scene.scale.setScalar(100);
     scene.updateMatrixWorld(true);

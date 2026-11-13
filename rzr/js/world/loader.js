@@ -1,5 +1,6 @@
 // Loads the baked world data. Binary grids are gzip + row-delta encoded (see tools/bake_world.mjs).
 import { WORLD, HeightField } from './heightfield.js';
+import { assetUrl } from '../util.js';
 
 async function fetchProgress(url, onBytes) {
   const res = await fetch(url);
@@ -41,7 +42,7 @@ export async function loadWorld(base, progress) {
   const files = ['height.bin.gz', 'far.bin.gz', 'water.bin.gz', 'masks.bin.gz'];
   const raw = {};
   await Promise.all(files.map(async (f) => {
-    raw[f] = await fetchProgress(base + f, (b) => progress?.(b));
+    raw[f] = await fetchProgress(assetUrl(base + f), (b) => progress?.(b));
   }));
   const meta = await (await fetch(base + 'world.json')).json();
   const height = undelta(await gunzip(raw['height.bin.gz']), WORLD.n);
