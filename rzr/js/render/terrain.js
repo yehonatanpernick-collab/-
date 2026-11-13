@@ -143,7 +143,13 @@ void sampleRockTri(vec3 P, vec3 N, float far, out vec3 alb, out vec3 nrm, out ve
   alb = mix(aL, aS * (dot(aL, vec3(0.333)) / max(dot(aS, vec3(0.333)), 0.03)), 0.65 * nearK);
   // pale limestone <-> darker granite bands at the kilometre scale
   float geo = vnoiseD(P.xz * 0.0016 + 3.0).x * 0.7 + vnoiseD(P.xz * 0.006 - 9.0).x * 0.3;
-  alb *= mix(vec3(0.3, 0.29, 0.28), vec3(0.62, 0.6, 0.57), smoothstep(0.25, 0.75, geo));
+  alb *= mix(vec3(0.24, 0.235, 0.23), vec3(0.52, 0.5, 0.47), smoothstep(0.25, 0.75, geo));
+  // dark water-stain streaks running down limestone walls (stretched vertically)
+  float sx = P.x * 0.9 + P.z * 0.43;
+  float st = vnoiseD(vec2(sx * 0.07, P.y * 0.006) + 11.0).x * 0.65 + vnoiseD(vec2(sx * 0.21, P.y * 0.015) - 7.0).x * 0.35;
+  alb *= 1.0 - 0.45 * smoothstep(0.52, 0.8, st) * smoothstep(0.25, 0.5, 1.0 - abs(N.y));
+  // lichen / weathering tint
+  alb = mix(alb, alb * vec3(0.95, 0.92, 0.8), smoothstep(0.4, 0.7, vnoiseD(P.xz * 0.03 + P.y * 0.02).x) * 0.6);
   // horizontal strata (limestone bedding) give walls ledge structure at range
   float strata = sin(P.y * 0.17 + vnoiseD(P.xz * 0.012 + 40.0).x * 9.0 + vnoiseD(P.xz * 0.05 + 3.0).x * 2.0) * 0.5 + 0.5;
   alb *= 0.93 + 0.1 * strata;

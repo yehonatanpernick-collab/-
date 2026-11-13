@@ -247,6 +247,16 @@ try {
     }
     if (params.has('cam')) game.driveCam.mode = +params.get('cam');
     for (let i = 0; i < 6; i++) game.frame(1 / 30);
+    if (params.has('fly')) {
+      // QA free camera: fly=x,heightAboveGround,z,yawDeg,pitchDeg
+      const [x, hy, z, yaw, pitch] = params.get('fly').split(',').map(Number);
+      game.driveCam.update = () => {};
+      const g = game.world.field.inCore(x, z) ? game.world.field.height(x, z) : game.terrain.sampleFar(x, z);
+      game.camera.position.set(x, g + hy, z);
+      game.camera.rotation.order = 'YXZ';
+      game.camera.rotation.set(pitch * Math.PI / 180, yaw * Math.PI / 180, 0);
+      for (let i = 0; i < 4; i++) game.frame(1 / 30);
+    }
     window.__out = { pos: game.phys.pos.toArray().map(v => +v.toFixed(2)), kmh: +(game.phys.vel.length() * 3.6).toFixed(1), nodes: game.terrain.stats.nodes, calls: game.renderer.info.render.calls, tris: game.renderer.info.render.triangles, wheels: game.phys.wheels.map(w => w.surface), systems: game.systems.length };
     document.title = 'done';
   } else {
