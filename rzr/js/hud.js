@@ -52,12 +52,12 @@ class HUD {
     s.onchange = () => { store.set('rzr.sound', s.checked ? '1' : '0'); g.audio?.setEnabled(s.checked); };
   }
 
-  toast(text, sub) {
+  toast(text, sub, ms = 2600) {
     const el = $('toast');
     el.innerHTML = text + (sub ? `<small>${sub}</small>` : '');
     el.classList.add('show');
     clearTimeout(this._tt);
-    this._tt = setTimeout(() => el.classList.remove('show'), 2600);
+    this._tt = setTimeout(() => el.classList.remove('show'), ms);
   }
 
   toggleMap() {

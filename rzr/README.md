@@ -16,6 +16,9 @@ python3 -m http.server    # then open http://localhost:8000/rzr/
 ```
 
 A desktop GPU is recommended (Settings → Quality: Low / Medium / High / Ultra).
+Open `…/rzr/?bench` to run a 60 s autopilot benchmark along the valley and lake roads; the
+average and 1%-low FPS are shown on screen and logged to the console. `?q=medium` etc.
+selects a quality preset from the URL.
 First load downloads ~45 MB (terrain data, textures, models, vehicle).
 
 ### Controls

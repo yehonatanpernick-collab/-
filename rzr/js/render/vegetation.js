@@ -288,13 +288,16 @@ class Vegetation {
     return c;
   }
 
-  _rebuild(cam) {
-    const R = this.farR, nearR = this.nearR, propR = 420, smallR = 85;
+  _rebuild(cam, far = true) {
+    // far impostors only need refreshing every ~70 m; near trees/props every ~22 m
+    const nearR = this.nearR, propR = 420, smallR = 85;
+    const R = far ? this.farR : Math.max(propR, nearR) + CELL;
     const c0x = Math.floor(cam.x / CELL), c0z = Math.floor(cam.z / CELL), cr = Math.ceil(R / CELL);
     for (const v of this.variants) v.list.length = 0;
     for (const parts of Object.values(this.props)) for (const p of parts) p.list.length = 0;
     let nImp = 0;
     const I1 = this.impInst.array, I2 = this.impInst2.array;
+    const impOn = far;
     for (let dz = -cr; dz <= cr; dz++) for (let dx = -cr; dx <= cr; dx++) {
       const cx = c0x + dx, cz = c0z + dz;
       const ccx = cx * CELL + CELL / 2, ccz = cz * CELL + CELL / 2;
@@ -307,7 +310,7 @@ class Vegetation {
         const d = Math.hypot(t.x - cam.x, t.z - cam.z);
         if (d > R) continue;
         if (d < nearR) this.variants[t.v].list.push(t);
-        if (d > nearR - 14 && nImp < this.impMax) {
+        if (impOn && d > nearR - 90 && nImp < this.impMax) { // shader dithers out anything inside the live near radius
           const v = this.variants[t.v], o = nImp * 4;
           I1[o] = t.x; I1[o + 1] = t.y; I1[o + 2] = t.z; I1[o + 3] = t.yaw;
           I2[o] = v.impW * t.s; I2[o + 1] = v.impH * t.s; I2[o + 2] = v.i; I2[o + 3] = t.tint;
@@ -327,8 +330,11 @@ class Vegetation {
         for (const part of parts) if (part) part.list.push(p);
       }
     }
-    this.impGeo.instanceCount = nImp;
-    this.impInst.needsUpdate = true; this.impInst2.needsUpdate = true;
+    if (impOn) {
+      this.impGeo.instanceCount = nImp;
+      this.impInst.needsUpdate = true; this.impInst2.needsUpdate = true;
+      this.impostorCenter = cam.clone();
+    }
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
     for (const v of this.variants) {
       const n = Math.min(v.list.length, 2000);
@@ -474,7 +480,12 @@ class Vegetation {
   update(dt, game) {
     this.time += dt;
     const cam = game.camera.position;
-    if (cam.distanceTo(this.lastBuild) > 22) { this._rebuild(cam); this.lastBuild.copy(cam); }
+    if (cam.distanceTo(this.lastBuild) > 22) {
+      const far = !this.lastFar || cam.distanceTo(this.lastFar) > 70;
+      this._rebuild(cam, far);
+      this.lastBuild.copy(cam);
+      if (far) this.lastFar = cam.clone();
+    }
     const vp = game.phys.pos;
     if (vp.distanceTo(this.lastCol) > 18) { this._rebuildColliders(vp); this.lastCol.copy(vp); }
     const wind = ATMO.misc.w || 0.6;

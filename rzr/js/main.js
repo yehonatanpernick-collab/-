@@ -233,6 +233,7 @@ try {
     let last = performance.now();
     const loop = (t) => { game.frame((t - last) / 1000); last = t; requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
+    if (params.has('bench')) import('./bench.js').then(m => m.startBenchmark(game, (r) => game.hud?.toast(`Benchmark: ${r.avgFps} fps avg · ${r.low1Fps} fps 1% low`, `${r.quality} · ${r.gpu}`, 15000)));
   };
   if (params.has('shots')) {
     // headless QA: optional scripted drive, then render a few frames and signal completion
