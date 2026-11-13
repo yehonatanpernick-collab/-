@@ -9,23 +9,24 @@ const G = 9.81;
 
 export const SPEC = {
   mass: 790,                    // kg, vehicle + driver + fuel
-  inertia: [690, 760, 300],     // pitch(X), yaw(Y), roll(Z) kg m^2 (body frame)
-  com: [0, 0.56, -0.12],        // centre of mass in model coords (forward = +Z, left = +X)
+  inertia: [820, 800, 480],     // pitch(X), yaw(Y), roll(Z) kg m^2 (body frame)
+  com: [0, 0.40, -0.10],        // centre of mass in model coords (forward = +Z, left = +X)
   wheelBase: 2.286, track: 1.4,
   wheelR: 0.375, wheelI: 1.6, wheelMass: 32,
   // suspension (per corner): strut top at y = topY, travel = [lenMin, lenMax]
   topY: 0.62, lenMin: 0.04, lenMax: 0.56, restLen: 0.345,
-  kFront: 21000, kRear: 24000, cBump: 2300, cRebound: 3100, bumpStop: 240000,
-  arbFront: 6500, arbRear: 4500,
+  kFront: 21000, kRear: 24000, cBump: 2300, cRebound: 3100, bumpStop: 120000,
+  arbFront: 15000, arbRear: 12000,
   maxSteer: 0.56,              // rad (~32 deg)
-  enginePower: 82000,          // W (110 hp)
-  turboPower: 124000,          // W, boost (Turbo S-like)
-  maxWheelTorque: 2700,        // Nm total at the wheels in low ratio
-  topSpeedRad: 95,             // wheel rad/s at max CVT ratio (~128 km/h)
+  enginePower: 135000,         // W (180 hp class)
+  turboPower: 190000,          // W, boost
+  maxWheelTorque: 3600,        // Nm total at the wheels in low ratio
+  topSpeedRad: 140,            // wheel rad/s at max CVT ratio (~190 km/h)
   reverseMax: 7.5,             // m/s
   brakeTorque: 2600,           // Nm per wheel
   handbrakeTorque: 3200,       // rear
-  CdA: 1.15,
+  CdA: 0.95,
+  downforce: 0.9,             // N per (m/s)^2: presses the car onto the ground at speed
 };
 
 // body-frame collision probes (model coords): bottom skid plate, bumpers, cage, sides
@@ -116,9 +117,11 @@ export class VehiclePhysics {
     const vF = this.vel.dot(fwd);
 
     // --- steering: rate-limited, reduced at speed
-    const speedK = 1 / (1 + Math.abs(vF) / 22);
-    const target = inp.steer * s.maxSteer * (0.35 + 0.65 * speedK);
-    const rate = 2.6 * dt;
+    // full lock only at crawl speed; at speed the angle is capped so lateral accel stays ~1.5 g
+    const av = Math.max(Math.abs(vF), 1);
+    const lim = Math.min(s.maxSteer, Math.max(0.05, 1.5 * G * s.wheelBase / (av * av)));
+    const target = inp.steer * lim;
+    const rate = (2.6 * Math.min(1, lim / s.maxSteer + 0.25)) * dt;
     this.steerAngle += Math.max(-rate, Math.min(rate, target - this.steerAngle));
 
     // --- drivetrain: CVT keeps the engine in its power band
@@ -207,7 +210,7 @@ export class VehiclePhysics {
       if (!w.contact) { w.load = 0; w.fx = w.fy = 0; w.slip = 0; w.slipLat = 0; }
       else {
         contacts++;
-        const n = rockN || this._c.set(g.nx, g.ny, g.nz);
+        const n = rockN ? this._c.set(g.nx, g.ny, g.nz).multiplyScalar(0.6).addScaledVector(rockN, 0.4).normalize() : this._c.set(g.nx, g.ny, g.nz);
         w.cnorm.copy(n);
         w.cpos.copy(w.center).addScaledVector(n, -s.wheelR);
         const surfName = rockN ? 'rock' : col.surfaceAt(w.cpos.x, w.cpos.z, g.h, g.bridge);
@@ -223,7 +226,7 @@ export class VehiclePhysics {
         Fs += -w.lenVel * damp;
         if (len < s.lenMin + 0.05) Fs += s.bumpStop * (s.lenMin + 0.05 - len);
         if (bottomed) this.impacts = Math.max(this.impacts, Math.min(1, -w.lenVel * 0.25));
-        Fs = Math.max(0, Fs);
+        Fs = Math.min(15000, Math.max(0, Fs));   // a spike like a boulder edge cannot catapult the car
         w.load = Fs;
         // suspension force acts along the strut (body up), at the hardpoint
         this._e.copy(up).multiplyScalar(Fs);
@@ -310,9 +313,31 @@ export class VehiclePhysics {
       this._applyForce(fa, this.toWorld(wb.mount, this._a), F, T);
     }
 
-    // aero drag
+    // aero drag + downforce
     const sp = this.vel.length();
     if (sp > 0.1) F.addScaledVector(this.vel, -0.5 * 1.0 * s.CdA * sp);
+    if (contacts > 0) F.addScaledVector(up, -s.downforce * sp * sp);
+
+    // --- stability assist (arcade-sim): resists rolling over, levels the car in the air
+    {
+      const nAvg = this._sa || (this._sa = V());
+      nAvg.set(0, 0, 0);
+      let nc = 0;
+      for (const w of this.wheels) if (w.contact) { nAvg.add(w.cnorm); nc++; }
+      const ref = nc >= 2 ? nAvg.normalize() : this._wu || (this._wu = new THREE.Vector3(0, 1, 0));
+      const axis = this._ax || (this._ax = V());
+      axis.crossVectors(up, ref);                          // rotation that would put 'up' back onto the ground normal
+      const tilt = axis.length();                          // ~ sin(angle)
+      const ramp = nc >= 2 ? Math.min(1, Math.max(0, (tilt - 0.22) / 0.4)) : 0.35;   // grows past ~13 deg of roll/pitch
+      if (ramp > 0) {
+        const k = 11000 * ramp;
+        T.addScaledVector(axis, k * (nc >= 2 ? 1 : 0.4));
+        // damp the rotation about the car's own axes while the assist is active
+        const wr = this._wr || (this._wr = V());
+        wr.copy(this.angVel); wr.addScaledVector(up, -wr.dot(up));   // roll+pitch rates (yaw untouched)
+        T.addScaledVector(wr, -900 * ramp);
+      }
+    }
 
     // chassis contacts: terrain + obstacles (penalty springs with friction)
     this.impacts *= 0.9;
@@ -344,7 +369,7 @@ export class VehiclePhysics {
           if (d < o.r && d > 1e-4) { pen = o.r - d; nx = dx / d; nz = dz / d; }
         } else if (o.type === 'sphere') {
           const dx = X.x - o.x, dy = X.y - o.y, dz = X.z - o.z, d = Math.hypot(dx, dy, dz);
-          if (d < o.r && d > 1e-4) { pen = o.r - d; nx = dx / d; ny = dy / d; nz = dz / d; }
+          if (d < o.r && d > 1e-4) { pen = o.r - d; nx = dx / d; ny = dy / d * 0.3; nz = dz / d; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l; }
         } else if (o.type === 'box') {
           if (X.y < o.y - 0.3 || X.y > o.y + o.hy) continue;
           const c = Math.cos(o.rot), sn = Math.sin(o.rot);
@@ -358,7 +383,7 @@ export class VehiclePhysics {
         if (pen > 0) {
           const n = this._b.set(nx, ny, nz);
           const vn = vp.dot(n);
-          const fn = Math.max(0, 420000 * pen - 14000 * vn);
+          const fn = Math.min(26000, Math.max(0, 300000 * pen - 14000 * vn));
           const ff = this._f2 || (this._f2 = V());
           ff.copy(n).multiplyScalar(fn);
           const vt = this._c.copy(vp).addScaledVector(n, -vn);

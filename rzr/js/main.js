@@ -192,6 +192,12 @@ class Game {
     if (Math.abs(p.x) > lim) this.phys.vel.x -= Math.sign(p.x) * (Math.abs(p.x) - lim) * 0.05;
     if (Math.abs(p.z) > lim) this.phys.vel.z -= Math.sign(p.z) * (Math.abs(p.z) - lim) * 0.05;
     if (!Number.isFinite(p.y) || p.y < -100) this.teleportPOI(0);
+    // flipped over and stopped: put the car back on its wheels after a moment
+    const upY = new THREE.Vector3(0, 1, 0).applyQuaternion(this.phys.quat).y;
+    if (upY < 0.25 && this.phys.vel.length() < 3) {
+      this.flipT = (this.flipT || 0) + DT;
+      if (this.flipT > 2.5) { this.flipT = 0; this.hud?.toast('Back on the wheels'); this.resetVehicle(); }
+    } else this.flipT = 0;
   }
 
   frame(dtReal) {

@@ -63,6 +63,62 @@ const upY = (ph) => new THREE.Vector3(0, 1, 0).applyQuaternion(ph.quat).y;
   check('drift: rear slides, stays upright', maxSlip > 0.25 && upY(ph) > 0.7, `max rear slip angle ${(maxSlip * 57.3).toFixed(0)} deg, upright ${upY(ph).toFixed(2)}, surface ${ph.wheels[2].surface}`);
 }
 
+// 4b. stability: swerves at speed on a flat pad must not roll the car; hard landings stay upright
+{
+  const d = meta.drift, res = {};
+  for (const [name, target, steer] of [['80 km/h full-lock swerve', 80, 1], ['110 km/h full-lock swerve', 110, 1], ['60 km/h full-lock + handbrake', 60, 1]]) {
+    const ph = new VehiclePhysics(col); ph.reset(d.x - 120, d.z, Math.PI / 2); sim(ph, 1.5);
+    let minUp = 1, vmax = 0;
+    sim(ph, 14, (p, t) => {
+      const v = kmh(p); vmax = Math.max(vmax, v);
+      if (t < 8) { p.input.throttle = v < target ? 1 : 0.2; p.input.steer = 0; }
+      else { p.input.throttle = 0.6; p.input.steer = steer * (Math.floor((t - 8) / 0.8) % 2 ? -1 : 1); p.input.handbrake = name.includes('handbrake') ? 1 : 0; }
+      minUp = Math.min(minUp, upY(p));
+    });
+    check(`stability: ${name}`, minUp > 0.55, `min upright ${minUp.toFixed(2)}, peak ${vmax.toFixed(0)} km/h`);
+  }
+}
+// 4d. rough real terrain: meadow + hillside with aggressive steering at speed
+{
+  const spots = [['meadow west of drift', -2150, 2800, Math.PI / 2], ['hillside above village', -300, 700, 2.2], ['forest valley floor', -2300, 150, 3.14]];
+  for (const [name, x, z, h] of spots) {
+    for (const target of [70, 100]) {
+      const ph = new VehiclePhysics(col); ph.reset(x, z, h); sim(ph, 1.5);
+      let minUp = 1, t0 = 0, vmax = 0, flips = 0;
+      sim(ph, 20, (p, t) => {
+        const v = kmh(p); vmax = Math.max(vmax, v);
+        p.input.throttle = v < target ? 1 : 0.1; p.input.brake = v > target + 15 ? 0.5 : 0;
+        // sweeping S-curves of varying amplitude, like a player weaving
+        p.input.steer = Math.sin(t * 1.3) * (0.4 + 0.6 * Math.abs(Math.sin(t * 0.37)));
+        minUp = Math.min(minUp, upY(p));
+      });
+      check(`rough terrain: ${name} @${target}`, minUp > 0.45, `min upright ${minUp.toFixed(2)}, peak ${vmax.toFixed(0)} km/h`);
+    }
+  }
+}
+// 4e. collisions: clip a tree / hit a boulder on the wheels at speed, at an angle
+{
+  const d = meta.drift;
+  const cases = [['tree head-on', 'cyl', 60, 0], ['tree glancing', 'cyl', 60, 0.5], ['boulder (r 1.2 m) wheel-first', 'sphere', 60, 0.45], ['boulder (r 1.2 m) @90', 'sphere', 90, 0.45], ['big boulder (r 2.2 m) @50', 'sphere', 50, 0.2]];
+  for (const [name, type, v0, off] of cases) {
+    const ph = new VehiclePhysics(col);
+    ph.reset(d.x - 130, d.z, Math.PI / 2); sim(ph, 1);
+    const gx = d.x - 130 + 55;
+    const ob = type === 'cyl' ? { type: 'cyl', x: gx, z: d.z + off, y: ph.pos.y - 2, r: 0.45, h: 18, test: 1 }
+      : { type: 'sphere', x: gx, z: d.z + off * 2, y: ph.pos.y - 0.6 + (name.includes('big') ? 0.3 : 0), r: name.includes('big') ? 2.2 : 1.2, test: 1 };
+    col.add(ob);
+    let minUp = 1, vmax = 0;
+    sim(ph, 8, (p, t) => { const v = kmh(p); p.input.throttle = v < v0 ? 1 : 0; minUp = Math.min(minUp, upY(p)); vmax = Math.max(vmax, v); });
+    col.removeWhere(o => o.test);
+    check(`collision: ${name} @${v0}`, minUp > 0.3, `min upright ${minUp.toFixed(2)}, final upright ${upY(ph).toFixed(2)}`);
+  }
+}
+// 4c. top speed on a long flat run
+{
+  const d = meta.drift; const ph = new VehiclePhysics(col); ph.reset(d.x - 130, d.z, Math.PI / 2);
+  sim(ph, 25, (p) => { p.input.throttle = 1; p.input.steer = 0; });
+  check('speed: reaches 130+ km/h on the flat', kmh(ph) > 130 || ph.pos.x > d.x + 130, `${kmh(ph).toFixed(0)} km/h`);
+}
 // 5. autopilot along real roads (pure pursuit): climbs, switchbacks, fords, bridges
 function followRoad(road, maxKmh, label, limitS = 600) {
   const pts = road.pts;

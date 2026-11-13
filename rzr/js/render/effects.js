@@ -13,20 +13,21 @@ function softDot() {
 
 const PVS = /* glsl */`
 attribute float size; attribute float alpha; attribute vec3 pcolor;
-varying float vA; varying vec3 vC;
+varying float vA; varying vec3 vC; varying float vNear;
 uniform float uScale;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   gl_PointSize = size * uScale / max(-mv.z, 0.1);
   vA = alpha; vC = pcolor;
+  vNear = smoothstep(3.0, 11.0, -mv.z);   // vanish within ~3 m of the camera
 }`;
 const PFS = /* glsl */`
 uniform sampler2D uTex; uniform vec3 uLight;
-varying float vA; varying vec3 vC;
+varying float vA; varying vec3 vC; varying float vNear;
 void main() {
   vec4 t = texture2D(uTex, gl_PointCoord);
-  gl_FragColor = vec4(vC * uLight, t.a * vA);
+  gl_FragColor = vec4(vC * uLight, t.a * vA * vNear);
   if (gl_FragColor.a < 0.01) discard;
   #include <colorspace_fragment>
 }`;
@@ -201,26 +202,27 @@ class Effects {
       const lat = Math.abs(w.slipLat) * speed;
       const energy = speed * 0.25 + slip + lat;
       const c = surf.dust;
-      // dust plume (dry, loose surfaces; rain settles dust)
+      // dust: just a thin, low haze at the tyre when really moving or sliding (never a cloud around the car)
       const dusty = surf.dusty * (1 - wet * 0.85);
-      if (dusty > 0 && energy > 1.5) {
-        const n = Math.min(3, energy * dusty * dt * 7);
-        for (let k = 0; k < n + (Math.random() < n % 1 ? 1 : 0); k++) {
-          this.dust.emit(w.cpos.x + (Math.random() - 0.5) * 0.4, w.cpos.y + 0.15, w.cpos.z + (Math.random() - 0.5) * 0.4,
-            -fwd.x * speed * 0.15 + (Math.random() - 0.5) * 1.5, 0.6 + Math.random() * 1.2, -fwd.z * speed * 0.15 + (Math.random() - 0.5) * 1.5,
-            2.5 + Math.random() * 2.5, 0.9 + energy * 0.06, 1.8 + Math.random(), 0.32 * dusty, c[0], c[1], c[2], 1.2, 0.15);
+      const dustE = Math.max(0, speed - 9) * 0.5 + Math.max(0, slip - 3) + Math.max(0, lat - 3);
+      if (dusty > 0 && dustE > 1) {
+        const n = Math.min(0.9, dustE * dusty * dt * 1.6);
+        if (Math.random() < n) {
+          this.dust.emit(w.cpos.x + (Math.random() - 0.5) * 0.3, w.cpos.y + 0.05, w.cpos.z + (Math.random() - 0.5) * 0.3,
+            -fwd.x * speed * 0.08 + (Math.random() - 0.5) * 0.8, 0.12 + Math.random() * 0.25, -fwd.z * speed * 0.08 + (Math.random() - 0.5) * 0.8,
+            0.9 + Math.random() * 0.7, 0.35 + Math.min(0.5, dustE * 0.02), 0.9, 0.09 * dusty, c[0], c[1], c[2], 1.8, 0.0);
         }
       }
       // mud & snow clods thrown from spinning tyres
       if ((surf.mud || surf.snow) && energy > 2) {
-        const n = Math.min(4, energy * dt * 10);
+        const n = Math.min(2, Math.max(0, energy - 4) * dt * 4);
         for (let k = 0; k < n; k++) this.dust.emit(w.cpos.x, w.cpos.y + 0.3, w.cpos.z,
           -fwd.x * (2 + slip * 0.6) + (Math.random() - 0.5) * 2, 1.5 + Math.random() * 3, -fwd.z * (2 + slip * 0.6) + (Math.random() - 0.5) * 2,
-          0.9 + Math.random() * 0.5, surf.snow ? 0.35 : 0.22, surf.snow ? 0.6 : 0.05, 0.9, c[0], c[1], c[2], 0.4, -9);
+          0.7 + Math.random() * 0.4, surf.snow ? 0.18 : 0.12, surf.snow ? 0.3 : 0.02, 0.8, c[0], c[1], c[2], 0.4, -9);
       }
       // water: splash sheets and spray
       if (w.water > 0.04 && speed > 1) {
-        const n = Math.min(8, speed * w.water * dt * 60);
+        const n = Math.min(3, speed * w.water * dt * 25);
         for (let k = 0; k < n; k++) {
           const sideV = (Math.random() - 0.5) * 2;
           this.dust.emit(w.cpos.x, w.cpos.y + w.water, w.cpos.z,
