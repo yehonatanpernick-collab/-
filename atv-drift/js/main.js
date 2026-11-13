@@ -113,7 +113,7 @@ const arrow = (() => {
 // ---------------------------------------------------------------- car
 let car;
 try {
-  car = await loadCar('assets/rzr.glb', p => setLoad(0.25 + p * 0.7));
+  car = await loadCar(window.DUNE_MODEL_URL || 'assets/rzr.glb', p => setLoad(0.25 + p * 0.7));
 } catch (e) {
   $('#load-msg').textContent = 'שגיאה בטעינת הדגם: ' + e.message;
   throw e;
