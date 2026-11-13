@@ -436,10 +436,10 @@ class Vegetation {
         vec2 wp = gp + (vec2(h1, h2) - 0.5) * uGrassSP * 1.6;
         float d = length(wp - uCamPos.xz);
         vec4 ma = texture(uMaskA, maskUV(wp)), mb = texture(uMaskB, maskUV(wp));
-        float dens = (1.0 - mb.r * 1.4) * (1.0 - mb.g * 1.3) * (1.0 - ma.a * 1.2) * (1.0 - mb.a * 1.1) * (1.0 - ma.g * 0.8) * (1.0 - ma.b * 0.55);
+        float dens = (1.0 - mb.r * 1.4) * (1.0 - mb.g * 1.3) * (1.0 - ma.a * 1.2) * (1.0 - mb.a * 1.1) * (1.0 - ma.b * 0.55);
         vec4 nn = texture(uNormCore, ((wp + CORE_HALF) / CORE_CELL + 0.5) / float(CORE_N));
         float slope = 1.0 - (nn.y * 2.0 - 1.0);
-        dens *= 1.0 - smoothstep(0.18, 0.32, slope);
+        dens *= (1.0 - smoothstep(0.18, 0.32, slope)) * (1.0 - ma.g * 0.8 * smoothstep(0.05, 0.16, slope));
         float hgt = terrainHeight(wp);
         dens *= 1.0 - smoothstep(2350.0, 2650.0, hgt);
         float fade = 1.0 - smoothstep(uGrassR * 0.7, uGrassR, d);
@@ -466,8 +466,10 @@ class Vegetation {
           diffuseColor.rgb *= mix(vec3(0.82, 0.9, 0.62), vec3(1.08, 1.0, 0.72), vGTint);
           if (vGFlower > 0.0 && vMapUv.y > 0.0) {
             vec3 fc = vGFlower < 0.3 ? vec3(1.0, 0.85, 0.15) : vGFlower < 0.55 ? vec3(0.95, 0.95, 0.9) : vGFlower < 0.8 ? vec3(0.55, 0.35, 0.85) : vec3(0.3, 0.45, 0.95);
-            float top = smoothstep(0.55, 0.8, fract(vMapUv.y * 4.0));
-            diffuseColor.rgb = mix(diffuseColor.rgb, fc * 0.8, top * 0.35);
+            // small flower heads: sparse dots near the blade tips only
+            float tipZone = smoothstep(0.8, 0.95, fract(vMapUv.y * 4.0));
+            float dots = step(0.82, fract(sin(floor(vMapUv.x * 60.0) * 91.7 + floor(vMapUv.y * 40.0) * 13.1) * 437.5));
+            diffuseColor.rgb = mix(diffuseColor.rgb, fc * 0.85, tipZone * dots * 0.8);
           }`);
     };
     mat.customProgramCacheKey = () => 'gpu-grass';

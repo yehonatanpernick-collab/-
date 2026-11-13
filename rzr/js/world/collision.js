@@ -136,7 +136,10 @@ export class WorldCollision {
     const rock = f.mask(x, z, 7), wet = f.mask(x, z, 0), forest = f.mask(x, z, 2), sed = f.mask(x, z, 1), waterProx = f.mask(x, z, 5);
     if (waterProx > 0.8) return 'gravel';
     if (rock > 0.55) return 'rock';
-    if (sed > 0.5) return 'scree';
+    if (sed > 0.5) {
+      const b0 = f.baseHeight(x, z), sl = Math.hypot(f.baseHeight(x + 2, z) - b0, f.baseHeight(x, z + 2) - b0) / 2;
+      if (sl > 0.12) return 'scree';
+    }
     if (wet + this.wetness * 0.12 > 0.84 && rock < 0.3) return 'mud';
     if (forest > 0.45) return 'forest';
     if (groundH > 2350) return rock > 0.25 ? 'scree' : 'grass';

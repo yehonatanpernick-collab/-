@@ -185,7 +185,7 @@ void terrainSplat(out vec3 albedoOut) {
   }
   float w[8];
   w[3] = smoothstep(0.12, 0.26, slope + (n1 - 0.5) * 0.1) * 1.3 + mb.a * 0.6 * smoothstep(0.05, 0.16, slope);   // rock
-  w[4] = (ma.g * 1.4 + smoothstep(2250.0, 2750.0, h) * 0.5 * smoothstep(0.06, 0.2, slope)) * (1.0 - smoothstep(0.3, 0.45, slope)); // scree
+  w[4] = (ma.g * 1.4 * smoothstep(0.05, 0.16, slope) + smoothstep(2250.0, 2750.0, h) * 0.5 * smoothstep(0.06, 0.2, slope)) * (1.0 - smoothstep(0.3, 0.45, slope)); // scree: slopes only (valley-floor deposits are grassed)
   w[6] = clamp(snowBase * 1.3 + uWeather.y * smoothstep(1500.0, 2100.0, h + n1 * 200.0), 0.0, 1.2) * (1.0 - smoothstep(0.24, 0.42, slope));
   w[2] = ma.b * 1.3;                                               // forest floor
   w[5] = (smoothstep(0.72, 0.92, ma.r + uWeather.w * 0.1) * 1.2 * (1.0 - smoothstep(0.1, 0.3, slope)) + mb.r * ma.b * 0.6);   // mud
