@@ -22,6 +22,9 @@ uniform float uTime;
 uniform vec3 uDeep, uShallow;
 uniform float uRiver;      // 0 lake, 1 river
 uniform vec4 uMisc;        // x time, y wetness(rain), z snow, w wind
+uniform sampler2D uRefl;   // planar reflection of the active lake
+uniform mat4 uReflMat;
+uniform vec2 uReflInfo;    // x on, y water level
 varying vec3 vW; varying float vFlow; varying float vSlope; varying float vAcross;
 
 vec2 grad2(vec2 p) {  // gradient of a cheap wave noise
@@ -57,13 +60,22 @@ void main() {
   vec3 R = reflect(-V, N);
   R.y = abs(R.y);
   vec3 sky = skyTint(R) * (uRiver > 0.5 ? 0.55 : 0.8);
+  float mirror = 0.0;
+  // mirror reflection of mountains, forest and sky on the active lake
+  if (uReflInfo.x > 0.5 && uRiver < 0.5 && abs(vW.y - uReflInfo.y) < 0.4) {
+    vec4 rc = uReflMat * vec4(vW, 1.0);
+    vec2 ruv = rc.xy / rc.w + N.xz * 0.22;
+    if (all(greaterThan(ruv, vec2(0.002))) && all(lessThan(ruv, vec2(0.998)))) { sky = texture2D(uRefl, ruv).rgb * 0.95; mirror = 1.0; }
+  }
   // absorption: glacial turquoise in depth, clear over the shallow bed
   float abs1 = 1.0 - exp(-depth * (uRiver > 0.5 ? 0.9 : 0.22));
   vec3 body = mix(uShallow, uDeep, abs1);
   // light reaching into the water
   float sunL = max(uFogSunDir.y, 0.0);
   body *= 0.35 + 0.65 * sunL;
-  vec3 col = mix(body, sky, fres);
+  // calm lakes read as mirrors: stronger reflection over a darker body
+  float rw = mirror > 0.5 ? clamp(fres * 1.7 + 0.1, 0.0, 1.0) : fres;
+  vec3 col = mix(body * (mirror > 0.5 ? 0.7 : 1.0), sky, rw);
   // sun glint
   vec3 H = normalize(uFogSunDir + V);
   col += uFogSunColor * pow(max(dot(N, H), 0.0), 380.0) * 6.0;
@@ -78,6 +90,7 @@ void main() {
   }
   col = mix(col, vec3(0.92, 0.95, 0.97) * (0.4 + 0.6 * sunL), clamp(foam, 0.0, 1.0));
   float alpha = clamp((uRiver > 0.5 ? 0.12 : 0.22) + abs1 * 0.85 + fres * 0.55 + foam, 0.0, 1.0);
+  alpha = max(alpha, mirror * clamp(rw * 1.4 + 0.25, 0.0, 1.0));
   alpha *= smoothstep(0.0, 0.05, depth + 0.02);
   if (uRiver > 0.5) alpha *= smoothstep(1.0, 0.85, abs(vAcross)) * 0.9 + 0.1;
   vec4 atm = atmosphere(cameraPosition, vW);
@@ -94,6 +107,7 @@ export class Water {
       ...terrain.uniforms,
       ...atmoUniforms,
       uTime: { value: 0 },
+      uRefl: { value: null }, uReflMat: { value: new THREE.Matrix4() }, uReflInfo: { value: new THREE.Vector2(0, 0) },
     };
     this.group = new THREE.Group();
     this.scene = scene;
@@ -183,6 +197,69 @@ export class Water {
     snow.rotation.x = -Math.PI / 2; snow.position.set(L.x + 10, L.level + 0.05, L.z - 8);
     const grp = new THREE.Group(); grp.add(mesh, snow);
     return grp;
+  }
+
+  // Planar reflection for the nearest open lake (Reflector-style mirrored camera with an
+  // oblique near plane at the water level), rendered at reduced resolution.
+  enableReflections(renderer, scale) {
+    this.reflScale = scale;
+    const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.reflRT = new THREE.WebGLRenderTarget(Math.round(sz.x * scale), Math.round(sz.y * scale), { type: THREE.HalfFloatType, samples: 0 });
+    this.uniforms.uRefl.value = this.reflRT.texture;
+    this.vcam = new THREE.PerspectiveCamera();
+    this.lakes = this.world.meta.lakes.filter(L => !L.frozen);
+  }
+
+  renderReflection(game) {
+    const info = this.uniforms.uReflInfo.value;
+    info.x = 0;
+    if (!this.reflRT) return;
+    const r = game.renderer, cam = game.camera, cp = cam.position;
+    let best = null, bd = Infinity;
+    for (const L of this.lakes) {
+      const d = Math.hypot(cp.x - L.x, cp.z - L.z) - (L.r || 200);
+      if (cp.y > L.level + 0.5 && d < 2500 && d < bd) { bd = d; best = L; }
+    }
+    if (!best) return;
+    const sz = r.getDrawingBufferSize(this._sz || (this._sz = new THREE.Vector2()));
+    const w = Math.round(sz.x * this.reflScale), h = Math.round(sz.y * this.reflScale);
+    if (this.reflRT.width !== w || this.reflRT.height !== h) this.reflRT.setSize(w, h);
+    const level = best.level, n = new THREE.Vector3(0, 1, 0), P0 = new THREE.Vector3(cp.x, level, cp.z);
+    const vc = this.vcam;
+    // mirrored camera
+    const rot = new THREE.Matrix4().extractRotation(cam.matrixWorld);
+    const pos = cp.clone(); pos.y = 2 * level - cp.y;
+    const look = new THREE.Vector3(0, 0, -1).applyMatrix4(rot).add(cp); look.y = 2 * level - look.y;
+    const up = new THREE.Vector3(0, 1, 0).applyMatrix4(rot); up.y = -up.y;
+    vc.position.copy(pos); vc.up.copy(up); vc.lookAt(look);
+    vc.fov = cam.fov; vc.aspect = cam.aspect; vc.near = cam.near; vc.far = cam.far;
+    vc.updateProjectionMatrix(); vc.updateMatrixWorld();
+    vc.matrixWorldInverse.copy(vc.matrixWorld).invert();
+    // oblique near plane = water surface (nothing below the water ends up in the mirror)
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, P0).applyMatrix4(vc.matrixWorldInverse);
+    const clip = new THREE.Vector4(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
+    const pm = vc.projectionMatrix, e = pm.elements, q = new THREE.Vector4();
+    q.x = (Math.sign(clip.x) + e[8]) / e[0]; q.y = (Math.sign(clip.y) + e[9]) / e[5]; q.z = -1; q.w = (1 + e[10]) / e[14];
+    clip.multiplyScalar(2 / clip.dot(q));
+    e[2] = clip.x; e[6] = clip.y; e[10] = clip.z + 1 - 0.003; e[14] = clip.w;
+    vc.projectionMatrixInverse.copy(pm).invert();
+    // texture matrix: world -> reflection uv
+    this.uniforms.uReflMat.value.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1).multiply(pm).multiply(vc.matrixWorldInverse);
+    // render: skip water, grass, flowers and particles; terrain nodes chosen for the mirror view
+    const hide = [this.group, game.vegetation?.grass, game.flowers?.mesh, game.effects?.points, game.effects?.mesh].filter(Boolean);
+    const vis = hide.map(o => o.visible);
+    hide.forEach(o => { o.visible = false; });
+    game.terrain.update(vc);
+    const prevRT = r.getRenderTarget(), prevAuto = r.shadowMap.autoUpdate;
+    r.shadowMap.autoUpdate = false;   // reuse this frame's shadow map
+    r.setRenderTarget(this.reflRT);
+    r.clear();
+    r.render(game.scene, vc);
+    r.setRenderTarget(prevRT);
+    r.shadowMap.autoUpdate = prevAuto;
+    game.terrain.update(cam);
+    hide.forEach((o, i) => { o.visible = vis[i]; });
+    info.set(1, level);
   }
 
   update(dt, scene) {

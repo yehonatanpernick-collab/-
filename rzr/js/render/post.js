@@ -36,6 +36,38 @@ const GradeShader = {
     }`,
 };
 
+// Sun shafts: radial blur toward the sun of the visible sky (from the scene depth), so
+// light streams through gaps between peaks, trees and clouds' edges.
+const ShaftShader = {
+  uniforms: {
+    tDiffuse: { value: null }, tDepth: { value: null }, uSun: { value: new THREE.Vector2(0.5, 0.5) },
+    uSunCol: { value: new THREE.Color(1, 0.9, 0.75) }, uStrength: { value: 0 }, uAspect: { value: 1.6 },
+    uNear: { value: 0.15 }, uFar: { value: 60000 },
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse, tDepth; uniform vec2 uSun; uniform vec3 uSunCol; uniform float uStrength, uAspect, uNear, uFar;
+    varying vec2 vUv;
+    float skyAt(vec2 uv) {
+      float d = texture2D(tDepth, uv).r;
+      float z = uNear * uFar / (uFar - d * (uFar - uNear));
+      vec2 o = (uv - uSun) * vec2(uAspect, 1.0);
+      return step(21000.0, z) * exp(-dot(o, o) * 9.0);   // sky pixels, weighted toward the sun disc
+    }
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      if (uStrength <= 0.0) { gl_FragColor = vec4(c, 1.0); return; }
+      vec2 dv = (uSun - vUv) / 36.0;
+      vec2 uv = vUv + dv * fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+      float acc = 0.0, w = 1.0;
+      for (int i = 0; i < 36; i++) { acc += skyAt(uv) * w; w *= 0.965; uv += dv; }
+      acc /= 36.0;
+      vec2 o = (vUv - uSun) * vec2(uAspect, 1.0);
+      float fall = 1.0 / (1.0 + dot(o, o) * 2.5);
+      gl_FragColor = vec4(c + uSunCol * acc * fall * uStrength, 1.0);
+    }`,
+};
+
 export class Post {
   constructor(renderer, scene, camera, quality) {
     const s = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -52,6 +84,8 @@ export class Post {
       this.ao = ao;
       this.composer.addPass(ao);
     } else this.composer.addPass(new RenderPass(scene, camera));
+    if (this.ao) { this.shafts = new ShaderPass(ShaftShader); this.composer.addPass(this.shafts); }
+    this.camera = camera;
     this.bloom = new UnrealBloomPass(new THREE.Vector2(s.x / 2, s.y / 2), 0.22, 0.55, 0.92);
     if (quality.bloom !== false) this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
@@ -64,6 +98,19 @@ export class Post {
     this.composer.setSize(w, h);
     const s = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.grade.uniforms.uTexel.value.set(1 / s.x, 1 / s.y);
+  }
+  // sun position on screen + strength (fades as the sun leaves the view or sets)
+  setSun(dir, color, dayK, cloudCover) {
+    if (!this.shafts) return;
+    const u = this.shafts.uniforms, cam = this.camera;
+    const p = (this._p || (this._p = new THREE.Vector3())).copy(dir).multiplyScalar(10000).add(cam.position).project(cam);
+    const behind = cam.getWorldDirection(this._f || (this._f = new THREE.Vector3())).dot(dir) <= 0.05;
+    u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5);
+    const off = Math.max(Math.abs(p.x), Math.abs(p.y));
+    u.uStrength.value = behind ? 0 : 1.1 * dayK * (1 - THREE.MathUtils.smoothstep(off, 1.0, 1.8)) * (1 - 0.6 * cloudCover);
+    u.uSunCol.value.copy(color);
+    u.uAspect.value = cam.aspect; u.uNear.value = cam.near; u.uFar.value = cam.far;
+    u.tDepth.value = this.ao.beautyRenderTarget.depthTexture;
   }
   render() { this.composer.render(); }
 }

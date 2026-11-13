@@ -20,9 +20,9 @@ const loadText = (t, f) => { $('load-text').textContent = t; if (f !== undefined
 
 export const QUALITY = {
   low: { pixelRatio: 0.75, range0: 44, shadows: false, shadowSize: 1024, post: false, grass: 0.35, trees: 0.55, treeDist: 900 },
-  medium: { pixelRatio: 1, range0: 52, shadows: true, shadowSize: 1024, msaa: 0, bloom: false, grass: 0.6, trees: 0.8, treeDist: 1300 },
-  high: { pixelRatio: Math.min(1.5, devicePixelRatio), ao: 'half', range0: 58, shadows: true, shadowSize: 2048, grass: 1, trees: 1, treeDist: 1700 },
-  ultra: { pixelRatio: Math.min(2, devicePixelRatio), ao: 'full', range0: 68, shadows: true, shadowSize: 4096, grass: 1.4, trees: 1.25, treeDist: 2200 },
+  medium: { pixelRatio: 1, reflections: 0.35, range0: 52, shadows: true, shadowSize: 1024, msaa: 0, bloom: false, grass: 0.6, trees: 0.8, treeDist: 1300 },
+  high: { pixelRatio: Math.min(1.5, devicePixelRatio), ao: 'half', reflections: 0.5, range0: 58, shadows: true, shadowSize: 2048, grass: 1, trees: 1, treeDist: 1700 },
+  ultra: { pixelRatio: Math.min(2, devicePixelRatio), ao: 'full', reflections: 0.6, range0: 68, shadows: true, shadowSize: 4096, grass: 1.4, trees: 1.25, treeDist: 2200 },
 };
 
 const DT = 1 / 200;
@@ -108,6 +108,7 @@ class Game {
     this.roads = new Roads(this.world, this.collision, this.renderer, this.weatherUniform);
     this.scene.add(this.roads.group);
     this.water = new Water(this.world, this.terrain, this.scene);
+    if (this.quality.reflections) this.water.enableReflections(this.renderer, this.quality.reflections);
 
     loadText('Preparing the RZR…', 0.7);
     await this.loadVehicle(params.get('vehicle') || store.get('rzr.vehicle', 'a'));
@@ -230,6 +231,8 @@ class Game {
     this.terrain.update(this.camera);
     this.water.update(dt, this.scene);
     for (const s of this.systems) s.update?.(dt, this);
+    this.water.renderReflection(this);
+    this.post?.setSun?.(this.sky.sunDir, this.sky.sunColor, st.dayK, this.sky.weather.cover);
     if (this.post) this.post.render(); else this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   }
