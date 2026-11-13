@@ -189,7 +189,7 @@ void terrainSplat(out vec3 albedoOut) {
   w[6] = clamp(snowBase * 1.3 + uWeather.y * smoothstep(1500.0, 2100.0, h + n1 * 200.0), 0.0, 1.2) * (1.0 - smoothstep(0.4, 0.62, slope));
   w[2] = ma.b * 1.3;                                               // forest floor
   w[5] = (smoothstep(0.72, 0.92, ma.r + uWeather.w * 0.1) * 1.2 * (1.0 - smoothstep(0.1, 0.3, slope)) + mb.r * ma.b * 0.6);   // mud
-  w[7] = smoothstep(0.72, 0.97, mb.g) * 1.6;                       // riverbed / shore
+  w[7] = smoothstep(0.8, 0.98, mb.g) * 1.4;                        // riverbed / shore
   float tundra = smoothstep(2050.0, 2450.0, h + (n1 - 0.5) * 260.0);
   w[1] = tundra * 0.9 + 0.15;
   w[0] = (1.0 - tundra) * 0.95 + 0.05;

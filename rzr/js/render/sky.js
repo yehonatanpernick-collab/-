@@ -128,15 +128,15 @@ export class SkySystem {
     this.sunDir.copy(s);
     const elev = s.y;
     // moon roughly opposite
-    const night = THREE.MathUtils.smoothstep(0.05, -0.12, elev);
+    const night = 1 - THREE.MathUtils.smoothstep(elev, -0.12, 0.05);
     const lightDir = night > 0.5 ? s.clone().negate().setY(Math.max(0.25, -s.y)) .normalize() : s.clone();
     if (lightDir.y < 0.04) lightDir.y = 0.04;
     lightDir.normalize();
 
     // sun colour: warm near the horizon, white high up; dimmed by weather
-    const warm = THREE.MathUtils.smoothstep(0.35, 0.0, elev);
+    const warm = 1 - THREE.MathUtils.smoothstep(elev, 0.0, 0.35);
     this.sunColor.setRGB(1.0, 0.93 - 0.35 * warm, 0.84 - 0.6 * warm);
-    const dayK = THREE.MathUtils.smoothstep(-0.05, 0.12, elev);
+    const dayK = THREE.MathUtils.smoothstep(elev, -0.05, 0.12);
     const wDim = 1 - 0.75 * this.weather.dark;
     this.sun.intensity = (3.1 * dayK + 0.12 * night) * wDim;
     this.sun.color.copy(night > 0.5 ? new THREE.Color(0.55, 0.65, 0.9) : this.sunColor);

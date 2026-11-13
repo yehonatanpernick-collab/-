@@ -23,6 +23,20 @@ http.createServer(async (req, res) => {
       res.writeHead(502); return res.end(String(e));
     }
   }
+  // Alpine RZR Wilderness (rzr/): static files with real MIME types (ES modules need them)
+  if (url.pathname === '/rzr' || url.pathname.startsWith('/rzr/')) {
+    const root = path.join(__dirname, 'rzr');
+    let rel = decodeURIComponent(url.pathname.slice(4)) || '/';
+    if (rel.endsWith('/')) rel += 'index.html';
+    const fp = path.normalize(path.join(root, rel));
+    if (!fp.startsWith(root + path.sep) || fp.includes(`${path.sep}_raw${path.sep}`)) { res.writeHead(403); return res.end('forbidden'); }
+    const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.gz': 'application/octet-stream' };
+    return fs.readFile(fp, (err, data) => {
+      if (err) { res.writeHead(404); return res.end('not found'); }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'application/octet-stream', 'Cache-Control': 'max-age=3600' });
+      res.end(data);
+    });
+  }
   const file = url.pathname === '/' ? 'markets3d.html' : path.basename(url.pathname);
   fs.readFile(path.join(__dirname, file), (err, data) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
