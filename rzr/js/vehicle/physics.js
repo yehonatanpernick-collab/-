@@ -18,12 +18,12 @@ export const SPEC = {
   kFront: 21000, kRear: 24000, cBump: 2300, cRebound: 3100, bumpStop: 120000,
   arbFront: 15000, arbRear: 12000,
   maxSteer: 0.56,              // rad (~32 deg)
-  enginePower: 135000,         // W (180 hp class)
-  turboPower: 190000,          // W, boost
-  maxWheelTorque: 3600,        // Nm total at the wheels in low ratio
+  enginePower: 165000,         // W (180 hp class)
+  turboPower: 230000,          // W, boost
+  maxWheelTorque: 4300,        // Nm total at the wheels in low ratio
   topSpeedRad: 140,            // wheel rad/s at max CVT ratio (~190 km/h)
   reverseMax: 7.5,             // m/s
-  brakeTorque: 2600,           // Nm per wheel
+  brakeTorque: 2000,           // Nm per wheel
   handbrakeTorque: 3200,       // rear
   CdA: 0.95,
   downforce: 0.9,             // N per (m/s)^2: presses the car onto the ground at speed
@@ -119,9 +119,9 @@ export class VehiclePhysics {
     // --- steering: rate-limited, reduced at speed
     // full lock only at crawl speed; at speed the angle is capped so lateral accel stays ~1.5 g
     const av = Math.max(Math.abs(vF), 1);
-    const lim = Math.min(s.maxSteer, Math.max(0.05, 1.5 * G * s.wheelBase / (av * av)));
+    const lim = Math.min(s.maxSteer, Math.max(0.07, 2.3 * G * s.wheelBase / (av * av)));
     const target = inp.steer * lim;
-    const rate = (2.6 * Math.min(1, lim / s.maxSteer + 0.25)) * dt;
+    const rate = (3.4 * Math.min(1, lim / s.maxSteer + 0.3)) * dt;
     this.steerAngle += Math.max(-rate, Math.min(rate, target - this.steerAngle));
 
     // --- drivetrain: CVT keeps the engine in its power band

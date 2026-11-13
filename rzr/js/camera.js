@@ -5,7 +5,7 @@ export class DriveCamera {
   constructor(camera, collision) {
     this.cam = camera; this.col = collision;
     this.mode = 0; // 0 chase, 1 bumper, 2 cockpit
-    this.dist = 7.2; this.height = 2.4;
+    this.dist = 6.2; this.height = 1.75;
     this.yawOff = 0; this.pitchOff = 0; this.idle = 0;
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.look = new THREE.Vector3();
@@ -91,7 +91,7 @@ export class DriveCamera {
       this.cam.position.x += (Math.random() - 0.5) * shakeAmt;
       this.cam.position.y += (Math.random() - 0.5) * shakeAmt;
     }
-    const fov = this.baseFov + Math.min(14, speed * 0.32) + (this.mode === 2 ? 6 : 0);
+    const fov = this.baseFov + Math.min(20, speed * 0.38) + (this.mode === 2 ? 6 : 0);
     if (Math.abs(this.cam.fov - fov) > 0.05) { this.cam.fov += (fov - this.cam.fov) * Math.min(1, dt * 3); this.cam.updateProjectionMatrix(); }
   }
 }

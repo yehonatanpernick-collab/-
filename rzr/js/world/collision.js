@@ -3,10 +3,10 @@
 import { WORLD } from './heightfield.js';
 
 export const SURFACES = {
-  gravel: { mu: 0.74, rr: 0.024, dust: [0.62, 0.57, 0.5], dusty: 1.0, label: 'gravel' },
-  dirt: { mu: 0.78, rr: 0.02, dust: [0.55, 0.45, 0.33], dusty: 1.0, label: 'dirt' },
-  mud: { mu: 0.46, rr: 0.075, dust: [0.28, 0.21, 0.14], dusty: 0, mud: 1, label: 'mud' },
-  grass: { mu: 0.63, rr: 0.034, dust: [0.42, 0.45, 0.3], dusty: 0.25, label: 'grass' },
+  gravel: { mu: 0.86, rr: 0.024, dust: [0.62, 0.57, 0.5], dusty: 1.0, label: 'gravel' },
+  dirt: { mu: 0.9, rr: 0.02, dust: [0.55, 0.45, 0.33], dusty: 1.0, label: 'dirt' },
+  mud: { mu: 0.55, rr: 0.075, dust: [0.28, 0.21, 0.14], dusty: 0, mud: 1, label: 'mud' },
+  grass: { mu: 0.76, rr: 0.034, dust: [0.42, 0.45, 0.3], dusty: 0.25, label: 'grass' },
   rock: { mu: 0.86, rr: 0.015, dust: [0.6, 0.58, 0.55], dusty: 0.5, label: 'rock' },
   scree: { mu: 0.62, rr: 0.045, dust: [0.6, 0.58, 0.55], dusty: 0.9, label: 'scree' },
   forest: { mu: 0.66, rr: 0.035, dust: [0.35, 0.28, 0.2], dusty: 0.4, label: 'forest floor' },

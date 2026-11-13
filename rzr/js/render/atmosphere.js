@@ -6,7 +6,7 @@ import * as THREE from 'three';
 
 export const ATMO = {
   // x: base density, y: height falloff (1/m), z: fog base altitude, w: aerial density
-  params: { x: 0.00012, y: 0.0011, z: 1500, w: 0.000035 },
+  params: { x: 0.00006, y: 0.0012, z: 1500, w: 0.000016 },
   sunDir: { x: 0.3, y: 0.6, z: -0.4 },
   sunColor: { x: 1.0, y: 0.92, z: 0.8 },
   horizon: { x: 0.62, y: 0.72, z: 0.84 },

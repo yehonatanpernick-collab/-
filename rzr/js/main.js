@@ -18,8 +18,8 @@ const $ = (id) => document.getElementById(id);
 const loadText = (t, f) => { $('load-text').textContent = t; if (f !== undefined) $('load-fill').style.width = `${Math.round(f * 100)}%`; };
 
 export const QUALITY = {
-  low: { pixelRatio: 0.75, range0: 44, shadows: false, shadowSize: 1024, grass: 0.35, trees: 0.55, treeDist: 900 },
-  medium: { pixelRatio: 1, range0: 52, shadows: true, shadowSize: 1024, grass: 0.6, trees: 0.8, treeDist: 1300 },
+  low: { pixelRatio: 0.75, range0: 44, shadows: false, shadowSize: 1024, post: false, grass: 0.35, trees: 0.55, treeDist: 900 },
+  medium: { pixelRatio: 1, range0: 52, shadows: true, shadowSize: 1024, msaa: 0, bloom: false, grass: 0.6, trees: 0.8, treeDist: 1300 },
   high: { pixelRatio: Math.min(1.5, devicePixelRatio), range0: 58, shadows: true, shadowSize: 2048, grass: 1, trees: 1, treeDist: 1700 },
   ultra: { pixelRatio: Math.min(2, devicePixelRatio), range0: 68, shadows: true, shadowSize: 4096, grass: 1.4, trees: 1.25, treeDist: 2200 },
 };
@@ -35,8 +35,8 @@ class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(this.quality.pixelRatio);
     this.renderer.setSize(innerWidth, innerHeight);
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.75;
+    this.renderer.toneMapping = THREE.AgXToneMapping;   // filmic, keeps saturated sunlit colour and soft highlight roll-off
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     installAtmosphere();
     this.scene = new THREE.Scene();
@@ -55,6 +55,7 @@ class Game {
 
   resize() {
     this.renderer.setSize(innerWidth, innerHeight);
+    this.post?.setSize(innerWidth, innerHeight);
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
   }
@@ -85,6 +86,10 @@ class Game {
     });
     this.scene.add(this.terrain.mesh);
     this.sky = new SkySystem(this.renderer, this.scene);
+    if (this.quality.post !== false) {
+      try { const { Post } = await import('./render/post.js'); this.post = new Post(this.renderer, this.scene, this.camera, this.quality); }
+      catch (e) { console.warn('post-processing unavailable', e); }
+    }
     this.sky.time = params.has('t') ? +params.get('t') : 10.2;
     if (params.has('freeze')) this.sky.timeScale = 0;
     if (this.quality.shadows) {
@@ -111,7 +116,7 @@ class Game {
 
     // optional systems: a failure in one never blocks driving
     loadText('Growing forests…', 0.8);
-    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
+    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['flowers', './render/flowers.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
       try {
         const mod = await import(path);
         const sys = await mod.create(this, (t) => loadText(t));
@@ -220,7 +225,7 @@ class Game {
     this.terrain.update(this.camera);
     this.water.update(dt, this.scene);
     for (const s of this.systems) s.update?.(dt, this);
-    this.renderer.render(this.scene, this.camera);
+    if (this.post) this.post.render(); else this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   }
 }

@@ -177,7 +177,7 @@ class Effects {
     const tex = softDot();
     this.dust = new Particles(5000, game.scene, tex);
     this.mist = new Particles(2500, game.scene, tex);
-    this.marks = new TyreMarks(game.scene);
+    this.marks = new TyreMarks(game.scene); this.marks.mesh.visible = false;
     this.precip = new Precipitation(game.scene);
     this.falls = [];
     for (const r of game.world.meta.rivers) for (const f of r.falls) if (f.drop > 12) this.falls.push(f);
@@ -236,7 +236,7 @@ class Effects {
       if (!w.water && (soft || sliding) && speed > 0.8) {
         this.side.set(fwd.z, 0, -fwd.x).normalize();
         const a = Math.min(0.55, (soft ? 0.22 : 0) + (sliding ? 0.35 : 0) + (surf.mud ? 0.2 : 0));
-        this.marks.add(i, this.tmp.copy(w.cpos).add(new THREE.Vector3(0, 0.03, 0)), this.side, a);
+        // tyre marks removed (read as black graffiti on the ground)
         this.tmp.set(0, 0, 1).applyQuaternion(ph.quat);
       } else this.marks.cut(i);
     });

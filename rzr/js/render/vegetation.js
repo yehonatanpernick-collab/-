@@ -210,7 +210,7 @@ class Vegetation {
         const mat = o.material;
         if (mat.map) mat.map.anisotropy = 4;
         if (mat.alphaTest > 0 || mat.transparent) { mat.transparent = false; mat.alphaTest = 0.5; mat.side = THREE.DoubleSide; }
-        const im = new THREE.InstancedMesh(geo, mat, 1500);
+        const im = new THREE.InstancedMesh(geo, mat, 4000);
         im.count = 0; im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false;
         this.group.add(im);
         parts.push({ mesh: im, size, list: [] });
@@ -284,6 +284,18 @@ class Vegetation {
         c.props.push({ kind: hash2(ix + 3, iz + 3) < 0.6 ? 'fern_02' : (hash2(ix, iz) < 0.5 ? 'shrub_03' : 'shrub_04'), x, y, z, s: 0.8 + 0.7 * hash2(ix + 1, iz + 2), yaw: hash2(ix + 4, iz + 4) * 6.283, small: true });
       }
     }
+    // small stones scattered through meadows, along streams and on scree (visual only)
+    const SS = 3.4, ms = Math.floor(CELL / SS);
+    for (let gz = 0; gz < ms; gz++) for (let gx = 0; gx < ms; gx++) {
+      const ix = cx * ms + gx + 90000, iz = cz * ms + gz + 90000;
+      const x = cx * CELL + (gx + hash2(ix, iz)) * SS, z = cz * CELL + (gz + hash2(iz, ix)) * SS;
+      const road = f.mask(x, z, 4); if (road > 0.35) continue;
+      const pr = hash2(ix + 7, iz + 1);
+      const p = 0.07 + f.mask(x, z, 7) * 0.35 + f.mask(x, z, 1) * 0.3 + f.mask(x, z, 5) * 0.35 - f.mask(x, z, 2) * 0.05;
+      if (pr > p) continue;
+      if (f.waterLevel(x, z) > f.baseHeight(x, z) + 0.3) continue;
+      c.props.push({ kind: 'pebble', x, y: f.baseHeight(x, z), z, s: 0.6 + 1.6 * hash2(ix + 2, iz + 9) ** 2, yaw: hash2(ix + 4, iz + 4) * 6.283, k: Math.floor(hash2(ix + 6, iz + 2) * 64), small: true });
+    }
     this.cells.set(key, c);
     if (this.cells.size > 9000) { const it = this.cells.keys(); for (let i = 0; i < 1500; i++) this.cells.delete(it.next().value); }
     return c;
@@ -350,7 +362,7 @@ class Vegetation {
     }
     for (const parts of Object.values(this.props)) for (const part of parts) {
       if (!part) continue;
-      const n = Math.min(part.list.length, 1500);
+      const n = Math.min(part.list.length, 4000);
       for (let i = 0; i < n; i++) {
         const p = part.list[i];
         // scale props to their intended real size
@@ -393,7 +405,7 @@ class Vegetation {
   // ------------------------------------------------------------------ grass
   _initGrass() {
     const g = this.game, q = this.q;
-    const R = 46 + 22 * Math.min(1.4, q.grass), SP = 0.62 / Math.sqrt(Math.min(1.4, q.grass));
+    const R = 44 + 20 * Math.min(1.4, q.grass), SP = 0.5 / Math.sqrt(Math.min(1.4, q.grass));
     const N = Math.floor(2 * R / SP);
     this.grassR = R; this.grassSP = SP;
     const geo = new THREE.InstancedBufferGeometry();
@@ -418,7 +430,7 @@ class Vegetation {
     const atlas = T('assets/textures/grass_clumps.webp', true);
     atlas.wrapS = atlas.wrapT = THREE.ClampToEdgeWrapping;
     const mat = new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9 });
-    const uni = { ...this.game.terrain.uniforms, uGrassOrigin: { value: new THREE.Vector2() }, uGrassSP: { value: SP }, uGrassN: { value: N }, uGrassR: { value: R }, uTimeG: { value: 0 }, uWindG: { value: 1 } };
+    const uni = { ...this.game.terrain.uniforms, uGrassOrigin: { value: new THREE.Vector2() }, uGrassSP: { value: SP }, uGrassN: { value: N }, uGrassR: { value: R }, uTimeG: { value: 0 }, uWindG: { value: 1 }, uCar: { value: new THREE.Vector3(1e6, 0, 0) } };
     this.grassUniforms = uni;
     mat.onBeforeCompile = (s) => {
       Object.assign(s.uniforms, uni);
@@ -426,8 +438,8 @@ class Vegetation {
         ${HEIGHT_GLSL}
         attribute vec2 cell;
         uniform vec2 uGrassOrigin; uniform float uGrassSP, uGrassN, uGrassR, uTimeG, uWindG;
-        uniform vec3 uCamPos; uniform sampler2D uNormCore;
-        varying float vGTint; varying float vGFlower; varying vec2 vGUv0;`)
+        uniform vec3 uCamPos; uniform sampler2D uNormCore; uniform vec3 uCar;
+        varying float vGTint; varying float vGFlower; varying vec2 vGUv0; varying float vGH;`)
         .replace('#include <uv_vertex>', '#include <uv_vertex>')
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);')
         .replace('#include <begin_vertex>', `
@@ -445,10 +457,12 @@ class Vegetation {
         dens *= 1.0 - smoothstep(2350.0, 2650.0, hgt);
         float fade = 1.0 - smoothstep(uGrassR * 0.7, uGrassR, d);
         float sc = (h3 < dens ? 1.0 : 0.0) * fade * (0.55 + 0.7 * h4) * (1.0 - smoothstep(2150.0, 2500.0, hgt) * 0.5);
+        sc *= smoothstep(1.3, 2.4, length(wp - uCar.xz));   // no grass poking through the car
         float yaw = h1 * 6.2831853;
         vec3 lp = position;
         lp.xz = mat2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * lp.xz;
-        lp *= vec3(1.1, 0.62, 1.1) * sc;
+        lp *= vec3(1.05, 0.45 + 0.42 * h2 + 0.25 * h3, 1.05) * sc;
+        vGH = position.y;
         // wind: bend tips
         float tip = position.y;
         lp.x += sin(uTimeG * 1.7 + wp.x * 0.35 + wp.y * 0.2) * 0.12 * tip * uWindG * sc;
@@ -462,16 +476,18 @@ class Vegetation {
         vGFlower = (h1 < mb.b * 0.12) ? fract(h2 * 7.0) + 0.01 : 0.0;`)
         .replace('#include <uv_vertex>', '');
       s.vertexShader = s.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vMapUv = vGUv0;');
-      s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vGTint; varying float vGFlower;')
+      s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vGTint; varying float vGFlower; varying float vGH;')
         .replace('#include <map_fragment>', `#include <map_fragment>
-          diffuseColor.rgb *= mix(vec3(0.82, 0.9, 0.62), vec3(1.08, 1.0, 0.72), vGTint);
+          diffuseColor.rgb *= mix(vec3(0.6, 0.84, 0.42), vec3(0.92, 1.0, 0.58), vGTint);
+          diffuseColor.rgb *= mix(0.42, 1.08, smoothstep(0.0, 0.85, vGH));   // dense clumps are dark at the root
           if (vGFlower > 0.0 && vMapUv.y > 0.0) {
             vec3 fc = vGFlower < 0.3 ? vec3(1.0, 0.85, 0.15) : vGFlower < 0.55 ? vec3(0.95, 0.95, 0.9) : vGFlower < 0.8 ? vec3(0.55, 0.35, 0.85) : vec3(0.3, 0.45, 0.95);
             // small flower heads: sparse dots near the blade tips only
             float tipZone = smoothstep(0.8, 0.95, fract(vMapUv.y * 4.0));
             float dots = step(0.82, fract(sin(floor(vMapUv.x * 60.0) * 91.7 + floor(vMapUv.y * 40.0) * 13.1) * 437.5));
             diffuseColor.rgb = mix(diffuseColor.rgb, fc * 0.85, tipZone * dots * 0.8);
-          }`);
+          }`)
+        .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n reflectedLight.indirectDiffuse += diffuseColor.rgb * 0.22 * vGH; // light through the blades');
     };
     mat.customProgramCacheKey = () => 'gpu-grass';
     this.grass = new THREE.Mesh(geo, mat);
@@ -502,7 +518,7 @@ class Vegetation {
     this.impUniforms.uAmb.value.copy(game.sky.hemi.color).multiplyScalar(game.sky.hemi.intensity * 0.9);
     const gu = this.grassUniforms;
     gu.uGrassOrigin.value.set(Math.floor((cam.x - this.grassR) / this.grassSP) * this.grassSP, Math.floor((cam.z - this.grassR) / this.grassSP) * this.grassSP);
-    gu.uTimeG.value = this.time; gu.uWindG.value = wind;
+    gu.uTimeG.value = this.time; gu.uWindG.value = wind; gu.uCar.value.copy(game.phys.pos);
   }
 }
 

@@ -53,16 +53,16 @@ class Weather {
     game.sky.weather.dark = this.cur.dark;
     // fog: base density scaled; valley fog pools in the morning
     const morning = Math.max(0, 1 - Math.abs(game.sky.time - 7) / 2.5);
-    ATMO.params.x = 0.00012 * this.cur.fog * (1 + morning * 2.5);
+    ATMO.params.x = 0.00006 * this.cur.fog * (1 + morning * 2.5);
     ATMO.params.y = this.cur.fog > 3 ? 0.0016 : 0.0011;
     ATMO.params.z = 1450 + morning * 120;
-    ATMO.params.w = 0.000032 * (1 + (this.cur.fog - 1) * 0.35);
+    ATMO.params.w = 0.000016 * (1 + (this.cur.fog - 1) * 0.5);
     ATMO.misc.w = this.windSpeed;
     ATMO.misc.y = this.rain;
     game.weatherUniform.value.set(this.wetness, this.snowCover, 0, this.wetness);
     game.collision.wetness = this.wetness;
     game.collision.snowCover = this.snowCover;
-    game.renderer.toneMappingExposure = 0.75 * (1 + this.cur.dark * 0.25);
+    game.renderer.toneMappingExposure = 1.05 * (1 + this.cur.dark * 0.3);
   }
 }
 

@@ -138,9 +138,9 @@ export class SkySystem {
     this.sunColor.setRGB(1.0, 0.93 - 0.35 * warm, 0.84 - 0.6 * warm);
     const dayK = THREE.MathUtils.smoothstep(elev, -0.05, 0.12);
     const wDim = 1 - 0.75 * this.weather.dark;
-    this.sun.intensity = (3.1 * dayK + 0.12 * night) * wDim;
+    this.sun.intensity = (4.6 * dayK + 0.12 * night) * wDim;
     this.sun.color.copy(night > 0.5 ? new THREE.Color(0.55, 0.65, 0.9) : this.sunColor);
-    this.hemi.intensity = (0.35 + 0.35 * dayK) * (0.4 + 0.6 * dayK) + 0.04;
+    this.hemi.intensity = (0.22 + 0.26 * dayK) * (0.4 + 0.6 * dayK) + 0.04;
     this.hemi.color.setRGB(0.62 + 0.1 * warm, 0.72, 0.9 - 0.1 * warm).multiplyScalar(0.5 + 0.5 * dayK);
     this.hemi.groundColor.setRGB(0.36, 0.32, 0.25).multiplyScalar(0.4 + 0.6 * dayK);
 
@@ -150,9 +150,9 @@ export class SkySystem {
     u.rayleigh.value = 2.1 + 1.2 * warm;
     u.mieCoefficient.value = 0.0032 + 0.01 * this.weather.dark;
     // fog / horizon colours
-    const hz = new THREE.Color(0.66, 0.76, 0.88).lerp(new THREE.Color(0.95, 0.62, 0.38), warm * 0.75).multiplyScalar(0.15 + 0.85 * dayK);
+    const hz = new THREE.Color(0.56, 0.69, 0.87).lerp(new THREE.Color(0.95, 0.62, 0.38), warm * 0.75).multiplyScalar(0.15 + 0.85 * dayK);
     hz.lerp(new THREE.Color(0.62, 0.64, 0.66).multiplyScalar(0.2 + 0.8 * dayK), this.weather.dark * 0.85);
-    const zn = new THREE.Color(0.26, 0.44, 0.74).lerp(new THREE.Color(0.35, 0.38, 0.5), warm * 0.5).multiplyScalar(0.08 + 0.92 * dayK);
+    const zn = new THREE.Color(0.16, 0.34, 0.72).lerp(new THREE.Color(0.35, 0.38, 0.5), warm * 0.5).multiplyScalar(0.08 + 0.92 * dayK);
     zn.lerp(hz, this.weather.dark * 0.7);
     setSkyColors(hz, zn);
     setSun(s.y > -0.05 ? s : lightDir, this.sunColor.clone().multiplyScalar(dayK * wDim));
