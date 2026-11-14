@@ -42,7 +42,7 @@ TREE_TEX = {
 MODELS = ['rock_moss_set_01', 'rock_moss_set_02', 'boulder_01', 'rock_09', 'rock_07', 'stone_01',
           'mountainside', 'rock_face_01', 'dead_tree_trunk', 'dead_tree_trunk_02', 'tree_stump_01',
           'tree_stump_02', 'fern_02', 'shrub_03', 'shrub_04', 'pine_roots', 'dry_branches_medium_01',
-          'celandine_01', 'dandelion_01']
+          'celandine_01', 'dandelion_01', 'rock_face_02', 'coastal_cliff_01', 'namaqualand_cliff_02']
 
 
 def curl(url, dest):

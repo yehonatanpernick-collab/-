@@ -58,3 +58,8 @@ grass_medium_01 clump atlas.
 |---|---|---|---|
 | three.js | r160 | MIT | renderer, post-processing passes (`vendor/three`) |
 | N8AO | 1.9.4 | ISC (`vendor/n8ao/LICENSE`) | screen-space ambient occlusion on High/Ultra. The unused `postprocessing` (pmndrs) import is stubbed out in the vendored file; the `Pass` import points at the vendored three.js addon. |
+
+## Rock outcrops (cliffs.js)
+
+Poly Haven (CC0) scans, decimated by `tools/prep_cliffs.mjs` into two LODs each (`assets/models/cliffs/`):
+Mountainside, Rock Face 01, Rock Face 02, Coastal Cliff 01, Namaqualand Cliff 02 — https://polyhaven.com/models

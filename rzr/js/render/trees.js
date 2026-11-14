@@ -14,7 +14,7 @@ const SPRIGS = {
 export const SPECIES = {
   spruce: { twig: 'fir', bark: 'fir', crownBase: [0.06, 0.16], width: [0.17, 0.21], droop: [0.25, 0.5], whorl: 0.34, cards: 9, shape: 'cone', filler: 1 },
   fir: { twig: 'fir', bark: 'fir', crownBase: [0.1, 0.22], width: [0.19, 0.24], droop: [0.05, 0.22], whorl: 0.4, cards: 8, shape: 'cone', filler: 1 },
-  pine: { twig: 'pine', bark: 'pine', crownBase: [0.24, 0.38], width: [0.16, 0.21], droop: [-0.05, 0.2], whorl: 0.45, cards: 9, shape: 'ovoid', filler: 1 },
+  pine: { twig: 'pine', bark: 'pine', crownBase: [0.13, 0.24], width: [0.18, 0.23], droop: [-0.05, 0.2], whorl: 0.45, cards: 9, shape: 'ovoid', filler: 1 },
   larch: { twig: 'fir', bark: 'pine', crownBase: [0.25, 0.4], width: [0.15, 0.2], droop: [0.1, 0.35], whorl: 0.65, cards: 5, shape: 'cone', sparse: 0.55, tint: [1.15, 1.05, 0.7] },
 };
 

@@ -30,7 +30,7 @@ const IMPOSTOR_VS = /* glsl */`
 attribute vec4 inst;   // x, y, z, yaw
 attribute vec4 inst2;  // width, height, variant row, tint
 uniform float uRows;
-varying vec2 vUv; varying vec3 vW; varying float vTint; varying float vFade;
+varying vec2 vUv; varying vec3 vW; varying float vTint; varying float vFade; varying vec3 vN;
 uniform vec3 uCam; uniform float uNear;
 void main() {
   vec3 base = inst.xyz;
@@ -44,6 +44,8 @@ void main() {
   float fi = mod(floor(ang / (6.2831853 / ${VIEWS}.0) + 0.5), ${VIEWS}.0);
   vUv = vec2((fi + position.x + 0.5) / ${VIEWS}.0, (inst2.z + position.y) / uRows);
   vW = p; vTint = inst2.w;
+  // rounded crown normal across the card: lit/shaded sides follow the real sun
+  vN = right * position.x * 1.7 + toCam * 0.75 + vec3(0.0, (position.y - 0.45) * 0.5, 0.0);
   vFade = smoothstep(uNear - 12.0, uNear + 4.0, d);
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }`;
@@ -51,13 +53,14 @@ const IMPOSTOR_FS = /* glsl */`
 ${FOG_GLSL}
 uniform sampler2D uAtlas;
 uniform vec3 uSunCol, uAmb;
-varying vec2 vUv; varying vec3 vW; varying float vTint; varying float vFade;
+varying vec2 vUv; varying vec3 vW; varying float vTint; varying float vFade; varying vec3 vN;
 void main() {
   vec4 c = texture(uAtlas, vUv);
   // dithered cross-fade with the full-detail trees near the camera
   float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   if (c.a < 0.45 || n > vFade) discard;
-  vec3 col = c.rgb * (uAmb + uSunCol * 0.55 * terrSunShadow(vW)) * (0.85 + 0.3 * vTint);
+  float diff = max(dot(normalize(vN), normalize(uFogSunDir)), 0.0);
+  vec3 col = c.rgb * (uAmb * 1.1 + uSunCol * (0.2 + 0.85 * diff) * terrSunShadow(vW)) * (0.85 + 0.3 * vTint);
   vec4 atm = atmosphere(cameraPosition, vW);
   col = mix(col, atm.rgb, atm.a);
   gl_FragColor = vec4(col, 1.0);
@@ -248,8 +251,9 @@ class Vegetation {
       if (Math.hypot(sx, sz) / 2 > 0.95) continue;
       const hv = hash2(ix * 3 + 1, iz * 5 + 2);
       let v;
-      if (y < 1720) v = hv < 0.45 ? 5 + Math.floor(hv * 6) % 3 : hv < 0.85 ? Math.floor(hv * 13) % 3 : 3 + (Math.floor(hv * 17) % 2);
-      else if (y < 2030) v = hv < 0.5 ? Math.floor(hv * 13) % 3 : hv < 0.8 ? 3 + (Math.floor(hv * 17) % 2) : 8 + (Math.floor(hv * 19) % 2);
+      // Alpine montane forest: Norway spruce dominant, silver fir, a few pines; larch toward treeline
+      if (y < 1720) v = hv < 0.62 ? Math.floor(hv * 13) % 3 : hv < 0.88 ? 3 + (Math.floor(hv * 17) % 2) : 5 + Math.floor(hv * 6) % 3;
+      else if (y < 2030) v = hv < 0.55 ? Math.floor(hv * 13) % 3 : hv < 0.75 ? 3 + (Math.floor(hv * 17) % 2) : 8 + (Math.floor(hv * 19) % 2);
       else v = hv < 0.55 ? 8 + (Math.floor(hv * 19) % 2) : 5 + Math.floor(hv * 6) % 3;
       const alt = 1 - smooth(1950, 2280, y) * 0.55;
       const s = (0.62 + 0.55 * hash2(ix + 13, iz + 17)) * alt;
@@ -264,13 +268,15 @@ class Vegetation {
       const x = cx * CELL + (gx + hash2(ix, iz)) * RS, z = cz * CELL + (gz + hash2(iz, ix)) * RS;
       const rock = f.mask(x, z, 7), sed = f.mask(x, z, 1), water = f.mask(x, z, 5), forest = f.mask(x, z, 2), road = f.mask(x, z, 4), wet = f.mask(x, z, 0);
       if (road > 0.15 || this._blocked(x, z)) continue;
+      // nothing sticks to walls: props need ground they could actually rest on
+      if (f.normal(x, z, this._sn || (this._sn = new THREE.Vector3()), 1.5).y < 0.74) continue;
       const y = f.baseHeight(x, z);
       const pr = hash2(ix + 3, iz + 8);
       const rockGarden = Math.hypot(x - 2830, z - 1300) < 650 ? 0.35 : 0;
       const pRock = 0.025 + rock * 0.22 + sed * 0.25 + water * 0.12 + rockGarden;
       if (pr < pRock) {
         const big = hash2(ix + 1, iz + 1);
-        const type = big < 0.04 && rock > 0.4 ? 'cliff' : big < 0.75 ? 'moss' : 'pebble';
+        const type = big < 0.75 ? 'moss' : 'pebble';   // big outcrops come from cliffs.js
         const size = type === 'cliff' ? 1 : type === 'moss' ? 0.4 + 1.2 * hash2(ix + 9, iz) ** 2 * (1 + rockGarden * 2) : 3 + 14 * hash2(ix, iz + 9) ** 2 * (1 + rockGarden * 2);
         c.props.push({ kind: type, x, y, z, s: size, yaw: hash2(ix + 4, iz + 4) * 6.283, k: Math.floor(hash2(ix + 6, iz + 2) * 64) });
         continue;
@@ -294,6 +300,7 @@ class Vegetation {
       const p = 0.07 + f.mask(x, z, 7) * 0.35 + f.mask(x, z, 1) * 0.3 + f.mask(x, z, 5) * 0.35 - f.mask(x, z, 2) * 0.05;
       if (pr > p) continue;
       if (f.waterLevel(x, z) > f.baseHeight(x, z) + 0.3) continue;
+      if (f.normal(x, z, this._sn || (this._sn = new THREE.Vector3()), 1.5).y < 0.74) continue;
       c.props.push({ kind: 'pebble', x, y: f.baseHeight(x, z), z, s: 0.6 + 1.6 * hash2(ix + 2, iz + 9) ** 2, yaw: hash2(ix + 4, iz + 4) * 6.283, k: Math.floor(hash2(ix + 6, iz + 2) * 64), small: true });
     }
     this.cells.set(key, c);

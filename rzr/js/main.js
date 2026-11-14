@@ -120,7 +120,7 @@ class Game {
 
     // optional systems: a failure in one never blocks driving
     loadText('Growing forests…', 0.8);
-    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['flowers', './render/flowers.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['stunts', './stunts.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
+    for (const [name, path] of [['vegetation', './render/vegetation.js'], ['cliffs', './render/cliffs.js'], ['flowers', './render/flowers.js'], ['structures', './render/structures.js'], ['effects', './render/effects.js'], ['weather', './weather.js'], ['stunts', './stunts.js'], ['races', './races.js'], ['wildlife', './render/wildlife.js'], ['hud', './hud.js'], ['audio', './audio.js']]) {
       try {
         const mod = await import(path);
         const sys = await mod.create(this, (t) => loadText(t));
