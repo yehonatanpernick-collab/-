@@ -74,6 +74,20 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #tPause{right:50%;top:10px;width:40px;height:40px;transform:translateX(50%);font-size:16px}
 @media (max-width:700px){#tl{min-width:0;padding:8px 12px}#score{font-size:22px}#mm{width:96px;height:96px}#obj{top:10px;font-size:11px;padding:6px 10px;white-space:normal;max-width:calc(100vw - 250px)}.sub{font-size:15px;margin:6px 0 16px}.btn{font-size:18px;padding:12px 44px}#hpw{width:150px;bottom:auto;top:76px;right:16px}#spd{bottom:auto;top:136px;left:16px}#spd .v{font-size:22px}#hint{display:none}#banner{font-size:34px}.keys{display:none}}
 body.touch #hpw{width:170px;bottom:auto;top:84px;right:16px;padding:8px 10px}body.touch #spd{bottom:auto;top:200px;left:16px}body.touch #spd .v{font-size:22px}body.touch #hint,body.touch .keys{display:none}body.touch #mm{width:120px;height:120px}body.touch #spd{top:146px}
+#keysPanel{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:safe center;flex-direction:column;background:rgba(3,5,10,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:16px;overflow-y:auto;touch-action:auto}
+#keysPanel.open{display:flex}
+#keysPanel h2{font-size:28px;font-weight:900;margin-bottom:6px}
+#keysPanel .note{font-size:13px;opacity:.7;margin-bottom:14px;text-align:center;max-width:560px;line-height:1.5}
+#keysList{display:grid;grid-template-columns:1fr auto auto;gap:6px 10px;align-items:center;width:min(560px,100%);direction:rtl}
+#keysList .lbl{font-size:15px;font-weight:600}
+#keysList .lbl small{display:block;font-size:11px;opacity:.55;font-weight:400}
+.kb{pointer-events:auto;cursor:pointer;min-width:110px;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-weight:700;font-size:13px;direction:ltr;text-align:center}
+.kb:hover{background:rgba(255,255,255,.14)}
+.kb.empty{opacity:.45;font-weight:400}
+.kb.listen{border-color:var(--acc2);background:rgba(59,209,255,.2);animation:kbp 1s infinite}
+.kb.flash{border-color:var(--gold)}
+@keyframes kbp{50%{box-shadow:0 0 0 4px rgba(59,209,255,.25)}}
+#keysMsg{height:20px;margin-top:12px;font-size:13px;color:var(--gold)}
 </style>
 </head>
 <body>
@@ -102,6 +116,8 @@ body.touch #hpw{width:170px;bottom:auto;top:84px;right:16px;padding:8px 10px}bod
   <div class="tb" id="tPause">II</div>
 </div>
 
+<div id="keysPanel"><h2>הגדרת מקשים</h2><div class="note">לחץ על תיבה ואז על המקש או על כפתור העכבר שרוצים. <b>Backspace</b> מנקה את התיבה, <b>Esc</b> מבטל. לכל פעולה יש שתי תיבות, כך שאפשר לקשור שני מקשים.</div><div id="keysList"></div><div id="keysMsg"></div><div class="row"><button class="chip" id="keysReset">איפוס לברירת מחדל</button><button class="btn" id="keysClose" style="font-size:17px;padding:10px 40px">סיום</button></div></div>
+
 <div id="loading"><div class="logo">SKY<span>THREAD</span></div><div class="bar"><i id="lbar"></i></div><div class="msg" id="lmsg">בונה את העיר…</div></div>
 
 <div id="menu" class="hide">
@@ -115,6 +131,7 @@ body.touch #hpw{width:170px;bottom:auto;top:84px;right:16px;padding:8px 10px}bod
   </div>
   <div class="row">
     <button class="chip on" id="qBtn">איכות: גבוהה</button>
+    <button class="chip" id="keysBtn">הגדרת מקשים</button>
     <button class="chip on" id="musBtn">מוזיקה: פועלת</button>
   </div>
   <div class="keys">
@@ -1285,12 +1302,12 @@ function updateRings(dt){
 const G=26;
 function camBasis(){ const f=new V3(-Math.sin(CAM.yaw),0,-Math.cos(CAM.yaw)), r=new V3(Math.cos(CAM.yaw),0,-Math.sin(CAM.yaw)); return {f,r}; }
 function wishDir(){
-  let x=0,y=0; const k=INPUT.keys;
-  if(k.KeyW||k.ArrowUp) y+=1; if(k.KeyS||k.ArrowDown) y-=1; if(k.KeyD||k.ArrowRight) x+=1; if(k.KeyA||k.ArrowLeft) x-=1;
+  let x=0,y=0;
+  if(held('fwd')) y+=1; if(held('back')) y-=1; if(held('right')) x+=1; if(held('left')) x-=1;
   x+=INPUT.joy.x; y+=INPUT.joy.y; const l=Math.hypot(x,y); if(l>1){ x/=l; y/=l; }
   const {f,r}=camBasis(); return { v:f.multiplyScalar(y).add(r.multiplyScalar(x)), mag:Math.min(1,l), x, y };
 }
-const sprinting=()=>INPUT.keys.ShiftLeft||INPUT.keys.ShiftRight||(IS_TOUCH&&Math.hypot(INPUT.joy.x,INPUT.joy.y)>.92);
+const sprinting=()=>held('sprint')||(IS_TOUCH&&Math.hypot(INPUT.joy.x,INPUT.joy.y)>.92);
 function findAnchor(){
   const base=PL.pos.clone(); base.y+=1.4;
   const {f}=camBasis(); const vh=new V3(PL.vel.x,0,PL.vel.z); const sp=vh.length();
@@ -1370,7 +1387,7 @@ function updatePlayer(dt){
     if(jump){ PL.vel.y=sprint?17:14.5; PL.state='air'; PL.pos.y+=.05; PL.trickT=sprint?.65:0; }
     PL.airTime=0; PL.boostUsed=false;
   } else if(st==='air'){
-    PL.vel.y-=G*dt*(INPUT.keys.KeyC?1.9:1);
+    PL.vel.y-=G*dt*(held('dive')?1.9:1);
     const along=PL.vel.x*W.v.x+PL.vel.z*W.v.z;
     if(along<26){ PL.vel.x+=W.v.x*16*dt; PL.vel.z+=W.v.z*16*dt; }
     steerH(W,dt,1.2);
@@ -1594,7 +1611,7 @@ function updateCamera(dt){
   CAM.mouseIdle+=dt;
   // how strongly the camera takes over again after the player looked around (0 right after mouse input, 1 after ~0.6s)
   const follow=smooth(.12,.6,CAM.mouseIdle);
-  const backing=st==='ground' && (INPUT.keys.KeyS||INPUT.joy.y<-.5) && !(INPUT.keys.KeyW||INPUT.joy.y>.3);
+  const backing=st==='ground' && (held('back')||INPUT.joy.y<-.5) && !(held('fwd')||INPUT.joy.y>.3);
   let ty=null;
   if(st==='wall') ty=Math.atan2(PL.wallN.x,PL.wallN.z);
   else if(hv>1.5 && !backing) ty=Math.atan2(-PL.vel.x,-PL.vel.z);
@@ -1673,26 +1690,74 @@ function updateHUD(dt){
 }
 
 // ===================================================================== INPUT
+// ---- rebindable controls
+const ACTIONS=[
+  {id:'fwd',   label:'קדימה',            hint:'ריצה / טיפוס למעלה'},
+  {id:'back',  label:'אחורה',            hint:''},
+  {id:'left',  label:'שמאלה',            hint:''},
+  {id:'right', label:'ימינה',            hint:''},
+  {id:'sprint',label:'ספרינט',           hint:'ריצה מהירה וטיפוס מהיר'},
+  {id:'jump',  label:'קפיצה',            hint:'באוויר: בוסט · בנדנוד: שחרור עם בוסט'},
+  {id:'swing', label:'נדנוד בקורים',     hint:'להחזיק'},
+  {id:'shoot', label:'ירי קורים',        hint:'נעילה אוטומטית על רחפנים'},
+  {id:'zip',   label:'משיכה מהירה',      hint:'לנקודה או בעיטה ברחפן'},
+  {id:'trick', label:'סלטה באוויר',      hint:'נותן סטייל'},
+  {id:'dive',  label:'צלילה',            hint:'להחזיק באוויר'},
+  {id:'tod',   label:'החלפת שעה ביום',   hint:''},
+  {id:'music', label:'מוזיקה',           hint:'הפעלה / כיבוי'},
+];
+const DEFAULT_BINDS={ fwd:['KeyW','ArrowUp'], back:['KeyS','ArrowDown'], left:['KeyA','ArrowLeft'], right:['KeyD','ArrowRight'], sprint:['ShiftLeft','ShiftRight'], jump:['Space',''], swing:['Mouse0',''], shoot:['Mouse2','KeyF'], zip:['KeyE',''], trick:['KeyQ',''], dive:['KeyC',''], tod:['KeyT',''], music:['KeyM',''] };
+const BIND={};
+function loadBinds(src){ for(const a of ACTIONS){ const d=DEFAULT_BINDS[a.id], v=src&&src[a.id]; BIND[a.id]=(Array.isArray(v)&&v.length===2&&v.every(x=>typeof x==='string'&&x.length<24))?[v[0],v[1]]:[d[0],d[1]]; } }
+loadBinds(SETTINGS.binds);
+const saveBinds=()=>{ SETTINGS.binds=JSON.parse(JSON.stringify(BIND)); saveSettings(); };
+const held=a=>BIND[a].some(c=>c&&INPUT.keys[c]);
+const actionsFor=code=>ACTIONS.filter(a=>BIND[a.id].includes(code)).map(a=>a.id);
+function keyName(code){
+  if(!code) return '—';
+  if(code.startsWith('Mouse')) return {Mouse0:'קליק שמאלי',Mouse1:'קליק אמצעי',Mouse2:'קליק ימני'}[code]||('עכבר '+code.slice(5));
+  if(code.startsWith('Key')) return code.slice(3);
+  if(code.startsWith('Digit')) return code.slice(5);
+  if(code.startsWith('Numpad')) return 'Num '+code.slice(6);
+  const m={ShiftLeft:'Shift שמאלי',ShiftRight:'Shift ימני',ControlLeft:'Ctrl שמאלי',ControlRight:'Ctrl ימני',AltLeft:'Alt שמאלי',AltRight:'Alt ימני',Space:'Space',ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Enter:'Enter',Tab:'Tab',CapsLock:'Caps Lock',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',Backslash:'\\'};
+  return m[code]||code;
+}
+const keysOf=a=>BIND[a].filter(Boolean).map(keyName).join(' / ')||'לא מוגדר';
+function refreshHelp(){
+  const row=(a,t)=>`<div><kbd>${keysOf(a)}</kbd>${t}</div>`;
+  const kd=document.querySelector('#menu .keys');
+  if(kd) kd.innerHTML = [`<div><kbd>${['fwd','left','back','right'].map(a=>BIND[a][0]?keyName(BIND[a][0]):'—').join(' ')}</kbd>תנועה</div>`,
+    row('sprint','ספרינט / טיפוס מהיר'), row('swing','החזק – נדנוד בקורים'), row('shoot','ירי קורים (נעילה אוטומטית)'), row('zip','משיכה מהירה / בעיטה ברחפן'),
+    row('jump','קפיצה · שחרור עם בוסט'), row('trick','סלטה באוויר (+סטייל)'), row('dive','צלילה'), row('tod','החלפת שעה ביום'), row('music','מוזיקה')].join('');
+  hud.hint.innerHTML=`החזק <b>${keyName(BIND.swing[0]||BIND.swing[1])}</b> כדי להתנדנד · <b>${keyName(BIND.shoot[0]||BIND.shoot[1])}</b> לירות קורים · <b>${keyName(BIND.zip[0]||BIND.zip[1])}</b> משיכה מהירה`;
+}
+function triggerAction(a){
+  if(a==='jump') INPUT.jumpEdge=true; else if(a==='zip') INPUT.zipEdge=true; else if(a==='shoot') INPUT.shootEdge=true; else if(a==='trick') INPUT.trickEdge=true;
+  else if(a==='swing'){ INPUT.swing=true; INPUT.swingEdge=true; }
+  else if(a==='tod'){ const names=Object.keys(TOD); applyTOD(names[(names.indexOf(SETTINGS.tod)+1)%names.length]); banner({golden:'שקיעה',night:'לילה',noon:'צהריים'}[SETTINGS.tod]); }
+  else if(a==='music') toggleMusic();
+}
+function pressCode(code){ INPUT.keys[code]=true; if(!GAME.running||GAME.paused) return false; const acts=actionsFor(code); acts.forEach(triggerAction); return acts.length>0; }
+function releaseCode(code){ INPUT.keys[code]=false; if(!held('swing')) INPUT.swing=false; }
+const REBIND={ target:null, eatClick:false };
 addEventListener('keydown', e=>{
-  if(e.repeat){ return; }
-  INPUT.keys[e.code]=true;
-  if(!GAME.running || GAME.paused) return;
-  if(e.code==='Space'){ INPUT.jumpEdge=true; e.preventDefault(); }
-  if(e.code==='KeyE') INPUT.zipEdge=true;
-  if(e.code==='KeyF') INPUT.shootEdge=true;
-  if(e.code==='KeyQ') INPUT.trickEdge=true;
-  if(e.code==='KeyT'){ const names=Object.keys(TOD); applyTOD(names[(names.indexOf(SETTINGS.tod)+1)%names.length]); banner({golden:'שקיעה',night:'לילה',noon:'צהריים'}[SETTINGS.tod]); }
-  if(e.code==='KeyM') toggleMusic();
-});
-addEventListener('keyup', e=>{ INPUT.keys[e.code]=false; });
+  if(REBIND.target){ e.preventDefault(); e.stopImmediatePropagation(); finishRebind(e.code); return; }
+  if(e.repeat){ if(actionsFor(e.code).length&&GAME.running&&!GAME.paused) e.preventDefault(); return; }
+  if(pressCode(e.code)) e.preventDefault();
+}, true);
+addEventListener('keyup', e=>{ releaseCode(e.code); });
 addEventListener('blur', ()=>{ INPUT.keys={}; INPUT.swing=false; });
+addEventListener('mousedown', e=>{
+  if(!REBIND.target) return;
+  e.preventDefault(); e.stopImmediatePropagation(); REBIND.eatClick=true; finishRebind('Mouse'+e.button);
+}, true);
+addEventListener('click', e=>{ if(REBIND.eatClick){ REBIND.eatClick=false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 canvas.addEventListener('mousedown', e=>{
   if(!GAME.running) return;
   if(document.pointerLockElement!==canvas && !IS_TOUCH){ canvas.requestPointerLock(); return; }
-  if(e.button===0){ INPUT.swing=true; INPUT.swingEdge=true; }
-  if(e.button===2){ INPUT.shootEdge=true; }
+  pressCode('Mouse'+e.button);
 });
-addEventListener('mouseup', e=>{ if(e.button===0) INPUT.swing=false; });
+addEventListener('mouseup', e=>{ releaseCode('Mouse'+e.button); });
 addEventListener('contextmenu', e=>e.preventDefault());
 addEventListener('mousemove', e=>{
   if(document.pointerLockElement!==canvas) return;
@@ -1729,6 +1794,36 @@ $('play').onclick=()=>{
   if(!GAME.running){ GAME.running=true; respawn(); newRingChain(); GAME.waveT=4; banner('SKYTHREAD','הפל את רחפני הציד · עבור דרך הטבעות'); setTimeout(()=>hud.hint.style.opacity=0,12000); }
   GAME.paused=false; if(!IS_TOUCH) canvas.requestPointerLock();
 };
+function renderKeys(){
+  const L=$('keysList'); L.innerHTML='';
+  for(const a of ACTIONS){
+    const lab=document.createElement('div'); lab.className='lbl'; lab.innerHTML=a.label+(a.hint?`<small>${a.hint}</small>`:''); L.appendChild(lab);
+    for(let slot=0;slot<2;slot++){
+      const b=document.createElement('button'); b.className='kb'+(BIND[a.id][slot]?'':' empty'); b.textContent=BIND[a.id][slot]?keyName(BIND[a.id][slot]):'—';
+      b.dataset.a=a.id; b.dataset.s=slot; b.onclick=()=>startRebind(a.id,slot,b); L.appendChild(b);
+    }
+  }
+}
+function startRebind(a,slot,btn){
+  cancelRebind(); REBIND.target={a,slot,btn}; btn.classList.add('listen'); btn.textContent='לחץ על מקש…'; $('keysMsg').textContent='';
+}
+function cancelRebind(){ if(REBIND.target){ const {a,slot,btn}=REBIND.target; btn.classList.remove('listen'); btn.textContent=BIND[a][slot]?keyName(BIND[a][slot]):'—'; REBIND.target=null; } }
+function finishRebind(code){
+  const {a,slot}=REBIND.target;
+  if(code==='Escape'){ cancelRebind(); return; }
+  let msg='';
+  if(code==='Backspace'||code==='Delete'){ BIND[a][slot]=''; }
+  else {
+    for(const o of ACTIONS) for(let i=0;i<2;i++) if(BIND[o.id][i]===code && !(o.id===a&&i===slot)){ BIND[o.id][i]=''; if(o.id!==a) msg=`"${keyName(code)}" הוסר מהפעולה "${o.label}"`; }
+    BIND[a][slot]=code;
+  }
+  REBIND.target=null; saveBinds(); renderKeys(); refreshHelp(); $('keysMsg').textContent=msg;
+}
+$('keysBtn').onclick=()=>{ renderKeys(); $('keysMsg').textContent=''; $('keysPanel').classList.add('open'); };
+$('keysClose').onclick=()=>{ cancelRebind(); $('keysPanel').classList.remove('open'); };
+$('keysReset').onclick=()=>{ cancelRebind(); loadBinds(null); saveBinds(); renderKeys(); refreshHelp(); $('keysMsg').textContent='הוחזרו ברירות המחדל'; };
+if(IS_TOUCH) $('keysBtn').style.display='none';
+refreshHelp();
 function pause(p){ GAME.paused=p; if(p){ $('menu').classList.remove('hide'); $('play').textContent='המשך'; INPUT.swing=false; if(AU.ctx) AU.windG.gain.value=0; } }
 
 // ===================================================================== LOOP
