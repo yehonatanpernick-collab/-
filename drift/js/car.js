@@ -189,18 +189,22 @@ function torqueCurve(rpm) {
 }
 
 export const DEFAULT_TUNE = {
-  gripF: 1.603, gripR: 1.577,         // peak tyre grip per axle (x load)
-  peakF: 0.179, peakR: 0.22,          // slip angle (rad) where grip peaks
-  traction: 1.967,                    // longitudinal (drive/brake) grip
-  rearMin: 0.24,                      // share of rear sideways grip left when the engine uses all the traction
-  slideGrip: 1.1,                     // rear grip multiplier once the tail is loose (a state with hysteresis)
-  enter: 0.217, exit: 0.066, drop: 8.3, recover: 2.0,   // rear slip angle (rad) that starts / ends a slide; how fast the state changes
-  hbMu: 0.444, hbLat: 0.163,          // handbrake: drag, and share of the rear's sideways grip that is left
-  lockLow: 0.6, over: 0.97, compLow: 0.3,              // steering: low-speed lock, how far past peak slip steering may go, counter-steer at low speed
-  betaLim: 0.878, authPow: 1.047,     // slide angle (rad) where steering into the slide stops adding turn-in, and how sharply it fades
-  kdb: 0.103,                         // steering damping on the rate of change of the slide angle (stops wobble)
-  hold: 3.5,                          // m/s^2 of thrust that keeps the entry speed in a slide
-  yawDamp: 0.85,
+  gripF: 1.666, gripR: 1.761,         // peak tyre grip per axle (x load)
+  peakF: 0.104, peakR: 0.157,         // slip angle (rad) where grip peaks
+  traction: 1.414,                    // longitudinal (drive/brake) grip
+  rearMin: 0.397,                     // share of rear sideways grip left when the engine uses all the traction
+  slideGrip: 0.731,                   // rear grip multiplier once the tail is loose (a state with hysteresis)
+  enter: 0.213, exit: 0.139, drop: 8.5, recover: 1.95,  // rear slip angle (rad) that starts / ends a slide; how fast the state changes
+  hbMu: 0.192, hbLat: 0.593,          // handbrake: drag, and share of the rear's sideways grip that is left
+  lockLow: 0.6, over: 0.905, compLow: 0.3,             // steering: low-speed lock, how far past peak slip steering may go, counter-steer at low speed
+  betaLim: 0.977, authPow: 1.099,     // slide angle (rad) where steering into the slide stops adding turn-in, and how sharply it fades
+  kdb: 0.082,                         // steering damping on the rate of change of the slide angle (stops wobble)
+  hold: 9.4,                          // m/s^2 of thrust that keeps the entry speed in a slide
+  boost: 0.268,                       // extra sideways grip on both axles while sliding
+  aDrift: 7.7,                        // m/s^2 sideways pull the wheel adds while sliding (path tightness)
+  launch: 0.55,                       // extra traction for straight-line launches
+  overDamp: 20,                       // how hard a slide beyond its limit angle is pulled back
+  yawDamp: 0.31,
 };
 
 export class CarPhysics {
@@ -299,7 +303,8 @@ export class CarPhysics {
     const dW = this.m * this.ax * this.h / this.L;
     const Fzf = Math.max(this.m * G * 0.15, Wf0 - dW), Fzr = Math.max(this.m * G * 0.15, Wr0 + dW);
     const aero = 1 + Math.min(speed, 55) / 140;
-    const maxF = T.gripF * aero * Fzf, maxRfull = T.gripR * aero * Fzr;
+    const driftBoost = 1 + T.boost * this.driftW;      // a sliding car keeps more sideways grip, so it still turns
+    const maxF = T.gripF * aero * Fzf * driftBoost, maxRfull = T.gripR * aero * Fzr * driftBoost;
 
     // ---------- rear traction state with hysteresis: a drift is a STATE.
     // Once the tail lets go it stays loose until the car is straightened out again.
@@ -339,7 +344,9 @@ export class CarPhysics {
       if (Math.abs(vx) > 0.3) { FxF -= rollDir * B * 0.62; FxR -= rollDir * B * 0.38; }
       else { vx *= 0.8; }
     }
-    const maxRlong = T.traction * aero * Fzr;
+    // straight-line launches get extra traction (it is not used while steering hard, so drift entries are unchanged)
+    const launchK = 1 + T.launch * (1 - sstep(speed, 8, 28)) * (1 - this.driftW) * (1 - sstep(Math.abs(s), 0.15, 0.4));
+    const maxRlong = T.traction * aero * Fzr * launchK;
     let spin = 0;
     if (Math.abs(FxR) > maxRlong * 0.92 && engine !== 0) spin = Math.min(1, (Math.abs(FxR) - maxRlong * 0.92) / (maxRlong * 0.9));
     this.spinRatio += (spin - this.spinRatio) * Math.min(1, dt * 8);
@@ -406,7 +413,7 @@ export class CarPhysics {
     // yaw damping (extra when the car is far past a normal slide, so it never spins like a top)
     let damp = ground ? T.yawDamp : 0.3;
     const over = Math.abs(beta) - T.betaLim;
-    if (ground && over > 0 && speed > 5) damp += over * 8 * (1.25 - A * 0.6);
+    if (ground && over > 0 && speed > 5) damp += over * T.overDamp * (1.25 - A * 0.6);
     this.yawRate *= 1 - Math.min(1, dt * damp);
     // very low speed: blend into a plain kinematic bicycle (no jitter, tight parking-lot turns)
     if (ground && speed < 6) {
@@ -426,6 +433,15 @@ export class CarPhysics {
 
     // back to world space using the frame the forces were computed in (velocity must NOT rotate with the body)
     this.vel.set(vx * sh + vy * -ch, vx * ch + vy * sh);
+    // steering controls how tightly a slide curves: a sideways pull at the centre of mass (adds no yaw torque,
+    // so it tightens the path without changing the slide angle). The wheel decides, the car follows.
+    if (ground && T.aDrift > 0 && !this.reverse && speed > 5) {
+      const pull = T.aDrift * this.driftW * s * dt;
+      const sp0 = Math.hypot(this.vel.x, this.vel.y) || 1;
+      const lx = this.vel.y / sp0, lz = -this.vel.x / sp0;   // unit vector to the left of the direction of travel
+      this.vel.x += lx * pull; this.vel.y += lz * pull;
+      const sp1 = Math.hypot(this.vel.x, this.vel.y) || 1; this.vel.x *= sp0 / sp1; this.vel.y *= sp0 / sp1;
+    }
     this.heading += this.yawRate * dt;
     this.pos.x += this.vel.x * dt; this.pos.z += this.vel.y * dt;
     vx = this.vel.x * Math.sin(this.heading) + this.vel.y * Math.cos(this.heading);
