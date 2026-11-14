@@ -123,8 +123,11 @@ input[type=range]{width:150px;accent-color:var(--accent)}
   display:grid;place-items:center;font-weight:900;font-size:15px;color:rgba(255,255,255,.85);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:transform .06s,background .06s}
 #touch .tb.on{background:rgba(255,255,255,.28);transform:scale(.95);border-color:rgba(255,255,255,.6)}
 #touch .tb svg{width:42%;height:42%;fill:currentColor}
-#tLeft{left:calc(16px + var(--sal));bottom:calc(18px + var(--sab));width:clamp(84px,13vw,120px);height:clamp(84px,13vw,120px)}
-#tRight{left:calc(26px + var(--sal) + clamp(84px,13vw,120px));bottom:calc(18px + var(--sab));width:clamp(84px,13vw,120px);height:clamp(84px,13vw,120px)}
+#tSteer{position:absolute;pointer-events:auto;touch-action:none;left:calc(14px + var(--sal));bottom:calc(10px + var(--sab));width:clamp(230px,34vw,340px);height:clamp(96px,16vw,130px);display:grid;place-items:center}
+#tSteer .track{position:relative;width:88%;height:16px;border-radius:10px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.3);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#tSteer .tick{position:absolute;left:50%;top:-7px;bottom:-7px;width:2px;margin-left:-1px;background:rgba(255,255,255,.35);border-radius:2px}
+#tSteer .knob{position:absolute;top:50%;left:50%;width:clamp(62px,10vw,82px);height:clamp(62px,10vw,82px);margin:calc(clamp(62px,10vw,82px) / -2) 0 0 calc(clamp(62px,10vw,82px) / -2);border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.95),rgba(190,200,220,.75) 55%,rgba(120,130,150,.7));box-shadow:0 6px 18px rgba(0,0,0,.45),inset 0 -6px 10px rgba(0,0,0,.18);border:2px solid rgba(255,255,255,.7);transform:translateX(0)}
+#tSteer.on .knob{background:radial-gradient(circle at 35% 30%,#fff,#ffd0dc 55%,#ff3d6e);border-color:#fff}
 #tGas{right:calc(16px + var(--sar));bottom:calc(18px + var(--sab));width:clamp(74px,11vw,100px);height:clamp(120px,19vw,170px);border-radius:18px;background:rgba(40,200,110,.22)}
 #tBrake{right:calc(26px + var(--sar) + clamp(74px,11vw,100px));bottom:calc(18px + var(--sab));width:clamp(74px,11vw,100px);height:clamp(90px,14vw,120px);border-radius:18px;background:rgba(230,60,60,.22)}
 #tHand{right:calc(30px + var(--sar) + clamp(74px,11vw,100px));bottom:calc(30px + var(--sab) + clamp(90px,14vw,120px));width:clamp(84px,12.5vw,112px);height:clamp(84px,12.5vw,112px);border-radius:50%;background:rgba(255,190,40,.25)}
@@ -206,8 +209,7 @@ body.touch #prog{top:calc(70px + var(--sat))}
 </div>
 
 <div id="touch" class="hidden">
-  <div class="tb" id="tLeft" data-btn="left"><svg viewBox="0 0 24 24"><path d="M15.5 3 6 12l9.5 9 2-2-7.4-7 7.4-7z"/></svg></div>
-  <div class="tb" id="tRight" data-btn="right"><svg viewBox="0 0 24 24"><path d="M8.5 3 18 12l-9.5 9-2-2 7.4-7-7.4-7z"/></svg></div>
+  <div id="tSteer"><div class="track"><i class="tick"></i><i class="knob"></i></div></div>
   <div class="tb" id="tGas" data-btn="gas">גז</div>
   <div class="tb" id="tBrake" data-btn="brake">ברקס</div>
   <div class="tb" id="tHand" data-btn="hand">בלם<br>יד</div>
@@ -235,7 +237,7 @@ body.touch #prog{top:calc(70px + var(--sat))}
   <div class="row"><span>איכות גרפיקה</span><div class="seg" data-set="quality"><button data-v="low">נמוכה</button><button data-v="medium">בינונית</button><button data-v="high">גבוהה</button><button data-v="ultra">אולטרה</button></div></div>
   <div class="row"><span>עזרת היגוי (קאונטר-סטיר)</span><div class="seg" data-set="assist"><button data-v="0.3">מקצוען</button><button data-v="0.65">רגיל</button><button data-v="0.95">קל</button></div></div>
   <div class="row"><span>מצלמה</span><div class="seg" data-set="cam"><button data-v="0">מרדף</button><button data-v="1">רחוקה</button><button data-v="2">מכסה מנוע</button><button data-v="3">נהג</button></div></div>
-  <div class="row"><span>היגוי בטלפון</span><div class="seg" data-set="steer"><button data-v="buttons">כפתורים</button><button data-v="tilt">הטיה</button></div></div>
+  <div class="row"><span>היגוי בטלפון</span><div class="seg" data-set="steer"><button data-v="buttons">מחוון</button><button data-v="tilt">הטיה</button></div></div>
   <div class="row"><span>גז אוטומטי (טלפון)</span><div class="seg" data-set="autogas"><button data-v="0">כבוי</button><button data-v="1">פועל</button></div></div>
   <div class="row"><span>עוצמת שמע</span><input type="range" min="0" max="1" step="0.05" id="vol"></div>
   <div class="row"><span>הצג FPS</span><div class="seg" data-set="fps"><button data-v="0">לא</button><button data-v="1">כן</button></div></div>

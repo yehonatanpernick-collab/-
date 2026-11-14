@@ -7,6 +7,7 @@ export class Input {
     this.analogSteer = false;
     this.tilt = false; this.tiltValue = 0;
     this.autoGas = false;
+    this.slider = 0; this.sliderActive = false;
     this.onAction = () => {};
     this._prevPad = {};
     this.lastDevice = 'keyboard';
@@ -51,6 +52,22 @@ export class Input {
     for (const ev of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) root.addEventListener(ev, update, { passive: false });
   }
 
+  // horizontal steering slider: drag the round knob left/right along the track; it re-centers when released
+  bindSlider(el) {
+    this.sliderEl = el; const track = el.querySelector('.track'), knob = el.querySelector('.knob');
+    let pid = null;
+    const setFrom = e => {
+      const r = track.getBoundingClientRect(); const half = r.width / 2;
+      let v = (e.clientX - (r.left + half)) / half; v = Math.max(-1, Math.min(1, v));
+      this.slider = Math.abs(v) < 0.04 ? 0 : v; this.lastDevice = 'touch';
+    };
+    el.addEventListener('pointerdown', e => { pid = e.pointerId; try { el.setPointerCapture(pid); } catch { } this.sliderActive = true; el.classList.add('on'); setFrom(e); e.preventDefault(); });
+    el.addEventListener('pointermove', e => { if (e.pointerId === pid) setFrom(e); });
+    const end = e => { if (e.pointerId !== pid) return; pid = null; this.sliderActive = false; el.classList.remove('on'); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    this._knob = knob; this._track = track;
+  }
+
   async enableTilt(on) {
     this.tilt = on;
     if (on && typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
@@ -88,14 +105,20 @@ export class Input {
     }
 
     const target = (left ? 1 : 0) - (right ? 1 : 0);
-    if (this.tilt && this.lastDevice === 'touch') {
+    if (this.sliderEl && !this.tilt && !this.sliderEl.classList.contains('hidden') && this.lastDevice === 'touch') {
+      if (!this.sliderActive) this.slider *= Math.max(0, 1 - dt * 14); // spring back to center
+      if (Math.abs(this.slider) < 0.01) this.slider = 0;
+      this.steer = -this.slider; this.analogSteer = true; // slide right = turn right
+      const half = this._track.clientWidth / 2 - 0 ;
+      this._knob.style.transform = `translateX(${this.slider * half}px)`;
+    } else if (this.tilt && this.lastDevice === 'touch') {
       this.steer += (-this.tiltValue - this.steer) * Math.min(1, dt * 12);
       this.analogSteer = true;
     } else if (padSteer !== null && this.lastDevice === 'gamepad' && target === 0) {
       this.steer = padSteer; this.analogSteer = true;
     } else {
       this.analogSteer = false;
-      const rate = target === 0 ? 7 : (Math.sign(target) !== Math.sign(this.steer) && this.steer !== 0 ? 9 : 4.2);
+      const rate = target === 0 ? 9 : (Math.sign(target) !== Math.sign(this.steer) && this.steer !== 0 ? 14 : 7.5);
       const d = target - this.steer;
       this.steer += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
     }

@@ -200,8 +200,9 @@ export class CarPhysics {
     this.I = this.m * 1.55;
     this.h = 0.48;
     this.R = info.radius;
-    this.maxTorque = 430;
-    this.tune = { align: 0.35, rearMin: 0.2, rearFx: 1.0, spinLoss: 0.4, cs: 1.0, hb: 0.4, kick: 0.4 };
+    this.maxTorque = 680;
+    this.tune = { align: 0.12, rearMin: 0.22, rearFx: 1.0, spinLoss: 0.35, cs: 1.0, hb: 0.35, kick: 0.75, bt: 0.74, kb: 6, grip: 2.0, turn: 1.0 };
+    this._phi = 0; this._wv = 0; this.driftW = 0;
     this.assist = 0.65;
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector2();         // world x,z
@@ -238,6 +239,7 @@ export class CarPhysics {
   }
 
   step(dt, inp) {
+    const T = this.tune;
     if (this.frozen) { this.vel.set(0, 0); this.yawRate = 0; this.rpm += ((IDLE + inp.throttle * 5500) - this.rpm) * Math.min(1, dt * 6); this.limiter = this.rpm > REDLINE - 200; return; }
     const ch = Math.cos(this.heading), sh = Math.sin(this.heading);
     const fx = sh, fz = ch;           // forward
@@ -249,11 +251,11 @@ export class CarPhysics {
 
     // ---------- steering (speed sensitive + counter-steer assist)
     const beta = speed > 1.5 ? Math.atan2(vy, Math.abs(vx)) : 0;
-    const maxIn = THREE.MathUtils.lerp(0.62, 0.2, Math.min(1, speed / 38));
+    const maxIn = THREE.MathUtils.lerp(0.74, 0.32, Math.min(1, speed / 45));
     let target = inp.steer * maxIn;
     if (vx > 2) target += -beta * this.assist * this.tune.cs * (1 - Math.abs(inp.steer) * 0.35);
     target = THREE.MathUtils.clamp(target, -0.85, 0.85);
-    this.steerAngle += THREE.MathUtils.clamp(target - this.steerAngle, -dt * 4.5, dt * 4.5);
+    this.steerAngle += THREE.MathUtils.clamp(target - this.steerAngle, -dt * 11, dt * 11);
     const d = this.steerAngle;
 
     // ---------- reverse logic
@@ -267,7 +269,7 @@ export class CarPhysics {
     const Wf0 = this.m * G * this.b / this.L, Wr0 = this.m * G * this.a / this.L;
     const dW = this.m * this.ax * this.h / this.L;
     const Fzf = Math.max(this.m * G * 0.15, Wf0 - dW), Fzr = Math.max(this.m * G * 0.15, Wr0 + dW);
-    const mu = 1.12;
+    const mu = this.tune.grip * (1 + Math.min(speed, 55) / 120);
 
     // ---------- engine / gearbox
     const gr = this.reverse ? -3.2 : GEARS[this.gear - 1];
@@ -288,7 +290,7 @@ export class CarPhysics {
     if (this.rpm > REDLINE) { this.rpm = REDLINE - 150 * Math.random(); this.limiter = true; }
     let engine = 0;
     if (this.shiftTimer <= 0 && !this.limiter) engine = thr * this.maxTorque * torqueCurve(this.rpm) * gr * FINAL * 0.86 / this.R;
-    if (this.nitroOn && !this.reverse) engine += 5200;
+    if (this.nitroOn && !this.reverse) engine += 7500;
 
     // ---------- tyres
     // rear longitudinal: drive or brake
@@ -318,7 +320,7 @@ export class CarPhysics {
     const minV = 4;
     const alphaF = Math.atan2(vlatF, Math.max(Math.abs(vlongF), minV));
     const alphaR = Math.atan2(vyR, Math.max(Math.abs(vx), minV));
-    const CF = 78000, CR = 82000;
+    const CF = 125000, CR = 130000;
     const tyre = (alpha, C, max) => {
       const lin = -C * alpha;
       const peak = max / C;
@@ -327,13 +329,12 @@ export class CarPhysics {
       const fall = 1 - 0.22 * Math.min(1, (a - peak) / 0.5);
       return -Math.sign(alpha) * max * fall;
     };
-    const T = this.tune;
     let latAvailR = maxR * Math.sqrt(Math.max(T.rearMin, 1 - (FxR / maxR) ** 2 * T.rearFx));
     latAvailR *= 1 - this.spinRatio * T.spinLoss;
     if (inp.handbrake) latAvailR *= T.hb;
     // power-oversteer feel: hard lock + throttle at speed loosens the rear (weight transfer / clutch-kick style)
-    const lock = Math.max(0, Math.abs(inp.steer) - 0.55) / 0.45;
-    if (thr > 0.6 && speed > 7 && !this.reverse) latAvailR *= 1 - T.kick * lock * Math.min(1, (speed - 7) / 8) * thr;
+    const lock = Math.min(1, Math.max(0, Math.abs(inp.steer) - 0.3) / 0.4);
+    if (thr > 0.55 && speed > 9 && !this.reverse) latAvailR *= 1 - T.kick * lock * Math.min(1, (speed - 9) / 6) * thr;
     const latAvailF = maxF * Math.sqrt(Math.max(0.3, 1 - (FxF / maxF) ** 2));
     let FyF = tyre(alphaF, CF, latAvailF);
     let FyR = tyre(alphaR, CR, latAvailR);
@@ -371,20 +372,39 @@ export class CarPhysics {
       vy *= 1 - Math.min(1, k * dt * 8);
     }
     if (ground && Math.abs(vx) < 0.3 && thr < 0.05) vx *= 1 - Math.min(1, dt * 4);
-    // arcade drift helpers (scaled by the assist setting):
-    //  - limit the body slip angle so the car does not spin out
-    //  - slowly swing the velocity toward the nose so drifts carry speed and feel controllable
+    // ---- arcade handling layer
     const sp2 = Math.hypot(vx, vy);
     const betaNow = Math.atan2(vy, Math.abs(vx) + 0.001);
-    if (ground && sp2 > 5) {
-      const bmax = (1.35 - this.assist * 0.6);
-      const ex = Math.abs(betaNow) - bmax;
+    const phiNow = Math.atan2(this.vel.x, this.vel.y);
+    let dphi = phiNow - this._phi; dphi = Math.atan2(Math.sin(dphi), Math.cos(dphi));
+    this._wv += ((dphi / Math.max(dt, 1e-4)) - this._wv) * Math.min(1, dt * 20); this._phi = phiNow;
+    const A = 0.45 + this.assist * 0.6;
+    if (ground && sp2 > 5 && vx > 0) {
+      // how deep in a slide are we (0 = gripping, 1 = drifting)
+      const w = THREE.MathUtils.smoothstep(Math.abs(betaNow), 0.1, 0.32) * Math.min(1, (sp2 - 5) / 6) * (thr > 0.15 || inp.handbrake ? 1 : 0.5);
+      this.driftW += (w - this.driftW) * Math.min(1, dt * 10);
+      // 1) drift controller: the steering input sets the slide angle; the car holds it while you hold the gas
+      const bt = Math.sign(inp.steer) * Math.pow(Math.abs(inp.steer), 0.8) * T.bt;
+      const wDes = this._wv + T.kb * (bt - betaNow);
+      this.yawRate += (wDes - this.yawRate) * Math.min(1, dt * 9) * this.driftW * Math.min(1, A);
+      // keep the car from looping out
+      const ex = Math.abs(betaNow) - 1.15;
       if (ex > 0) this.yawRate -= Math.sign(betaNow) * Math.min(Math.abs(this.yawRate) + 0.5, ex * 14 * dt * (0.5 + this.assist));
-      if (Math.abs(betaNow) > 0.12 && vx > 0) {
+      // 2) a slide carries speed: gentle push along the nose while on the gas
+      if (this.driftW > 0.2 && thr > 0.3) vx += 6.5 * this.driftW * thr * dt;
+      vx -= vx * 0.22 * this.driftW * dt * (0.4 + Math.abs(betaNow)); // sliding scrubs a bit of speed
+      // 3) velocity slowly swings toward the nose so exits are clean
+      if (Math.abs(betaNow) > 0.12) {
         const rot = Math.min(Math.abs(betaNow) - 0.1, dt * this.assist * (0.3 + 0.7 * thr) * T.align);
         const nb = betaNow - Math.sign(betaNow) * rot;
         vx = sp2 * Math.cos(nb); vy = sp2 * Math.sin(nb);
       }
+    } else this.driftW *= 1 - Math.min(1, dt * 6);
+    // direct turn-in while gripping: the car answers the wheel immediately and rotates sharply
+    if (ground && sp2 > 3 && !this.reverse && vx > 0) {
+      const lim = Math.min(2.6, mu * G * 0.92 / Math.max(sp2, 6));
+      const wDes = inp.steer * lim * T.turn * (1 - this.driftW) * Math.min(1, sp2 / 9);
+      this.yawRate += (wDes - this.yawRate) * Math.min(1, dt * 11) * (1 - this.driftW) * (0.5 + this.assist * 0.5);
     }
 
     // back to world space using the frame the forces were computed in (velocity must NOT rotate with the body)

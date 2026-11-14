@@ -176,6 +176,7 @@ async function boot() {
   try { await renderer.compileAsync(scene, camera); } catch { }
   setLoad(1, '');
   input.bindTouch($('#touch'));
+  input.bindSlider($('#tSteer'));
   input.onAction = onAction;
   showMenu();
   $('#loading').classList.add('hidden');
@@ -559,7 +560,7 @@ let menuAng = 0;
 function snapCamera() {
   const f = phys.forward;
   camDir.set(f.x, 0, f.z);
-  camPos.set(phys.pos.x - f.x * 6, phys.pos.y + 2.2, phys.pos.z - f.z * 6);
+  camPos.set(phys.pos.x - f.x * 4.2, phys.pos.y + 1.5, phys.pos.z - f.z * 4.2);
   camera.position.copy(camPos);
 }
 function updateCamera(dt) {
@@ -594,7 +595,7 @@ function updateCamera(dt) {
     return;
   }
   camera.near = 0.1;
-  const dist = camMode === 0 ? 5.9 : 8.6, height = camMode === 0 ? 1.95 : 3.0;
+  const dist = camMode === 0 ? 4.1 : 6.2, height = camMode === 0 ? 1.4 : 2.3;
   // look direction blends between heading and velocity, so drifts show the car's angle
   let target = fwd.clone();
   if (spd > 3 && !phys.reverse) {
@@ -603,7 +604,7 @@ function updateCamera(dt) {
   }
   const k = 1 - Math.exp(-dt * 4.2);
   camDir.lerp(target, k).normalize();
-  const extra = Math.min(1.6, spd * 0.03);
+  const extra = Math.min(1.0, spd * 0.018);
   const desired = _v2.set(phys.pos.x - camDir.x * (dist + extra), phys.pos.y + height + extra * 0.25, phys.pos.z - camDir.z * (dist + extra));
   // camera collision with walls via SDF
   const ox = phys.pos.x, oz = phys.pos.z;
@@ -616,7 +617,7 @@ function updateCamera(dt) {
   camera.position.copy(camPos);
   if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 2.5); }
   if (phys.nitroOn) { camera.position.x += (Math.random() - 0.5) * 0.03; camera.position.y += (Math.random() - 0.5) * 0.03; }
-  camLook.set(phys.pos.x + camDir.x * 2.5, phys.pos.y + 1.0, phys.pos.z + camDir.z * 2.5);
+  camLook.set(phys.pos.x + camDir.x * 3.2, phys.pos.y + 0.95, phys.pos.z + camDir.z * 3.2);
   camera.lookAt(camLook);
   const fov = baseFov + Math.min(16, spd * 0.28) + (phys.nitroOn ? 7 : 0);
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 3));
@@ -769,7 +770,7 @@ function openSettings() {
   });
   const v = $('#vol'); v.value = settings.vol; v.oninput = () => { settings.vol = +v.value; audio.setVolume(settings.vol); saveSettings(); };
 }
-function toggleSteerButtons() { const tilt = settings.steer === 'tilt'; $('#tLeft').classList.toggle('hidden', tilt); $('#tRight').classList.toggle('hidden', tilt); }
+function toggleSteerButtons() { $('#tSteer').classList.toggle('hidden', settings.steer === 'tilt'); }
 
 function openGarage() {
   $('#menu').classList.add('hidden');
