@@ -112,7 +112,7 @@ const MAPS = {
 };
 const CARS = {
   csl: { id: 'csl', name: 'BMW 3.0 CSL', glb: 'car', info: 'קלה וזריזה', spec: { mass: 1180, torque: 680 } },
-  m5: { id: 'm5', name: 'BMW M5 E28', glb: 'm5', info: 'כבדה, חזקה ויציבה', spec: { mass: 1390, torque: 830, tune: { grip: 2.05, turn: 0.95, bt: 0.7, kick: 0.82 } } },
+  m5: { id: 'm5', name: 'BMW M5 E28', glb: 'm5', info: 'כבדה, חזקה ויציבה', spec: { mass: 1390, torque: 830, tune: { aLim: 21, betaMax: 0.74, aSlide: 23 } } },
 };
 let mapId = null, NCP = 8, gltfLoader = null, glbSuffix = '';
 const carGltf = {};
