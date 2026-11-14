@@ -112,21 +112,38 @@ let world, car, phys, fx, cones, route, routeFwd, routeRev, gates = [];
 const loadMgr = { car: 0, city: 0 };
 
 function setLoad(p, text) { $('#loadBar').style.width = (p * 100).toFixed(1) + '%'; if (text) $('#loadText').textContent = text; }
+// Hosts that cannot serve .glb get the model as a base64 string module (<name>.glb.js); fetched with progress, parsed in memory.
+async function loadEmbedded(loader, url, key) {
+  const r = await fetch(url + '.js');
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+  const total = +r.headers.get('content-length') || (key === 'city' ? 7.9e6 : 3e6);
+  const reader = r.body.getReader(); const chunks = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; loadMgr[key] = Math.min(0.99, got / total); setLoad(loadMgr.car * 0.25 + loadMgr.city * 0.65); }
+  const text = new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
+  const b64 = text.slice(text.indexOf('"') + 1, text.lastIndexOf('"'));
+  const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Promise((res, rej) => loader.parse(bytes.buffer, '', res, rej));
+}
 function loadGLB(loader, url, key) {
+  if (window.DRIFT_EMBED) return loadEmbedded(loader, url, key);
   return new Promise((res, rej) => loader.load(url, res, e => {
-    if (e.total) loadMgr[key] = e.loaded / e.total; else loadMgr[key] = Math.min(0.95, e.loaded / (key === 'city' ? 5.9e6 : 2.2e6));
+    if (e.total) loadMgr[key] = e.loaded / e.total; else loadMgr[key] = Math.min(0.95, e.loaded / (key === 'city' ? 1.07e7 : 4e6));
     setLoad(loadMgr.car * 0.25 + loadMgr.city * 0.65);
   }, rej));
 }
 
 async function boot() {
   const loader = new GLTFLoader();
-  loader.setMeshoptDecoder(MeshoptDecoder);
+  // compressed models need a WebAssembly decoder; if the host blocks WebAssembly, use the plain versions
+  let suffix = '';
+  try { if (/[?&]plain/.test(location.search)) throw 0; await Promise.race([MeshoptDecoder.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]); loader.setMeshoptDecoder(MeshoptDecoder); }
+  catch { suffix = '_q'; }
   world = new World(scene, renderer);
   setupPipeline();
   const [carG, cityG, routeData, fill, ramp] = await Promise.all([
-    loadGLB(loader, 'assets/car.glb', 'car'),
-    loadGLB(loader, 'assets/city.glb', 'city'),
+    loadGLB(loader, `assets/car${suffix}.glb`, 'car'),
+    loadGLB(loader, `assets/city${suffix}.glb`, 'city'),
     fetch('assets/route.json').then(r => r.json()),
     fetch('assets/fill.json').then(r => r.json()),
     fetch('assets/ramp.json').then(r => r.json()),
