@@ -8,6 +8,7 @@ export class Input {
     this.tilt = false; this.tiltValue = 0;
     this.autoGas = false;
     this.slider = 0; this.sliderActive = false;
+    this.speed = 0; this.keySteer = 0;
     this.onAction = () => {};
     this._prevPad = {};
     this.lastDevice = 'keyboard';
@@ -118,9 +119,14 @@ export class Input {
       this.steer = padSteer; this.analogSteer = true;
     } else {
       this.analogSteer = false;
-      const rate = target === 0 ? 9 : (Math.sign(target) !== Math.sign(this.steer) && this.steer !== 0 ? 14 : 7.5);
-      const d = target - this.steer;
-      this.steer += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
+      // keys ramp like a wheel being turned: quick at low speed, calmer at high speed, with an S-curve at the ends
+      const k = Math.min(1, (this.speed || 0) / 40);
+      const press = 8 - 4.5 * k, release = 10 - 4 * k, flip = 12 - 5 * k;
+      const rate = target === 0 ? release : (Math.sign(target) !== Math.sign(this.keySteer) && this.keySteer !== 0 ? flip : press);
+      const d = target - this.keySteer;
+      this.keySteer += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
+      const a = Math.abs(this.keySteer);
+      this.steer = Math.sign(this.keySteer) * a * a * (3 - 2 * a) * 0.5 + this.keySteer * 0.5;   // blend of linear and S-curve
     }
     this.throttle = Math.max(gas ? 1 : 0, padThr);
     this.brake = Math.max(brk ? 1 : 0, padBrk);

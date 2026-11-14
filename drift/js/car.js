@@ -188,15 +188,19 @@ function torqueCurve(rpm) {
   return 0.62 + 0.38 * Math.sin(Math.PI * Math.min(1, x * 1.15)) + (x > 0.85 ? -0.15 * (x - 0.85) / 0.15 : 0);
 }
 
-const DEFAULT_TUNE = {
-  traction: 1.45,                     // drive grip (x g)
-  aLim: 20, aMax: 30, aSlide: 24,     // sideways acceleration (m/s^2): grip limit, what full steering asks for, path tightness while sliding
-  rMin: 5.5,                          // tightest turning radius (m) at low speed
-  hyst: 0.6,                          // already sliding: the grip limit drops to this share (easier to stay in the slide)
-  hbGrip: 0.25, hbBrake: 0.3,         // handbrake: share of grip left, and drag
-  betaMax: 0.78, kp: 12, kd: 7, maxAcc: 14, bRate: 0.95, bRelease: 0.55, kickUp: 1.5, kickDown: 0.9,   // slide angle: max (rad), spring, damper, max angular acceleration
-  scrub: 0.3,                         // speed lost to sliding sideways
-  slideDrive: 0.45,                   // power lost while sliding
+export const DEFAULT_TUNE = {
+  gripF: 1.92, gripR: 1.67,           // peak tyre grip per axle (x load)
+  peakF: 0.2, peakR: 0.149,           // slip angle (rad) where grip peaks
+  traction: 1.93,                     // longitudinal (drive/brake) grip
+  rearMin: 0.4,                       // share of rear sideways grip left when the engine uses all the traction
+  slideGrip: 0.9,                     // rear grip multiplier once the tail is loose (a state with hysteresis)
+  enter: 0.3, exit: 0.054, drop: 6.2, recover: 0.86,   // rear slip angle (rad) that starts / ends a slide; how fast the state changes
+  hbMu: 0.26, hbLat: 0.26,            // handbrake: drag, and share of the rear's sideways grip that is left
+  lockLow: 0.6, over: 1.175, compLow: 0.3,             // steering: low-speed lock, how far past peak slip steering may go, counter-steer at low speed
+  betaLim: 0.612, authPow: 1.5,       // slide angle (rad) where steering into the slide stops adding turn-in, and how sharply it fades
+  kdb: 0.175,                         // steering damping on the rate of change of the slide angle (stops wobble)
+  hold: 5,                            // m/s^2 of thrust that keeps the entry speed in a slide
+  yawDamp: 1.12,
 };
 
 export class CarPhysics {
@@ -206,7 +210,7 @@ export class CarPhysics {
     this.h = 0.48;
     this.maxTorque = 680; this.m = 1180;
     this.tune = { ...DEFAULT_TUNE };
-    this.driftW = 0; this._thr = 0; this._hb = 0; this._phi = 0; this._wv = 0; this._ref = 0; this._bt = 0; this._kick = 0;
+    this.driftW = 0; this._thr = 0; this._hb = 0; this._slide = 0; this._bd = 0; this._b0 = 0; this._ref = 0;
     this.setCar(info, spec);
     this.assist = 0.65;
     this.pos = new THREE.Vector3();
@@ -235,7 +239,7 @@ export class CarPhysics {
     this.R = info.radius;
     this.m = spec.mass ?? 1180;
     this.maxTorque = spec.torque ?? 680;
-    this.I = this.m * 1.3;                 // yaw inertia (used by wall collisions)
+    this.I = this.m * 1.25;                 // yaw inertia (used by wall collisions)
     this.tune = Object.assign({ ...DEFAULT_TUNE }, spec.tune || {});
   }
 
@@ -269,7 +273,6 @@ export class CarPhysics {
     const A = this.assist;            // 0.3 pro ... 0.95 easy
     const clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp, sstep = THREE.MathUtils.smoothstep;
     const clamp01 = x => Math.min(1, Math.max(0, x));
-    const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 
     // ---------- reverse logic
     if (inp.brake > 0.1 && vx < 0.6 && inp.throttle < 0.1) this.reverse = true;
@@ -279,21 +282,32 @@ export class CarPhysics {
     const brk = this.reverse ? inp.throttle : inp.brake;
     // pedals are smoothed so a keyboard feels like a foot, not a switch
     this._thr += clamp(thrRaw - this._thr, -dt * 9, dt * 4.5);
-    this._hb += (inp.handbrake - this._hb) * Math.min(1, dt * 18);
-    const thr = this._thr;
+    this._hb += (inp.handbrake - this._hb) * Math.min(1, dt * 14);
+    const thr = this._thr, hb = this._hb;
     const s = inp.steer;              // + = left
-    const sgn = Math.sign(s), absS = Math.abs(s);
 
-    // slide angle: how far the nose points away from the direction of travel (+ = nose to the left)
-    const fwd = ground && !this.reverse && vx > 1.5;
-    const phi = Math.atan2(this.vel.x, this.vel.y);
-    const beta = fwd ? wrap(this.heading - phi) : 0;
+    // ---------- axle velocities, slide angle
+    const vyF = vy - this.yawRate * this.a;          // lateral velocity at the front axle
+    const vyR = vy + this.yawRate * this.b;          // ... and at the rear axle
+    const beta = vx > 1 ? Math.atan2(vy, vx) : 0;    // body slip angle (+ = nose to the left of travel)
     this.driftW = sstep(Math.abs(beta), 0.1, 0.45);
+    this._bd += ((beta - this._b0) / Math.max(dt, 1e-4) - this._bd) * Math.min(1, dt * 18); this._b0 = beta;   // how fast the slide angle is changing
+    const alphaR = Math.atan2(vyR, Math.max(Math.abs(vx), 3));
 
-    // ---------- load transfer + traction
-    const Wr0 = this.m * G * this.a / this.L;
-    const Fzr = Math.max(this.m * G * 0.15, Wr0 + this.m * this.ax * this.h / this.L);
-    const maxR = T.traction * (1 + Math.min(speed, 55) / 140) * Fzr;
+    // ---------- load transfer + grip (grows a little with speed: downforce)
+    const Wf0 = this.m * G * this.b / this.L, Wr0 = this.m * G * this.a / this.L;
+    const dW = this.m * this.ax * this.h / this.L;
+    const Fzf = Math.max(this.m * G * 0.15, Wf0 - dW), Fzr = Math.max(this.m * G * 0.15, Wr0 + dW);
+    const aero = 1 + Math.min(speed, 55) / 140;
+    const maxF = T.gripF * aero * Fzf, maxRfull = T.gripR * aero * Fzr;
+
+    // ---------- rear traction state with hysteresis: a drift is a STATE.
+    // Once the tail lets go it stays loose until the car is straightened out again.
+    const wantLoose = Math.abs(alphaR) > T.enter || hb > 0.35;
+    const wantGrip = Math.abs(alphaR) < T.exit && hb < 0.1;
+    if (wantLoose) this._slide += (1 - this._slide) * Math.min(1, dt * T.drop);
+    else if (wantGrip) this._slide += (0 - this._slide) * Math.min(1, dt * T.recover);
+    const gripMul = lerp(1, T.slideGrip, this._slide);
 
     // ---------- engine / gearbox
     const gr = this.reverse ? -3.2 : GEARS[this.gear - 1];
@@ -316,92 +330,105 @@ export class CarPhysics {
     if (this.shiftTimer <= 0 && !this.limiter) engine = thr * this.maxTorque * torqueCurve(this.rpm) * gr * FINAL * 0.86 / this.R;
     if (this.nitroOn && !this.reverse) engine += 7500;
     if (this.reverse && vx < -7) engine = 0;      // reverse top speed
-    let FxR = engine;
-    let spin = 0;
-    if (Math.abs(FxR) > maxR * 0.92 && engine !== 0) spin = Math.min(1, (Math.abs(FxR) - maxR * 0.92) / (maxR * 0.9));
-    this.spinRatio += (spin - this.spinRatio) * Math.min(1, dt * 8);
-    if (engine !== 0) FxR *= 1 - T.slideDrive * this.driftW;   // a car sliding sideways cannot also put all its power down
-    FxR = clamp(FxR, -maxR * 0.98, maxR * 0.98);
-    const brakeF = brk > 0 && Math.abs(vx) > 0.3 ? 12500 * brk : 0;
 
-    // ---------- what the player is asking for
-    // Steering decides how tightly the car's PATH curves. Gas and handbrake decide the SLIDE ANGLE.
-    const slideBias = Math.abs(beta) > 0.22 ? T.hyst : 1;                 // once sliding, it is easier to stay sliding
-    const aLim = T.aLim * (1 + Math.min(speed, 60) / 150) * slideBias * (1 - (1 - T.hbGrip) * this._hb);
-    const aCmd = absS * Math.min(speed * speed / T.rMin, T.aMax);          // sideways acceleration requested
-    const excess = Math.max(0, aCmd / aLim - 1);
-    const hbKick = this._hb * (absS > 0.12 ? 1 : 0);
-    const gas = Math.abs(beta) > 0.22 ? Math.max(clamp01(thr * 1.25), 0.45) : clamp01(thr * 1.25);   // lifting off narrows a slide, it does not end it
-    const kick = clamp01(Math.max(sstep(excess, 0, 0.3) * gas, hbKick));   // 0 = grip, 1 = full slide
-    this._kick += clamp(kick - this._kick, -dt * T.kickDown, dt * T.kickUp * (1 + this._hb));   // entering and leaving a slide is gradual
-    const kickS = this._kick;
-    const bMax = T.betaMax * (0.55 + 0.45 * thr);                          // more gas = wider angle
-    const btWant = sgn * kickS * bMax * (0.55 + 0.45 * absS);               // target slide angle
-    const growing = Math.abs(btWant) > Math.abs(this._bt) && Math.sign(btWant) === (Math.sign(this._bt) || Math.sign(btWant));
-    const bRate = (growing ? T.bRate : T.bRelease) * (1 + this._hb);
-    this._bt += clamp(btWant - this._bt, -dt * bRate, dt * bRate);   // the angle builds and fades progressively
-    const bt = this._bt;
-    const aTarget = lerp(Math.min(aCmd, aLim), Math.min(aCmd, T.aSlide), kickS);
-    const wvT = fwd ? sgn * aTarget / Math.max(speed, 3) : 0;            // target rotation rate of the direction of travel
-    this._wv += (wvT - this._wv) * Math.min(1, dt / (Math.abs(wvT) < Math.abs(this._wv) ? lerp(0.12, 0.45, kickS) : lerp(0.08, 0.2, kickS)));   // letting go of the wheel eases the path straight
-
-    // slide angle spring-damper: smooth, no snapping
-    let bd = this.yawRate - this._wv;
-    bd += clamp(-T.kp * (beta - bt) - T.kd * bd, -T.maxAcc, T.maxAcc) * dt;
-    const yawP = this._wv + bd;
-
-    // low speed / reverse: plain kinematic steering
-    const lockV = lerp(0.6, 0.22, clamp01((speed - 4) / 32));
-    const yawK = clamp(vx * Math.tan(s * 0.55) / this.L, -1.8, 1.8);
-    const kb = fwd ? sstep(speed, 3, 8) : 0;
-    if (ground) this.yawRate = lerp(yawK, yawP, kb); else this.yawRate *= 1 - Math.min(1, dt * 0.4);
-    const headingNew = this.heading + this.yawRate * dt;
-
-    // ---------- longitudinal: forces along the direction of travel
-    const gx0 = this.grid.height(this.pos.x + fx * 1.2, this.pos.z + fz * 1.2) - this.grid.height(this.pos.x - fx * 1.2, this.pos.z - fz * 1.2);
-    const slope = ground ? G * clamp(gx0 / 2.4, -0.3, 0.3) : 0;
-    const drag = (0.5 * speed * speed + 14 * speed) / this.m;
-    const hbDrag = vx > 1 ? T.hbBrake * maxR * this._hb / this.m : 0;
-    let aLong;
-    if (ground) {
-      // particle model: speed scalar along the velocity vector, which rotates at _wv
-      const cb = Math.cos(beta);
-      const aEng = FxR / this.m * (fwd ? Math.max(0.2, cb) : 1);
-      const scrub = T.scrub * G * Math.abs(Math.sin(beta)) * (fwd ? 1 : 0);
-      const aBrake = brakeF / this.m;
-      aLong = aEng - drag * Math.sign(vx || 1) - aBrake * Math.sign(vx || 1) - hbDrag - scrub - 0.04 * aTarget - slope;
-      if (!fwd) aLong = aEng - (drag + aBrake) * Math.sign(vx || 1) - hbDrag - slope;
-      // (a) particle result (moving forward)
-      let sp = Math.max(0, speed + aLong * dt);
-      const rot = this._wv * dt;
-      const cR = Math.cos(rot), sR = Math.sin(rot);
-      let nx = (this.vel.x * cR + this.vel.y * sR), nz = (this.vel.y * cR - this.vel.x * sR);
-      const nl = Math.hypot(nx, nz) || 1;
-      const pvx = nx / nl * sp, pvz = nz / nl * sp;
-      // (b) kinematic result: the car goes where the nose points
-      let uK = vx + (FxR / this.m - (drag + aBrake) * Math.sign(vx || 1) - hbDrag * Math.sign(vx || 1) - slope) * dt;
-      if (Math.abs(vx) < 0.4 && thr < 0.05 && brk < 0.05) uK *= 1 - Math.min(1, dt * 5);
-      if (!this.reverse && uK < 0 && vx >= 0) uK = 0;
-      const vK = vy * (1 - Math.min(1, dt * 9));
-      const chN = Math.cos(headingNew), shN = Math.sin(headingNew);
-      const kvx = uK * shN + vK * -chN, kvz = uK * chN + vK * shN;
-      this.vel.set(lerp(kvx, pvx, kb), lerp(kvz, pvz, kb));
-      const aLongV = fwd ? aLong : (FxR / this.m - (drag + aBrake) * Math.sign(vx || 1));
-      this.ax += (aLongV - this.ax) * Math.min(1, dt * 10);
-      this.ay += (-(vx * this.yawRate * (1 - kb) + speed * this._wv * kb) - this.ay) * Math.min(1, dt * 10);
-    } else {
-      this.vel.x -= this.vel.x * 0.02 * dt; this.vel.y -= this.vel.y * 0.02 * dt;
+    // ---------- longitudinal tyre forces
+    const rollDir = Math.sign(vx) || 1;
+    let FxR = engine, FxF = 0;
+    if (brk > 0) {
+      const B = 12500 * brk;
+      if (Math.abs(vx) > 0.3) { FxF -= rollDir * B * 0.62; FxR -= rollDir * B * 0.38; }
+      else { vx *= 0.8; }
     }
-    vx = this.vel.x * Math.sin(headingNew) + this.vel.y * Math.cos(headingNew);
-    this.heading = headingNew;
-    this.pos.x += this.vel.x * dt; this.pos.z += this.vel.y * dt;
+    const maxRlong = T.traction * aero * Fzr;
+    let spin = 0;
+    if (Math.abs(FxR) > maxRlong * 0.92 && engine !== 0) spin = Math.min(1, (Math.abs(FxR) - maxRlong * 0.92) / (maxRlong * 0.9));
+    this.spinRatio += (spin - this.spinRatio) * Math.min(1, dt * 8);
+    FxR = clamp(FxR, -maxRlong * 0.98, maxRlong * 0.98);
+    FxF = clamp(FxF, -maxF * 0.95, maxF * 0.95);
 
-    // ---------- front wheels (visual): lock into the turn, and counter-steer automatically while sliding
-    const dTarget = lerp(s * lockV, clamp(-beta * 1.05 + s * 0.2, -0.9, 0.9), this.driftW);
-    this.steerAngle += clamp(dTarget - this.steerAngle, -dt * 9, dt * 9);
-    // smoke / skid amounts
-    this.frontSlip = Math.max(0, aCmd / Math.max(T.aLim, 1) - 1) * 0.5;
-    this.rearSlip = Math.abs(beta) * 1.3 + this.spinRatio * 0.6 + kickS * 0.25 + (this._hb > 0.5 && speed > 3 ? 0.4 : 0);
+    // ---------- steering. The player asks for FRONT GRIP (a slip angle), not a wheel angle:
+    // that is what makes keys and a slider drivable, and the front wheels counter-steer by themselves in a slide.
+    const alphaK = Math.atan2(vyF, Math.max(Math.abs(vx), 3));        // front slip caused by the car's own motion
+    const peakF = T.peakF;
+    const bound = lerp(T.lockLow, peakF * T.over, sstep(vx, 5, 20));    // largest front slip the steering may ask for
+    // steering into a slide that is already wide gives less and less: this is what keeps a drift from spinning
+    const into = s * beta > 0;
+    const authority = into ? Math.max(0, 1 - Math.pow(Math.abs(beta) / T.betaLim, T.authPow)) : 1;
+    let dTarget;
+    if (vx > 1 && ground) {
+      const alphaWant = s * bound * authority - T.kdb * this._bd * (vx > 8 ? 1 : 0);   // damps the slide so it settles instead of wobbling
+      const dAssist = alphaWant - alphaK * lerp(T.compLow, 1, sstep(vx, 4, 12));
+      dTarget = lerp(s * 0.55, dAssist, sstep(vx, 3, 9));
+    } else dTarget = s * 0.55;
+    dTarget = clamp(dTarget, -0.95, 0.95);
+    this.steerAngle += clamp(dTarget - this.steerAngle, -dt * 12, dt * 12);
+    const d = this.steerAngle;
+
+    // ---------- lateral tyre forces (smooth saturating curve + friction ellipse with the longitudinal force)
+    const sd = Math.sin(d), cd = Math.cos(d);
+    const vlatF = vx * sd + vyF * cd;
+    const vlongF = vx * cd - vyF * sd;
+    const alphaF = Math.atan2(vlatF, Math.max(Math.abs(vlongF), 3));
+    const pac = (alpha, Fmax, peak) => -Fmax * Math.sin(1.3 * Math.atan(2.68 * alpha / peak));
+    const latAvailF = maxF * Math.sqrt(Math.max(0.35, 1 - (FxF / maxF) ** 2));
+    // power uses up the rear grip (the friction ellipse): the gas pedal widens the slide
+    const latAvailR = maxRfull * gripMul * Math.sqrt(Math.max(T.rearMin, 1 - (FxR / Math.max(maxRlong, 1)) ** 2));
+    let FyF = pac(alphaF, latAvailF, peakF);
+    let FyR = pac(alphaR, latAvailR, T.peakR);
+    // combined slip: a rear axle that is using its grip to slide sideways has less drive/brake force left
+    FxR *= Math.sqrt(Math.max(0.2, 1 - Math.min(1, Math.abs(FyR) / Math.max(latAvailR, 1)) ** 2));
+    // handbrake: the rear loses most of its sideways grip and drags; this swings the tail out
+    let FxRe = FxR;
+    if (hb > 0.01) {
+      FyR *= 1 - (1 - T.hbLat) * hb;
+      if (vx > 1) FxRe -= T.hbMu * maxRfull * hb;
+    }
+    this.frontSlip = Math.abs(alphaF);
+    this.rearSlip = Math.abs(alphaR) + this.spinRatio * 0.6 + (hb > 0.5 && speed > 3 ? 0.4 : 0);
+
+    // ---------- sum forces / torque
+    let Fx = FxRe + FxF * cd - FyF * sd;
+    let Fy = FyR + FxF * sd + FyF * cd;
+    Fx -= 0.5 * vx * Math.abs(vx) + 14 * vx;
+    Fy -= 0.12 * vy * Math.abs(vy);
+    const gx0 = this.grid.height(this.pos.x + fx * 1.2, this.pos.z + fz * 1.2) - this.grid.height(this.pos.x - fx * 1.2, this.pos.z - fz * 1.2);
+    if (ground) Fx -= this.m * G * clamp(gx0 / 2.4, -0.3, 0.3);
+
+    let torque = 0;
+    if (ground) torque = -this.a * (FyF * cd + FxF * sd) + this.b * FyR;
+    else { Fx = -0.42 * vx * Math.abs(vx); Fy = 0; }
+
+    const axl = Fx / this.m, ayl = Fy / this.m;
+    this.ax += (axl - this.ax) * Math.min(1, dt * 10);
+    this.ay += (ayl - this.ay) * Math.min(1, dt * 10);
+    vx += axl * dt; vy += ayl * dt;
+    this.yawRate += torque / this.I * dt;
+    // yaw damping (extra when the car is far past a normal slide, so it never spins like a top)
+    let damp = ground ? T.yawDamp : 0.3;
+    const over = Math.abs(beta) - T.betaLim;
+    if (ground && over > 0 && speed > 5) damp += over * 8 * (1.25 - A * 0.6);
+    this.yawRate *= 1 - Math.min(1, dt * damp);
+    // very low speed: blend into a plain kinematic bicycle (no jitter, tight parking-lot turns)
+    if (ground && speed < 6) {
+      const k = 1 - speed / 6;
+      const kin = vx * Math.tan(d) / this.L;
+      this.yawRate += (kin - this.yawRate) * Math.min(1, k * dt * 12);
+      vy *= 1 - Math.min(1, k * dt * 8);
+    }
+    if (ground && Math.abs(vx) < 0.3 && thr < 0.05) vx *= 1 - Math.min(1, dt * 4);
+
+    // a slide keeps the speed you came into it with while the gas is down (it only compensates the sideways scrub)
+    if (Math.abs(beta) < 0.12) this._ref = speed;
+    if (ground && thr > 0.3 && !this.reverse && T.hold > 0 && speed < this._ref) {
+      const k = Math.min(T.hold, (this._ref - speed) * 3) * sstep(Math.abs(beta), 0.12, 0.4) * thr * dt / Math.max(speed, 1);
+      vx += vx * k; vy += vy * k;
+    }
+
+    // back to world space using the frame the forces were computed in (velocity must NOT rotate with the body)
+    this.vel.set(vx * sh + vy * -ch, vx * ch + vy * sh);
+    this.heading += this.yawRate * dt;
+    this.pos.x += this.vel.x * dt; this.pos.z += this.vel.y * dt;
+    vx = this.vel.x * Math.sin(this.heading) + this.vel.y * Math.cos(this.heading);
 
     // ---------- vertical
     const g = this.groundSample();

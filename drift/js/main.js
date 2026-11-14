@@ -111,8 +111,8 @@ const MAPS = {
   chicago: { id: 'chicago', name: 'שיקגו', glb: 'chi', gridMod: '../assets/grid_chi.js', route: 'route_chi.json', fill: 'fill_chi.json', ramp: null, mini: 'minimap_chi.png', scale: 0.4, cps: 7, rec: 'chi_', km: '3.0', info: 'שדרות רחבות ועיקולים ארוכים' },
 };
 const CARS = {
-  csl: { id: 'csl', name: 'BMW 3.0 CSL', glb: 'car', info: 'קלה וזריזה', spec: { mass: 1180, torque: 680 } },
-  m5: { id: 'm5', name: 'BMW M5 E28', glb: 'm5', info: 'כבדה, חזקה ויציבה', spec: { mass: 1390, torque: 830, tune: { aLim: 21, betaMax: 0.74, aSlide: 23 } } },
+  csl: { id: 'csl', name: 'BMW 3.0 CSL', glb: 'car', info: 'קלה וזריזה', spec: { mass: 1180, torque: 780 } },
+  m5: { id: 'm5', name: 'BMW M5 E28', glb: 'm5', info: 'כבדה, חזקה ויציבה', spec: { mass: 1390, torque: 900, tune: { gripF: 1.98, gripR: 1.74 } } },
 };
 let mapId = null, NCP = 8, gltfLoader = null, glbSuffix = '';
 const carGltf = {};
@@ -678,13 +678,14 @@ function updateCamera(dt) {
 
 // ------------------------------------------------------------------ loop
 let last = 0, acc = 0, lastCount = 4, fpsAcc = 0, fpsN = 0, dynT = 0, dynAcc = 0, dynN = 0;
-const STEP = 1 / 120;
+const STEP = 1 / 240;
 const FIXED_DT = +(new URLSearchParams(location.search).get("fixeddt") || 0);
 const idleInput = { steer: 0, throttle: 0, brake: 0, handbrake: 0, nitro: 0 };
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = FIXED_DT || Math.min(0.05, (now - last) / 1000); last = now;
   if (state === 'paused') { render(dt); return; }
+  input.speed = phys ? phys.speed : 0;
   input.update(dt);
   const playing = state === 'play';
   const inp = playing ? input : (state === 'countdown' ? { ...idleInput, throttle: input.throttle } : idleInput);
@@ -701,7 +702,7 @@ function loop(now) {
 
   acc += dt;
   let steps = 0;
-  while (acc >= STEP && steps < 10) { phys.step(STEP, inp); acc -= STEP; steps++; if (playing || state === 'countdown') handleEvents(); }
+  while (acc >= STEP && steps < 20) { phys.step(STEP, inp); acc -= STEP; steps++; if (playing || state === 'countdown') handleEvents(); }
   if (!playing && state !== 'countdown') phys.events.length = 0;
 
   if (playing) {
