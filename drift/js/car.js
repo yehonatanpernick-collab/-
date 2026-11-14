@@ -189,18 +189,18 @@ function torqueCurve(rpm) {
 }
 
 export const DEFAULT_TUNE = {
-  gripF: 1.92, gripR: 1.67,           // peak tyre grip per axle (x load)
-  peakF: 0.2, peakR: 0.149,           // slip angle (rad) where grip peaks
-  traction: 1.93,                     // longitudinal (drive/brake) grip
-  rearMin: 0.4,                       // share of rear sideways grip left when the engine uses all the traction
-  slideGrip: 0.9,                     // rear grip multiplier once the tail is loose (a state with hysteresis)
-  enter: 0.3, exit: 0.054, drop: 6.2, recover: 0.86,   // rear slip angle (rad) that starts / ends a slide; how fast the state changes
-  hbMu: 0.26, hbLat: 0.26,            // handbrake: drag, and share of the rear's sideways grip that is left
-  lockLow: 0.6, over: 1.175, compLow: 0.3,             // steering: low-speed lock, how far past peak slip steering may go, counter-steer at low speed
-  betaLim: 0.612, authPow: 1.5,       // slide angle (rad) where steering into the slide stops adding turn-in, and how sharply it fades
-  kdb: 0.175,                         // steering damping on the rate of change of the slide angle (stops wobble)
-  hold: 5,                            // m/s^2 of thrust that keeps the entry speed in a slide
-  yawDamp: 1.12,
+  gripF: 1.603, gripR: 1.577,         // peak tyre grip per axle (x load)
+  peakF: 0.179, peakR: 0.22,          // slip angle (rad) where grip peaks
+  traction: 1.967,                    // longitudinal (drive/brake) grip
+  rearMin: 0.24,                      // share of rear sideways grip left when the engine uses all the traction
+  slideGrip: 1.1,                     // rear grip multiplier once the tail is loose (a state with hysteresis)
+  enter: 0.217, exit: 0.066, drop: 8.3, recover: 2.0,   // rear slip angle (rad) that starts / ends a slide; how fast the state changes
+  hbMu: 0.444, hbLat: 0.163,          // handbrake: drag, and share of the rear's sideways grip that is left
+  lockLow: 0.6, over: 0.97, compLow: 0.3,              // steering: low-speed lock, how far past peak slip steering may go, counter-steer at low speed
+  betaLim: 0.878, authPow: 1.047,     // slide angle (rad) where steering into the slide stops adding turn-in, and how sharply it fades
+  kdb: 0.103,                         // steering damping on the rate of change of the slide angle (stops wobble)
+  hold: 3.5,                          // m/s^2 of thrust that keeps the entry speed in a slide
+  yawDamp: 0.85,
 };
 
 export class CarPhysics {
