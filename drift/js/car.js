@@ -194,7 +194,7 @@ const DEFAULT_TUNE = {
   rMin: 5.5,                          // tightest turning radius (m) at low speed
   hyst: 0.6,                          // already sliding: the grip limit drops to this share (easier to stay in the slide)
   hbGrip: 0.25, hbBrake: 0.3,         // handbrake: share of grip left, and drag
-  betaMax: 0.78, kp: 26, kd: 10, maxAcc: 32, bRate: 2.4,   // slide angle: max (rad), spring, damper, max angular acceleration
+  betaMax: 0.78, kp: 12, kd: 7, maxAcc: 14, bRate: 0.95, bRelease: 0.55, kickUp: 1.5, kickDown: 0.9,   // slide angle: max (rad), spring, damper, max angular acceleration
   scrub: 0.3,                         // speed lost to sliding sideways
   slideDrive: 0.45,                   // power lost while sliding
 };
@@ -206,7 +206,7 @@ export class CarPhysics {
     this.h = 0.48;
     this.maxTorque = 680; this.m = 1180;
     this.tune = { ...DEFAULT_TUNE };
-    this.driftW = 0; this._thr = 0; this._hb = 0; this._phi = 0; this._wv = 0; this._ref = 0; this._bt = 0;
+    this.driftW = 0; this._thr = 0; this._hb = 0; this._phi = 0; this._wv = 0; this._ref = 0; this._bt = 0; this._kick = 0;
     this.setCar(info, spec);
     this.assist = 0.65;
     this.pos = new THREE.Vector3();
@@ -333,13 +333,17 @@ export class CarPhysics {
     const hbKick = this._hb * (absS > 0.12 ? 1 : 0);
     const gas = Math.abs(beta) > 0.22 ? Math.max(clamp01(thr * 1.25), 0.45) : clamp01(thr * 1.25);   // lifting off narrows a slide, it does not end it
     const kick = clamp01(Math.max(sstep(excess, 0, 0.3) * gas, hbKick));   // 0 = grip, 1 = full slide
+    this._kick += clamp(kick - this._kick, -dt * T.kickDown, dt * T.kickUp * (1 + this._hb));   // entering and leaving a slide is gradual
+    const kickS = this._kick;
     const bMax = T.betaMax * (0.55 + 0.45 * thr);                          // more gas = wider angle
-    const btWant = sgn * kick * bMax * (0.55 + 0.45 * absS);               // target slide angle
-    this._bt += clamp(btWant - this._bt, -dt * T.bRate * (1 + 1.5 * this._hb), dt * T.bRate * (1 + 1.5 * this._hb));   // the angle builds progressively
+    const btWant = sgn * kickS * bMax * (0.55 + 0.45 * absS);               // target slide angle
+    const growing = Math.abs(btWant) > Math.abs(this._bt) && Math.sign(btWant) === (Math.sign(this._bt) || Math.sign(btWant));
+    const bRate = (growing ? T.bRate : T.bRelease) * (1 + this._hb);
+    this._bt += clamp(btWant - this._bt, -dt * bRate, dt * bRate);   // the angle builds and fades progressively
     const bt = this._bt;
-    const aTarget = lerp(Math.min(aCmd, aLim), Math.min(aCmd, T.aSlide), kick);
+    const aTarget = lerp(Math.min(aCmd, aLim), Math.min(aCmd, T.aSlide), kickS);
     const wvT = fwd ? sgn * aTarget / Math.max(speed, 3) : 0;            // target rotation rate of the direction of travel
-    this._wv += (wvT - this._wv) * Math.min(1, dt / lerp(0.08, 0.15, kick));
+    this._wv += (wvT - this._wv) * Math.min(1, dt / (Math.abs(wvT) < Math.abs(this._wv) ? lerp(0.12, 0.45, kickS) : lerp(0.08, 0.2, kickS)));   // letting go of the wheel eases the path straight
 
     // slide angle spring-damper: smooth, no snapping
     let bd = this.yawRate - this._wv;
@@ -397,7 +401,7 @@ export class CarPhysics {
     this.steerAngle += clamp(dTarget - this.steerAngle, -dt * 9, dt * 9);
     // smoke / skid amounts
     this.frontSlip = Math.max(0, aCmd / Math.max(T.aLim, 1) - 1) * 0.5;
-    this.rearSlip = Math.abs(beta) * 1.3 + this.spinRatio * 0.6 + kick * 0.25 + (this._hb > 0.5 && speed > 3 ? 0.4 : 0);
+    this.rearSlip = Math.abs(beta) * 1.3 + this.spinRatio * 0.6 + kickS * 0.25 + (this._hb > 0.5 && speed > 3 ? 0.4 : 0);
 
     // ---------- vertical
     const g = this.groundSample();
