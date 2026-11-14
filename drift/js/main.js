@@ -24,7 +24,7 @@ const store = {
 };
 const settings = Object.assign({
   quality: isTouch ? 'medium' : 'high', assist: '0.65', cam: '0', steer: 'buttons', autogas: '0', vol: 0.8, fps: '0',
-  time: 'sunset', dir: 0, paint: 'orange', smoke: 'white',
+  time: 'sunset', dir: 0, paint: 'orange', smoke: 'white', map: 'cornerstone', car: 'csl',
 }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
 const records = store.get('records', {});
@@ -105,6 +105,17 @@ let baseFov = 62;
 addEventListener('resize', onResize);
 
 // ------------------------------------------------------------------ globals
+// ---- content tables: add a map or a car here (and its assets) to extend the game
+const MAPS = {
+  cornerstone: { id: 'cornerstone', name: 'קורנרסטון', glb: 'city', gridMod: '../assets/grid.js', route: 'route.json', fill: 'fill.json', ramp: 'ramp.json', mini: 'minimap.png', scale: 100, cps: 8, rec: '', km: '3.3', info: 'רציף, גשר לא גמור ורמפת קפיצה' },
+  chicago: { id: 'chicago', name: 'שיקגו', glb: 'chi', gridMod: '../assets/grid_chi.js', route: 'route_chi.json', fill: 'fill_chi.json', ramp: null, mini: 'minimap_chi.png', scale: 0.4, cps: 7, rec: 'chi_', km: '3.0', info: 'שדרות רחבות ועיקולים ארוכים' },
+};
+const CARS = {
+  csl: { id: 'csl', name: 'BMW 3.0 CSL', glb: 'car', info: 'קלה וזריזה', spec: { mass: 1180, torque: 680 } },
+  m5: { id: 'm5', name: 'BMW M5 E28', glb: 'm5', info: 'כבדה, חזקה ויציבה', spec: { mass: 1390, torque: 830, tune: { grip: 2.05, turn: 0.95, bt: 0.7, kick: 0.82 } } },
+};
+let mapId = null, NCP = 8, gltfLoader = null, glbSuffix = '';
+const carGltf = {};
 const grid = new Grid();
 const audio = new CarAudio(); audio.setVolume(settings.vol);
 const input = new Input(); input.autoGas = settings.autogas === '1';
@@ -125,6 +136,7 @@ async function loadEmbedded(loader, url, key) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Promise((res, rej) => loader.parse(bytes.buffer, '', res, rej));
 }
+function loadModel(name, key) { return loadGLB(gltfLoader, `assets/${name}${glbSuffix}.glb`, key); }
 function loadGLB(loader, url, key) {
   if (window.DRIFT_EMBED) return loadEmbedded(loader, url, key);
   return new Promise((res, rej) => loader.load(url, res, e => {
@@ -133,41 +145,57 @@ function loadGLB(loader, url, key) {
   }, rej));
 }
 
+async function loadMap(id) {
+  const M = MAPS[id];
+  const [cityG, routeData, fill, ramp, gridB64] = await Promise.all([
+    loadModel(M.glb, 'city'),
+    fetch('assets/' + M.route).then(r => r.json()),
+    fetch('assets/' + M.fill).then(r => r.json()),
+    M.ramp ? fetch('assets/' + M.ramp).then(r => r.json()) : Promise.resolve(null),
+    import(M.gridMod).then(mod => mod.default),
+  ]);
+  await grid.load(gridB64);
+  setLoad(0.93, 'בונה את העיר…');
+  await new Promise(r => setTimeout(r, 30));
+  if (mapId) { world.clearMap(); }
+  routeFwd = routeData; routeRev = routeData.slice().reverse();
+  world.setupCity(cityG, M.scale);
+  world.buildSurroundings(fill, routeFwd);
+  if (ramp) world.buildRamp(ramp);
+  world.setShadowQuality(Q.shadow);
+  mapId = id; NCP = M.cps;
+  minimapImg.src = 'assets/' + M.mini;
+  if (world.T) world.setTime(settings.time);
+}
+
+function disposeCar(c) { c.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+async function loadCar(id) {
+  const C = CARS[id];
+  if (!carGltf[id]) carGltf[id] = await loadModel(C.glb, 'car');
+  const model = await buildCarModel(carGltf[id]);
+  if (car) { scene.remove(car.root); disposeCar(car); }
+  car = model; scene.add(car.root);
+  if (phys) { phys.setCar(car.info, C.spec); } else phys = new CarPhysics(car.info, grid, C.spec);
+  phys.assist = +settings.assist;
+  setupCarLights();
+  if (fx) { applyGarage(); applyCarLights(); }
+}
+
 async function boot() {
-  const loader = new GLTFLoader();
+  gltfLoader = new GLTFLoader();
   // compressed models need a WebAssembly decoder; if the host blocks WebAssembly, use the plain versions
-  let suffix = '';
-  try { if (/[?&]plain/.test(location.search)) throw 0; await Promise.race([MeshoptDecoder.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]); loader.setMeshoptDecoder(MeshoptDecoder); }
-  catch { suffix = '_q'; }
+  try { if (/[?&]plain/.test(location.search)) throw 0; await Promise.race([MeshoptDecoder.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]); gltfLoader.setMeshoptDecoder(MeshoptDecoder); }
+  catch { glbSuffix = '_q'; }
+  if (!MAPS[settings.map]) settings.map = 'cornerstone';
+  if (!CARS[settings.car]) settings.car = 'csl';
   world = new World(scene, renderer);
   setupPipeline();
-  const [carG, cityG, routeData, fill, ramp] = await Promise.all([
-    loadGLB(loader, `assets/car${suffix}.glb`, 'car'),
-    loadGLB(loader, `assets/city${suffix}.glb`, 'city'),
-    fetch('assets/route.json').then(r => r.json()),
-    fetch('assets/fill.json').then(r => r.json()),
-    fetch('assets/ramp.json').then(r => r.json()),
-    grid.load(),
-  ]);
-  setLoad(0.92, 'בונה את העיר…');
-  await new Promise(r => setTimeout(r, 30));
-  routeFwd = routeData; routeRev = routeData.slice().reverse();
-  world.setupCity(cityG);
-  world.buildSurroundings(fill, routeFwd);
-  world.buildRamp(ramp);
-  world.setShadowQuality(Q.shadow);
-
-  const model = await buildCarModel(carG);
-  car = model; scene.add(car.root);
-  phys = new CarPhysics(car.info, grid);
-  phys.assist = +settings.assist;
+  await Promise.all([loadMap(settings.map), loadCar(settings.car)]);
   fx = new Effects(scene);
   cones = new Cones(scene, grid);
-  setupCarLights();
   applyGarage();
   setTime(settings.time);
 
-  minimapImg.src = 'assets/minimap.png';
   setLoad(0.97, 'מכין שיידרים…');
   prepareRoute();
   placeShowroom();
@@ -184,10 +212,31 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 
+async function switchMap(id) {
+  if (id === mapId || state === 'loading') return;
+  settings.map = id; saveSettings();
+  state = 'loading';
+  $('#menu').classList.add('hidden'); $('#loading').classList.remove('hidden');
+  loadMgr.car = 1; loadMgr.city = 0; setLoad(0.05, 'טוען מפה…');
+  try {
+    await loadMap(id);
+    fx.clear(); setTime(settings.time);
+    prepareRoute(); placeShowroom();
+  } catch (e) { console.error(e); $('#loadErr').textContent = 'שגיאה בטעינת המפה: ' + (e && e.message || e); await new Promise(r => setTimeout(r, 2500)); $('#loadErr').textContent = ''; }
+  $('#loading').classList.add('hidden');
+  showMenu();
+}
+async function switchCar(id) {
+  if (!CARS[id] || id === settings.car && car) return;
+  settings.car = id; saveSettings();
+  try { await loadCar(id); } catch (e) { console.error(e); }
+  renderCarChips();
+}
+
 // ------------------------------------------------------------------ car lights
 let headL, headR, glowTex, tailGlows = [], headGlows = [];
 function setupCarLights() {
-  const i = car.info;
+  const i = car.info; tailGlows = []; headGlows = [];
   for (const [p, name] of [[i.headL, 'L'], [i.headR, 'R']]) {
     const s = new THREE.SpotLight(0xfff1dc, 0, 110, 0.55, 0.5, 1.15);
     s.position.copy(p); s.position.y += 0.1;
@@ -210,13 +259,17 @@ function setupCarLights() {
   }
 }
 
+function applyCarLights() {
+  const night = world.T && world.T.night;
+  headL.intensity = headR.intensity = night ? 420 : 0;
+  car.lights.head && (car.lights.head.emissiveIntensity = night ? 4 : 0.2);
+  headGlows.forEach(s => s.visible = !!night);
+}
 function setTime(key) {
   settings.time = key; saveSettings();
   world.setTime(key);
   const night = world.T.night;
-  headL.intensity = headR.intensity = night ? 420 : 0;
-  car.lights.head && (car.lights.head.emissiveIntensity = night ? 4 : 0.2);
-  headGlows.forEach(s => s.visible = !!night);
+  applyCarLights();
   fx.setFog(scene.fog); fx.setLight(new THREE.Color(world.T.smokeLight).multiplyScalar(night ? 0.55 : 1));
   applyBloom();
   renderTimeChips();
@@ -231,7 +284,6 @@ function applyGarage() {
 }
 
 // ------------------------------------------------------------------ route / gates / cones
-const NCP = 8;
 let cpIdx = [];
 function prepareRoute() {
   route = settings.dir ? routeRev : routeFwd;
@@ -335,7 +387,7 @@ function showMenu() {
   phys.frozen = true; mode = 'free';
   prepareRoute(); placeShowroom(); fx.clear(); cones.reset();
   gates.forEach((g, k) => g.visible = k === 0);
-  renderRecords();
+  renderRecords(); renderMapChips();
   menuAng = 0;
 }
 
@@ -348,7 +400,7 @@ function finish(reason) {
   state = 'results'; phys.frozen = true;
   const bonus = reason === 'finish' ? Math.round(timeLeft * 250) : 0;
   const total = score + bonus;
-  const key = mode + (mode === 'run' ? (settings.dir ? '_rev' : '_fwd') : '');
+  const key = MAPS[mapId].rec + mode + (mode === 'run' ? (settings.dir ? '_rev' : '_fwd') : '');
   const rec = records[key] || 0;
   const isRec = total > rec;
   if (isRec) { records[key] = total; store.set('records', records); }
@@ -733,6 +785,20 @@ function render() {
 }
 
 // ------------------------------------------------------------------ menus
+function renderMapChips() {
+  const el = $('#mapChips'); el.innerHTML = '';
+  for (const M of Object.values(MAPS)) {
+    const b = document.createElement('button'); b.className = 'chip' + (mapId === M.id ? ' on' : ''); b.textContent = M.name;
+    b.onclick = () => switchMap(M.id); el.appendChild(b);
+  }
+}
+function renderCarChips() {
+  const el = $('#carChips'); if (!el) return; el.innerHTML = '';
+  for (const C of Object.values(CARS)) {
+    const b = document.createElement('button'); b.className = 'chip' + (settings.car === C.id ? ' on' : ''); b.innerHTML = `${C.name}<small> · ${C.info}</small>`;
+    b.onclick = () => switchCar(C.id); el.appendChild(b);
+  }
+}
 function renderTimeChips() {
   const el = $('#timeChips'); el.innerHTML = '';
   for (const [k, t] of Object.entries(TIMES)) {
@@ -742,8 +808,9 @@ function renderTimeChips() {
   document.querySelectorAll('#dirChips .chip').forEach(b => b.classList.toggle('on', +b.dataset.dir === +settings.dir));
 }
 function renderRecords() {
-  const r = records;
-  $('#records').innerHTML = `🏆 שיאים<br>ריצת דריפט: <b class="num">${fmt(r.run_fwd || 0)}</b> · הפוך: <b class="num">${fmt(r.run_rev || 0)}</b><br>נסיעה חופשית: <b class="num">${fmt(r.free || 0)}</b>`;
+  const r = records, p = MAPS[mapId].rec;
+  $('#records').innerHTML = `🏆 שיאים · ${MAPS[mapId].name}<br>ריצת דריפט: <b class="num">${fmt(r[p + 'run_fwd'] || 0)}</b> · הפוך: <b class="num">${fmt(r[p + 'run_rev'] || 0)}</b><br>נסיעה חופשית: <b class="num">${fmt(r[p + 'free'] || 0)}</b>`;
+  $('#runSub').textContent = `${MAPS[mapId].km} ק״מ · נגד השעון · צבור נקודות`;
 }
 document.querySelectorAll('#dirChips .chip').forEach(b => b.onclick = () => {
   settings.dir = +b.dataset.dir; saveSettings(); renderTimeChips();
@@ -784,7 +851,7 @@ function openGarage() {
       el.appendChild(b);
     }
   };
-  mk($('#paintSw'), PAINTS, 'paint'); mk($('#smokeSw'), SMOKES, 'smoke');
+  mk($('#paintSw'), PAINTS, 'paint'); mk($('#smokeSw'), SMOKES, 'smoke'); renderCarChips();
 }
 let smokeDemo = 0;
 setInterval(() => {

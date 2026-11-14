@@ -52,6 +52,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .ic.b{background:#1f6fff}.ic.g{background:#3a3f4c}.ic.y{background:#c88a00}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:14px;font-weight:500}
+.chip small{font-weight:400;font-size:11px;opacity:.7}
 .chip.on{background:var(--text);color:#0a0b10;border-color:var(--text)}
 .lbl{font-size:12px;color:var(--muted);letter-spacing:.08em;margin-top:6px}
 .records{font-size:13px;color:var(--muted);line-height:1.7;border-top:1px solid var(--line);padding-top:10px;margin-top:auto}
@@ -173,17 +174,19 @@ body.touch #prog{top:calc(70px + var(--sat))}
 <div id="menu" class="hidden">
   <div class="side">
     <div class="logo">DRIFT CITY<small>דריפט בעיר</small></div>
-    <button class="mbtn primary" data-act="run"><span class="ic">🏁</span><span>ריצת דריפט<small>3.3 ק״מ בעיר · נגד השעון · צבור נקודות</small></span></button>
+    <button class="mbtn primary" data-act="run"><span class="ic">🏁</span><span>ריצת דריפט<small id="runSub">3.3 ק״מ · נגד השעון · צבור נקודות</small></span></button>
     <button class="mbtn" data-act="free"><span class="ic b">🛞</span><span>נסיעה חופשית<small>בלי שעון · תתאמן על דריפטים</small></span></button>
     <button class="mbtn" data-act="garage"><span class="ic y">🎨</span><span>מוסך<small>צבע רכב · צבע עשן</small></span></button>
     <button class="mbtn" data-act="settings"><span class="ic g">⚙️</span><span>הגדרות<small>גרפיקה · שליטה · סאונד</small></span></button>
     <button class="mbtn" data-act="help"><span class="ic g">🎮</span><span>איך משחקים</span></button>
+    <div class="lbl">מפה</div>
+    <div class="chips" id="mapChips"></div>
     <div class="lbl">שעה ביום</div>
     <div class="chips" id="timeChips"></div>
     <div class="lbl">כיוון המסלול</div>
     <div class="chips" id="dirChips"><button class="chip" data-dir="0">רגיל</button><button class="chip" data-dir="1">הפוך</button></div>
     <div class="records" id="records"></div>
-    <div class="credit">מודלים: "1971 BMW 3.0 CSL" מאת OUTPISTON (CC BY-NC-SA 4.0) · "Cornerstone" מאת amogusstrikesback2 (CC BY 4.0), דרך Sketchfab. שימוש לא-מסחרי.</div>
+    <div class="credit">מודלים: "1971 BMW 3.0 CSL" מאת OUTPISTON (CC BY-NC-SA 4.0) · "Cornerstone" ו־"Chicago" מאת amogusstrikesback2 (CC BY 4.0), ו־"1988 BMW M5 E28" מאת OUTPISTON (CC BY-NC-SA 4.0), דרך Sketchfab. שימוש לא-מסחרי.</div>
   </div>
 </div>
 
@@ -246,6 +249,7 @@ body.touch #prog{top:calc(70px + var(--sat))}
 
 <div id="garageModal" class="modal hidden"><div class="card">
   <h2>מוסך</h2>
+  <div class="lbl">רכב</div><div class="chips" id="carChips" style="margin-bottom:10px"></div>
   <div class="lbl">צבע רכב</div><div class="swatches" id="paintSw"></div>
   <div class="lbl">צבע עשן צמיגים</div><div class="swatches" id="smokeSw"></div>
   <div class="actions"><button class="btn primary" data-act="closeGarage">סיום</button></div>

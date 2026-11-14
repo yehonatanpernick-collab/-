@@ -1,6 +1,5 @@
 // Height field + signed-distance field of the drivable city area.
 // Pre-baked offline from the city geometry: 1 m cells, Int16 height (cm) + Int8 SDF (1/8 m).
-import gridB64 from '../assets/grid.js';
 
 async function gunzip(bytes) {
   if (typeof DecompressionStream !== 'undefined') {
@@ -12,7 +11,7 @@ async function gunzip(bytes) {
 }
 
 export class Grid {
-  async load() {
+  async load(gridB64) {
     const bin = atob(gridB64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);

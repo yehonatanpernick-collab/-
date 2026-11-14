@@ -72,7 +72,8 @@ export class World {
     this.sky.onBeforeRender = (r, s, cam) => this.sky.position.copy(cam.position);
     scene.add(this.sky);
     this.pmrem = new THREE.PMREMGenerator(renderer);
-    this.nightMats = []; this.signMats = [];
+    this.nightMats = []; this.signMats = []; this.roadMats = [];
+    this.mapGroup = new THREE.Group(); scene.add(this.mapGroup);
   }
 
   setShadowQuality(size) {
@@ -84,9 +85,9 @@ export class World {
   }
 
   // --------------------------------------------------------------- city
-  setupCity(gltf) {
+  setupCity(gltf, scale = 100) {
     const city = gltf.scene;
-    city.scale.setScalar(100);
+    city.scale.setScalar(scale);
     city.updateMatrixWorld(true);
     city.traverse(o => {
       if (!o.isMesh) return;
@@ -94,6 +95,13 @@ export class World {
       o.receiveShadow = true;
       o.castShadow = !/road|asphalt|ground_texture|sidewalk|cobble|curb|markings|graffiti|lines|signs?_glow/.test(n);
       if (m.map) { m.map.anisotropy = 8; }
+      if (/^m3g_/.test(n)) {
+        // Chicago: four atlas materials (ground, buildings and props are merged per material)
+        o.castShadow = n !== 'm3g_alpha'; o.receiveShadow = true; m.roughness = 0.8; m.envMapIntensity = 0.5;
+        if (n === 'm3g_alpha_cutout') { m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; }
+        if (n === 'm3g_alpha') { m.transparent = true; m.depthWrite = false; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; o.renderOrder = 1; }
+        return;
+      }
       m.envMapIntensity = 0.55;
       m.roughness = 0.85;
       if (/alphathresh|props_lines/.test(n)) { m.transparent = false; m.alphaTest = 0.45; m.depthWrite = true; }
@@ -107,7 +115,7 @@ export class World {
       }
       if (/sign_?s?_glow/.test(n)) { this.signMats.push(m); }
     });
-    this.scene.add(city);
+    this.mapGroup.add(city);
     this.city = city;
   }
 
@@ -131,7 +139,7 @@ export class World {
     const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, pa.getX(i) / 8, pa.getZ(i) / 8);
     const terrain = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: gt, roughness: 0.95, color: 0x8a8580 }));
     terrain.receiveShadow = true;
-    this.scene.add(terrain);
+    this.mapGroup.add(terrain);
 
     // skyline: instanced boxes with procedural facade (windows lit at night)
     const fc = document.createElement('canvas'); fc.width = 256; fc.height = 256;
@@ -174,7 +182,7 @@ export class World {
       col.setHex(tints[seed % tints.length]); inst.setColorAt(i, col);
     });
     inst.castShadow = false; inst.receiveShadow = true;
-    this.scene.add(inst);
+    this.mapGroup.add(inst);
     this.skyline = inst;
 
     // night street-light pools along the route
@@ -210,7 +218,7 @@ export class World {
       lamps.add(pole, arm, head);
       this.lampPositions = this.lampPositions || []; this.lampPositions.push([lx, lz]);
     }
-    this.scene.add(lamps, this.pools);
+    this.mapGroup.add(lamps, this.pools);
   }
 
   // procedural steel jump ramp (dock -> unfinished bridge). Same shape is baked into the physics grid.
@@ -250,7 +258,7 @@ export class World {
     const topM = new THREE.Mesh(geo(top, uvTop), new THREE.MeshStandardMaterial({ map: plate, metalness: 0.7, roughness: 0.45 }));
     const sideM = new THREE.Mesh(geo(side, uvSide), new THREE.MeshStandardMaterial({ map: stripe, metalness: 0.3, roughness: 0.6, side: THREE.DoubleSide }));
     topM.receiveShadow = true; topM.castShadow = true; sideM.castShadow = true; sideM.receiveShadow = true;
-    this.scene.add(topM, sideM);
+    this.mapGroup.add(topM, sideM);
     // guard rails with lights
     const railM = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.8, roughness: 0.3 });
     const lampM = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xff7a00, emissiveIntensity: 2.5 });
@@ -258,26 +266,43 @@ export class World {
     for (const sg of [-1, 1]) for (let i = 8; i <= segs; i += 2) {
       const s = -L + L * i / segs;
       const p = P(s, sg * (W(s) - 0.1), h(s));
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), railM); post.position.copy(p).y += 0.45; this.scene.add(post);
-      if (i % 4 === 0) { const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), lampM); lamp.position.copy(p).y += 0.95; this.scene.add(lamp); }
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), railM); post.position.copy(p).y += 0.45; this.mapGroup.add(post);
+      if (i % 4 === 0) { const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), lampM); lamp.position.copy(p).y += 0.95; this.mapGroup.add(lamp); }
     }
     for (const sg of [-1, 1]) {
       const pts = []; for (let i = 8; i <= segs; i++) { const s = -L + L * i / segs; pts.push(P(s, sg * (W(s) - 0.1), h(s) + 0.88)); }
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.04, 6), railM); this.scene.add(tube);
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.04, 6), railM); this.mapGroup.add(tube);
     }
     // support trusses
     const beamM = new THREE.MeshStandardMaterial({ color: 0x2b2e33, metalness: 0.6, roughness: 0.5 });
     for (let i = 6; i <= segs; i += 4) {
       const s = -L + L * i / segs, y = h(s);
-      for (const l of [-hw + 0.6, 0, hw - 0.6]) { const col = new THREE.Mesh(new THREE.BoxGeometry(0.3, y, 0.3), beamM); col.position.copy(P(s, l, y / 2)); col.castShadow = true; this.scene.add(col); }
+      for (const l of [-hw + 0.6, 0, hw - 0.6]) { const col = new THREE.Mesh(new THREE.BoxGeometry(0.3, y, 0.3), beamM); col.position.copy(P(s, l, y / 2)); col.castShadow = true; this.mapGroup.add(col); }
     }
     // big arrow sign on the bridge lip so players know to go for it
     const ac = document.createElement('canvas'); ac.width = 256; ac.height = 128; const ax = ac.getContext('2d');
     ax.fillStyle = '#111'; ax.fillRect(0, 0, 256, 128); ax.fillStyle = '#ffb300'; ax.font = 'bold 54px Rubik, Arial'; ax.textAlign = 'center'; ax.textBaseline = 'middle'; ax.fillText('JUMP ▲', 128, 66);
     const at = new THREE.CanvasTexture(ac); at.colorSpace = THREE.SRGBColorSpace;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 2), new THREE.MeshStandardMaterial({ map: at, emissiveMap: at, emissive: 0xffffff, emissiveIntensity: 0.8 }));
-    const sp = P(-L - 2, -(W(-L) + 1.5), 3.2); sign.position.copy(sp); sign.lookAt(P(-L - 30, -(W(-L) + 1.5), 3.2)); this.scene.add(sign);
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.2, 0.15), beamM); pole.position.copy(sp).y = 1.6; this.scene.add(pole);
+    const sp = P(-L - 2, -(W(-L) + 1.5), 3.2); sign.position.copy(sp); sign.lookAt(P(-L - 30, -(W(-L) + 1.5), 3.2)); this.mapGroup.add(sign);
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.2, 0.15), beamM); pole.position.copy(sp).y = 1.6; this.mapGroup.add(pole);
+  }
+
+  // remove everything that belongs to the current map and free its GPU memory
+  clearMap() {
+    const seen = new Set();
+    this.mapGroup.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      for (const m of [].concat(o.material || [])) {
+        if (seen.has(m)) continue; seen.add(m);
+        for (const k of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'aoMap']) if (m[k]) m[k].dispose();
+        m.dispose();
+      }
+    });
+    this.scene.remove(this.mapGroup);
+    this.mapGroup = new THREE.Group(); this.scene.add(this.mapGroup);
+    this.city = null; this.buildingMat = null; this.lampHeadMat = null; this.pools = null; this.skyline = null;
+    this.signMats = []; this.roadMats = []; this.lampPositions = [];
   }
 
   // --------------------------------------------------------------- time of day

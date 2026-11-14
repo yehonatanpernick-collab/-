@@ -80,7 +80,7 @@ export async function buildCarModel(gltf) {
     if (!g.index) { const idx = []; for (let i = 0; i < g.attributes.position.count; i++) idx.push(i); g.setIndex(idx); }
     const name = (o.name + ' ' + (o.parent ? o.parent.name : '')).toLowerCase();
     const mat = convert(o.material);
-    if (name.includes('wheel_rim') || name.includes('rotor') || name.includes('caliper')) {
+    if (/wheel_rim|wheel_wheel/.test(name) || name.includes('rotor') || name.includes('caliper')) {
       wheelParts.push({ g, mat, kind: name.includes('rotor') ? 'rotor' : name.includes('caliper') ? 'caliper' : 'wheel', tire: o.material.name === 'tire' });
     } else {
       if (!bodyParts.has(mat)) bodyParts.set(mat, []);
@@ -189,20 +189,14 @@ function torqueCurve(rpm) {
 }
 
 export class CarPhysics {
-  constructor(info, grid) {
+  constructor(info, grid, spec = {}) {
     this.grid = grid;
-    this.info = info;
-    this.m = 1180;
-    this.a = info.axleF - 0.05;            // CG -> front axle
-    this.b = -info.axleR + 0.05;           // CG -> rear axle
     this.cgZ = 0.05;                        // CG location along body z
-    this.L = this.a + this.b;
-    this.I = this.m * 1.55;
     this.h = 0.48;
-    this.R = info.radius;
-    this.maxTorque = 680;
+    this.maxTorque = 680; this.m = 1180;
     this.tune = { align: 0.12, rearMin: 0.22, rearFx: 1.0, spinLoss: 0.35, cs: 1.0, hb: 0.35, kick: 0.75, bt: 0.74, kb: 6, grip: 2.0, turn: 1.0 };
     this._phi = 0; this._wv = 0; this.driftW = 0;
+    this.setCar(info, spec);
     this.assist = 0.65;
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector2();         // world x,z
@@ -219,6 +213,19 @@ export class CarPhysics {
     this.limiter = false; this.reverse = false;
     this._g = { x: 0, y: 0 };
     this.frozen = false;
+  }
+
+  // apply a car model's measurements and its handling character
+  setCar(info, spec = {}) {
+    this.info = info;
+    this.a = info.axleF - 0.05;            // CG -> front axle
+    this.b = -info.axleR + 0.05;           // CG -> rear axle
+    this.L = this.a + this.b;
+    this.R = info.radius;
+    this.m = spec.mass ?? 1180;
+    this.I = this.m * 1.55;
+    this.maxTorque = spec.torque ?? 680;
+    this.tune = Object.assign({ align: 0.12, rearMin: 0.22, rearFx: 1.0, spinLoss: 0.35, cs: 1.0, hb: 0.35, kick: 0.75, bt: 0.74, kb: 6, grip: 2.0, turn: 1.0 }, spec.tune || {});
   }
 
   place(x, z, heading) {
