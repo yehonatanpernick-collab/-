@@ -1101,7 +1101,7 @@ function applyTOD(name){
 // ===================================================================== GAME STATE
 const GAME = { running:false, paused:true, score:0, combo:1, style:0, comboT:0, wave:0, drones:[], bolts:[], shots:[], rings:[], ringIdx:0, ringChain:0, waveT:0, time:0, kills:0 };
 const PL = { pos:new V3(), vel:new V3(), state:'air', anchor:new V3(), anchorN:new V3(0,1,0), anchorVis:new V3(), rollT:0, airStyle:0, turnRate:0, bank:0, pitchF:0, ropeTarget:10, releasedT:9, swingRetry:0, wallBoost:0, zipTime:0, ropeLen:0, ropeT:0, webHand:1, wallN:new V3(), wallCD:0, zipT:new V3(), zipN:new V3(), zipDrone:null, zipBox:null, landT:0, hp:100, hurtT:9, airTime:0, trickT:0, trickUsed:false, boostUsed:false, phase:0, yaw:0, quat:new Q4(), shootT:0, shootDir:new V3(), shootSide:1, dead:false, fallSpeed:0 };
-const CAM = { yaw:Math.PI*.75, pitch:-.15, dist:5, pos:new V3(), tgt:new V3(), shake:0, mouseIdle:9, fov:72, roll:0 };
+const CAM = { yaw:Math.PI*.75, pitch:-.15, dist:5, pos:new V3(), tgt:new V3(), shake:0, mouseIdle:9, fov:72, roll:0, col:10 };
 const INPUT = { keys:{}, swing:false, mx:0, my:0, joy:{x:0,y:0}, swingEdge:false, shootEdge:false, zipEdge:false, jumpEdge:false, trickEdge:false };
 
 function spawnPoint(){
@@ -1430,7 +1430,12 @@ function updatePlayer(dt){
     else if(contact.ground && PL.vel.y<=0 && PL.pos.y<.2){ PL.state='ground'; }
   } else if(contact.wall && PL.wallCD<=0 && PL.state!=='zip'){
     const n=contact.wallN; const into=-(W.v.dot(n)); const hv=-(hvx*n.x+hvz*n.z);
-    if((PL.state==='ground' && into>.5) || ((PL.state==='air'||PL.state==='swing') && (into>.3 || hv>4))){
+    const steerIn = into>.65 && hv>-1;
+    if(!(PL.state==='ground' && into>.5) && !((PL.state==='air'||PL.state==='swing') && steerIn)){
+      // glance off the wall: keep speed along the facade instead of sticking to it
+      const sp2=Math.hypot(hvx,hvz); const tx=hvx-n.x*(hvx*n.x+hvz*n.z), tz=hvz-n.z*(hvx*n.x+hvz*n.z); const tl=Math.hypot(tx,tz);
+      if(tl>.5 && PL.state!=='ground'){ PL.vel.x=tx/tl*sp2*.85+n.x*2; PL.vel.z=tz/tl*sp2*.85+n.z*2; }
+    } else {
       if(PL.state==='swing'){ PL.state='air'; spawnSlack(); }
       PL.state='wall'; PL.wallN.copy(n); PL.wallBoost=clamp(hv*.85,0,30); PL.vel.set(0,0,0); CAM.shake=Math.max(CAM.shake,.1);
     }
@@ -1583,45 +1588,49 @@ function animateHero(dt){
 
 // ===================================================================== CAMERA
 const _ct=new V3(), _cd=new V3();
+const _head=new V3(), _want=new V3();
 function updateCamera(dt){
   const sp=PL.vel.length(), hv=Math.hypot(PL.vel.x,PL.vel.z), st=PL.state;
   CAM.mouseIdle+=dt;
-  // auto-follow: camera swings behind the hero's travel direction; mouse gives a temporary offset that eases back
+  // how strongly the camera takes over again after the player looked around (0 right after mouse input, 1 after ~0.6s)
+  const follow=smooth(.12,.6,CAM.mouseIdle);
   const backing=st==='ground' && (INPUT.keys.KeyS||INPUT.joy.y<-.5) && !(INPUT.keys.KeyW||INPUT.joy.y>.3);
   let ty=null;
   if(st==='wall') ty=Math.atan2(PL.wallN.x,PL.wallN.z);
-  else if(hv>2.5 && !backing) ty=Math.atan2(-PL.vel.x,-PL.vel.z);
-  if(ty!==null){
-    const idle=CAM.mouseIdle;
-    const rate = idle<.5 ? .25 : lerp(1.2, st==='ground'?3.2:4.2, clamp((hv-2)/25,0,1)) * smooth(.5,1.2,idle);
-    let d=ty-CAM.yaw; d=Math.atan2(Math.sin(d),Math.cos(d)); CAM.yaw+=d*damp(rate,dt);
+  else if(hv>1.5 && !backing) ty=Math.atan2(-PL.vel.x,-PL.vel.z);
+  if(ty!==null && follow>0){
+    let d=ty-CAM.yaw; d=Math.atan2(Math.sin(d),Math.cos(d));
+    const k=(st==='ground'?4.2:st==='swing'?5.5:5)*follow*(.6+.4*clamp(hv/12,0,1));
+    CAM.yaw+=d*damp(k,dt);
   }
-  if(CAM.mouseIdle>1){
-    let tp = st==='wall'? .35 : st==='swing'? -.2 : (st==='air' && PL.vel.y<-20)? -.45 : -.13;
-    CAM.pitch=lerp(CAM.pitch,tp,damp(1.4,dt));
-  }
-  const dist=lerp(3.8, 7.4, clamp(sp/60,0,1)) * (st==='wall'?1.2:1);
-  CAM.dist=lerp(CAM.dist,dist,damp(2.5,dt));
-  _ct.copy(PL.pos); _ct.y+=1.4;
-  if(st==='wall') _ct.addScaledVector(PL.wallN,.6);
-  // slight look-ahead in the direction of travel
-  _ct.x+=PL.vel.x*.03; _ct.z+=PL.vel.z*.03; _ct.y+=clamp(PL.vel.y*.02,-.6,.4);
+  // pitch: look down over the city while moving, up along walls
+  let tp = st==='wall'? .28 : st==='swing'? -.36 : st==='zip'? -.25 : st==='air'? clamp(-.32+PL.vel.y*.012,-.8,-.12) : -.22;
+  if(follow>0) CAM.pitch=lerp(CAM.pitch,tp,damp(2.4*follow,dt));
+  // distance: pull back with speed so you see more
+  const wantD = st==='ground'? lerp(5.4,7,clamp(hv/22,0,1)) : st==='wall'? 7.5 : lerp(8,12,clamp(sp/60,0,1));
+  CAM.dist=lerp(CAM.dist,wantD,damp(1.8,dt));
+  // focus point slightly above the hero, leading in the direction of travel
+  _ct.copy(PL.pos); _ct.y+=1.7;
+  if(st==='wall') _ct.addScaledVector(PL.wallN,.8);
+  _ct.x+=clamp(PL.vel.x*.16,-7,7); _ct.z+=clamp(PL.vel.z*.16,-7,7); _ct.y+=clamp(PL.vel.y*.07,-3,1.5);
+  CAM.tgt.lerp(_ct, damp(8,dt)); if(CAM.tgt.distanceTo(_ct)>10) CAM.tgt.copy(_ct);
   const cp=Math.cos(CAM.pitch);
   _cd.set(Math.sin(CAM.yaw)*cp, -Math.sin(CAM.pitch), Math.cos(CAM.yaw)*cp);
-  const right=new V3(Math.cos(CAM.yaw),0,-Math.sin(CAM.yaw));
-  _ct.addScaledVector(right,.32);
-  CAM.tgt.lerp(_ct, damp(st==='ground'?14:9,dt)); if(CAM.tgt.distanceTo(_ct)>6) CAM.tgt.copy(_ct);
-  const h=raycast(CAM.tgt,_cd,CAM.dist+.3);
-  const d=h? Math.max(.6,h.t-.35) : CAM.dist;
-  const want=tmpV.copy(CAM.tgt).addScaledVector(_cd,d);
-  CAM.pos.lerp(want, damp(h?30:16,dt));
-  if(CAM.pos.distanceTo(want)>12) CAM.pos.copy(want);
+  _want.copy(CAM.tgt).addScaledVector(_cd,CAM.dist);
+  // keep the hero visible: probe from the hero's head to the camera, pull in fast, ease back out slowly
+  _head.copy(PL.pos); _head.y+=1.5;
+  tmpV2.subVectors(_want,_head); const L=tmpV2.length(); tmpV2.divideScalar(L);
+  const h=raycast(_head,tmpV2,L+.4,true);
+  const free=h? Math.max(.8,h.t-.5) : L;
+  CAM.col = free<CAM.col ? lerp(CAM.col,free,damp(25,dt)) : lerp(CAM.col,free,damp(3,dt));
+  CAM.col=Math.min(CAM.col,L);
+  const want=tmpV.copy(_head).addScaledVector(tmpV2,CAM.col);
+  CAM.pos.lerp(want, damp(14,dt)); if(CAM.pos.distanceTo(want)>15) CAM.pos.copy(want);
   camera.position.copy(CAM.pos);
   if(CAM.shake>0){ const s=CAM.shake*CAM.shake*.35, t=GAME.time*38; camera.position.x+=Math.sin(t)*s; camera.position.y+=Math.sin(t*1.3+1)*s; camera.position.z+=Math.sin(t*.9+2)*s; CAM.shake=Math.max(0,CAM.shake-dt*1.8); }
-  camera.lookAt(tmpV.copy(CAM.tgt).addScaledVector(_cd,-10));
-  // subtle roll into turns while swinging/flying
-  CAM.roll=lerp(CAM.roll, (st==='swing'||st==='air')? clamp(PL.turnRate*.08,-.12,.12):0, damp(3,dt)); camera.rotateZ(CAM.roll);
-  const fov=68+clamp((sp-12)*.38,0,22); CAM.fov=lerp(CAM.fov,fov,damp(2.5,dt)); camera.fov=CAM.fov; camera.updateProjectionMatrix();
+  camera.lookAt(CAM.tgt);
+  CAM.roll=lerp(CAM.roll, (st==='swing'||st==='air')? clamp(PL.turnRate*.05,-.07,.07):0, damp(2.5,dt)); camera.rotateZ(CAM.roll);
+  const fov=72+clamp((sp-10)*.4,0,22); CAM.fov=lerp(CAM.fov,fov,damp(2,dt)); camera.fov=CAM.fov; camera.updateProjectionMatrix();
 }
 
 // ===================================================================== HUD UPDATE + MINIMAP
