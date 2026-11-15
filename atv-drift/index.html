@@ -84,7 +84,7 @@
   #coins-box { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; direction: ltr; }
   .coin-ico { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6b0, #ffc83a 45%, #c77d00); box-shadow: 0 0 10px rgba(255,200,58,.6); }
   #coins { font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; }
-  #pause-btn { pointer-events: auto; position: absolute; top: max(14px, env(safe-area-inset-top)); right: 140px; width: 44px; height: 44px;
+  #pause-btn { pointer-events: auto; position: absolute; top: max(14px, env(safe-area-inset-top)); right: 150px; width: 44px; height: 44px;
     color: #fff; font-size: 16px; display: grid; place-items: center; }
   #trial { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translate(-50%, -140%); padding: 8px 22px; text-align: center; transition: transform .35s cubic-bezier(.2,1.4,.4,1); }
   #trial.on { transform: translate(-50%, 0); }
@@ -157,6 +157,28 @@
   .btn.travel span { font-size: 11px; color: var(--muted); font-weight: 400; }
   .btn.travel:hover, .btn:focus-visible { border-color: var(--gold); outline: none; }
 
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode-card { text-align: right; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: #fff;
+    display: flex; flex-direction: column; gap: 3px; transition: border-color .15s, background .15s; }
+  .mode-card b { font-size: 16px; }
+  .mode-card span { font-size: 12px; color: var(--muted); }
+  .mode-card.sel { border-color: var(--gold); background: rgba(255,210,58,.12); }
+  .mode-card[data-mode=drift].sel { border-color: var(--accent); background: rgba(255,138,31,.16); }
+  .menu-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+  .btn.ghost { padding: 16px 20px; font-size: 16px; }
+  #mode-badge { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; padding: 9px 14px; font-weight: 800; font-size: 14px; color: var(--gold); }
+  #mode-badge.drift { color: var(--accent); }
+  #settings { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8,5,3,.6); backdrop-filter: blur(6px); }
+  .settings-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .set-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  #keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .keyrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 14px; }
+  .keybtn { min-width: 74px; padding: 7px 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.25); border-bottom-width: 3px;
+    background: rgba(255,255,255,.1); color: #fff; font: 700 13px Rubik, sans-serif; direction: ltr; }
+  .keybtn:hover, .keybtn:focus-visible { border-color: var(--gold); outline: none; }
+  .keybtn.wait { border-color: var(--accent); color: var(--accent); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .55; } }
+
   /* ------------------------------------------------ touch */
   #touch { position: fixed; inset: 0; z-index: 12; pointer-events: none; direction: ltr; }
   #touch > * { pointer-events: auto; position: absolute; }
@@ -172,7 +194,8 @@
   [data-t=drift] { right: 120px; bottom: 108px; width: 72px; height: 72px; }
   [data-t=boost] { right: 30px; bottom: 140px; width: 70px; height: 70px; color: var(--cyan); }
   #touch-cam, #touch-reset { top: 74px; width: 46px; height: 46px; font-size: 12px; }
-  #touch-cam { right: 16px; } #touch-reset { right: 70px; }
+  #touch-cam { right: 16px; } #touch-reset { right: 70px; } #touch-mode { right: 124px; }
+  [data-t=leanb] { left: 18px; bottom: 150px; width: 64px; height: 64px; font-size: 12px; } [data-t=leanf] { left: 92px; bottom: 150px; width: 64px; height: 64px; font-size: 12px; }
   body.touch #gauge { width: 150px; height: 150px; right: auto; left: 50%; transform: translateX(-50%); bottom: 4px; }
   body.touch #minimap { width: 120px; height: 120px; top: 120px; left: 16px; bottom: auto; }
   body.touch #chain { bottom: 170px; }
@@ -185,7 +208,7 @@
     #gauge { width: 150px; height: 150px; }
     #minimap { width: 120px; height: 120px; }
     .pop b { font-size: 28px; } .pop.trick b { font-size: 34px; }
-    #ach-list { grid-template-columns: 1fr; }
+    #keys, .modes { grid-template-columns: 1fr; }
     #pause-btn { right: 120px; }
   }
 </style>
@@ -204,19 +227,20 @@
 <div id="menu" class="hidden">
   <div class="menu-card">
     <h1 class="brand">DUNE<br>DRIFT</h1>
-    <p class="tag">באגי, דיונות, רמפות ודריפטים. בלי חוקים, רק חול.</p>
-    <button class="play" id="play-btn">יאללה, נוסעים ▶</button>
+    <p class="tag">עולם פתוח אחד גדול: דיונות, גבעות, מסלולים, רמפות ודריפטים. בלי משימות, רק לנסוע.</p>
+    <div class="section-title">מצב נהיגה</div>
+    <div class="modes">
+      <button class="mode-card" data-mode="normal"><b>נסיעה רגילה</b><span>אחיזה, יציבות, דריפט עם בלם יד</span></button>
+      <button class="mode-card" data-mode="drift"><b>מצב דריפט</b><span>החלקות ארוכות וקלות: גז + היגוי מלא</span></button>
+    </div>
+    <div class="menu-actions">
+      <button class="play" id="play-btn">יאללה, נוסעים ▶</button>
+      <button class="btn ghost open-settings">הגדרות ומקשים</button>
+    </div>
     <div class="section-title">צבע הבאגי</div>
     <div id="swatches"></div>
     <div class="section-title">שליטה</div>
-    <div class="controls">
-      <span><kbd>W</kbd> <kbd>S</kbd></span><span>גז / ברקס ורוורס</span>
-      <span><kbd>A</kbd> <kbd>D</kbd></span><span>היגוי</span>
-      <span><kbd>Space</kbd></span><span>בלם יד — פותח דריפט</span>
-      <span><kbd>Shift</kbd></span><span>ניטרו</span>
-      <span><kbd>W</kbd> <kbd>S</kbd> <kbd>Q</kbd> <kbd>E</kbd></span><span>באוויר: סלטות וגלגולים (לחיצה מחדש אחרי ההמראה)</span>
-      <span><kbd>R</kbd> <kbd>C</kbd> <kbd>Esc</kbd></span><span>איפוס · מצלמה · השהיה</span>
-    </div>
+    <div class="controls" id="help"></div>
     <div id="menu-best"></div>
   </div>
 </div>
@@ -227,7 +251,7 @@
 <div id="hud" class="hidden">
   <div id="speedfx"></div>
   <div id="score-box" class="panel"><small>SCORE</small><div id="score">0</div><div class="best">BEST <span id="best">0</span></div></div>
-  <div id="coins-box" class="panel"><div class="coin-ico"></div><div id="coins">0/0</div></div>
+  <div id="mode-badge" class="panel">נסיעה רגילה</div>
   <button id="pause-btn" class="panel" aria-label="השהיה">❚❚</button>
   <div id="trial" class="panel"><div id="trial-t">0:00.00</div><div id="trial-sub"></div></div>
   <div id="toast"></div>
@@ -235,13 +259,13 @@
   <div id="hint" class="panel"></div>
   <div id="popups"></div>
   <div id="chain" class="panel">
-    <div class="lbl">DRIFT</div>
+    <div class="lbl">COMBO</div>
     <div id="chain-row"><span id="chain-pts">0</span><span id="chain-mult">x1</span></div>
     <div class="bar-track"><div id="chain-bar"></div></div>
   </div>
   <canvas id="minimap"></canvas>
   <canvas id="gauge"></canvas>
-  <div class="keys-help">W/S גז·ברקס · A/D היגוי · רווח דריפט · Shift ניטרו · R איפוס · C מצלמה</div>
+  <div class="keys-help"></div>
 </div>
 
 <div id="touch" class="hidden">
@@ -252,6 +276,9 @@
   <button class="tbtn" data-t="boost">N₂O</button>
   <button class="tbtn" id="touch-cam">📷</button>
   <button class="tbtn" id="touch-reset">↺</button>
+  <button class="tbtn" id="touch-mode">מצב</button>
+  <button class="tbtn" data-t="leanb">ווילי</button>
+  <button class="tbtn" data-t="leanf">קדימה</button>
 </div>
 
 <div id="pause" class="hidden">
@@ -259,14 +286,27 @@
     <h2>הפסקה</h2>
     <div class="btn-row">
       <button class="btn primary" id="resume-btn">המשך ▶</button>
-      <button class="btn" id="reset-btn">חזרה להתחלה</button>
-      <button class="btn" id="q-btn">גרפיקה</button>
-      <button class="btn" id="mute-btn">צליל</button>
+      <button class="btn open-settings">הגדרות ומקשים</button>
+      <button class="btn" id="reset-btn">חזרה לנקודת ההתחלה</button>
     </div>
-    <div class="section-title">קפיצה לאזור</div>
+    <div class="section-title">מצב נהיגה</div>
+    <div class="modes">
+      <button class="mode-card" data-mode="normal"><b>נסיעה רגילה</b><span>אחיזה ויציבות</span></button>
+      <button class="mode-card" data-mode="drift"><b>מצב דריפט</b><span>החלקות ארוכות וכיפיות</span></button>
+    </div>
+    <div class="section-title">קפיצה לאזור בעולם</div>
     <div id="travel"></div>
-    <div class="section-title">הישגים <span id="ach-count"></span></div>
-    <ul id="ach-list"></ul>
+  </div>
+</div>
+
+<div id="settings" class="hidden">
+  <div class="pause-card">
+    <div class="settings-head"><h2>הגדרות</h2><button class="btn primary" id="settings-close">סגירה</button></div>
+    <div class="set-row"><span>גרפיקה</span><button class="btn" id="q-btn">גבוהה</button></div>
+    <div class="set-row"><span>צליל</span><button class="btn" id="mute-btn">פועל</button></div>
+    <div class="section-title">מקשים · לחץ על מקש כדי לשנות אותו</div>
+    <div id="keys"></div>
+    <div class="btn-row"><button class="btn" id="keys-reset">החזרת ברירת המחדל</button></div>
   </div>
 </div>
 

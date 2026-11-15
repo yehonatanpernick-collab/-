@@ -3,13 +3,14 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import * as TR from './terrain.js';
 import { Vehicle, GRAVITY } from './physics.js';
 import * as W from './world.js';
 import { loadCar, syncCar } from './car.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
-import { Input } from './input.js';
+import { Input, ACTIONS, keyLabel } from './input.js';
 
 const $ = (s) => document.querySelector(s);
 const store = {
@@ -26,45 +27,66 @@ const fmtTime = (s) => {
 let quality = store.get('quality', matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.8;
+renderer.toneMappingExposure = 0.86;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('#game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.15, 3000);
-scene.fog = new THREE.Fog(0xc8c4ba, 280, 1500);
+scene.fog = new THREE.Fog(0xcdc3b1, 320, 1900);
 
 const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 24), THREE.MathUtils.degToRad(-140));
 W.buildSky(scene, renderer, sunDir);
 scene.environmentIntensity = 0.45;
-const sun = new THREE.DirectionalLight(0xffe2c0, 2.7);
+const sun = new THREE.DirectionalLight(0xffdcb4, 2.9);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 const sc = sun.shadow.camera;
-sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 260;
-sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60; sc.near = 1; sc.far = 320;
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.05; sun.shadow.radius = 2;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x8a6a48, 0.38));
+scene.add(new THREE.HemisphereLight(0xc4d8ff, 0x9a7650, 0.42));
 
+// colour grade: gentle filmic contrast, warm highlights, slight vignette (works in linear HDR)
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uVig; varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      c.rgb = mix(vec3(l), c.rgb, 1.1);                    // saturation
+      c.rgb *= mix(vec3(0.97, 0.99, 1.04), vec3(1.05, 1.0, 0.94), smoothstep(0.05, 0.8, l)); // cool shadows, warm lights
+      vec2 d = vUv - 0.5;
+      c.rgb *= 1.0 - uVig * smoothstep(0.25, 0.85, dot(d, d) * 2.2);
+      gl_FragColor = c;
+    }`,
+};
 let composer = null, bloom = null;
+let terrainMesh = null;
 function applyQuality() {
-  const dpr = Math.min(devicePixelRatio, quality === 'high' ? 1.75 : 1.0);
+  const hi = quality === 'high';
+  const dpr = Math.min(devicePixelRatio, hi ? 1.75 : 1.0);
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.enabled = true;
-  sun.shadow.mapSize.set(quality === 'high' ? 2048 : 1024, quality === 'high' ? 2048 : 1024);
+  const ms = hi ? 4096 : 1536;
+  sun.shadow.mapSize.set(ms, ms);
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-  if (quality === 'high') {
-    composer = new EffectComposer(renderer);
+  if (terrainMesh) terrainMesh.castShadow = hi;
+  if (hi) {
+    const rt = new THREE.WebGLRenderTarget(innerWidth * dpr, innerHeight * dpr, { type: THREE.HalfFloatType, samples: 4 });
+    composer = new EffectComposer(renderer, rt);
     composer.setPixelRatio(dpr);
     composer.setSize(innerWidth, innerHeight);
     composer.addPass(new RenderPass(scene, camera));
-    bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.5, 0.92);
+    bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.6, 0.95);
     composer.addPass(bloom);
+    composer.addPass(new ShaderPass(GradeShader));
     composer.addPass(new OutputPass());
   } else composer = null;
-  $('#q-btn').textContent = quality === 'high' ? 'גרפיקה: גבוהה' : 'גרפיקה: חסכונית';
+  const qb = $('#q-btn'); if (qb) qb.textContent = hi ? 'גבוהה' : 'חסכונית';
 }
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -79,18 +101,16 @@ setLoad(0.05, 'בונים את המדבר…');
 await new Promise(r => setTimeout(r, 30));
 TR.initWorld();
 const T = W.makeTextures();
-scene.add(W.buildTerrain(T));
+terrainMesh = W.buildTerrain(T);
+scene.add(terrainMesh);
 scene.add(W.buildArena(T));
 scene.add(W.buildRamps(T));
 scene.add(W.buildTracks(T));
 scene.add(W.buildDriftLot());
 const water = W.buildWater(T); scene.add(water);
 scene.add(W.buildScenery());
-const { group: cpGroup, cps } = W.buildCheckpoints(); scene.add(cpGroup);
-scene.add(W.buildStartGate(cps[0]));
-const coinPts = W.coinPositions();
-const coins = W.buildCoins(coinPts); scene.add(coins);
-const pads = W.buildBoostPads(T); scene.add(pads);
+const vegetation = W.buildVegetation(T); scene.add(vegetation);
+const clouds = W.buildClouds(sunDir); scene.add(clouds);
 const props = W.propLayout(); scene.add(W.buildPropMeshes(props));
 setLoad(0.25, 'מביאים את הבאגי…');
 
@@ -99,18 +119,6 @@ particles.mat.uniforms.fogColor.value.copy(scene.fog.color);
 particles.mat.uniforms.fogNear.value = scene.fog.near;
 particles.mat.uniforms.fogFar.value = scene.fog.far;
 const skids = new Skids(scene, 7000);
-
-// checkpoint arrow
-const arrow = (() => {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0.9); s.lineTo(0.62, 0); s.lineTo(0.24, 0); s.lineTo(0.24, -0.7); s.lineTo(-0.24, -0.7); s.lineTo(-0.24, 0); s.lineTo(-0.62, 0); s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, { depth: 0.18, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2 });
-  g.translate(0, 0, -0.09); g.rotateX(-Math.PI / 2);
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0xff9a00, emissiveIntensity: 1.2, roughness: 0.4 }));
-  m.visible = false;
-  scene.add(m);
-  return m;
-})();
 
 // ---------------------------------------------------------------- car
 let car;
@@ -133,34 +141,22 @@ setLoad(1, 'מוכן!');
 
 const audio = new GameAudio();
 audio.muted = store.get('muted', false);
-const input = new Input();
+const input = new Input(store.get('keys', null));
 input.bindTouch($('#touch'));
 
 // ---------------------------------------------------------------- game state
-const ACH = [
-  { id: 'drift5k', name: 'מלך הדריפט', desc: 'שרשרת דריפט של 5,000 נקודות' },
-  { id: 'air25', name: 'טייס', desc: '2.5 שניות באוויר בקפיצה אחת' },
-  { id: 'backflip', name: 'סלטה אחורית', desc: 'לנחות אחרי סלטה אחורית' },
-  { id: 'spin', name: 'סביבון', desc: 'סיבוב 360° באוויר' },
-  { id: 'coins25', name: 'אספן', desc: 'לאסוף 25 מטבעות' },
-  { id: 'trial', name: 'מקצה זמן', desc: 'לסיים את מסלול השערים' },
-  { id: 'speed', name: 'טיל', desc: 'להגיע ל-140 קמ"ש' },
-  { id: 'cones', name: 'באולינג', desc: 'להפיל 15 קונוסים וחביות' },
-];
 const G = {
   state: 'menu',
   score: 0,
   best: store.get('best', 0),
   chain: { pts: 0, time: 0, idle: 0, active: false, mult: 1 },
   nitro: 1,
-  coins: 0, taken: new Array(coinPts.length).fill(false),
-  trial: { active: false, next: 0, t: 0, best: store.get('bestTime', null) },
   air: { t: 0, pitch: 0, yaw: 0, roll: 0, vy: 0 },
-  ach: store.get('ach', {}),
+  mode: store.get('mode', 'normal'),
+  wheelie: { kind: 0, t: 0 },
   knocked: 0,
   camMode: 0,
   flipT: 0,
-  padCool: 0,
   shake: 0,
   speedKmh: 0,
 };
@@ -182,19 +178,7 @@ function toast(html) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
 }
-function unlock(id) {
-  if (G.ach[id]) return;
-  G.ach[id] = true; store.set('ach', G.ach);
-  const a = ACH.find(a => a.id === id);
-  toast(`<i>🏆</i><div><small>הישג חדש</small><b>${a.name}</b><span>${a.desc}</span></div>`);
-  audio.achievement();
-  renderAch();
-}
-function renderAch() {
-  const done = ACH.filter(a => G.ach[a.id]).length;
-  $('#ach-count').textContent = `${done}/${ACH.length}`;
-  $('#ach-list').innerHTML = ACH.map(a => `<li class="${G.ach[a.id] ? 'done' : ''}"><i>${G.ach[a.id] ? '✔' : '○'}</i><div><b>${a.name}</b><span>${a.desc}</span></div></li>`).join('');
-}
+function unlock() { /* open world: no achievements */ }
 function addScore(p) {
   G.score += p;
   if (G.score > G.best) { G.best = G.score; store.set('best', Math.round(G.best)); }
@@ -388,113 +372,6 @@ function propsVisual(dt) {
   }
 }
 
-// ---------------------------------------------------------------- coins
-const _m4 = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(), _cp = new THREE.Vector3();
-const Y = new THREE.Vector3(0, 1, 0);
-function updateCoins(t) {
-  for (let i = 0; i < coinPts.length; i++) {
-    const c = coinPts[i];
-    if (!G.taken[i] && G.state === 'play') {
-      const dx = c.x - veh.pos.x, dy = c.y - veh.pos.y, dz = c.z - veh.pos.z;
-      if (dx * dx + dy * dy + dz * dz < 2.7 * 2.7) {
-        G.taken[i] = true; G.coins++;
-        addScore(100);
-        G.nitro = Math.min(1, G.nitro + 0.06);
-        sparkle(c.x, c.y, c.z);
-        audio.coin();
-        popup('+100', 'coin');
-        if (G.coins >= 25) unlock('coins25');
-        if (G.coins === coinPts.length) toast('<i>💰</i><div><small>כל הכבוד</small><b>אספת את כל המטבעות!</b></div>');
-      }
-    }
-    _cq.setFromAxisAngle(Y, t * 2.4 + i);
-    _cs.setScalar(G.taken[i] ? 0 : 1);
-    _cp.set(c.x, c.y + Math.sin(t * 2 + i) * 0.18, c.z);
-    coins.setMatrixAt(i, _m4.compose(_cp, _cq, _cs));
-  }
-  coins.instanceMatrix.needsUpdate = true;
-}
-
-// ---------------------------------------------------------------- time trial
-let prevSide = new Map();
-function cpSide(cp) { return (veh.pos.x - cp.x) * cp.nx + (veh.pos.z - cp.z) * cp.nz; }
-function cpCheck() {
-  const tr = G.trial;
-  const target = tr.active ? cps[tr.next] : cps[0];
-  const s = cpSide(target);
-  const ps = prevSide.get(target);
-  prevSide.set(target, s);
-  if (ps == null || Math.sign(ps) === Math.sign(s) || Math.abs(ps - s) > 8) return;
-  // crossed the plane: within the ring?
-  const lx = (veh.pos.x - target.x) * target.nz - (veh.pos.z - target.z) * target.nx;
-  const ly = veh.pos.y - target.y;
-  if (Math.hypot(lx, ly) > target.r + 0.9) return;
-  if (!tr.active) {
-    tr.active = true; tr.next = 1; tr.t = 0; tr.splits = [];
-    popup('מקצה זמן!', 'trial', 'עבור בכל השערים לפי הסדר · T לביטול');
-    audio.checkpoint();
-    return;
-  }
-  if (tr.next === 0) {
-    // finish
-    const time = tr.t;
-    tr.active = false;
-    const rec = tr.best == null || time < tr.best;
-    if (rec) { tr.best = time; store.set('bestTime', time); }
-    popup(`סיום! ${fmtTime(time)}`, 'trial', rec ? 'שיא חדש! 🏁' : `השיא שלך: ${fmtTime(tr.best)}`);
-    addScore(Math.max(1000, Math.round(20000 - time * 120)));
-    audio.finish();
-    unlock('trial');
-    return;
-  }
-  audio.checkpoint();
-  popup(`שער ${tr.next}/${cps.length - 1}`, 'cp', fmtTime(tr.t));
-  tr.next = (tr.next + 1) % cps.length;
-}
-function updateCheckpointVisuals(t) {
-  const tr = G.trial;
-  for (const c of cps) c.group.visible = false;
-  const show = (c, main) => {
-    c.group.visible = true;
-    const pulse = 0.5 + 0.5 * Math.sin(t * 5);
-    c.mat.emissive.set(main ? (c === cps[0] ? 0x30ff7a : 0xffb020) : 0x8899aa);
-    c.mat.emissiveIntensity = main ? 1.6 + pulse * 1.4 : 0.6;
-    c.mat.opacity = main ? 0.95 : 0.45;
-    c.film.material.opacity = main ? 0.06 + pulse * 0.06 : 0.02;
-    c.ring.rotation.z = t * (main ? 0.8 : 0.3);
-  };
-  if (!tr.active) { show(cps[0], true); arrow.visible = false; return; }
-  show(cps[tr.next], true);
-  if (tr.next !== 0) show(cps[(tr.next + 1) % cps.length], false);
-  const c = cps[tr.next];
-  arrow.visible = G.camMode !== 2;
-  arrow.position.copy(veh.pos).y += 2.7;
-  arrow.rotation.set(0, Math.atan2(c.x - veh.pos.x, c.z - veh.pos.z) + Math.PI, 0);
-  arrow.rotateX(Math.sin(t * 4) * 0.08);
-}
-
-// ---------------------------------------------------------------- boost pads
-function padCheck(dt) {
-  G.padCool -= dt;
-  if (G.padCool > 0 || veh.grounded < 2) return;
-  for (const b of TR.boostPads) {
-    const dx = veh.pos.x - b.x, dz = veh.pos.z - b.z;
-    const u = dx * Math.sin(b.yaw) + dz * Math.cos(b.yaw);
-    const w = dx * Math.cos(b.yaw) - dz * Math.sin(b.yaw);
-    if (Math.abs(u) < 4.5 && Math.abs(w) < 3) {
-      const dir = new THREE.Vector3(Math.sin(b.yaw), 0, Math.cos(b.yaw));
-      const along = veh.vel.dot(dir);
-      veh.vel.addScaledVector(dir, Math.max(0, 40 - along));
-      G.nitro = Math.min(1, G.nitro + 0.2);
-      G.padCool = 1.2;
-      G.boostFlash = 0.9;
-      popup('טורבו!', 'boost');
-      audio.boostSfx();
-      return;
-    }
-  }
-}
-
 // ---------------------------------------------------------------- race tracks: lap timing
 G.lap = { track: null, last: -1, running: false, t: 0, count: 0, sectors: 0 };
 G.lapBest = store.get('lapBest', {});
@@ -507,6 +384,7 @@ function lapCheck(dt) {
     return;
   }
   const tr = q.track, i = q.i, n = tr.n;
+  if (tr.road) { L.track = null; L.running = false; return; }
   if (L.track !== tr) { L.track = tr; L.last = i; L.running = false; L.count = 0; L.sectors = 0; return; }
   const prev = L.last;
   L.last = i;
@@ -554,7 +432,7 @@ function teleport(z) {
   for (let i = 0; i < 4; i++) skids.break(i);
   cam.dir.set(Math.sin(z.yaw), 0, Math.cos(z.yaw));
   cam.pos.copy(veh.pos).addScaledVector(cam.dir, -6.6).y += 2.3;
-  G.trial.active = false; G.lap.track = null; G.lap.running = false;
+  G.lap.track = null; G.lap.running = false;
   G.chain.active = false; G.chain.pts = 0;
   zoneNow = null; zoneT = 0;
 }
@@ -723,16 +601,6 @@ function drawMap(t) {
   mctx.translate(-(veh.pos.x + TR.HALF) * MB, -(veh.pos.z + TR.HALF) * MB);
   mctx.drawImage(mapBg, 0, 0);
   const P = (x, z) => [(x + TR.HALF) * MB, (z + TR.HALF) * MB];
-  const px = (n) => n * (w / 170) / k;
-  mctx.fillStyle = '#ffd23a';
-  for (let i = 0; i < coinPts.length; i++) {
-    if (G.taken[i]) continue;
-    mctx.beginPath(); mctx.arc(...P(coinPts[i].x, coinPts[i].z), px(2.2), 0, Math.PI * 2); mctx.fill();
-  }
-  const tgt = G.trial.active ? cps[G.trial.next] : cps[0];
-  const pulse = 0.5 + 0.5 * Math.sin(t * 6);
-  mctx.strokeStyle = G.trial.active ? '#ffb020' : '#30ff7a'; mctx.lineWidth = px(2.5);
-  mctx.beginPath(); mctx.arc(...P(tgt.x, tgt.z), px(5 + pulse * 3), 0, Math.PI * 2); mctx.stroke();
   mctx.restore();
   // buggy marker (always centre, pointing up relative to camera)
   mctx.save();
@@ -796,25 +664,19 @@ function drawGauge() {
 }
 
 const hud = {
-  score: $('#score'), best: $('#best'), coins: $('#coins'), trial: $('#trial'), trialT: $('#trial-t'), trialSub: $('#trial-sub'),
+  score: $('#score'), best: $('#best'), trial: $('#trial'), trialT: $('#trial-t'), trialSub: $('#trial-sub'),
   chain: $('#chain'), chainPts: $('#chain-pts'), chainMult: $('#chain-mult'), chainBar: $('#chain-bar'),
-  hint: $('#hint'), speedfx: $('#speedfx'), chainLbl: $('#chain .lbl'),
+  hint: $('#hint'), speedfx: $('#speedfx'), chainLbl: $('#chain .lbl'), mode: $('#mode-badge'),
 };
 function updateHud(t) {
   hud.score.textContent = fmt(G.score);
   hud.best.textContent = fmt(G.best);
-  hud.coins.textContent = `${G.coins}/${coinPts.length}`;
-  const tr = G.trial;
   const lp = G.lap;
   if (lp.track && lp.running) {
     hud.trial.classList.add('on');
     hud.trialT.textContent = fmtTime(lp.t);
     const best = G.lapBest[lp.track.id];
     hud.trialSub.textContent = `${lp.track.name} · הקפה ${lp.count + 1}${best != null ? ' · שיא ' + fmtTime(best) : ''}`;
-  } else if (tr.active) {
-    hud.trial.classList.add('on');
-    hud.trialT.textContent = fmtTime(tr.t);
-    hud.trialSub.textContent = `שער ${tr.next === 0 ? 'סיום' : tr.next + '/' + (cps.length - 1)}${tr.best != null ? ' · שיא ' + fmtTime(tr.best) : ''}`;
   } else hud.trial.classList.remove('on');
   const c = G.chain;
   if (c.active && c.pts > 0) {
@@ -823,20 +685,67 @@ function updateHud(t) {
     hud.chainMult.textContent = 'x' + c.mult;
     hud.chainBar.style.transform = `scaleX(${Math.max(0, 1 - c.idle / 1.6)})`;
     hud.chain.classList.toggle('drifting', veh.drifting);
-    hud.chainLbl.textContent = G.inDriftZone && veh.drifting ? 'DRIFT ZONE ×2' : 'DRIFT';
+    hud.chainLbl.textContent = G.wheelie.kind ? (G.wheelie.kind > 0 ? 'WHEELIE' : 'STOPPIE') : (G.inDriftZone && veh.drifting ? 'DRIFT ZONE ×2' : 'COMBO');
   } else hud.chain.classList.remove('on');
   let hint = '';
-  if (G.flipT > 0.6) hint = 'הבאגי הפוך — לחץ R';
-  else if (!tr.active && G.state === 'play' && t - startedAt < 9) hint = 'סע דרך השער הירוק כדי להתחיל מקצה זמן';
+  if (G.flipT > 0.6) hint = `הבאגי הפוך — לחץ ${keyLabel(input.bind.reset)}`;
   hud.hint.textContent = hint;
   hud.hint.classList.toggle('on', !!hint);
-  hud.speedfx.style.opacity = veh.boostActive ? 0.5 : (G.boostFlash || 0) * 0.6;
+  hud.speedfx.style.opacity = veh.boostActive ? 0.35 : 0;
   drawGauge();
   drawMap(t);
 }
 
+// ---------------------------------------------------------------- driving mode
+const MODE_NAMES = { normal: 'נסיעה רגילה', drift: 'מצב דריפט' };
+function setMode(m, announce = false) {
+  G.mode = m; veh.mode = m; store.set('mode', m);
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('sel', b.dataset.mode === m));
+  hud.mode.textContent = MODE_NAMES[m];
+  hud.mode.classList.toggle('drift', m === 'drift');
+  if (announce) popup(MODE_NAMES[m], m === 'drift' ? 'trick' : 'air', m === 'drift' ? 'החלקות ארוכות: גז + היגוי מלא או בלם יד' : 'אחיזה ויציבות');
+}
+
+// ---------------------------------------------------------------- settings (keys, mode, graphics, sound)
+function renderKeys() {
+  $('#keys').innerHTML = ACTIONS.map(a => `
+    <div class="keyrow"><span>${a.name}</span>
+      <button class="keybtn" data-act="${a.id}" aria-label="שינוי מקש עבור ${a.name}">${keyLabel(input.bind[a.id])}</button></div>`).join('');
+}
+$('#keys').addEventListener('click', (e) => {
+  const b = e.target.closest('.keybtn'); if (!b) return;
+  document.querySelectorAll('.keybtn.wait').forEach(x => x.classList.remove('wait'));
+  b.classList.add('wait'); b.textContent = 'לחץ על מקש…';
+  input.capture = (code) => {
+    if (code !== 'Escape' || b.dataset.act === 'pause') input.setKey(b.dataset.act, code);
+    store.set('keys', input.bind);
+    renderKeys(); renderHelp();
+  };
+});
+$('#keys-reset').addEventListener('click', () => { input.resetKeys(); store.set('keys', input.bind); renderKeys(); renderHelp(); });
+function renderHelp() {
+  const k = (a) => `<kbd>${keyLabel(input.bind[a])}</kbd>`;
+  $('#help').innerHTML = `
+    <span>${k('throttle')} ${k('brake')}</span><span>גז / ברקס ורוורס</span>
+    <span>${k('left')} ${k('right')}</span><span>היגוי</span>
+    <span>${k('handbrake')}</span><span>בלם יד — פותח דריפט</span>
+    <span>${k('boost')}</span><span>ניטרו</span>
+    <span>${k('leanBack')} ${k('leanFwd')}</span><span>הטייה: ווילי / ווילי קדמי, ובאוויר סלטות</span>
+    <span>${k('rollLeft')} ${k('rollRight')}</span><span>גלגול באוויר</span>
+    <span>${k('mode')}</span><span>מעבר בין נסיעה רגילה למצב דריפט</span>
+    <span>${k('reset')} ${k('camera')} ${k('pause')}</span><span>איפוס · מצלמה · תפריט</span>`;
+  $('.keys-help').textContent = `${keyLabel(input.bind.mode)} מצב נהיגה · ${keyLabel(input.bind.leanBack)}/${keyLabel(input.bind.leanFwd)} הטייה · ${keyLabel(input.bind.handbrake)} דריפט · ${keyLabel(input.bind.pause)} הגדרות`;
+}
+function openSettings(on) {
+  $('#settings').classList.toggle('hidden', !on);
+  if (on) renderKeys();
+  else { input.capture = null; }
+}
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+document.querySelectorAll('.open-settings').forEach(b => b.addEventListener('click', () => openSettings(true)));
+$('#settings-close').addEventListener('click', () => openSettings(false));
+
 // ---------------------------------------------------------------- menus
-let startedAt = 0;
 function buildMenu() {
   const sw = $('#swatches');
   sw.innerHTML = PAINTS.map(p => `<button class="sw" style="--c:${p.c}" data-c="${p.c}" aria-label="${p.n}" title="${p.n}"></button>`).join('');
@@ -845,20 +754,18 @@ function buildMenu() {
     const b = e.target.closest('.sw'); if (!b) return;
     paint = b.dataset.c; car.setPaint(paint); store.set('paint', paint); mark();
   });
-  if (!paint) paint = null;
   mark();
-  if (G.trial.best != null) $('#menu-best').textContent = `שיא מקצה זמן: ${fmtTime(G.trial.best)} · שיא ניקוד: ${fmt(G.best)}`;
-  else if (G.best > 0) $('#menu-best').textContent = `שיא ניקוד: ${fmt(G.best)}`;
+  if (G.best > 0) $('#menu-best').textContent = `שיא ניקוד: ${fmt(G.best)}`;
 }
 function startGame() {
   audio.start();
   audio.setMuted(audio.muted);
   $('#menu').classList.add('hidden');
+  openSettings(false);
   $('#hud').classList.remove('hidden');
   document.body.classList.add('playing');
   if (matchMedia('(pointer: coarse)').matches) $('#touch').classList.remove('hidden');
   G.state = 'play';
-  startedAt = clock.elapsedTime;
   cam.pos.copy(camera.position);
   sizeCanvases();
 }
@@ -866,32 +773,54 @@ function pause(on) {
   if (G.state === 'menu') return;
   G.state = on ? 'pause' : 'play';
   $('#pause').classList.toggle('hidden', !on);
-  renderAch();
+  if (!on) openSettings(false);
 }
 $('#play-btn').addEventListener('click', startGame);
 $('#resume-btn').addEventListener('click', () => pause(false));
-$('#reset-btn').addEventListener('click', () => { resetCar(true); G.trial.active = false; pause(false); });
+$('#reset-btn').addEventListener('click', () => { resetCar(true); pause(false); });
 $('#pause-btn').addEventListener('click', () => pause(G.state !== 'pause'));
 $('#q-btn').addEventListener('click', () => { quality = quality === 'high' ? 'low' : 'high'; store.set('quality', quality); applyQuality(); });
-$('#mute-btn').addEventListener('click', () => { audio.setMuted(!audio.muted); store.set('muted', audio.muted); $('#mute-btn').textContent = audio.muted ? 'צליל: כבוי' : 'צליל: פועל'; });
-$('#mute-btn').textContent = audio.muted ? 'צליל: כבוי' : 'צליל: פועל';
+const muteLabel = () => { $('#mute-btn').textContent = audio.muted ? 'כבוי' : 'פועל'; };
+$('#mute-btn').addEventListener('click', () => { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); });
+muteLabel();
 $('#touch-cam')?.addEventListener('click', () => { G.camMode = (G.camMode + 1) % 3; });
 $('#touch-reset')?.addEventListener('click', () => resetCar());
-addEventListener('keydown', (e) => { if (e.code === 'Enter' && G.state === 'menu' && !$('#loading').classList.contains('show')) startGame(); });
+$('#touch-mode')?.addEventListener('click', () => setMode(G.mode === 'drift' ? 'normal' : 'drift', true));
+addEventListener('keydown', (e) => { if (e.code === 'Enter' && G.state === 'menu' && !input.capture && $('#settings').classList.contains('hidden')) startGame(); });
+
+// ---------------------------------------------------------------- wheelies
+function wheelieTrack(dt) {
+  const W = G.wheelie;
+  const kind = veh.speed > 2 ? veh.wheelie : 0;
+  if (kind && kind === W.kind) {
+    W.t += dt;
+    if (W.t > 0.6) { chainAdd(dt * (kind > 0 ? 260 : 340) * (1 + veh.speed / 20)); G.nitro = Math.min(1, G.nitro + dt * 0.04); }
+    return;
+  }
+  if (W.kind && W.t > 1.0) {
+    popup(W.kind > 0 ? 'ווילי!' : 'ווילי קדמי!', 'trick', `${W.t.toFixed(1)} שניות`);
+    audio.trick();
+  }
+  W.kind = kind; W.t = 0;
+}
 
 // ---------------------------------------------------------------- loop
 const clock = new THREE.Clock();
 let acc = 0;
 const DT = 1 / 120;
-const idleInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, boost: false, roll: 0 };
+const idleInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, boost: false, roll: 0, lean: 0 };
 
 function keys() {
-  if (input.wasPressed('Escape') || input.wasPressed('KeyP')) pause(G.state === 'play');
+  if (input.capture) return;
+  if (input.hit('pause') || input.pressed.has('KeyP')) {
+    if (!$('#settings').classList.contains('hidden')) openSettings(false);
+    else pause(G.state === 'play');
+  }
   if (G.state !== 'play') return;
-  if (input.wasPressed('KeyR')) resetCar();
-  if (input.wasPressed('KeyC')) G.camMode = (G.camMode + 1) % 3;
-  if (input.wasPressed('KeyM')) { audio.setMuted(!audio.muted); store.set('muted', audio.muted); }
-  if (input.wasPressed('KeyT') && G.trial.active) { G.trial.active = false; popup('המקצה בוטל', 'bad'); }
+  if (input.hit('reset')) resetCar();
+  if (input.hit('camera')) G.camMode = (G.camMode + 1) % 3;
+  if (input.hit('mode')) setMode(G.mode === 'drift' ? 'normal' : 'drift', true);
+  if (input.pressed.has('KeyM')) { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); }
 }
 
 function frame() {
@@ -915,10 +844,9 @@ function frame() {
     if (steps >= 12) acc = 0;
 
     if (G.state === 'play') {
-      if (veh.boostActive) G.nitro = Math.max(0, G.nitro - dt * 0.3);
-      G.boostFlash = Math.max(0, (G.boostFlash || 0) - dt * 1.5);
+      if (veh.boostActive) G.nitro = Math.max(0, G.nitro - dt * 0.28);
+      else G.nitro = Math.min(1, G.nitro + dt * 0.035);        // slowly refills by itself
       G.speedKmh = veh.forwardSpeed * 3.6;
-      if (G.speedKmh >= 140) unlock('speed');
       // drift chain
       const c = G.chain;
       const sp = veh.speed;
@@ -929,11 +857,12 @@ function frame() {
         c.time += dt;
         c.mult = 1 + Math.min(4, Math.floor(c.time / 2.2));
         G.nitro = Math.min(1, G.nitro + dt * 0.05);
-      } else if (c.active && veh.grounded > 0) {
+      } else if (c.active && veh.grounded > 0 && !G.wheelie.kind) {
         c.idle += dt;
         if (c.idle > 1.6) bankChain();
       }
       airTrack(dt);
+      wheelieTrack(dt);
       // crashes
       if (veh.wallHit > 7.5) {
         loseChain('בום!');
@@ -950,19 +879,12 @@ function frame() {
         if (G.flipT > 3) resetCar();
       } else G.flipT = 0;
       if (veh.pos.y < TR.terrainHeight(veh.pos.x, veh.pos.z) - 4) resetCar();
-      cpCheck();
-    lapCheck(dt);
-    zoneCheck(dt);
-      if (G.trial.active) {
-        G.trial.t += dt;
-        if (G.trial.t > 600) G.trial.active = false;
-      }
-      padCheck(dt);
+      lapCheck(dt);
+      zoneCheck(dt);
       wheelFx(dt, inp);
       if (veh.inWater > 0.2 && veh.speed > 4 && Math.random() < 0.6) {
         burst(veh.pos.x, TR.WATER_LEVEL + 0.1, veh.pos.z, 3, [0.9, 0.95, 1], 3);
       }
-      // nitro trail
       if (veh.boostActive) {
         for (const f of car.flames) {
           const p = f.getWorldPosition(_v);
@@ -975,18 +897,17 @@ function frame() {
   // visuals
   syncCar(car, veh, t);
   propsVisual(dt);
-  updateCoins(t);
-  updateCheckpointVisuals(t);
   particles.update(G.state === 'pause' ? 0 : dt);
   skids.update();
   water.userData.tick(t);
-  pads.userData.tick(t);
   updateCamera(dt);
+  vegetation.userData.update(camera.position, t);
+  clouds.userData.tick(t, camera.position);
 
   // shadow camera follows the buggy (snapped to texels to avoid shimmering)
-  const texel = 90 / sun.shadow.mapSize.x;
+  const texel = 120 / sun.shadow.mapSize.x;
   const fx = Math.round(veh.pos.x / texel) * texel, fz = Math.round(veh.pos.z / texel) * texel;
-  sun.position.set(fx + sunDir.x * 120, veh.pos.y + sunDir.y * 120, fz + sunDir.z * 120);
+  sun.position.set(fx + sunDir.x * 150, veh.pos.y + sunDir.y * 150, fz + sunDir.z * 150);
   sun.target.position.set(fx, veh.pos.y, fz);
   sun.target.updateMatrixWorld();
 
@@ -1006,9 +927,10 @@ function frame() {
 applyQuality();
 buildMenu();
 buildTravel();
-renderAch();
+setMode(G.mode);
+renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { veh, G, cps, camera, scene, renderer, startGame, TR, lapCheck };
+window.__game = { veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode };
 frame();

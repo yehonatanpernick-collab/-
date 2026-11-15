@@ -129,6 +129,12 @@ export const TRACKS = [
       [-340, 530], [-372, 462], [-292, 450], [-250, 402]],
     jumps: [0.17, 0.43, 0.62, 0.86],
   },
+  {
+    // paved ring road that links every area of the world
+    id: 'ring', name: 'כביש הטבעת', surface: 'asphalt', hw: 5.5, road: true,
+    ctrl: [[0, -345], [180, -300], [300, -322], [400, -300], [405, -180], [398, 0], [405, 150], [390, 280],
+      [250, 360], [100, 400], [-80, 410], [-200, 322], [-300, 200], [-340, 40], [-330, -120], [-262, -232], [-130, -332]],
+  },
 ];
 const TR_CELL = 20;
 const trHash = new Map();
@@ -180,7 +186,7 @@ function buildTracks() {
       tr.pts[i].y = rawHeight(tr.pts[i].x, tr.pts[i].z, true);
     }
     // smooth heights along the loop
-    for (let pass = 0; pass < 8; pass++) {
+    for (let pass = 0; pass < (tr.road ? 30 : 8); pass++) {
       const ys = tr.pts.map(p => p.y);
       for (let i = 0; i < n; i++) {
         let s = 0;
@@ -582,13 +588,13 @@ export function buildLayout() {
       const sl = (c.y - a.y) / 12, L = 9, H = 1.9;
       const prof = [];
       for (let k = 0; k <= 6; k++) { const t = k / 6, u = -L / 2 + L * t; prof.push([u, sl * u + Math.max(0.03, H * Math.pow(t, 1.6))]); }
-      addRamp(p.x, p.z, yaw, tr.hw * 2 - 1, prof, { cy: p.y - 0.03, style: 'roller' });
+      addRamp(p.x, p.z, yaw, tr.hw * 2 + 3, prof, { cy: p.y - 0.03, style: 'roller' });
     }
   }
   // --- Circuit: tyre stacks on the outside of tight corners ----------
   tireStacks.length = 0;
   for (const tr of TRACKS) {
-    if (tr.surface !== 'asphalt') continue;
+    if (tr.surface !== 'asphalt' || tr.road) continue;
     for (let i = 0; i < tr.n; i += 3) {
       const p = tr.pts[i];
       if (Math.abs(p.curv) < 0.05) continue;
@@ -619,6 +625,7 @@ export function buildLayout() {
       box(x, z, yaw, 34, 9, 6, { cy: y, noRender: true });
     }
   }
+  boostPads.length = 0;     // open world: no glowing boost pads
   indexColliders();
 
   // --- scenery cylinders (rocks, cacti, palms) ----------------------

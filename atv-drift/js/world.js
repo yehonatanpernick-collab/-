@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   GN, CELL, HALF, grid, WATER_LEVEL, ARENA, PARK, BOWL, LAKE, ROUTE,
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
-  TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt,
+  TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -140,6 +140,21 @@ export function makeTextures() {
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }, { clamp: true });
+  T.sandNormal = canvasTex(512, 512, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // ripples + grains, tileable
+    const hgt = (x, y) => {
+      const u = x / w, v = y / h;
+      const rip = Math.sin((u * 6 + tileNoise(u, v, 4) * 1.5) * Math.PI * 2 * 3) * 0.5;
+      return rip * 0.35 + tileNoise(u, v, 32) * 0.4 + tileNoise(u, v, 96) * 0.25;
+    };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = hgt(x + 1, y) - hgt(x - 1, y), dy = hgt(x, y + 1) - hgt(x, y - 1);
+      const i = (y * w + x) * 4;
+      img.data[i] = 128 + dx * 220; img.data[i + 1] = 128 + dy * 220; img.data[i + 2] = 255; img.data[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }, { linear: true });
   T.waterNormal = canvasTex(256, 256, (ctx, w, h) => {
     const img = ctx.createImageData(w, h);
     const hgt = (x, y) => 0.6 * tileNoise(x / w, y / h, 8) + 0.4 * tileNoise(x / w, y / h, 16);
@@ -292,9 +307,21 @@ export function buildTerrain(T) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const mat = new THREE.MeshStandardMaterial({
-    vertexColors: true, map: T.sand, roughness: 0.95, metalness: 0,
+    vertexColors: true, map: T.sand, roughness: 0.96, metalness: 0,
+    normalMap: T.sandNormal, normalScale: new THREE.Vector2(0.55, 0.55),
   });
-  mat.envMapIntensity = 0.6;
+  mat.envMapIntensity = 0.55;
+  // sample the detail texture at two scales so the tiling never shows
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `
+      #ifdef USE_MAP
+        vec4 t1 = texture2D(map, vMapUv);
+        vec4 t2 = texture2D(map, vMapUv * 0.173 + vec2(0.31, 0.77));
+        vec4 t3 = texture2D(map, vMapUv * 0.031 + vec2(0.13, 0.41));
+        vec4 sampledDiffuseColor = mix(mix(t1, t2, 0.45), t3, 0.25);
+        diffuseColor *= sampledDiffuseColor;
+      #endif`);
+  };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   return mesh;
@@ -860,6 +887,18 @@ export function buildTracks(T) {
       ctx.fillStyle = g; ctx.fillRect(w * (u - 0.05), 0, w * 0.1, h);
     }
   });
+  const roadTex = canvasTex(256, 512, (ctx, w, h) => {
+    noiseFill(ctx, w, h, 70, 30, 2, 53);
+    const R = rng(57);
+    for (let i = 0; i < 2500; i++) { const v = 60 + R() * 100; ctx.fillStyle = `rgba(${v},${v},${v},0.45)`; ctx.fillRect(R() * w, R() * h, 1.2, 1.2); }
+    ctx.fillStyle = 'rgba(238,238,230,0.92)';
+    ctx.fillRect(8, 0, 6, h); ctx.fillRect(w - 14, 0, 6, h);
+    ctx.fillStyle = 'rgba(240,190,40,0.95)';
+    ctx.fillRect(w / 2 - 4, 0, 8, h * 0.55);
+    // patched cracks
+    ctx.strokeStyle = 'rgba(20,20,20,0.35)'; ctx.lineWidth = 1.5;
+    for (let k = 0; k < 8; k++) { ctx.beginPath(); let x = R() * w, y = R() * h; ctx.moveTo(x, y); for (let j = 0; j < 6; j++) { x += (R() - 0.5) * 30; y += R() * 25; ctx.lineTo(x, y); } ctx.stroke(); }
+  });
   const kerbTex = canvasTex(64, 256, (ctx, w, h) => {
     for (let k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? '#f4f4f4' : '#d8241c'; ctx.fillRect(0, k * h / 8, w, h / 8); }
   });
@@ -893,12 +932,13 @@ export function buildTracks(T) {
   for (const tr of TRACKS) {
     const isA = tr.surface === 'asphalt';
     const mat = new THREE.MeshStandardMaterial({
-      map: isA ? asphaltTrack : dirtTrack, roughness: isA ? 0.8 : 1,
+      map: tr.road ? roadTex : isA ? asphaltTrack : dirtTrack, roughness: isA ? 0.8 : 1,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide,
     });
     const road = new THREE.Mesh(ribbon(tr, -tr.hw, tr.hw, 0.1), mat);
     road.receiveShadow = true;
     group.add(road);
+    if (tr.road) continue;
     if (isA) {
       const kmat = new THREE.MeshStandardMaterial({ map: kerbTex, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide });
       const corner = (p) => Math.abs(p.curv) > 0.035;
@@ -999,4 +1039,178 @@ export function buildDriftLot() {
   mesh.position.set((DRIFTLOT.x0 + DRIFTLOT.x1) / 2, 0.04, (DRIFTLOT.z0 + DRIFTLOT.z1) / 2);
   mesh.receiveShadow = true;
   return mesh;
+}
+
+// ------------------------------------------------------------------ vegetation
+// Dry grass tufts and desert shrubs, instanced in 100 m chunks so the camera
+// only draws what's near. Grass sways in the wind.
+export function buildVegetation(T) {
+  const group = new THREE.Group();
+  const uniforms = { uTime: { value: 0 } };
+  const grassTex = canvasTex(256, 256, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const R = rng(71);
+    for (let i = 0; i < 70; i++) {
+      const x0 = w * (0.1 + R() * 0.8), len = h * (0.45 + R() * 0.5), bend = (R() - 0.5) * w * 0.35;
+      const g = 140 + R() * 70;
+      ctx.strokeStyle = `rgba(${g + 40},${g + 20},${g * 0.55},1)`;
+      ctx.lineWidth = 2 + R() * 3;
+      ctx.beginPath(); ctx.moveTo(x0, h);
+      ctx.quadraticCurveTo(x0 + bend * 0.3, h - len * 0.6, x0 + bend, h - len);
+      ctx.stroke();
+    }
+  }, { clamp: true });
+  // three crossed quads, darker at the base
+  const quad = () => new THREE.PlaneGeometry(1.3, 0.95, 1, 2).translate(0, 0.47, 0);
+  const parts = [0, Math.PI / 3, 2 * Math.PI / 3].map(a => quad().rotateY(a));
+  let grassGeo = mergeGeometries(parts);
+  {
+    const pa = grassGeo.attributes.position, c = new Float32Array(pa.count * 3);
+    for (let i = 0; i < pa.count; i++) {
+      const k = 0.45 + 0.55 * (pa.getY(i) / 0.95);
+      c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = k;
+    }
+    grassGeo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    // point normals up so the tufts light like the ground they sit on
+    const na = grassGeo.attributes.normal;
+    for (let i = 0; i < na.count; i++) na.setXYZ(i, 0, 1, 0);
+  }
+  const grassMat = new THREE.MeshStandardMaterial({
+    map: grassTex, alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true, roughness: 1,
+  });
+  const sway = (sh) => {
+    sh.uniforms.uTime = uniforms.uTime;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      #ifdef USE_INSTANCING
+        vec2 ip = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+        float wv = sin(uTime * 1.7 + ip.x * 0.11 + ip.y * 0.07) * 0.5 + sin(uTime * 3.1 + ip.x * 0.3) * 0.2;
+        transformed.x += wv * 0.18 * position.y;
+        transformed.z += wv * 0.08 * position.y;
+      #endif`);
+  };
+  grassMat.onBeforeCompile = sway;
+
+  // shrubs
+  let shrubGeo = new THREE.IcosahedronGeometry(1, 1);
+  {
+    const pa = shrubGeo.attributes.position, p = new THREE.Vector3();
+    for (let i = 0; i < pa.count; i++) {
+      p.fromBufferAttribute(pa, i);
+      const k = 0.7 + 0.5 * fbm(p.x * 2.1 + 5, p.z * 2.1 + p.y * 1.7, 2);
+      p.multiplyScalar(k); p.y = p.y * 0.62 + 0.45;
+      pa.setXYZ(i, p.x, p.y, p.z);
+    }
+    shrubGeo = colorize(shrubGeo, 0x7d7a4c, 0.35, 81);
+    shrubGeo.computeVertexNormals();
+  }
+  const shrubMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true });
+
+  // placement
+  const okSpot = (x, z) => {
+    if (Math.hypot(x, z) > 720 || Math.max(Math.abs(x), Math.abs(z)) > 760) return false;
+    if (TR_surface(x, z) !== 'sand') return false;
+    if (roadDistance(x, z) < 6) return false;
+    const q = trackNearest(x, z);
+    if (q.track && q.d < q.track.hw + 3) return false;
+    if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r * 0.95) return false;
+    if (x > PARK.x0 - 8 && x < PARK.x1 + 8 && z > PARK.z0 - 8 && z < PARK.z1 + 8) return false;
+    return true;
+  };
+  const density = (x, z) => {
+    const hills = 1 - smoothstep(HILLS.r * 0.4, HILLS.r * 1.1, Math.hypot(x - HILLS.x, z - HILLS.z));
+    const oasis = 1 - smoothstep(LAKE.r, LAKE.r * 2.2, Math.hypot(x - LAKE.x, z - LAKE.z));
+    const dunes = smoothstep(105, 175, x) * (1 - smoothstep(330, 420, x));
+    const patch = smoothstep(0.35, 0.7, fbm(x * 0.008 + 11, z * 0.008 - 4, 3));
+    return Math.min(1, (0.22 + 0.8 * hills + 0.9 * oasis) * (0.25 + patch) * (1 - 0.85 * dunes));
+  };
+  const R = rng(4242);
+  const CH = 100;
+  const chunks = new Map();
+  const add = (kind, x, z, s, rot) => {
+    const key = Math.floor(x / CH) + ',' + Math.floor(z / CH);
+    let c = chunks.get(key);
+    if (!c) chunks.set(key, c = { grass: [], shrub: [], cx: (Math.floor(x / CH) + 0.5) * CH, cz: (Math.floor(z / CH) + 0.5) * CH });
+    c[kind].push(x, terrainHeight(x, z), z, s, rot);
+  };
+  const nTry = 90000;
+  for (let i = 0; i < nTry; i++) {
+    const x = (R() - 0.5) * 1500, z = (R() - 0.5) * 1500;
+    const d = density(x, z);
+    if (R() > d) continue;
+    if (!okSpot(x, z)) continue;
+    const nrm = { x: 0, y: 1, z: 0 };
+    terrainHeight(x, z, nrm);
+    if (nrm.y < 0.82) continue;
+    if (R() < 0.08) add('shrub', x, z, 0.5 + R() * 1.1, R() * 6.28);
+    else {
+      // tufts grow in small clumps
+      for (let k = 0; k < 3; k++) add('grass', x + (R() - 0.5) * 2.5, z + (R() - 0.5) * 2.5, 0.6 + R() * 0.8, R() * 6.28);
+    }
+  }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+  const list = [];
+  for (const c of chunks.values()) {
+    for (const kind of ['grass', 'shrub']) {
+      const arr = c[kind];
+      const n = arr.length / 5;
+      if (!n) continue;
+      const im = new THREE.InstancedMesh(kind === 'grass' ? grassGeo : shrubGeo, kind === 'grass' ? grassMat : shrubMat, n);
+      for (let i = 0; i < n; i++) {
+        const [x, y, z, s, rot] = arr.slice(i * 5, i * 5 + 5);
+        q.setFromAxisAngle(Y, rot);
+        sc.set(s, s * (kind === 'grass' ? 0.8 + (i % 5) * 0.1 : 0.9), s);
+        im.setMatrixAt(i, m4.compose(pos.set(x, y - (kind === 'grass' ? 0.05 : 0.25), z), q, sc));
+      }
+      im.computeBoundingSphere();
+      im.castShadow = kind === 'shrub';
+      im.receiveShadow = true;
+      group.add(im);
+      list.push({ im, cx: c.cx, cz: c.cz, range: kind === 'grass' ? 320 : 700 });
+    }
+  }
+  group.userData.update = (cam, t) => {
+    uniforms.uTime.value = t;
+    for (const e of list) e.im.visible = Math.hypot(cam.x - e.cx, cam.z - e.cz) < e.range;
+  };
+  return group;
+}
+
+// ------------------------------------------------------------------ clouds
+export function buildClouds(sunDir) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uSun: { value: sunDir.clone() } },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        vec4 p = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * p;
+        gl_Position.z = gl_Position.w * 0.99999;
+      }`,
+    fragmentShader: `
+      uniform float uTime; uniform vec3 uSun; varying vec3 vDir;
+      float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h(i), h(i + vec2(1, 0)), u.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), u.x), u.y); }
+      float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 6; i++) { s += a * n(p); p = p * 2.02 + 3.1; a *= 0.5; } return s; }
+      void main() {
+        if (vDir.y < 0.01) discard;
+        vec2 uv = vDir.xz / (vDir.y + 0.12) * 1.6 + vec2(uTime * 0.004, uTime * 0.002);
+        float c = fbm(uv);
+        c = smoothstep(0.52, 0.82, c) * smoothstep(0.01, 0.2, vDir.y);
+        if (c < 0.01) discard;
+        float lit = 0.75 + 0.25 * max(dot(vDir, normalize(uSun)), 0.0);
+        float dens = fbm(uv * 2.0 + 7.0);
+        vec3 col = mix(vec3(0.72, 0.70, 0.70), vec3(1.0, 0.97, 0.92), lit * (0.6 + 0.4 * dens));
+        gl_FragColor = vec4(col, c * 0.85);
+        #include <colorspace_fragment>
+      }`,
+    transparent: true, depthWrite: false, side: THREE.BackSide, fog: false,
+  });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(2500, 48, 24), mat);
+  dome.renderOrder = -1;
+  dome.frustumCulled = false;
+  dome.userData.tick = (t, camPos) => { mat.uniforms.uTime.value = t; dome.position.copy(camPos); };
+  return dome;
 }
