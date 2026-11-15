@@ -1,7 +1,7 @@
 // Arcade rigid-body vehicle: 4 raycast wheels with suspension, a friction-circle
 // tyre model tuned for drifting, air control, and impulse-based chassis contacts.
 import * as THREE from 'three';
-import { groundQuery, pointPenetration, WATER_LEVEL, terrainHeight, HALF } from './terrain.js';
+import { groundQuery, pointPenetration, waterAt, terrainHeight, HALF, surfaceAt, GRIP } from './terrain.js';
 
 export const GRAVITY = 13;
 const V = () => new THREE.Vector3();
@@ -79,6 +79,7 @@ export class Vehicle {
     this.inWater = 0;
     this.boostActive = false;
     this.boostFuel = 1;
+    this._driveGround = 1;
     this._latch = { t: false, b: false }; this.airPitch = 0;
     this.drifting = false; this._driftCalm = 0; this.slipAngle = 0;
     this.rpm = 0.2;
@@ -218,9 +219,10 @@ export class Vehicle {
       wh.vLong = vLong; wh.vLat = vLat;
 
       // surface grip
-      let surfMu = 1;
-      if (wh.surface === 'terrain') surfMu = this._sandMu(wh.point.x, wh.point.z);
-      let mu = (wh.front ? CFG.muFront : CFG.muRear) * surfMu;
+      const surf = wh.surface === 'terrain' ? surfaceAt(wh.point.x, wh.point.z) : 'ramp';
+      wh.surf = surf;
+      const baseMu = wh.front ? CFG.muFront : CFG.muRear;
+      let mu = baseMu * (GRIP[surf] ?? 1);
       const share = m / 4;
 
       // slip angle -> grip falloff (sliding friction lower than peak)
@@ -233,7 +235,8 @@ export class Vehicle {
       // longitudinal
       let Fx = 0;
       const driveShare = wh.front ? 0.17 : 0.33;   // 34% front / 66% rear
-      Fx += drive * driveShare;
+      // drive is shared among the wheels that touch the ground (4x4)
+      Fx += drive * driveShare / this._driveGround;
       if (braking > 0) Fx -= Math.sign(vLong) * Math.min(braking * 0.25, Math.abs(vLong) * share / dt);
       if (!wh.front && input.handbrake) {
         Fx -= THREE.MathUtils.clamp(vLong * share / dt * 0.5, -mu * Fs * 0.35, mu * Fs * 0.35);
@@ -244,7 +247,9 @@ export class Vehicle {
       } else {
         Fx -= vLong * 5;
       }
-      const maxF = mu * Fs;
+      // traction for driving/braking doesn't depend on the surface, so sand and
+      // dirt are as fast as asphalt; only cornering grip changes
+      const maxF = baseMu * 1.2 * Fs;
       Fx = THREE.MathUtils.clamp(Fx, -maxF, maxF);
       wh.slipLong = (drive * driveShare > maxF * 0.95 && Math.abs(vLong) < 25) ? 1 : 0;
 
@@ -272,6 +277,11 @@ export class Vehicle {
       wh.spin += wh.spinVel * dt;
     }
     this.grounded = grounded;
+    {
+      let g = 0;
+      for (const w of this.wheels) if (w.contact) g += w.front ? 0.17 : 0.33;
+      this._driveGround = Math.max(0.5, g);
+    }
     // anti-roll bars
     for (let a = 0; a < 4; a += 2) {
       const L = this.wheels[a], R = this.wheels[a + 1];
@@ -361,8 +371,9 @@ export class Vehicle {
 
     // ---- water
     this.inWater = 0;
-    if (this.pos.y < WATER_LEVEL + 0.3) {
-      const depth = WATER_LEVEL + 0.3 - this.pos.y;
+    const wl = waterAt(this.pos.x, this.pos.z);
+    if (this.pos.y < wl + 0.3) {
+      const depth = wl + 0.3 - this.pos.y;
       this.inWater = Math.min(1, depth / 0.8);
       F.addScaledVector(this.vel, -this.inWater * 900);
       F.y += this.inWater * m * GRAVITY * 0.35;
@@ -411,12 +422,6 @@ export class Vehicle {
     wh.spin += wh.spinVel * dt;
   }
 
-  _sandMu(x, z) {
-    // asphalt arena grippy, sand a bit looser (more drifty)
-    const d = Math.hypot(x, z - 10);
-    if (d < 58) return 1.0;
-    return 0.86;
-  }
 
   _collide(dt) {
     let worst = 0, wall = 0;

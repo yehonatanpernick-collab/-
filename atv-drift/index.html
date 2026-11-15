@@ -144,6 +144,19 @@
   #ach-list b { display: block; font-size: 14px; }
   #ach-list span { font-size: 12px; color: var(--muted); }
 
+  #zone { position: absolute; left: 50%; top: 21%; transform: translateX(-50%); text-align: center; opacity: 0; pointer-events: none;
+    text-shadow: 0 3px 18px rgba(0,0,0,.6); }
+  #zone.show { animation: zone 3.2s ease forwards; }
+  #zone b { display: block; font-size: clamp(30px, 5vw, 52px); font-weight: 900; letter-spacing: -1px; color: #fff; }
+  #zone span { display: block; font-size: 15px; font-weight: 600; color: var(--gold); letter-spacing: .04em; }
+  @keyframes zone { 0% { opacity: 0; transform: translate(-50%, 12px); } 12% { opacity: 1; transform: translate(-50%, 0); }
+    75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+  #travel { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .btn.travel { text-align: right; display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; }
+  .btn.travel b { font-size: 14px; }
+  .btn.travel span { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .btn.travel:hover, .btn:focus-visible { border-color: var(--gold); outline: none; }
+
   /* ------------------------------------------------ touch */
   #touch { position: fixed; inset: 0; z-index: 12; pointer-events: none; direction: ltr; }
   #touch > * { pointer-events: auto; position: absolute; }
@@ -218,6 +231,7 @@
   <button id="pause-btn" class="panel" aria-label="השהיה">❚❚</button>
   <div id="trial" class="panel"><div id="trial-t">0:00.00</div><div id="trial-sub"></div></div>
   <div id="toast"></div>
+  <div id="zone"></div>
   <div id="hint" class="panel"></div>
   <div id="popups"></div>
   <div id="chain" class="panel">
@@ -249,6 +263,8 @@
       <button class="btn" id="q-btn">גרפיקה</button>
       <button class="btn" id="mute-btn">צליל</button>
     </div>
+    <div class="section-title">קפיצה לאזור</div>
+    <div id="travel"></div>
     <div class="section-title">הישגים <span id="ach-count"></span></div>
     <ul id="ach-list"></ul>
   </div>

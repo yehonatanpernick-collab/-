@@ -1,16 +1,27 @@
 // Terrain height field, world layout and collision queries.
 // Pure JS (no three.js) so the physics can be tested headless.
 
-export const WORLD = 840;
-export const CELL = 2.5;
+export const WORLD = 1600;
+export const CELL = 3.2;
 export const GN = Math.round(WORLD / CELL);   // cells per side
 export const HALF = WORLD / 2;
 export const WATER_LEVEL = -0.75;
+// water surface height at (x,z): only the oasis lake has water
+export function waterAt(x, z) {
+  return Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r * 1.02 ? WATER_LEVEL : -1e9;
+}
 
 export const ARENA = { x: 0, z: 10, r: 58 };
 export const PARK = { x0: -100, x1: 100, z0: -295, z1: -95 };
 export const BOWL = { x: 30, z: 245, r: 46 };
 export const LAKE = { x: -225, z: 40, r: 60 };
+
+// new areas (outer ring)
+export const HILLS = { x: -420, z: 430, r: 330 };
+export const DRIFTLOT = { x0: 300, x1: 520, z0: -530, z1: -350 };
+export const STUNT = { x0: 430, x1: 675, z0: -175, z1: 235 };
+export const HALFPIPE = { x: 645, z0: -140, z1: 200, w: 20, depth: 8 };
+export const CIRCUIT_C = { x: -455, z: -440, r: 190 };
 
 export const SPAWN = { x: 0, z: 90, yaw: Math.PI };
 
@@ -82,22 +93,175 @@ function distToSeg(px, pz, ax, az, bx, bz) {
   const qx = ax + dx * t, qz = az + dz * t;
   return Math.hypot(px - qx, pz - qz);
 }
+// connecting dirt roads to the outer areas (open polylines)
+export const ROADS = [
+  [[-150, -40], [-235, -150], [-300, -300]],
+  [[-95, 185], [-190, 275], [-290, 350]],
+  [[100, -150], [205, -255], [300, -360]],
+  [[268, 58], [360, 42], [440, 30]],
+  [[520, -350], [555, -175]],
+  [[120, 180], [300, 260], [450, 225]],
+];
 export function roadDistance(x, z) {
   let d = 1e9;
   for (let i = 0; i < ROUTE.length; i++) {
     const a = ROUTE[i], b = ROUTE[(i + 1) % ROUTE.length];
     d = Math.min(d, distToSeg(x, z, a.x, a.z, b.x, b.z));
   }
+  for (const r of ROADS) for (let i = 0; i < r.length - 1; i++) {
+    d = Math.min(d, distToSeg(x, z, r[i][0], r[i][1], r[i + 1][0], r[i + 1][1]));
+  }
   return d;
 }
 
+// ---------------------------------------------------------------- race tracks
+// Closed Catmull-Rom loops sampled every ~2 m. Terrain under a track is flattened
+// across its width to a smoothed centre-line height, so tracks flow over hills.
+export const TRACKS = [
+  {
+    id: 'circuit', name: 'מסלול המרוצים', surface: 'asphalt', hw: 7.5,
+    ctrl: [[-300, -300], [-440, -285], [-560, -310], [-610, -380], [-585, -455], [-515, -465], [-485, -515],
+      [-500, -565], [-430, -600], [-350, -565], [-320, -485], [-385, -440], [-315, -385]],
+  },
+  {
+    id: 'rally', name: 'מסלול הראלי', surface: 'dirt', hw: 6,
+    ctrl: [[-290, 350], [-380, 300], [-490, 318], [-570, 392], [-575, 480], [-510, 550], [-420, 570],
+      [-340, 530], [-372, 462], [-292, 450], [-250, 402]],
+    jumps: [0.17, 0.43, 0.62, 0.86],
+  },
+];
+const TR_CELL = 20;
+const trHash = new Map();
+function sampleLoop(ctrl, spacing) {
+  const n = ctrl.length, dense = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = ctrl[(i - 1 + n) % n], p1 = ctrl[i], p2 = ctrl[(i + 1) % n], p3 = ctrl[(i + 2) % n];
+    for (let k = 0; k < 24; k++) {
+      const t = k / 24, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      dense.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  const out = [dense[0]];
+  let prev = dense[0], need = spacing;
+  for (let i = 1; i <= dense.length; i++) {
+    const cur = dense[i % dense.length];
+    let seg = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+    while (seg >= need) {
+      const t = need / seg;
+      const p = [prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t];
+      out.push(p); prev = p;
+      seg = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+      need = spacing;
+    }
+    need -= seg; prev = cur;
+  }
+  const last = out[out.length - 1];
+  if (Math.hypot(last[0] - out[0][0], last[1] - out[0][1]) < spacing * 0.5) out.pop();
+  return out;
+}
+function buildTracks() {
+  trHash.clear();
+  TRACKS.forEach((tr, ti) => {
+    let P = sampleLoop(tr.ctrl, 2);
+    // start line in the middle of the first straight (between the first two control points)
+    {
+      const mx = (tr.ctrl[0][0] + tr.ctrl[1][0]) / 2, mz = (tr.ctrl[0][1] + tr.ctrl[1][1]) / 2;
+      let bi = 0, bd = 1e9;
+      P.forEach((p, i) => { const d = Math.hypot(p[0] - mx, p[1] - mz); if (d < bd) { bd = d; bi = i; } });
+      P = P.slice(bi).concat(P.slice(0, bi));
+    }
+    const n = P.length;
+    tr.pts = P.map(([x, z]) => ({ x, z, y: 0, tx: 0, tz: 1 }));
+    for (let i = 0; i < n; i++) {
+      const a = tr.pts[(i - 1 + n) % n], b = tr.pts[(i + 1) % n];
+      const l = Math.hypot(b.x - a.x, b.z - a.z);
+      tr.pts[i].tx = (b.x - a.x) / l; tr.pts[i].tz = (b.z - a.z) / l;
+      tr.pts[i].y = rawHeight(tr.pts[i].x, tr.pts[i].z, true);
+    }
+    // smooth heights along the loop
+    for (let pass = 0; pass < 8; pass++) {
+      const ys = tr.pts.map(p => p.y);
+      for (let i = 0; i < n; i++) {
+        let s = 0;
+        for (let k = -7; k <= 7; k++) s += ys[(i + k + n) % n];
+        tr.pts[i].y = s / 15;
+      }
+    }
+    tr.n = n;
+    tr.length = n * 2;
+    tr.gates = [0, Math.floor(n / 3), Math.floor(2 * n / 3)];
+    // curvature for kerbs
+    for (let i = 0; i < n; i++) {
+      const a = tr.pts[(i - 3 + n) % n], b = tr.pts[(i + 3) % n];
+      const c = a.tx * b.tz - a.tz * b.tx;
+      tr.pts[i].curv = c;
+    }
+    for (let i = 0; i < n; i++) {
+      const p = tr.pts[i];
+      const r = tr.hw + 16;
+      const i0 = Math.floor((p.x - r) / TR_CELL), i1 = Math.floor((p.x + r) / TR_CELL);
+      const j0 = Math.floor((p.z - r) / TR_CELL), j1 = Math.floor((p.z + r) / TR_CELL);
+      for (let a = i0; a <= i1; a++) for (let b = j0; b <= j1; b++) {
+        const k = a * 10007 + b;
+        let l = trHash.get(k); if (!l) trHash.set(k, l = []);
+        l.push(ti, i);
+      }
+    }
+  });
+}
+// nearest point on any track centre line (within ~hw+16 m)
+const _tq = { d: 1e9, y: 0, track: null, i: 0 };
+export function trackNearest(x, z) {
+  _tq.d = 1e9; _tq.track = null;
+  const l = trHash.get(Math.floor(x / TR_CELL) * 10007 + Math.floor(z / TR_CELL));
+  if (!l) return _tq;
+  for (let k = 0; k < l.length; k += 2) {
+    const tr = TRACKS[l[k]], i = l[k + 1];
+    const a = tr.pts[i], b = tr.pts[(i + 1) % tr.n];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    let t = ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const d = Math.hypot(x - a.x - dx * t, z - a.z - dz * t);
+    if (d < _tq.d) { _tq.d = d; _tq.y = a.y + (b.y - a.y) * t; _tq.track = tr; _tq.i = i; }
+  }
+  return _tq;
+}
+
 // ---------------------------------------------------------------- height
-export function rawHeight(x, z) {
+function rectDist(x, z, R) {
+  const dx = Math.max(R.x0 - x, 0, x - R.x1), dz = Math.max(R.z0 - z, 0, z - R.z1);
+  return Math.hypot(dx, dz);
+}
+export function rawHeight(x, z, noTracks = false) {
   let h = (fbm(x * 0.006 + 3.1, z * 0.006 - 1.7, 4) - 0.5) * 16;
-  h += (fbm(x * 0.022 + 5, z * 0.022, 3) - 0.5) * 2.6;
+  h += (fbm(x * 0.022 + 5, z * 0.022, 3) - 0.5) * 0.9;
+  const rc = Math.hypot(x, z);
+  // big open rolling hills in the outer ring
+  {
+    const o = smoothstep(300, 420, rc);
+    if (o > 0) {
+      const hh = fbm(x * 0.0042 - 7, z * 0.0042 + 2, 3);
+      h += o * (Math.pow(hh, 1.6) * 34 - 9);
+    }
+  }
+  // the hills area: taller, smooth hills with long slopes
+  {
+    const d = Math.hypot(x - HILLS.x, z - HILLS.z);
+    const f = 1 - smoothstep(HILLS.r * 0.6, HILLS.r, d);
+    if (f > 0) {
+      const hh = 0.6 * Math.sin(x * 0.021 + Math.sin(z * 0.013) * 2) * Math.cos(z * 0.018 + 1.3) + 0.4 * (fbm(x * 0.01, z * 0.01, 3) - 0.5) * 2;
+      h += f * hh * 15;
+    }
+  }
+  // race circuit: gentle elevation only
+  {
+    const d = Math.hypot(x - CIRCUIT_C.x, z - CIRCUIT_C.z);
+    h = lerp(h, h * 0.3, 1 - smoothstep(CIRCUIT_C.r, CIRCUIT_C.r + 60, d));
+  }
 
   // east dunes: asymmetric crests
-  const de = smoothstep(105, 175, x);
+  const de = smoothstep(105, 175, x) * (1 - smoothstep(330, 420, x)) * (1 - smoothstep(330, 420, Math.abs(z)));
   if (de > 0) {
     const warp = fbm(x * 0.012, z * 0.012, 3) * 7;
     const s = Math.sin((x * 0.75 + z * 0.35) * 0.055 + warp);
@@ -118,6 +282,18 @@ export function rawHeight(x, z) {
     const dz = Math.max(PARK.z0 - z, 0, z - PARK.z1);
     h = lerp(h, 0, 1 - smoothstep(0, 34, Math.hypot(dx, dz)));
   }
+  // drift lot + stunt park: flat
+  h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, DRIFTLOT)));
+  h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, STUNT)));
+  // halfpipe channel in the stunt park
+  {
+    const dx = Math.abs(x - HALFPIPE.x);
+    if (dx < HALFPIPE.w) {
+      const along = Math.min(smoothstep(HALFPIPE.z0 - 25, HALFPIPE.z0, z), 1 - smoothstep(HALFPIPE.z1, HALFPIPE.z1 + 25, z));
+      const t = Math.max(0, (dx - 5) / (HALFPIPE.w - 5));
+      h = Math.min(h, -HALFPIPE.depth * (1 - (1 - Math.cos(Math.PI * t)) / 2) * along);
+    }
+  }
   // bowl
   {
     const d = Math.hypot(x - BOWL.x, z - BOWL.z);
@@ -134,10 +310,18 @@ export function rawHeight(x, z) {
     const f = 1 - smoothstep(LAKE.r * 0.45, LAKE.r, d);
     h = lerp(h, -1.75, f);
   }
+  // tracks: flatten across the width to the smoothed centre line
+  if (!noTracks) {
+    const q = trackNearest(x, z);
+    if (q.track) {
+      const f = 1 - smoothstep(q.track.hw + 1, q.track.hw + 14, q.d);
+      if (f > 0) h = lerp(h, q.y, f);
+    }
+  }
   // boundary mountains
   {
-    const r = Math.max(Math.hypot(x, z) * 0.93, Math.max(Math.abs(x), Math.abs(z)));
-    const m = smoothstep(318, 400, r);
+    const r = mountainR(x, z);
+    const m = smoothstep(715, 790, r);
     if (m > 0) {
       const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4) * 2 - 1);
       h += m * m * (22 + 55 * ridge + 18 * fbm(x * 0.04, z * 0.04, 3));
@@ -145,6 +329,8 @@ export function rawHeight(x, z) {
   }
   return h;
 }
+
+export function mountainR(x, z) { return Math.max(Math.hypot(x, z) * 0.93, Math.max(Math.abs(x), Math.abs(z))); }
 
 // ---------------------------------------------------------------- grid
 export const grid = new Float32Array((GN + 1) * (GN + 1));
@@ -231,7 +417,7 @@ function addRamp(cx, cz, yaw, W, profile, opts = {}) {
     const [ua, ya] = profile[k], [ub, yb] = profile[k + 1];
     makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, opts.surface || 'ramp');
   }
-  rampDefs.push({ cx, cy, cz, yaw, W, profile, base, style: opts.style || 'ramp' });
+  if (!opts.noRender) rampDefs.push({ cx, cy, cz, yaw, W, profile, base, style: opts.style || 'ramp' });
 }
 
 function wedge(cx, cz, yaw, W, L, H, opts) {
@@ -267,7 +453,27 @@ export function cylindersNear(x, z) {
   return cylHash.get(Math.floor(x / CYL_CELL) * 10007 + Math.floor(z / CYL_CELL));
 }
 
+const COL_CELL = 24;
+const colHash = new Map();
+const EMPTY = [];
+function indexColliders() {
+  colHash.clear();
+  for (const c of colliders) {
+    for (let i = Math.floor(c.minX / COL_CELL); i <= Math.floor(c.maxX / COL_CELL); i++)
+      for (let j = Math.floor(c.minZ / COL_CELL); j <= Math.floor(c.maxZ / COL_CELL); j++) {
+        const k = i * 10007 + j;
+        let l = colHash.get(k); if (!l) colHash.set(k, l = []);
+        l.push(c);
+      }
+  }
+}
+function collidersNear(x, z) {
+  return colHash.get(Math.floor(x / COL_CELL) * 10007 + Math.floor(z / COL_CELL)) || EMPTY;
+}
+
 export const boostPads = [];
+export const tireStacks = [];
+export const grandstands = [];
 export const PI = Math.PI;
 
 export function buildLayout() {
@@ -331,6 +537,90 @@ export function buildLayout() {
   boostPads.push({ x: -40, z: 52, yaw: Math.atan2(150, 60) - PI });
   boostPads.push({ x: 228, z: -10, yaw: Math.atan2(268 - 190, 58 + 78) });
 
+  // --- Stunt park ----------------------------------------------------
+  // giant ski jump with a long landing
+  kicker(510, 178, N, 12, 30, 9, 1.8, 10);
+  wedge(510, 86, 0, 18, 56, 9);
+  boostPads.push({ x: 510, z: 222, yaw: N });
+  // jump line: kickers that grow
+  [[188, 1.6, 8], [140, 2.3, 9], [92, 3.0, 10], [44, 3.8, 11], [-4, 4.6, 12]].forEach(([z, H, L]) => kicker(458, z, N, 8, L, H, 1.6, 6));
+  // spine
+  wedge(480, -55, N, 12, 10, 3.6);
+  wedge(480, -65, 0, 12, 10, 3.6);
+  // fun box (pyramid): table with ramps on four sides
+  box(565, -60, 0, 18, 18, 3.6);
+  wedge(565, -44, N, 18, 14, 3.6);
+  wedge(565, -76, 0, 18, 14, 3.6);
+  wedge(581, -60, -PI / 2, 18, 14, 3.6);
+  wedge(549, -60, PI / 2, 18, 14, 3.6);
+  // step-up
+  kicker(525, -110, N, 12, 12, 2.6, 1.6, 6);
+  box(525, -138, N, 14, 22, 3.2);
+  wedge(525, -158, 0, 14, 18, 3.2);
+  // quarter pipes facing the park on the north edge
+  kicker(560, 205, 0, 30, 9, 5.5, 2.2, 9, { style: 'qp' });
+  boostPads.push({ x: 458, z: 225, yaw: N });
+
+  // --- Drift lot: a few low kickers on the edge ---------------------
+  kicker(505, -440, PI / 2, 8, 8, 1.6, 1.6, 5);
+
+  // --- Rally track jumps ----------------------------------------------
+  for (const tr of TRACKS) {
+    if (!tr.jumps) continue;
+    for (const f of tr.jumps) {
+      // pick the straightest stretch near the requested spot (take-off + landing zone)
+      let i = Math.floor(f * tr.n), bestScore = 1e9;
+      for (let c = i - 45; c <= i + 45; c++) {
+        let m = 0;
+        for (let k = -6; k <= 40; k++) m = Math.max(m, Math.abs(tr.pts[(c + k + tr.n) % tr.n].curv));
+        if (m < bestScore) { bestScore = m; i = (c + tr.n) % tr.n; }
+      }
+      const p = tr.pts[i];
+      const yaw = Math.atan2(p.tx, p.tz);
+      // follow the track's slope so the lip sits flush with the ground
+      const a = tr.pts[(i - 3 + tr.n) % tr.n], c = tr.pts[(i + 3) % tr.n];
+      const sl = (c.y - a.y) / 12, L = 9, H = 1.9;
+      const prof = [];
+      for (let k = 0; k <= 6; k++) { const t = k / 6, u = -L / 2 + L * t; prof.push([u, sl * u + Math.max(0.03, H * Math.pow(t, 1.6))]); }
+      addRamp(p.x, p.z, yaw, tr.hw * 2 - 1, prof, { cy: p.y - 0.03, style: 'roller' });
+    }
+  }
+  // --- Circuit: tyre stacks on the outside of tight corners ----------
+  tireStacks.length = 0;
+  for (const tr of TRACKS) {
+    if (tr.surface !== 'asphalt') continue;
+    for (let i = 0; i < tr.n; i += 3) {
+      const p = tr.pts[i];
+      if (Math.abs(p.curv) < 0.05) continue;
+      const side = Math.sign(p.curv);          // curving left => outside is right
+      const ox = p.tz * side, oz = -p.tx * side;
+      const x = p.x + ox * (tr.hw + 11), z = p.z + oz * (tr.hw + 11);
+      const q = trackNearest(x, z);
+      if (q.d < tr.hw + 8) continue;
+      const y = terrainHeight(x, z);
+      tireStacks.push({ x, z, y });
+      addCylinder({ x, z, r: 0.75, y0: y - 1, h: 2.2 });
+    }
+  }
+  // --- Circuit grandstands along the main straight -------------------
+  grandstands.length = 0;
+  {
+    const tr = TRACKS[0];
+    for (const i of [22, 48]) {
+      const p = tr.pts[i];
+      // side away from the circuit centre
+      let ox = p.tz, oz = -p.tx;
+      if ((p.x + ox - CIRCUIT_C.x) ** 2 + (p.z + oz - CIRCUIT_C.z) ** 2 < (p.x - CIRCUIT_C.x) ** 2 + (p.z - CIRCUIT_C.z) ** 2) { ox = -ox; oz = -oz; }
+      const d = tr.hw + 20;
+      const x = p.x + ox * d, z = p.z + oz * d;
+      const yaw = Math.atan2(-ox, -oz);         // seats face the track
+      const y = terrainHeight(x, z);
+      grandstands.push({ x, z, y, yaw, L: 34, D: 9, H: 6 });
+      box(x, z, yaw, 34, 9, 6, { cy: y, noRender: true });
+    }
+  }
+  indexColliders();
+
   // --- scenery cylinders (rocks, cacti, palms) ----------------------
   scenery.rocks.length = 0; scenery.cacti.length = 0; scenery.palms.length = 0;
   const R = rng(1337);
@@ -339,13 +629,15 @@ export function buildLayout() {
     if (x > PARK.x0 - 22 - pad && x < PARK.x1 + 22 + pad && z > PARK.z0 - 22 - pad && z < PARK.z1 + 22 + pad) return false;
     if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r + 12 + pad) return false;
     if (roadDistance(x, z) < 14 + pad) return false;
-    if (Math.hypot(x, z) > 380) return false;
+    if (mountainR(x, z) > 700) return false;
+    if (rectDist(x, z, DRIFTLOT) < 25 + pad || rectDist(x, z, STUNT) < 25 + pad) return false;
+    if (trackNearest(x, z).d < TRACKS[0].hw + 14 + pad) return false;
     for (const c of colliders) if (x > c.minX - 12 && x < c.maxX + 12 && z > c.minZ - 12 && z < c.maxZ + 12) return false;
     return true;
   };
   let tries = 0;
-  while (scenery.rocks.length < 110 && tries++ < 5000) {
-    const x = (R() - 0.5) * 760, z = (R() - 0.5) * 760;
+  while (scenery.rocks.length < 300 && tries++ < 12000) {
+    const x = (R() - 0.5) * 1480, z = (R() - 0.5) * 1480;
     if (!clear(x, z, 2)) continue;
     const s = 0.6 + Math.pow(R(), 2.2) * 3.4;
     const y = terrainHeight(x, z);
@@ -353,12 +645,12 @@ export function buildLayout() {
     if (s > 0.9) addCylinder({ x, z, r: s * 0.95, y0: y - 1, h: s * 1.4 + 1 });
   }
   tries = 0;
-  while (scenery.cacti.length < 140 && tries++ < 6000) {
-    const x = (R() - 0.5) * 760, z = (R() - 0.5) * 760;
+  while (scenery.cacti.length < 330 && tries++ < 14000) {
+    const x = (R() - 0.5) * 1480, z = (R() - 0.5) * 1480;
     if (!clear(x, z, 0)) continue;
     if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 10) continue;
     const y = terrainHeight(x, z);
-    if (y > 12) continue;
+    if (y > 22) continue;
     const s = 0.8 + R() * 0.9;
     scenery.cacti.push({ x, z, y, s, rot: R() * PI * 2, arms: R() });
     addCylinder({ x, z, r: 0.45 * s, y0: y - 1, h: 4.5 * s });
@@ -393,8 +685,9 @@ function prismTop(c, x, z) {
 export function groundQuery(x, z, maxY, out) {
   let h = terrainHeight(x, z, out.n);
   out.surface = 'terrain';
-  for (let i = 0; i < colliders.length; i++) {
-    const c = colliders[i];
+  const CL = collidersNear(x, z);
+  for (let i = 0; i < CL.length; i++) {
+    const c = CL[i];
     if (x < c.minX || x > c.maxX || z < c.minZ || z > c.maxZ) continue;
     const t = prismTop(c, x, z);
     if (t !== null && t > h && t <= maxY) {
@@ -420,8 +713,9 @@ export function pointPenetration(x, y, z, out) {
     out.kind = 'ground';
   }
   // prisms
-  for (let i = 0; i < colliders.length; i++) {
-    const c = colliders[i];
+  const CL = collidersNear(x, z);
+  for (let i = 0; i < CL.length; i++) {
+    const c = CL[i];
     if (x < c.minX || x > c.maxX || z < c.minZ || z > c.maxZ || y > c.maxY || y < c.minY) continue;
     let minPen = 1e9, mp = null;
     let inside = true;
@@ -458,12 +752,46 @@ export function pointPenetration(x, y, z, out) {
 }
 
 export function surfaceAt(x, z) {
+  const q = trackNearest(x, z);
+  if (q.track && q.d < q.track.hw + 0.3) return q.track.surface;
   if (Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r) return 'asphalt';
+  if (x > DRIFTLOT.x0 && x < DRIFTLOT.x1 && z > DRIFTLOT.z0 && z < DRIFTLOT.z1) return 'asphalt';
   if (x > PARK.x0 - 4 && x < PARK.x1 + 4 && z > PARK.z0 - 4 && z < PARK.z1 + 4) return 'dirt';
+  if (x > STUNT.x0 - 4 && x < STUNT.x1 + 4 && z > STUNT.z0 - 4 && z < STUNT.z1 + 4) return 'dirt';
+  if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r) return 'concrete';
   return 'sand';
+}
+// lateral grip per surface (drive / braking are not limited by surface)
+export const GRIP = { asphalt: 1.0, concrete: 1.0, ramp: 1.0, dirt: 0.94, sand: 0.9 };
+// areas where drifting scores double
+export function driftZone(x, z) {
+  return Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 4 ||
+    (x > DRIFTLOT.x0 && x < DRIFTLOT.x1 && z > DRIFTLOT.z0 && z < DRIFTLOT.z1);
+}
+
+// named areas: shown when entered, and reachable from the pause menu
+export const ZONES = [];
+function buildZones() {
+  const tStart = (tr) => { const p = tr.pts[tr.n - 12]; return { x: p.x, z: p.z, yaw: Math.atan2(p.tx, p.tz) }; };
+  const inRect = (R, m = 0) => (x, z) => x > R.x0 - m && x < R.x1 + m && z > R.z0 - m && z < R.z1 + m;
+  ZONES.length = 0;
+  ZONES.push(
+    { id: 'arena', name: 'זירת הדריפט', sub: 'דריפט x2', ...SPAWN, inside: (x, z) => Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 6 },
+    { id: 'park', name: 'פארק הרמפות', sub: 'קפיצות ופעלולים', x: 0, z: -78, yaw: PI, inside: inRect(PARK, 6) },
+    { id: 'stunt', name: 'פארק הפעלולים', sub: 'קפיצת סקי, חצי-צינור, ספיין', x: 510, z: 228, yaw: PI, inside: inRect(STUNT, 6) },
+    { id: 'circuit', name: 'מסלול המרוצים', sub: 'אספלט · מדידת הקפה', ...tStart(TRACKS[0]), inside: (x, z) => { const q = trackNearest(x, z); return q.track === TRACKS[0] && q.d < 30; } },
+    { id: 'rally', name: 'מסלול הראלי', sub: 'עפר וגבעות · מדידת הקפה', ...tStart(TRACKS[1]), inside: (x, z) => { const q = trackNearest(x, z); return q.track === TRACKS[1] && q.d < 25; } },
+    { id: 'drift', name: 'מגרש הדריפטים', sub: 'דריפט x2', x: 410, z: -330, yaw: PI, inside: inRect(DRIFTLOT, 4) },
+    { id: 'hills', name: 'הגבעות', sub: 'שטח פתוח', x: -250, z: 520, yaw: -PI / 2, inside: (x, z) => Math.hypot(x - HILLS.x, z - HILLS.z) < HILLS.r * 0.8 },
+    { id: 'dunes', name: 'הדיונות', sub: 'חול רך', x: 180, z: -40, yaw: 0.6, inside: (x, z) => x > 150 && x < 360 && Math.abs(z) < 300 },
+    { id: 'bowl', name: 'הקערה', sub: 'קיר בטון', x: 30, z: 180, yaw: 0, inside: (x, z) => Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r + 4 },
+    { id: 'lake', name: 'נווה המדבר', sub: 'מים ודקלים', x: -150, z: 40, yaw: -PI / 2, inside: (x, z) => Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 8 },
+  );
 }
 
 export function initWorld() {
+  buildTracks();
   buildGrid();
   buildLayout();
+  buildZones();
 }

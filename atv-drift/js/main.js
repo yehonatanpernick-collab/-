@@ -82,6 +82,8 @@ const T = W.makeTextures();
 scene.add(W.buildTerrain(T));
 scene.add(W.buildArena(T));
 scene.add(W.buildRamps(T));
+scene.add(W.buildTracks(T));
+scene.add(W.buildDriftLot());
 const water = W.buildWater(T); scene.add(water);
 scene.add(W.buildScenery());
 const { group: cpGroup, cps } = W.buildCheckpoints(); scene.add(cpGroup);
@@ -297,7 +299,7 @@ function wheelFx(dt, inp) {
     const surf = wh.surface === 'terrain' ? TR.surfaceAt(p.x, p.z) : 'ramp';
     const slide = Math.max(wh.slipLat, wh.slipLong, (!wh.front && inp.handbrake && Math.abs(wh.vLong) > 2) ? 0.8 : 0, veh.drifting && !wh.front ? 0.8 : 0);
     const spf = Math.min(1, Math.abs(wh.vLong) / 25);
-    const wet = p.y < TR.WATER_LEVEL + 0.05;
+    const wet = p.y < TR.waterAt(p.x, p.z) + 0.05;
     let rate = 0, col, size = 0.9, life = 1.6, grow = 2.4, alpha = 0.45, up = 1.2;
     if (wet) {
       rate = sp > 2 ? 30 + sp * 3 : 0; col = [0.85, 0.93, 1.0]; size = 0.5; life = 0.9; grow = 1.2; alpha = 0.7; up = 3.5;
@@ -493,6 +495,78 @@ function padCheck(dt) {
   }
 }
 
+// ---------------------------------------------------------------- race tracks: lap timing
+G.lap = { track: null, last: -1, running: false, t: 0, count: 0, sectors: 0 };
+G.lapBest = store.get('lapBest', {});
+function lapCheck(dt) {
+  const L = G.lap;
+  if (L.running) L.t += dt;
+  const q = TR.trackNearest(veh.pos.x, veh.pos.z);
+  if (!q.track || q.d > q.track.hw + 6) {
+    if (L.track && q.d > 60) { L.track = null; L.running = false; }
+    return;
+  }
+  const tr = q.track, i = q.i, n = tr.n;
+  if (L.track !== tr) { L.track = tr; L.last = i; L.running = false; L.count = 0; L.sectors = 0; return; }
+  const prev = L.last;
+  L.last = i;
+  const fwd = (i - prev + n) % n;
+  if (fwd === 0 || fwd > 20) return;                    // standing still or going backwards
+  for (let g = 1; g < tr.gates.length; g++) {
+    const gi = tr.gates[g];
+    if ((gi - prev + n) % n > 0 && (gi - prev + n) % n <= fwd) L.sectors |= 1 << g;
+  }
+  const crossedStart = prev > i;                          // index wrapped around: start line
+  if (!crossedStart) return;
+  if (L.running && L.sectors === 0b110) {
+    const time = L.t;
+    const best = G.lapBest[tr.id];
+    const rec = best == null || time < best;
+    if (rec) { G.lapBest[tr.id] = time; store.set('lapBest', G.lapBest); }
+    popup(`הקפה ${fmtTime(time)}`, 'trial', rec ? 'שיא הקפה חדש! 🏁' : `השיא: ${fmtTime(best)}`);
+    addScore(Math.max(500, Math.round(15000 - time * 80)));
+    audio.finish();
+    L.count++;
+  } else if (!L.running) {
+    popup(tr.name, 'trial', 'ההקפה התחילה · עבור את קו הזינוק שוב לסיום');
+    audio.checkpoint();
+  }
+  L.running = true; L.t = 0; L.sectors = 0;
+}
+
+// ---------------------------------------------------------------- areas
+let zoneNow = null, zoneT = 0;
+function zoneCheck(dt) {
+  zoneT -= dt;
+  if (zoneT > 0) return;
+  zoneT = 0.4;
+  const z = TR.ZONES.find(z => z.inside(veh.pos.x, veh.pos.z)) || null;
+  if (z && z !== zoneNow) showZone(z);
+  zoneNow = z;
+}
+function showZone(z) {
+  const el = $('#zone');
+  el.innerHTML = `<b>${z.name}</b><span>${z.sub}</span>`;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+function teleport(z) {
+  veh.reset(z.x, z.z, z.yaw);
+  for (let i = 0; i < 4; i++) skids.break(i);
+  cam.dir.set(Math.sin(z.yaw), 0, Math.cos(z.yaw));
+  cam.pos.copy(veh.pos).addScaledVector(cam.dir, -6.6).y += 2.3;
+  G.trial.active = false; G.lap.track = null; G.lap.running = false;
+  G.chain.active = false; G.chain.pts = 0;
+  zoneNow = null; zoneT = 0;
+}
+function buildTravel() {
+  $('#travel').innerHTML = TR.ZONES.map((z, i) => `<button class="btn travel" data-i="${i}"><b>${z.name}</b><span>${z.sub}</span></button>`).join('');
+  $('#travel').addEventListener('click', (e) => {
+    const b = e.target.closest('.travel'); if (!b) return;
+    teleport(TR.ZONES[+b.dataset.i]);
+    pause(false);
+  });
+}
+
 // ---------------------------------------------------------------- reset
 function resetCar(toSpawn = false) {
   if (toSpawn) veh.reset(TR.SPAWN.x, TR.SPAWN.z, TR.SPAWN.yaw);
@@ -557,7 +631,7 @@ function updateCamera(dt) {
     cam.pos.x += (_v.x - cam.pos.x) * k;
     cam.pos.z += (_v.z - cam.pos.z) * k;
     cam.pos.y += (_v.y - cam.pos.y) * (1 - Math.exp(-dt * (veh.grounded ? 6 : 3.5)));
-    const gy = Math.max(TR.groundQuery(cam.pos.x, cam.pos.z, cam.pos.y + 0.5, gq), TR.WATER_LEVEL) + 0.9;
+    const gy = Math.max(TR.groundQuery(cam.pos.x, cam.pos.z, cam.pos.y + 0.5, gq), TR.waterAt(cam.pos.x, cam.pos.z)) + 0.9;
     if (cam.pos.y < gy) cam.pos.y = gy;
     camera.position.copy(cam.pos);
     if (G.shake > 0) {
@@ -587,13 +661,16 @@ function sizeCanvases() {
   }
   drawMapBg();
 }
+const MB = 1024 / TR.WORLD;          // minimap background: px per metre
+let mapBgDone = false;
 function drawMapBg() {
-  const w = mapC.width, h = mapC.height;
+  if (mapBgDone) return;
+  mapBgDone = true;
+  const w = 1024, h = 1024;
   mapBg.width = w; mapBg.height = h;
   const c = mapBg.getContext('2d');
-  const S = w / TR.WORLD;
+  const S = MB;
   const P = (x, z) => [(x + TR.HALF) * S, (z + TR.HALF) * S];
-  // terrain shading from the height grid
   const img = c.createImageData(w, h);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const x = i / S - TR.HALF, z = j / S - TR.HALF;
@@ -601,53 +678,61 @@ function drawMapBg() {
     const hx = TR.terrainHeight(x + 3, z) - hh;
     const sh = Math.max(-1, Math.min(1, hx * 0.35));
     let r = 196, g = 160, b = 112;
-    if (hh > 12) { r = 150; g = 112; b = 82; }
+    if (hh > 14) { r = 150; g = 112; b = 82; }
     if (hh < TR.WATER_LEVEL && Math.hypot(x - TR.LAKE.x, z - TR.LAKE.z) < TR.LAKE.r) { r = 50; g = 140; b = 160; }
     const k = (i + j * w) * 4;
     img.data[k] = r + sh * 40; img.data[k + 1] = g + sh * 36; img.data[k + 2] = b + sh * 30; img.data[k + 3] = 255;
   }
   c.putImageData(img, 0, 0);
-  // arena / park
   c.fillStyle = 'rgba(60,60,64,0.9)';
   c.beginPath(); c.arc(...P(TR.ARENA.x, TR.ARENA.z), TR.ARENA.r * S, 0, Math.PI * 2); c.fill();
-  c.fillStyle = 'rgba(150,110,75,0.75)';
-  c.fillRect(...P(TR.PARK.x0, TR.PARK.z0), (TR.PARK.x1 - TR.PARK.x0) * S, (TR.PARK.z1 - TR.PARK.z0) * S);
+  const rect = (R, col) => { c.fillStyle = col; c.fillRect(...P(R.x0, R.z0), (R.x1 - R.x0) * S, (R.z1 - R.z0) * S); };
+  rect(TR.PARK, 'rgba(150,110,75,0.75)');
+  rect(TR.STUNT, 'rgba(150,110,75,0.75)');
+  rect(TR.DRIFTLOT, 'rgba(60,60,64,0.9)');
   c.fillStyle = 'rgba(230,230,225,0.85)';
   c.beginPath(); c.arc(...P(TR.BOWL.x, TR.BOWL.z), TR.BOWL.r * S, 0, Math.PI * 2); c.fill();
-  // ramps
+  c.fillStyle = 'rgba(225,225,220,0.85)';
+  c.fillRect(...P(TR.HALFPIPE.x - TR.HALFPIPE.w, TR.HALFPIPE.z0), TR.HALFPIPE.w * 2 * S, (TR.HALFPIPE.z1 - TR.HALFPIPE.z0) * S);
   c.fillStyle = '#ff7a2a';
   for (const col of TR.colliders) c.fillRect(...P(col.minX, col.minZ), Math.max(1, (col.maxX - col.minX) * S), Math.max(1, (col.maxZ - col.minZ) * S));
-  // road
-  c.strokeStyle = 'rgba(255,240,210,0.55)'; c.lineWidth = Math.max(1.5, 4 * S); c.lineJoin = 'round';
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  c.strokeStyle = 'rgba(255,240,210,0.55)'; c.lineWidth = Math.max(1.5, 6 * S);
   c.beginPath();
   TR.ROUTE.forEach((p, i) => i ? c.lineTo(...P(p.x, p.z)) : c.moveTo(...P(p.x, p.z)));
   c.closePath(); c.stroke();
+  for (const r of TR.ROADS) { c.beginPath(); r.forEach((p, i) => i ? c.lineTo(...P(p[0], p[1])) : c.moveTo(...P(p[0], p[1]))); c.stroke(); }
+  for (const tr of TR.TRACKS) {
+    c.strokeStyle = tr.surface === 'asphalt' ? '#2b2b30' : '#7a5232';
+    c.lineWidth = tr.hw * 2 * S;
+    c.beginPath(); tr.pts.forEach((p, i) => i ? c.lineTo(...P(p.x, p.z)) : c.moveTo(...P(p.x, p.z))); c.closePath(); c.stroke();
+  }
 }
 function drawMap(t) {
   const w = mapC.width, h = mapC.height;
   mctx.clearRect(0, 0, w, h);
   mctx.save();
   mctx.beginPath(); mctx.arc(w / 2, h / 2, w / 2 - 1, 0, Math.PI * 2); mctx.clip();
-  // zoomed, centred on the buggy, heading-up
-  const zoom = 2.1;
-  const S = w / TR.WORLD * zoom;
+  // centred on the buggy, heading-up, ~230 m radius
+  const ppm = (w / 2) / 230;
+  const k = ppm / MB;
   const yaw = Math.atan2(cam.dir.x, cam.dir.z);
   mctx.translate(w / 2, h / 2);
   mctx.rotate(yaw + Math.PI);
-  mctx.scale(zoom, zoom);
-  const s0 = w / TR.WORLD;
-  mctx.translate(-(veh.pos.x + TR.HALF) * s0, -(veh.pos.z + TR.HALF) * s0);
+  mctx.scale(k, k);
+  mctx.translate(-(veh.pos.x + TR.HALF) * MB, -(veh.pos.z + TR.HALF) * MB);
   mctx.drawImage(mapBg, 0, 0);
-  const P = (x, z) => [(x + TR.HALF) * s0, (z + TR.HALF) * s0];
+  const P = (x, z) => [(x + TR.HALF) * MB, (z + TR.HALF) * MB];
+  const px = (n) => n * (w / 170) / k;
   mctx.fillStyle = '#ffd23a';
   for (let i = 0; i < coinPts.length; i++) {
     if (G.taken[i]) continue;
-    mctx.beginPath(); mctx.arc(...P(coinPts[i].x, coinPts[i].z), 2.2 / zoom * (w / 170), 0, Math.PI * 2); mctx.fill();
+    mctx.beginPath(); mctx.arc(...P(coinPts[i].x, coinPts[i].z), px(2.2), 0, Math.PI * 2); mctx.fill();
   }
   const tgt = G.trial.active ? cps[G.trial.next] : cps[0];
   const pulse = 0.5 + 0.5 * Math.sin(t * 6);
-  mctx.strokeStyle = G.trial.active ? '#ffb020' : '#30ff7a'; mctx.lineWidth = 2.5 / zoom * (w / 170);
-  mctx.beginPath(); mctx.arc(...P(tgt.x, tgt.z), (5 + pulse * 3) / zoom * (w / 170), 0, Math.PI * 2); mctx.stroke();
+  mctx.strokeStyle = G.trial.active ? '#ffb020' : '#30ff7a'; mctx.lineWidth = px(2.5);
+  mctx.beginPath(); mctx.arc(...P(tgt.x, tgt.z), px(5 + pulse * 3), 0, Math.PI * 2); mctx.stroke();
   mctx.restore();
   // buggy marker (always centre, pointing up relative to camera)
   mctx.save();
@@ -713,14 +798,20 @@ function drawGauge() {
 const hud = {
   score: $('#score'), best: $('#best'), coins: $('#coins'), trial: $('#trial'), trialT: $('#trial-t'), trialSub: $('#trial-sub'),
   chain: $('#chain'), chainPts: $('#chain-pts'), chainMult: $('#chain-mult'), chainBar: $('#chain-bar'),
-  hint: $('#hint'), speedfx: $('#speedfx'),
+  hint: $('#hint'), speedfx: $('#speedfx'), chainLbl: $('#chain .lbl'),
 };
 function updateHud(t) {
   hud.score.textContent = fmt(G.score);
   hud.best.textContent = fmt(G.best);
   hud.coins.textContent = `${G.coins}/${coinPts.length}`;
   const tr = G.trial;
-  if (tr.active) {
+  const lp = G.lap;
+  if (lp.track && lp.running) {
+    hud.trial.classList.add('on');
+    hud.trialT.textContent = fmtTime(lp.t);
+    const best = G.lapBest[lp.track.id];
+    hud.trialSub.textContent = `${lp.track.name} · הקפה ${lp.count + 1}${best != null ? ' · שיא ' + fmtTime(best) : ''}`;
+  } else if (tr.active) {
     hud.trial.classList.add('on');
     hud.trialT.textContent = fmtTime(tr.t);
     hud.trialSub.textContent = `שער ${tr.next === 0 ? 'סיום' : tr.next + '/' + (cps.length - 1)}${tr.best != null ? ' · שיא ' + fmtTime(tr.best) : ''}`;
@@ -732,6 +823,7 @@ function updateHud(t) {
     hud.chainMult.textContent = 'x' + c.mult;
     hud.chainBar.style.transform = `scaleX(${Math.max(0, 1 - c.idle / 1.6)})`;
     hud.chain.classList.toggle('drifting', veh.drifting);
+    hud.chainLbl.textContent = G.inDriftZone && veh.drifting ? 'DRIFT ZONE ×2' : 'DRIFT';
   } else hud.chain.classList.remove('on');
   let hint = '';
   if (G.flipT > 0.6) hint = 'הבאגי הפוך — לחץ R';
@@ -832,7 +924,8 @@ function frame() {
       const sp = veh.speed;
       const driftingNow = veh.drifting && veh.grounded >= 2 && sp > 6 && Math.abs(veh.slipAngle) > 0.17;
       if (driftingNow) {
-        chainAdd(dt * Math.abs(veh.slipAngle) * 57.3 * sp * 0.55);
+        G.inDriftZone = TR.driftZone(veh.pos.x, veh.pos.z);
+        chainAdd(dt * Math.abs(veh.slipAngle) * 57.3 * sp * 0.55 * (G.inDriftZone ? 2 : 1));
         c.time += dt;
         c.mult = 1 + Math.min(4, Math.floor(c.time / 2.2));
         G.nitro = Math.min(1, G.nitro + dt * 0.05);
@@ -858,6 +951,8 @@ function frame() {
       } else G.flipT = 0;
       if (veh.pos.y < TR.terrainHeight(veh.pos.x, veh.pos.z) - 4) resetCar();
       cpCheck();
+    lapCheck(dt);
+    zoneCheck(dt);
       if (G.trial.active) {
         G.trial.t += dt;
         if (G.trial.t > 600) G.trial.active = false;
@@ -910,9 +1005,10 @@ function frame() {
 
 applyQuality();
 buildMenu();
+buildTravel();
 renderAch();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { veh, G, cps, camera, scene, renderer, startGame, TR };
+window.__game = { veh, G, cps, camera, scene, renderer, startGame, TR, lapCheck };
 frame();

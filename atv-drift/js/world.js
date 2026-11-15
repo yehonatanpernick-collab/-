@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   GN, CELL, HALF, grid, WATER_LEVEL, ARENA, PARK, BOWL, LAKE, ROUTE,
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
+  TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -191,8 +192,15 @@ function colorAt(x, z, h, ny, out) {
   // base sand
   let r = 0.86 + (n - 0.5) * 0.12, g = 0.70 + (n - 0.5) * 0.11, b = 0.50 + (n - 0.5) * 0.10;
   // dunes are lighter, crests lighter still
-  const de = smoothstep(105, 175, x);
+  const de = smoothstep(105, 175, x) * (1 - smoothstep(330, 420, x)) * (1 - smoothstep(330, 420, Math.abs(z)));
   r += de * 0.04; g += de * 0.04; b += de * 0.05;
+  // hills: dry grass on the gentle slopes
+  {
+    const d = Math.hypot(x - HILLS.x, z - HILLS.z);
+    const f = (1 - smoothstep(HILLS.r * 0.5, HILLS.r * 1.05, d)) * smoothstep(0.3, 0.7, fbm(x * 0.012 + 3, z * 0.012, 3) + 0.15);
+    const gr = 0.9 - n2 * 0.25;
+    r += (0.66 * gr - r) * f; g += (0.62 * gr - g) * f; b += (0.38 * gr - b) * f;
+  }
   // slopes / mountains: rock
   const slope = 1 - ny;
   const rock = Math.max(smoothstep(0.22, 0.42, slope) * smoothstep(3, 9, h), smoothstep(14, 30, h) * 0.9);
@@ -203,6 +211,29 @@ function colorAt(x, z, h, ny, out) {
     const dx = Math.max(PARK.x0 - x, 0, x - PARK.x1), dz = Math.max(PARK.z0 - z, 0, z - PARK.z1);
     const f = 1 - smoothstep(0, 18, Math.hypot(dx, dz));
     r += (0.70 + n2 * 0.06 - r) * f; g += (0.52 + n2 * 0.05 - g) * f; b += (0.36 + n2 * 0.04 - b) * f;
+  }
+  // stunt park: packed dirt, halfpipe concrete
+  {
+    const dx = Math.max(STUNT.x0 - x, 0, x - STUNT.x1), dz = Math.max(STUNT.z0 - z, 0, z - STUNT.z1);
+    const f = 1 - smoothstep(0, 18, Math.hypot(dx, dz));
+    r += (0.70 + n2 * 0.06 - r) * f; g += (0.53 + n2 * 0.05 - g) * f; b += (0.37 + n2 * 0.04 - b) * f;
+    if (Math.abs(x - HALFPIPE.x) < HALFPIPE.w && h < -0.05) {
+      const c = 0.74 + n2 * 0.04; r = c; g = c * 0.97; b = c * 0.93;
+    }
+  }
+  // track shoulders
+  {
+    const q = trackNearest(x, z);
+    if (q.track) {
+      const hw = q.track.hw;
+      if (q.track.surface === 'asphalt') {
+        const f = 1 - smoothstep(hw + 9, hw + 12, q.d);            // gravel run-off
+        r += (0.78 + n2 * 0.05 - r) * f; g += (0.74 + n2 * 0.05 - g) * f; b += (0.66 + n2 * 0.05 - b) * f;
+      } else {
+        const f = 1 - smoothstep(hw, hw + 5, q.d);
+        r += (0.58 + n2 * 0.05 - r) * f; g += (0.43 + n2 * 0.04 - g) * f; b += (0.30 + n2 * 0.03 - b) * f;
+      }
+    }
   }
   // road
   const rd = roadDistance(x, z);
@@ -221,7 +252,7 @@ function colorAt(x, z, h, ny, out) {
   // lake: wet sand + oasis grass
   {
     const d = Math.hypot(x - LAKE.x, z - LAKE.z);
-    const wet = 1 - smoothstep(WATER_LEVEL + 0.1, WATER_LEVEL + 0.9, h);
+    const wet = (1 - smoothstep(WATER_LEVEL + 0.1, WATER_LEVEL + 0.9, h)) * (1 - smoothstep(LAKE.r, LAKE.r * 1.25, d));
     r *= 1 - 0.3 * wet; g *= 1 - 0.28 * wet; b *= 1 - 0.22 * wet;
     const grass = (1 - smoothstep(LAKE.r * 0.9, LAKE.r * 1.5, d)) * smoothstep(WATER_LEVEL + 0.6, WATER_LEVEL + 1.4, h) * smoothstep(0.35, 0.6, n2 + 0.2);
     r += (0.42 - r) * grass; g += (0.52 - g) * grass; b += (0.22 - b) * grass;
@@ -573,7 +604,7 @@ export function buildCheckpoints() {
     const gq = { n: { x: 0, y: 1, z: 0 } };
     const gy = groundQuery(c.x, c.z, 100, gq);
     const r = c.r || 6.2;
-    const y = c.y != null ? c.y : Math.max(gy, WATER_LEVEL) + r * 0.62;
+    const y = c.y != null ? c.y : Math.max(gy, waterAt(c.x, c.z)) + r * 0.62;
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffb020, emissiveIntensity: 2.2, transparent: true, opacity: 0.95, roughness: 0.4 });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.32, 12, 64), mat);
     // inner shimmering film
@@ -591,9 +622,9 @@ export function buildCheckpoints() {
 }
 
 // start / finish arch
-export function buildStartGate(cp) {
+export function buildStartGate(cp, text = 'START  ·  FINISH', color = 0xe02a1f) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xe02a1f, roughness: 0.55 });
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
   const arch = new THREE.Mesh(new THREE.TorusGeometry(9, 0.9, 16, 48, Math.PI), mat);
   arch.castShadow = true;
   g.add(arch);
@@ -607,12 +638,17 @@ export function buildStartGate(cp) {
     }
     ctx.fillStyle = '#ffcc22'; ctx.font = '900 92px Rubik, Arial Black, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('START  ·  FINISH', w / 2, h / 2 + 4);
+    ctx.fillText(text, w / 2, h / 2 + 4);
   }, { clamp: true });
-  const banner = new THREE.Mesh(new THREE.PlaneGeometry(12, 2.25), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.7, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.25 }));
-  banner.position.y = 7.2;
-  banner.castShadow = true;
-  g.add(banner);
+  // two single-sided banners so the text reads correctly from both directions
+  const bmat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.25 });
+  for (const ry of [0, Math.PI]) {
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(12, 2.25), bmat);
+    banner.position.set(0, 7.2, ry ? -0.02 : 0.02);
+    banner.rotation.y = ry;
+    banner.castShadow = !ry;
+    g.add(banner);
+  }
   g.position.set(cp.x, terrainHeight(cp.x, cp.z), cp.z);
   g.rotation.y = cp.yaw;
   return g;
@@ -655,9 +691,28 @@ export function coinPositions() {
   pts.push({ x: -20, z: -278, y: 5.5 }, { x: 20, z: -278, y: 5.5 });
   // lake
   for (let k = 0; k < 4; k++) pts.push({ x: LAKE.x + (R() - 0.5) * 50, z: LAKE.z + (R() - 0.5) * 50 });
+  // race tracks
+  for (const tr of TRACKS) for (let i = 30; i < tr.n; i += 38) {
+    const p = tr.pts[i], o = ((i / 38) % 3 - 1) * tr.hw * 0.45;
+    pts.push({ x: p.x + p.tz * o, z: p.z - p.tx * o });
+  }
+  // stunt park: over the ski jump, in the halfpipe, on the fun box
+  for (let k = 0; k < 6; k++) {
+    const t = (k + 0.5) / 6;
+    pts.push({ x: 510, z: 160 - t * 80, y: 10 + Math.sin(t * Math.PI) * 12, air: true });
+  }
+  for (let k = 0; k < 6; k++) pts.push({ x: HALFPIPE.x + (k % 2 ? 12 : -12), z: HALFPIPE.z0 + 30 + k * 50 });
+  pts.push({ x: 565, z: -60, y: 5.2 });
+  // drift lot and hills
+  for (let k = 0; k < 6; k++) pts.push({ x: DRIFTLOT.x0 + 30 + R() * (DRIFTLOT.x1 - DRIFTLOT.x0 - 60), z: DRIFTLOT.z0 + 30 + R() * (DRIFTLOT.z1 - DRIFTLOT.z0 - 60) });
+  for (let k = 0; k < 10; k++) {
+    const a = R() * Math.PI * 2, rr = 60 + R() * 200;
+    const x = HILLS.x + Math.cos(a) * rr, z = HILLS.z + Math.sin(a) * rr;
+    if (Math.hypot(x, z) < 690) pts.push({ x, z });
+  }
   const gq = { n: { x: 0, y: 1, z: 0 } };
   for (const p of pts) {
-    if (p.y == null) p.y = Math.max(groundQuery(p.x, p.z, 100, gq), WATER_LEVEL) + 1.3;
+    if (p.y == null) p.y = Math.max(groundQuery(p.x, p.z, 100, gq), waterAt(p.x, p.z)) + 1.3;
   }
   return pts;
 }
@@ -710,6 +765,16 @@ export function propLayout() {
     props.push({ type: 'barrel', x: -30 + (R() - 0.5) * 8 + (k % 2) * 60, z: -200 - k * 3.5 });
   }
   for (let k = 0; k < 8; k++) props.push({ type: 'barrel', x: 20 + (k % 4) * 1.4, z: -100 + Math.floor(k / 4) * 1.4 });
+  // drift lot: slalom lines and two donut posts
+  const lx = (DRIFTLOT.x0 + DRIFTLOT.x1) / 2, lz = (DRIFTLOT.z0 + DRIFTLOT.z1) / 2;
+  for (let k = 0; k < 9; k++) props.push({ type: 'cone', x: DRIFTLOT.x0 + 30 + k * 20, z: lz + 45 });
+  for (let k = 0; k < 9; k++) props.push({ type: 'cone', x: DRIFTLOT.x0 + 40 + k * 20, z: lz - 45 });
+  for (const ox of [-45, 45]) for (let k = 0; k < 8; k++) {
+    const a = k / 8 * Math.PI * 2;
+    props.push({ type: 'cone', x: lx + ox + Math.cos(a) * 3, z: lz + Math.sin(a) * 3 });
+  }
+  // stunt park barrels
+  for (let k = 0; k < 10; k++) props.push({ type: 'barrel', x: 600 + (k % 2) * 1.3, z: -150 + Math.floor(k / 2) * 1.3 });
   // cones along road edges
   for (let i = 0; i < ROUTE.length; i += 2) {
     const a = ROUTE[i];
@@ -767,4 +832,171 @@ export function buildPropMeshes(props) {
     group.add(m);
   }
   return group;
+}
+
+// ------------------------------------------------------------------ race tracks
+export function buildTracks(T) {
+  const group = new THREE.Group();
+  const asphaltTrack = canvasTex(256, 512, (ctx, w, h) => {
+    noiseFill(ctx, w, h, 62, 34, 2, 41);
+    const R = rng(43);
+    for (let i = 0; i < 3000; i++) { const v = 60 + R() * 110; ctx.fillStyle = `rgba(${v},${v},${v},0.5)`; ctx.fillRect(R() * w, R() * h, 1.2, 1.2); }
+    ctx.fillStyle = '#f2f2ee';
+    ctx.fillRect(6, 0, 7, h); ctx.fillRect(w - 13, 0, 7, h);
+    // racing line rubber
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0.3, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.18)'); g.addColorStop(0.7, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  });
+  const dirtTrack = canvasTex(256, 512, (ctx, w, h) => {
+    noiseFill(ctx, w, h, 140, 60, 2, 47);
+    const img = ctx.getImageData(0, 0, w, h);
+    for (let i = 0; i < img.data.length; i += 4) { img.data[i] *= 1.08; img.data[i + 1] *= 0.86; img.data[i + 2] *= 0.64; }
+    ctx.putImageData(img, 0, 0);
+    // wheel ruts
+    for (const u of [0.28, 0.4, 0.6, 0.72]) {
+      const g = ctx.createLinearGradient(w * (u - 0.05), 0, w * (u + 0.05), 0);
+      g.addColorStop(0, 'rgba(40,25,10,0)'); g.addColorStop(0.5, 'rgba(40,25,10,0.28)'); g.addColorStop(1, 'rgba(40,25,10,0)');
+      ctx.fillStyle = g; ctx.fillRect(w * (u - 0.05), 0, w * 0.1, h);
+    }
+  });
+  const kerbTex = canvasTex(64, 256, (ctx, w, h) => {
+    for (let k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? '#f4f4f4' : '#d8241c'; ctx.fillRect(0, k * h / 8, w, h / 8); }
+  });
+  const checker = canvasTex(256, 64, (ctx, w, h) => {
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 4; j++) { ctx.fillStyle = (i + j) % 2 ? '#111' : '#f5f5f5'; ctx.fillRect(i * 16, j * 16, 16, 16); }
+  });
+
+  const ribbon = (tr, off0, off1, lift, filter) => {
+    const pos = [], uv = [], idx = [];
+    let dist = 0, run = -1;
+    for (let i = 0; i <= tr.n; i++) {
+      const p = tr.pts[i % tr.n], prev = tr.pts[(i - 1 + tr.n) % tr.n];
+      if (i > 0) dist += Math.hypot(p.x - prev.x, p.z - prev.z);
+      const on = !filter || filter(p, i % tr.n);
+      if (!on) { run = -1; continue; }
+      const nx = p.tz, nz = -p.tx;             // left of travel
+      const v = pos.length / 3;
+      for (const o of [off0, off1]) pos.push(p.x + nx * o, p.y + lift, p.z + nz * o);
+      uv.push(0, dist / 8, 1, dist / 8);
+      if (run >= 0) idx.push(run, run + 1, v, run + 1, v + 1, v);
+      run = v;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  };
+
+  for (const tr of TRACKS) {
+    const isA = tr.surface === 'asphalt';
+    const mat = new THREE.MeshStandardMaterial({
+      map: isA ? asphaltTrack : dirtTrack, roughness: isA ? 0.8 : 1,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide,
+    });
+    const road = new THREE.Mesh(ribbon(tr, -tr.hw, tr.hw, 0.1), mat);
+    road.receiveShadow = true;
+    group.add(road);
+    if (isA) {
+      const kmat = new THREE.MeshStandardMaterial({ map: kerbTex, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide });
+      const corner = (p) => Math.abs(p.curv) > 0.035;
+      for (const s of [-1, 1]) {
+        const k = new THREE.Mesh(ribbon(tr, s * tr.hw, s * (tr.hw + 1.5), 0.13, corner), kmat);
+        k.receiveShadow = true;
+        group.add(k);
+      }
+    }
+    // start line + gantry
+    const p0 = tr.pts[0];
+    const yaw = Math.atan2(p0.tx, p0.tz);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(tr.hw * 2, 2).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ map: checker, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+    line.position.set(p0.x, p0.y + 0.12, p0.z);
+    line.rotation.y = yaw + Math.PI / 2;
+    line.receiveShadow = true;
+    group.add(line);
+    const gate = buildStartGate({ x: p0.x, z: p0.z, yaw }, isA ? 'GRAND PRIX' : 'RALLY', isA ? 0x1e6fd9 : 0x2bb34a);
+    gate.position.y = p0.y;
+    group.add(gate);
+  }
+
+  // tyre stacks
+  {
+    const parts = [];
+    for (let k = 0; k < 4; k++) {
+      const t = new THREE.TorusGeometry(0.52, 0.22, 8, 16).rotateX(Math.PI / 2).translate(0, 0.22 + k * 0.42, 0);
+      parts.push(colorize(t, k === 3 ? 0xe8e8e8 : 0x1a1a1a, 0.1, 90 + k));
+    }
+    const geo = mergeGeometries(parts); geo.computeVertexNormals();
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), tireStacks.length);
+    const m4 = new THREE.Matrix4();
+    tireStacks.forEach((t, i) => im.setMatrixAt(i, m4.makeTranslation(t.x, t.y, t.z)));
+    im.castShadow = true; im.receiveShadow = true;
+    group.add(im);
+  }
+  // grandstands
+  for (const gs of grandstands) {
+    const g = new THREE.Group();
+    const parts = [];
+    const steps = 6;
+    for (let k = 0; k < steps; k++) {
+      const b = new THREE.BoxGeometry(gs.L, (k + 1) * gs.H / steps, gs.D / steps)
+        .translate(0, (k + 1) * gs.H / steps / 2, gs.D / 2 - (k + 0.5) * gs.D / steps);
+      parts.push(colorize(b, 0xb9b4aa, 0.08, 200 + k));
+      // seat row
+      const seat = new THREE.BoxGeometry(gs.L - 1, 0.35, 0.5)
+        .translate(0, (k + 1) * gs.H / steps + 0.17, gs.D / 2 - (k + 0.6) * gs.D / steps);
+      parts.push(colorize(seat, [0xd62a1e, 0x1e6fd9, 0xf2a900][k % 3], 0.3, 220 + k));
+    }
+    const roof = new THREE.BoxGeometry(gs.L + 2, 0.3, gs.D + 1).translate(0, gs.H + 3.5, 0);
+    parts.push(colorize(roof, 0xe8e8e8, 0.05, 240));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      parts.push(colorize(new THREE.BoxGeometry(0.3, gs.H + 3.5, 0.3).translate(sx * gs.L / 2, (gs.H + 3.5) / 2, sz * gs.D / 2), 0x888888, 0, 250));
+    }
+    const geo = mergeGeometries(parts); geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }));
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    g.position.set(gs.x, gs.y - 0.3, gs.z);
+    g.rotation.y = gs.yaw;
+    group.add(g);
+  }
+  return group;
+}
+
+// ------------------------------------------------------------------ drift lot
+export function buildDriftLot() {
+  const W = DRIFTLOT.x1 - DRIFTLOT.x0, D = DRIFTLOT.z1 - DRIFTLOT.z0;
+  const s = 6;                                   // px per metre
+  const tex = canvasTex(Math.round(W * s), Math.round(D * s), (ctx, w, h) => {
+    ctx.fillStyle = '#3a3a3d'; ctx.fillRect(0, 0, w, h);
+    const img = ctx.getImageData(0, 0, w, h); const R = rng(61);
+    for (let i = 0; i < img.data.length; i += 4) { const n = (R() - 0.5) * 30; img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n + 2; }
+    ctx.putImageData(img, 0, 0);
+    ctx.strokeStyle = 'rgba(10,10,10,0.28)';
+    for (let k = 0; k < 70; k++) {
+      ctx.lineWidth = 5 + R() * 6;
+      ctx.beginPath();
+      ctx.arc(R() * w, R() * h, (6 + R() * 30) * s, R() * 6, R() * 6 + 1 + R() * 3);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,210,40,0.9)'; ctx.lineWidth = 0.5 * s;
+    ctx.strokeRect(2 * s, 2 * s, w - 4 * s, h - 4 * s);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 0.35 * s;
+    ctx.setLineDash([2 * s, 1.5 * s]);
+    for (const ox of [-45, 45]) { ctx.beginPath(); ctx.arc(w / 2 + ox * s, h / 2, 14 * s, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = `900 ${12 * s}px Rubik, Arial Black, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('DRIFT PARK', w / 2, h / 2);
+  }, { clamp: true });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  // plane uv: u along +x, v=1 at -z (north) after rotation -> canvas top is north
+  mesh.position.set((DRIFTLOT.x0 + DRIFTLOT.x1) / 2, 0.04, (DRIFTLOT.z0 + DRIFTLOT.z1) / 2);
+  mesh.receiveShadow = true;
+  return mesh;
 }
