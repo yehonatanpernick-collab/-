@@ -168,6 +168,7 @@
   .btn.ghost { padding: 16px 20px; font-size: 16px; }
   #mode-badge { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; padding: 9px 14px; font-weight: 800; font-size: 14px; color: var(--gold); }
   #mode-badge.drift { color: var(--accent); }
+  #fps { position: absolute; top: max(112px, calc(env(safe-area-inset-top) + 98px)); left: 20px; font: 700 11px Rubik, sans-serif; color: rgba(255,255,255,.55); direction: ltr; }
   #settings { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8,5,3,.6); backdrop-filter: blur(6px); }
   .settings-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .set-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -252,6 +253,7 @@
   <div id="speedfx"></div>
   <div id="score-box" class="panel"><small>SCORE</small><div id="score">0</div><div class="best">BEST <span id="best">0</span></div></div>
   <div id="mode-badge" class="panel">נסיעה רגילה</div>
+  <div id="fps">60 FPS</div>
   <button id="pause-btn" class="panel" aria-label="השהיה">❚❚</button>
   <div id="trial" class="panel"><div id="trial-t">0:00.00</div><div id="trial-sub"></div></div>
   <div id="toast"></div>

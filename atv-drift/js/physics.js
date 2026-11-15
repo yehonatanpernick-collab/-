@@ -16,10 +16,10 @@ export const CFG = {
   damper: 1900,
   maxSteer: 0.62,
   minSteer: 0.16,
-  engine: 7000,
-  boostEngine: 4200,
-  maxSpeed: 40,
-  boostSpeed: 52,
+  engine: 9400,
+  boostEngine: 6500,
+  maxSpeed: 44,
+  boostSpeed: 58,
   reverseSpeed: 11,
   brake: 9500,
   muFront: 1.24,
@@ -27,8 +27,8 @@ export const CFG = {
 };
 // per-mode handling
 export const MODES = {
-  normal: { muRear: 1.42, handbrakeRear: 0.4, maxSlide: 0.62, assist: 0.6, powerOver: 1.0, push: 2600 },
-  drift:  { muRear: 1.36, handbrakeRear: 0.34, maxSlide: 0.85, assist: 1.0, powerOver: 0.75, push: 5600 },
+  normal: { muRear: 1.42, handbrakeRear: 0.4, maxSlide: 0.6, assist: 0.6, powerOver: 1.0, drift_aLat: 9, drift_wMax: 1.1, drift_kp: 4.0, drift_scrub: 3.0 },
+  drift:  { muRear: 1.36, handbrakeRear: 0.34, maxSlide: 0.95, assist: 1.0, powerOver: 0.75, drift_aLat: 13, drift_wMax: 1.5, drift_kp: 4.5, drift_scrub: 2.6 },
 };
 
 // wheel local positions relative to CoM: x left(+), z forward(+)
@@ -156,8 +156,11 @@ export class Vehicle {
     const vmax = boosting ? CFG.boostSpeed : CFG.maxSpeed;
     let drive = 0, braking = 0;
     if (input.throttle > 0) {
-      const fade = Math.max(0, 1 - Math.pow(Math.max(vF, 0) / vmax, 2.2));
-      drive = input.throttle * (CFG.engine * (0.55 + 0.45 * (1 - speedK)) * fade + (boosting ? CFG.boostEngine : 0));
+      // limit by the speed along the direction of travel (not along the heading), so a
+      // sliding car can't run away to absurd speeds
+      const vRef = this.drifting ? hs : Math.max(vF, 0);
+      const fade = Math.max(0, 1 - Math.pow(vRef / vmax, 2.5));
+      drive = input.throttle * (CFG.engine * (0.82 + 0.18 * (1 - speedK)) * fade + (boosting ? CFG.boostEngine * Math.max(0, 1 - Math.pow(vRef / vmax, 3)) : 0));
     }
     if (input.brake > 0) {
       if (vF > 1.0) braking = input.brake * CFG.brake;
@@ -251,7 +254,7 @@ export class Vehicle {
       if (input.throttle === 0 && input.brake === 0 && Math.abs(vLong) < 1.2) {
         Fx -= THREE.MathUtils.clamp(vLong * share / dt * 0.4, -mu * Fs, mu * Fs);
       } else {
-        Fx -= vLong * 5;
+        Fx -= vLong * 2.2;
       }
       // traction for driving/braking doesn't depend on the surface, so sand and
       // dirt are as fast as asphalt; only cornering grip changes
@@ -299,7 +302,7 @@ export class Vehicle {
     }
 
     // ---- aero, downforce
-    F.addScaledVector(this.vel, -0.42 * speed - 6);
+    F.addScaledVector(this.vel, -0.22 * speed - 4);
     if (grounded >= 3) F.addScaledVector(up, -speed * speed * 0.9);
 
     // ---- drift controller / stability on the ground
@@ -344,28 +347,31 @@ export class Vehicle {
         // centred wheel for a moment ends the drift: grip and stability control take over
         const centred = Math.abs(input.steer) < 0.15 && !input.handbrake;
         this._centred = centred ? this._centred + dt : 0;
-        if (this._driftCalm > 0.15 || this._centred > 0.35 || hs < 4 || vF < 1 || this._offThrottle > 0.7 || grounded < 2) this.drifting = false;
+        if (this._driftCalm > 0.12 || this._centred > 1.4 || hs < 4 || vF < -2 || this._offThrottle > 1.2 || grounded < 2) this.drifting = false;
       }
       if (this.drifting) {
-        // direction of the slide; while it builds up, take it from steering
-        const sg = Math.abs(s) > 0.06 ? Math.sign(s) : -Math.sign(input.steer || 1);
-        const into = THREE.MathUtils.clamp(input.steer * -sg, -1, 1);   // +1 = steering into the corner
-        // centred wheel lets the car straighten; steering into the turn holds/deepens the angle;
-        // counter-steer pulls it out
-        let k = THREE.MathUtils.clamp(0.15 + 0.85 * into, 0, 1);
-        if (Math.abs(input.steer) < 0.15) k = 0;
-        if (input.handbrake) k = Math.max(k, 0.55);
-        const target = sg * M.maxSlide * k * (input.throttle > 0 || input.handbrake ? 1 : 0.5);
-        const err = target - s;
-        const wTarget = wVel + err * 3.0;
-        T.addScaledVector(up, (wTarget - wy) * CFG.inertia.y * 6 * M.assist);
-        // keep momentum through the slide
-        if (input.throttle > 0) F.addScaledVector(hvDir, input.throttle * M.push * Math.min(1, Math.abs(s) / 0.4 + 0.3));
-        // velocity bends toward where the car points (rear-wheel thrust)
-        const fwdFlat = this._ff || (this._ff = V());
-        fwdFlat.copy(fwd).addScaledVector(up, -fwd.dot(up)).normalize();
-        const sideComp = fwdFlat.clone().addScaledVector(hvDir, -fwdFlat.dot(hvDir));
-        F.addScaledVector(sideComp, m * (3.5 + 4.5 * input.throttle));
+        // Arcade drift: the wheel directly sets how fast the direction of TRAVEL turns, and a
+        // yaw controller holds the nose at a chosen angle to that direction. That is what
+        // makes the car carve a real arc instead of sliding sideways in a line.
+        const st = THREE.MathUtils.clamp(this.steer, -1, 1);                 // + = right
+        const aLat = M.drift_aLat;                                          // m/s^2 of cornering force
+        const wMax = Math.min(M.drift_wMax, aLat / Math.max(hs, 5));
+        const wCmd = -st * wMax * THREE.MathUtils.smoothstep(hs, 2, 7);      // right turn = negative about up
+        // centripetal force: rotates the velocity without changing its length
+        const cen = this._cen || (this._cen = V());
+        cen.copy(up).cross(hv).multiplyScalar(m * wCmd);
+        F.add(cen);
+        // slide angle the nose is held at: wider with more lock and more throttle
+        const sg = Math.abs(st) > 0.12 ? -Math.sign(st) : Math.sign(s || 1);
+        let mag = Math.abs(st) < 0.12 ? 0 : M.maxSlide * (0.4 + 0.6 * Math.abs(st));
+        if (input.handbrake) mag = Math.max(mag, M.maxSlide * 0.7);
+        if (!input.throttle && !input.handbrake) mag *= 0.6;
+        const err = sg * mag - s;
+        const wTarget = wCmd + err * M.drift_kp;
+        T.addScaledVector(up, (wTarget - wy) * CFG.inertia.y * 9);
+        // sliding scrubs some speed; throttle's push along the nose pays it back
+        const scrub = m * (0.5 + M.drift_scrub * Math.abs(Math.sin(s))) * THREE.MathUtils.smoothstep(hs, 2, 8);
+        F.addScaledVector(hvDir, -scrub);
       } else if (grounded >= 2) {
         // ---- stability control: yaw follows the steering, no wandering
         let wantYaw = vF * Math.tan(steerAngle) / 2.28;      // bicycle model (about up)

@@ -68,7 +68,7 @@ let composer = null, bloom = null;
 let terrainMesh = null;
 function applyQuality() {
   const hi = quality === 'high';
-  const dpr = Math.min(devicePixelRatio, hi ? 1.75 : 1.0);
+  const dpr = Math.min(devicePixelRatio, hi ? 1.5 : 1.0);
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
   const ms = hi ? 4096 : 1536;
@@ -108,7 +108,7 @@ scene.add(W.buildRamps(T));
 scene.add(W.buildTracks(T));
 scene.add(W.buildDriftLot());
 const water = W.buildWater(T); scene.add(water);
-scene.add(W.buildScenery());
+const sceneryGroup = W.buildScenery(); scene.add(sceneryGroup);
 const vegetation = W.buildVegetation(T); scene.add(vegetation);
 const clouds = W.buildClouds(sunDir); scene.add(clouds);
 const props = W.propLayout(); scene.add(W.buildPropMeshes(props));
@@ -783,6 +783,51 @@ $('#touch-reset')?.addEventListener('click', () => resetCar());
 $('#touch-mode')?.addEventListener('click', () => setMode(G.mode === 'drift' ? 'normal' : 'drift', true));
 addEventListener('keydown', (e) => { if (e.code === 'Enter' && G.state === 'menu' && !input.capture && $('#settings').classList.contains('hidden')) startGame(); });
 
+// ---------------------------------------------------------------- cacti: soft, never stop you
+const smashed = new Map();   // index -> time it respawns
+function smashCacti() {
+  const list = sceneryGroup.userData.cacti;
+  if (!list) return;
+  const now = clock.elapsedTime;
+  for (const [i, t] of smashed) if (now > t && Math.hypot(list[i].x - veh.pos.x, list[i].z - veh.pos.z) > 60) { smashed.delete(i); sceneryGroup.userData.setCactus(i, true); }
+  if (veh.speed < 2) return;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i], dx = c.x - veh.pos.x, dz = c.z - veh.pos.z;
+    if (dx * dx + dz * dz > 6.5 || smashed.has(i) || Math.abs(c.y - veh.pos.y) > 3) continue;
+    smashed.set(i, now + 25);
+    sceneryGroup.userData.setCactus(i, false);
+    veh.vel.multiplyScalar(0.985);
+    for (let k = 0; k < 14; k++) particles.emit(c.x, c.y + 1 + Math.random() * 2, c.z, (Math.random() - 0.5) * 6, 2 + Math.random() * 4, (Math.random() - 0.5) * 6, 0.25, 0.55, 0.2, 0.5, 0.9, { grow: 0.4, grav: -9, alpha: 0.9, drag: 0.6 });
+    audio.pop();
+  }
+}
+
+// ---------------------------------------------------------------- performance: automatic resolution scaling
+let perfScale = 1, perfAcc = 0, perfFrames = 0, perfLowSince = 0, fpsShown = 60;
+function perfTick(rawDt) {
+  perfAcc += rawDt; perfFrames++;
+  if (perfAcc < 1.0) return;
+  const fps = perfFrames / perfAcc;
+  perfAcc = 0; perfFrames = 0; fpsShown = fps;
+  const el = document.getElementById('fps'); if (el) el.textContent = Math.round(fps) + ' FPS';
+  if (G.state === 'menu') return;
+  const base = Math.min(devicePixelRatio, quality === 'high' ? 1.5 : 1.0);
+  let next = perfScale;
+  if (fps < 40 && perfScale > 0.5) next = Math.max(0.5, perfScale - 0.15);
+  else if (fps > 58 && perfScale < 1) next = Math.min(1, perfScale + 0.05);
+  if (next !== perfScale) {
+    perfScale = next;
+    renderer.setPixelRatio(base * perfScale);
+    renderer.setSize(innerWidth, innerHeight);
+    composer?.setPixelRatio(base * perfScale); composer?.setSize(innerWidth, innerHeight);
+  }
+  // still slow at the lowest resolution: drop to the light graphics preset automatically
+  if (fps < 28 && perfScale <= 0.5 && quality === 'high') {
+    perfLowSince++;
+    if (perfLowSince >= 3) { quality = 'low'; store.set('quality', quality); applyQuality(); perfScale = 1; perfLowSince = 0; popup('עברתי לגרפיקה חסכונית', 'air', 'כדי לשמור על חלקות'); }
+  } else perfLowSince = 0;
+}
+
 // ---------------------------------------------------------------- wheelies
 function wheelieTrack(dt) {
   const W = G.wheelie;
@@ -820,8 +865,10 @@ function keys() {
 
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.1, clock.getDelta());
+  const rawDt = clock.getDelta();
+  const dt = Math.min(0.1, rawDt);
   const t = clock.elapsedTime;
+  perfTick(rawDt);
   const inp = input.update(dt);
   keys();
 
@@ -829,19 +876,19 @@ function frame() {
     const pin = G.state === 'play' ? { ...inp } : idleInput;
     pin.boost = pin.boost && G.nitro > 0.01;
     veh.boostFuel = G.nitro;
-    acc += dt;
+    acc += Math.min(0.25, rawDt);          // physics keeps real-time speed even at ~5 fps
     let steps = 0;
-    while (acc >= DT && steps < 12) {
+    while (acc >= DT && steps < 32) {
       veh.step(DT, pin);
       updateProps(DT);
       acc -= DT; steps++;
     }
-    if (steps >= 12) acc = 0;
+    if (steps >= 32) acc = 0;
 
     if (G.state === 'play') {
       if (veh.boostActive) G.nitro = Math.max(0, G.nitro - dt * 0.28);
       else G.nitro = Math.min(1, G.nitro + dt * 0.035);        // slowly refills by itself
-      G.speedKmh = veh.forwardSpeed * 3.6;
+      G.speedKmh = Math.hypot(veh.vel.x, veh.vel.z) * 3.6;     // true ground speed (not just along the nose)
       // drift chain
       const c = G.chain;
       const sp = veh.speed;
@@ -876,6 +923,7 @@ function frame() {
       if (veh.pos.y < TR.terrainHeight(veh.pos.x, veh.pos.z) - 4) resetCar();
       lapCheck(dt);
       zoneCheck(dt);
+      smashCacti();
       wheelFx(dt, inp);
       if (veh.inWater > 0.2 && veh.speed > 4 && Math.random() < 0.6) {
         burst(veh.pos.x, TR.WATER_LEVEL + 0.1, veh.pos.z, 3, [0.9, 0.95, 1], 3);

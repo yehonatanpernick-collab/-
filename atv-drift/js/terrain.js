@@ -643,13 +643,13 @@ export function buildLayout() {
     return true;
   };
   let tries = 0;
-  while (scenery.rocks.length < 300 && tries++ < 12000) {
+  while (scenery.rocks.length < 260 && tries++ < 12000) {
     const x = (R() - 0.5) * 1480, z = (R() - 0.5) * 1480;
     if (!clear(x, z, 2)) continue;
     const s = 0.6 + Math.pow(R(), 2.2) * 3.4;
     const y = terrainHeight(x, z);
     scenery.rocks.push({ x, z, y, s, rot: R() * PI * 2, tilt: R() });
-    if (s > 0.9) addCylinder({ x, z, r: s * 0.95, y0: y - 1, h: s * 1.4 + 1 });
+    if (s > 2.0) addCylinder({ x, z, r: s * 0.9, y0: y - 1, h: s * 1.3 + 1 });   // only big boulders are solid
   }
   tries = 0;
   while (scenery.cacti.length < 330 && tries++ < 14000) {
@@ -660,7 +660,7 @@ export function buildLayout() {
     if (y > 22) continue;
     const s = 0.8 + R() * 0.9;
     scenery.cacti.push({ x, z, y, s, rot: R() * PI * 2, arms: R() });
-    addCylinder({ x, z, r: 0.45 * s, y0: y - 1, h: 4.5 * s });
+    // cacti are soft: the buggy bursts through them (see main.js)
   }
   // palms around the lake
   for (let k = 0; k < 26; k++) {

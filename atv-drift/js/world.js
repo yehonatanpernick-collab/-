@@ -549,6 +549,11 @@ export function buildScenery() {
     });
     im.castShadow = true; im.receiveShadow = true;
     group.add(im);
+    // soft cacti: hide one when the buggy smashes through it, bring it back later
+    const keep = scenery.cacti.map((c, i) => { const m = new THREE.Matrix4(); im.getMatrixAt(i, m); return m; });
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    group.userData.cacti = scenery.cacti;
+    group.userData.setCactus = (i, on) => { im.setMatrixAt(i, on ? keep[i] : zero); im.instanceMatrix.needsUpdate = true; };
   }
   // palms
   {
@@ -1166,7 +1171,7 @@ export function buildVegetation(T) {
       im.castShadow = kind === 'shrub';
       im.receiveShadow = true;
       group.add(im);
-      list.push({ im, cx: c.cx, cz: c.cz, range: kind === 'grass' ? 320 : 700 });
+      list.push({ im, cx: c.cx, cz: c.cz, range: kind === 'grass' ? 240 : 600 });
     }
   }
   group.userData.update = (cam, t) => {
