@@ -48,9 +48,9 @@
   #load-msg { margin-top: 12px; color: var(--muted); font-size: 14px; }
 
   /* ------------------------------------------------ menu */
-  #menu { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: flex-start;
+  #menu { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain;
     padding: 4vh 6vw; background: linear-gradient(90deg, rgba(12,8,5,.0) 30%, rgba(12,8,5,.78) 75%); }
-  .menu-card { width: min(440px, 100%); }
+  .menu-card { width: min(440px, 100%); margin: auto 0; padding-block: 8px; }
   .brand { font-size: clamp(46px, 8vw, 92px); line-height: .9; font-weight: 900; margin: 0; letter-spacing: -2px;
     background: linear-gradient(180deg, #fff3c4, #ffb340 45%, #ff5d1f); -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 6px 24px rgba(255,120,30,.35)); direction: ltr; text-align: right; }
@@ -193,11 +193,11 @@
   [data-t=brake] { right: 128px; bottom: 22px; width: 72px; height: 72px; }
   [data-t=drift] { right: 120px; bottom: 108px; width: 72px; height: 72px; }
   [data-t=boost] { right: 30px; bottom: 140px; width: 70px; height: 70px; color: var(--cyan); }
-  #touch-cam, #touch-reset { top: 74px; width: 46px; height: 46px; font-size: 12px; }
+  #touch-cam, #touch-reset, #touch-mode { top: 74px; width: 46px; height: 46px; font-size: 12px; }
   #touch-cam { right: 16px; } #touch-reset { right: 70px; } #touch-mode { right: 124px; }
   [data-t=leanb] { left: 18px; bottom: 150px; width: 64px; height: 64px; font-size: 12px; } [data-t=leanf] { left: 92px; bottom: 150px; width: 64px; height: 64px; font-size: 12px; }
   body.touch #gauge { width: 150px; height: 150px; right: auto; left: 50%; transform: translateX(-50%); bottom: 4px; }
-  body.touch #minimap { width: 120px; height: 120px; top: 120px; left: 16px; bottom: auto; }
+  body.touch #minimap { width: 96px; height: 96px; top: 12px; left: 182px; bottom: auto; }
   body.touch #chain { bottom: 170px; }
 
   @media (max-width: 720px) {

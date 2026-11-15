@@ -401,11 +401,15 @@ export class Vehicle {
       // ---- air control: lean = flips, steer = spin, roll keys = barrel roll
       this.airTime += dt;
       this.drifting = false;
-      T.addScaledVector(left, lean * CFG.inertia.x * 4.8);
+      // lean sets a target pitch RATE (about 1 flip per 1.3 s) instead of a constant torque,
+      // so a flip never spins up out of control and stops soon after the key is released
+      const pitchRate = this.w.dot(left);
+      const want = lean * 4.8;
+      T.addScaledVector(left, CFG.inertia.x * THREE.MathUtils.clamp((want - pitchRate) * 9, -18, 18));
       T.addScaledVector(up, -input.steer * CFG.inertia.y * 3.6);
       T.addScaledVector(fwd, (input.roll || 0) * CFG.inertia.z * 5.5);
       if (!lean && Math.abs(input.steer) < 0.1 && !input.roll) {
-        T.addScaledVector(this.w, -1.2 * CFG.inertia.x);
+        T.addScaledVector(this.w, -3.0 * CFG.inertia.x);
         const axis = this._lv || (this._lv = V());
         axis.copy(up).cross(new THREE.Vector3(0, 1, 0));
         if (up.y > 0.3) T.addScaledVector(axis, CFG.inertia.x * 2.2);

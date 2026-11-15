@@ -178,7 +178,6 @@ function toast(html) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
 }
-function unlock() { /* open world: no achievements */ }
 function addScore(p) {
   G.score += p;
   if (G.score > G.best) { G.best = G.score; store.set('best', Math.round(G.best)); }
@@ -199,7 +198,6 @@ function bankChain() {
     popup('+' + fmt(total), 'bank', c.mult > 1 ? `x${c.mult} קומבו` : '');
     audio.bank();
     G.nitro = Math.min(1, G.nitro + Math.min(0.3, total / 20000));
-    if (total >= 5000) unlock('drift5k');
   }
   c.active = false; c.pts = 0; c.time = 0; c.mult = 1;
 }
@@ -241,9 +239,8 @@ function airTrack(dt) {
       const back = A.pitch < 0;
       names.push((back ? 'סלטה אחורית' : 'סלטה קדמית') + (flips > 1 ? ` x${flips}` : ''));
       pts += 1500 * flips;
-      if (back) unlock('backflip');
     }
-    if (spins) { names.push(`${spins * 360}°`); pts += 800 * spins; unlock('spin'); }
+    if (spins) { names.push(`${spins * 360}°`); pts += 800 * spins; }
     if (rolls) { names.push('גלגול חבית' + (rolls > 1 ? ` x${rolls}` : '')); pts += 1200 * rolls; }
     if (pts === 0) return;
     const clean = veh.up.y > 0.93 && Math.abs(veh.slipAngle) < 0.35;
@@ -253,7 +250,6 @@ function airTrack(dt) {
     const head = names.length ? names.join(' + ') : (t > 2 ? 'אוויר ענק!' : 'קפיצה!');
     popup(head, names.length ? 'trick' : 'air', `${t.toFixed(1)} שנ' באוויר · +${fmt(pts)}${clean ? ' · נחיתה נקייה' : ''}`);
     if (names.length) audio.trick();
-    if (t >= 2.5) unlock('air25');
   }
 }
 
@@ -336,7 +332,6 @@ function updateProps(dt) {
             p.knocked = true; G.knocked++;
             addScore(50); chainAdd(80);
             audio.pop();
-            if (G.knocked >= 15) unlock('cones');
           }
         }
       }
@@ -521,7 +516,7 @@ function updateCamera(dt) {
     camera.lookAt(cam.look);
   }
   G.shake = Math.max(0, G.shake - dt * 2.2);
-  const fovT = 62 + Math.min(sp * 3.6, 170) * 0.1 + (veh.boostActive ? 9 : 0) + (G.boostFlash || 0) * 6;
+  const fovT = 62 + Math.min(sp * 3.6, 170) * 0.1 + (veh.boostActive ? 9 : 0);
   cam.fov += (fovT - cam.fov) * (1 - Math.exp(-dt * 3));
   camera.fov = G.camMode === 2 ? cam.fov + 6 : cam.fov;
   camera.updateProjectionMatrix();
