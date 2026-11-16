@@ -1,7 +1,7 @@
 // Arcade rigid-body vehicle: 4 raycast wheels with suspension, a friction-circle
 // tyre model tuned for drifting, air control, and impulse-based chassis contacts.
 import * as THREE from 'three';
-import { groundQuery, pointPenetration, waterAt, terrainHeight, HALF, surfaceAt, GRIP } from './terrain.js';
+import { groundQuery, pointPenetration, waterAt, terrainHeight, HALF, surfaceAt, GRIP, floorVelocity } from './terrain.js';
 
 export const GRAVITY = 13;
 const V = () => new THREE.Vector3();
@@ -217,6 +217,7 @@ export class Vehicle {
 
       r.copy(wh.point).sub(this.pos);
       vp.copy(this.w).cross(r).add(this.vel);
+      if (wh.surface === 'terrain') { const fv = floorVelocity(wh.point.x, wh.point.z); if (fv) { vp.x -= fv.x; vp.z -= fv.z; } }   // rotating platform
 
       // wheel frame on the ground plane
       wf.copy(fwd).multiplyScalar(Math.cos(wh.steerAngle)).addScaledVector(left, Math.sin(wh.steerAngle));

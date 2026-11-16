@@ -110,6 +110,8 @@ scene.add(W.buildDriftLot());
 const water = W.buildWater(T); scene.add(water);
 const sceneryGroup = W.buildScenery(); scene.add(sceneryGroup);
 const vegetation = W.buildVegetation(T); scene.add(vegetation);
+const trampGroup = W.buildTrampolines(); scene.add(trampGroup);
+const turnGroup = W.buildTurntables(); scene.add(turnGroup);
 const clouds = W.buildClouds(sunDir); scene.add(clouds);
 const props = W.propLayout(); scene.add(W.buildPropMeshes(props));
 setLoad(0.25, 'מביאים את הבאגי…');
@@ -573,6 +575,9 @@ function drawMapBg() {
   rect(TR.STUNT, 'rgba(150,110,75,0.75)');
   rect(TR.MEGA, 'rgba(150,110,75,0.75)');
   rect(TR.NSTUNT, 'rgba(150,110,75,0.75)');
+  rect(TR.SPECIAL, 'rgba(150,110,75,0.75)');
+  c.fillStyle = '#ffd23a'; for (const t of TR.trampolines) { c.beginPath(); c.arc(...P(t.x, t.z), Math.max(2, t.r * S * 1.3), 0, Math.PI * 2); c.fill(); }
+  c.fillStyle = '#d62a1e'; for (const t of TR.turntables) { c.beginPath(); c.arc(...P(t.x, t.z), Math.max(2, t.r * S), 0, Math.PI * 2); c.fill(); }
   c.fillStyle = 'rgba(60,30,25,0.95)'; c.fillRect(...P(TR.CANYON.x0 - 10, TR.CANYON.cz - 20), (TR.CANYON.x1 - TR.CANYON.x0 + 20) * S, 40 * S);
   rect(TR.DRIFTLOT, 'rgba(60,60,64,0.9)');
   c.fillStyle = 'rgba(230,230,225,0.85)';
@@ -840,6 +845,48 @@ function perfTick(rawDt) {
   } else perfLowSince = 0;
 }
 
+// ---------------------------------------------------------------- stunt pads: trampolines, banks, turntables, splashes
+let tailT = 0;
+function stuntPads(dt) {
+  // trampolines
+  for (const p of TR.trampolines) {
+    p.cool = Math.max(0, (p.cool || 0) - dt);
+    const d = Math.hypot(veh.pos.x - p.x, veh.pos.z - p.z);
+    if (d < p.r && p.cool === 0 && veh.grounded >= 2 && veh.vel.y < p.power * 0.6) {
+      veh.vel.y = p.power + Math.min(4, veh.speed * 0.08);
+      p.cool = 0.6; p.squash = 1;
+      audio.boing(p.power / 40);
+      G.shake = Math.max(G.shake, 0.35);
+      for (let k = 0; k < 16; k++) particles.emit(p.x + (Math.random() - 0.5) * p.r, veh.pos.y - 0.5, p.z + (Math.random() - 0.5) * p.r, (Math.random() - 0.5) * 4, 1 + Math.random() * 3, (Math.random() - 0.5) * 4, 1, 0.85, 0.3, 0.4, 0.7, { grow: 0.3, grav: -6, alpha: 0.9, drag: 1 });
+      popup('מקפצה!', 'boost', `${Math.round(p.power * p.power / 26)} מ' גובה`);
+    }
+  }
+  // banked surfaces: riding the slope earns points, steeper is worth more
+  const tilt = veh.up.y;
+  if (veh.grounded >= 2 && tilt < 0.9 && tilt > 0.3 && veh.speed > 10) {
+    tailT += dt;
+    chainAdd(dt * 260 * (1.1 - tilt) * 6);
+    G.bankRide = (G.bankRide || 0) + dt;
+  } else if (G.bankRide) {
+    if (G.bankRide > 1.5) popup('נסיעה על הקיר', 'trick', `${G.bankRide.toFixed(1)} שניות`);
+    G.bankRide = 0;
+  }
+  // rotating platform: spinning with it scores
+  const onTT = TR.turntables.some(t => Math.hypot(veh.pos.x - t.x, veh.pos.z - t.z) < t.r) && veh.grounded >= 2;
+  if (onTT) { chainAdd(dt * (80 + Math.abs(veh.w.y) * 90)); G.ttTime = (G.ttTime || 0) + dt; }
+  else if (G.ttTime) { if (G.ttTime > 2) popup('קרוסלה!', 'trick', `${G.ttTime.toFixed(1)} שניות`); G.ttTime = 0; }
+  // water entry
+  const wet = veh.inWater > 0.35;
+  if (wet && !G.wasWet && G.prevVy < -5) {
+    const drop = Math.max(0, (G.air.maxY || veh.pos.y) - TR.WATER_LEVEL);
+    audio.splash(Math.min(1.3, -G.prevVy / 18));
+    for (let k = 0; k < 60; k++) { const a = Math.random() * 6.28, s = 2 + Math.random() * 7; particles.emit(veh.pos.x, TR.WATER_LEVEL + 0.2, veh.pos.z, Math.cos(a) * s, 4 + Math.random() * 9 * Math.min(1, -G.prevVy / 14), Math.sin(a) * s, 0.9, 0.96, 1, 0.9, 1.4, { grow: 1.5, grav: -12, alpha: 0.75, drag: 0.7 }); }
+    G.shake = Math.max(G.shake, 0.6);
+    if (drop > 8) { const pts = Math.round(drop * 90); addScore(pts); popup('צלילה!', 'trick', `${Math.round(drop)} מ' · +${fmt(pts)}`); }
+  }
+  G.wasWet = wet; G.prevVy = veh.vel.y;
+}
+
 // ---------------------------------------------------------------- wheelies
 function wheelieTrack(dt) {
   const W = G.wheelie;
@@ -937,6 +984,7 @@ function frame() {
       lapCheck(dt);
       zoneCheck(dt);
       smashCacti();
+      stuntPads(dt);
       wheelFx(dt, inp);
       if (veh.inWater > 0.2 && veh.speed > 4 && Math.random() < 0.6) {
         burst(veh.pos.x, TR.WATER_LEVEL + 0.1, veh.pos.z, 3, [0.9, 0.95, 1], 3);
@@ -956,6 +1004,8 @@ function frame() {
   particles.update(G.state === 'pause' ? 0 : dt);
   skids.update();
   water.userData.tick(t);
+  trampGroup.userData.tick(G.state === 'pause' ? 0 : dt);
+  turnGroup.userData.tick(G.state === 'pause' ? 0 : dt);
   updateCamera(dt);
   vegetation.userData.update(camera.position, t);
   clouds.userData.tick(t, camera.position);

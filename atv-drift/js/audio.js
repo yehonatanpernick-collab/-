@@ -137,4 +137,23 @@ export class GameAudio {
     this._env(g, 0.35, 0.02, 0.6); n.start(t); n.stop(t + 0.7);
   }
   pop() { this.tone([300, 200], 0.08, 'square', 0.06, 0.03); }
+  boing(power = 1) {                                   // spring: a rising wobble
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(520 + 260 * power, t + 0.22);
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 22; lg.gain.value = 40;
+    lfo.connect(lg); lg.connect(o.frequency);
+    const g = ctx.createGain(); o.connect(g); g.connect(this.master);
+    this._env(g, 0.3, 0.01, 0.4); o.start(t); lfo.start(t); o.stop(t + 0.5); lfo.stop(t + 0.5);
+  }
+  splash(strength = 1) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = ctx.createBufferSource(); n.buffer = this.noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(300, t + 0.7);
+    const g = ctx.createGain(); n.connect(f); f.connect(g); g.connect(this.master);
+    this._env(g, 0.55 * strength, 0.01, 0.8); n.start(t); n.stop(t + 1);
+    this.thump(0.5 * strength);
+  }
 }

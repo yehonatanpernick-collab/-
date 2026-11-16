@@ -6,7 +6,7 @@ import {
   GN, CELL, HALF, grid, WATER_LEVEL, ARENA, PARK, BOWL, LAKE, ROUTE,
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
-  MEGA, NSTUNT, CANYON, stuntProps,
+  MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -141,6 +141,53 @@ export function makeTextures() {
   T.container1 = containerTex('#2a63a8', 'FREIGHT');
   T.container2 = containerTex('#d98a1c', 'HAULER');
   T.container3 = containerTex('#2f8a55', 'EXPRESS');
+  // city buildings: window grids (a second emissive map makes some windows glow)
+  const facade = (hex, seed) => {
+    const mk = (lit) => canvasTex(256, 256, (ctx, w, h) => {
+      const R = rng(seed);
+      ctx.fillStyle = lit ? '#000' : hex; ctx.fillRect(0, 0, w, h);
+      for (let y = 10; y < h - 10; y += 22) for (let x = 10; x < w - 10; x += 22) {
+        const on = R() > 0.55;
+        if (lit) { if (on) { ctx.fillStyle = R() > 0.5 ? '#ffd98a' : '#bfe6ff'; ctx.fillRect(x, y, 14, 14); } }
+        else { ctx.fillStyle = on ? '#e9d9a8' : '#1f2b38'; ctx.fillRect(x, y, 14, 14); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x, y + 11, 14, 3); }
+      }
+      if (!lit) { ctx.fillStyle = 'rgba(0,0,0,0.12)'; for (let x = 0; x < w; x += 22) ctx.fillRect(x, 0, 2, h); }
+    });
+    return [mk(false), mk(true)];
+  };
+  [T.bldg0, T.bldg0e] = facade('#8e8478', 31);
+  [T.bldg1, T.bldg1e] = facade('#6d7783', 32);
+  [T.bldg2, T.bldg2e] = facade('#9a6f58', 33);
+  T.roof = canvasTex(256, 256, (ctx, w, h) => {
+    noiseFill(ctx, w, h, 96, 36, 2, 91);
+    ctx.strokeStyle = '#f2c500'; ctx.lineWidth = 14; ctx.strokeRect(7, 7, w - 14, h - 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '900 120px Arial Black, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', w / 2, h / 2);
+  });
+  // parked cars used as obstacles
+  const carTex = (hex) => canvasTex(128, 64, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0.14)');
+    ctx.fillStyle = hex; ctx.fillRect(0, 0, w, h); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(w / 2 - 1, 4, 2, h - 8);                       // door seam
+    ctx.fillStyle = '#ffe9a8'; ctx.fillRect(4, 18, 12, 10); ctx.fillStyle = '#c1262a'; ctx.fillRect(w - 16, 18, 12, 10);  // lights
+  });
+  T.cbody0 = carTex('#c8102e'); T.cbody1 = carTex('#1e6fd9'); T.cbody2 = carTex('#e8e8e8'); T.cbody3 = carTex('#2bb34a');
+  T.cglass = canvasTex(64, 64, (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#1a2a3a'); g.addColorStop(1, '#4b6a86'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); });
+  T.bus = canvasTex(256, 64, (ctx, w, h) => {
+    ctx.fillStyle = '#f2b800'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1b2733'; for (let x = 8; x < w - 8; x += 30) ctx.fillRect(x, 10, 22, 22);
+    ctx.fillStyle = '#111'; ctx.fillRect(0, 40, w, 4);
+    ctx.fillStyle = '#111'; ctx.font = '800 16px Arial Black, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('SCHOOL BUS', w / 2, 58);
+  });
+  T.busTop = canvasTex(64, 64, (ctx, w, h) => { ctx.fillStyle = '#f2b800'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, h / 2 - 1, w, 2); });
+  T.bank = canvasTex(256, 256, (ctx, w, h) => {
+    noiseFill(ctx, w, h, 74, 30, 2, 93);
+    ctx.fillStyle = '#f2f2ee'; ctx.fillRect(0, 0, 10, h); ctx.fillRect(w - 10, 0, 10, h);
+    ctx.fillStyle = 'rgba(255,138,31,0.85)'; for (let y = 0; y < h; y += 64) ctx.fillRect(w / 2 - 4, y, 8, 32);
+  });
+  T.plank = canvasTex(128, 256, (ctx, w, h) => {
+    const R = rng(95);
+    for (let y = 0; y < h; y += 32) { const v = 120 + R() * 40; ctx.fillStyle = `rgb(${v},${v * 0.72},${v * 0.45})`; ctx.fillRect(0, y, w, 30); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, y + 30, w, 2); ctx.fillStyle = 'rgba(70,40,20,0.5)'; ctx.fillRect(6, y + 12, 3, 3); ctx.fillRect(w - 9, y + 12, 3, 3); }
+  });
   T.rail = canvasTex(128, 64, (ctx, w, h) => {
     for (let k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? '#f2f2f0' : '#d8261c'; ctx.fillRect(k * w / 8, 0, w / 8, h); }
     ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, h - 8, w, 8);
@@ -271,6 +318,12 @@ function colorAt(x, z, h, ny, out) {
       const band = 0.5 + 0.5 * Math.sin(h * 1.7 + n * 6);
       r += ((0.55 + band * 0.18) - r) * cn; g += ((0.31 + band * 0.08) - g) * cn; b += ((0.22 + band * 0.05) - b) * cn;
     }
+  }
+  // special stunt park: packed dirt
+  {
+    const dx = Math.max(SPECIAL.x0 - x, 0, x - SPECIAL.x1), dz = Math.max(SPECIAL.z0 - z, 0, z - SPECIAL.z1);
+    const f = 1 - smoothstep(0, 20, Math.hypot(dx, dz));
+    r += (0.69 + n2 * 0.06 - r) * f; g += (0.52 + n2 * 0.05 - g) * f; b += (0.37 + n2 * 0.04 - b) * f;
   }
   // track shoulders
   {
@@ -451,10 +504,13 @@ export function buildRamps(T) {
   for (const r of rampDefs) {
     const fx = Math.sin(r.yaw), fz = Math.cos(r.yaw), sx = Math.cos(r.yaw), sz = -Math.sin(r.yaw);
     const W = r.W, prof = r.profile, base = r.base;
+    const bk = r.bank || 0;
     const toW = (u, y, w) => [r.cx + fx * u + sx * w, r.cy + y, r.cz + fz * u + sz * w];
-    const isCont = r.style && r.style.startsWith('container');
-    const topKey = isCont ? r.style : r.style === 'rail' ? 'rail' : r.style === 'box' ? 'deck' : r.style === 'qp' ? 'qp' : r.style === 'roller' ? 'roller' : 'chevron';
-    const sideKey = isCont ? r.style : r.style === 'rail' ? 'rail' : 'side';
+    const toT = (u, y, w) => toW(u, y + bk * w, w);                 // a point on the (possibly banked) top surface
+    const st = r.style || 'ramp';
+    const own = /^(container|cbody|bldg)\d/.test(st) || st === 'cglass' || st === 'bus' || st === 'plank';
+    const topKey = st.startsWith('bldg') ? 'roof' : st === 'bus' ? 'busTop' : own ? st : st === 'rail' ? 'rail' : st === 'box' ? 'deck' : st === 'qp' ? 'qp' : st === 'roller' ? 'roller' : st === 'bank' ? 'bank' : 'chevron';
+    const sideKey = own ? st : st === 'rail' ? 'rail' : 'side';
     const quad = (key, a, b, c, d, uvs) => {
       const B = bucket(key);
       const pa = new THREE.Vector3(...a), pb = new THREE.Vector3(...b), pc = new THREE.Vector3(...c);
@@ -471,12 +527,12 @@ export function buildRamps(T) {
       along += segLen;
       const tu = (w) => topKey === 'deck' ? (w + W / 2) / W : (w + W / 2) / 4;
       // top
-      quad(topKey, toW(ub, yb, -W / 2), toW(ub, yb, W / 2), toW(ua, ya, W / 2), toW(ua, ya, -W / 2),
+      quad(topKey, toT(ub, yb, -W / 2), toT(ub, yb, W / 2), toT(ua, ya, W / 2), toT(ua, ya, -W / 2),
         [[tu(-W / 2), v1], [tu(W / 2), v1], [tu(W / 2), v0], [tu(-W / 2), v0]]);
       // sides
       for (const sgn of [-1, 1]) {
         const w = sgn * W / 2;
-        const pts = [toW(ua, base, w), toW(ua, ya, w), toW(ub, yb, w), toW(ub, base, w)];
+        const pts = [toW(ua, base, w), toT(ua, ya, w), toT(ub, yb, w), toW(ub, base, w)];
         const uvs = [[ua / 4, base / 4], [ua / 4, ya / 4], [ub / 4, yb / 4], [ub / 4, base / 4]];
         if (sgn > 0) quad(sideKey, pts[0], pts[1], pts[2], pts[3], uvs);
         else quad(sideKey, pts[3], pts[2], pts[1], pts[0], [uvs[3], uvs[2], uvs[1], uvs[0]]);
@@ -484,10 +540,10 @@ export function buildRamps(T) {
     }
     // back face
     const [uL, yL] = prof[prof.length - 1];
-    if (yL > 0.1) quad(sideKey, toW(uL, base, W / 2), toW(uL, yL, W / 2), toW(uL, yL, -W / 2), toW(uL, base, -W / 2),
+    if (yL + Math.abs(bk) * W / 2 > 0.1) quad(sideKey, toW(uL, base, W / 2), toT(uL, yL, W / 2), toT(uL, yL, -W / 2), toW(uL, base, -W / 2),
       [[0, base / 4], [0, yL / 4], [W / 4, yL / 4], [W / 4, base / 4]]);
     const [u0, y0] = prof[0];
-    if (y0 > 0.1) quad(sideKey, toW(u0, base, -W / 2), toW(u0, y0, -W / 2), toW(u0, y0, W / 2), toW(u0, base, W / 2),
+    if (y0 + Math.abs(bk) * W / 2 > 0.1) quad(sideKey, toW(u0, base, -W / 2), toT(u0, y0, -W / 2), toT(u0, y0, W / 2), toW(u0, base, W / 2),
       [[0, base / 4], [0, y0 / 4], [W / 4, y0 / 4], [W / 4, base / 4]]);
   }
   const mats = {
@@ -497,6 +553,19 @@ export function buildRamps(T) {
     roller: new THREE.MeshStandardMaterial({ map: T.roller, roughness: 1 }),
     side: new THREE.MeshStandardMaterial({ map: T.concrete, roughness: 0.9 }),
     rail: new THREE.MeshStandardMaterial({ map: T.rail, roughness: 0.55 }),
+    roof: new THREE.MeshStandardMaterial({ map: T.roof, roughness: 0.9 }),
+    busTop: new THREE.MeshStandardMaterial({ map: T.busTop, roughness: 0.5 }),
+    bus: new THREE.MeshStandardMaterial({ map: T.bus, roughness: 0.5 }),
+    bank: new THREE.MeshStandardMaterial({ map: T.bank, roughness: 0.7 }),
+    plank: new THREE.MeshStandardMaterial({ map: T.plank, roughness: 0.95 }),
+    cglass: new THREE.MeshStandardMaterial({ map: T.cglass, roughness: 0.2, metalness: 0.25 }),
+    bldg0: new THREE.MeshStandardMaterial({ map: T.bldg0, roughness: 0.7, emissive: 0xffffff, emissiveMap: T.bldg0e, emissiveIntensity: 0.25 }),
+    bldg1: new THREE.MeshStandardMaterial({ map: T.bldg1, roughness: 0.7, emissive: 0xffffff, emissiveMap: T.bldg1e, emissiveIntensity: 0.25 }),
+    bldg2: new THREE.MeshStandardMaterial({ map: T.bldg2, roughness: 0.7, emissive: 0xffffff, emissiveMap: T.bldg2e, emissiveIntensity: 0.25 }),
+    cbody0: new THREE.MeshStandardMaterial({ map: T.cbody0, roughness: 0.45, metalness: 0.1 }),
+    cbody1: new THREE.MeshStandardMaterial({ map: T.cbody1, roughness: 0.45, metalness: 0.1 }),
+    cbody2: new THREE.MeshStandardMaterial({ map: T.cbody2, roughness: 0.45, metalness: 0.1 }),
+    cbody3: new THREE.MeshStandardMaterial({ map: T.cbody3, roughness: 0.45, metalness: 0.1 }),
     container0: new THREE.MeshStandardMaterial({ map: T.container0, roughness: 0.6, metalness: 0.35 }),
     container1: new THREE.MeshStandardMaterial({ map: T.container1, roughness: 0.6, metalness: 0.35 }),
     container2: new THREE.MeshStandardMaterial({ map: T.container2, roughness: 0.6, metalness: 0.35 }),
@@ -1276,4 +1345,69 @@ export function buildClouds(sunDir) {
   dome.frustumCulled = false;
   dome.userData.tick = (t, camPos) => { mat.uniforms.uTime.value = t; dome.position.copy(camPos); };
   return dome;
+}
+
+
+// ------------------------------------------------------------------ trampolines
+export function buildTrampolines() {
+  const group = new THREE.Group();
+  const tex = canvasTex(256, 256, (ctx, w, h) => {
+    const c = w / 2;
+    for (let k = 6; k >= 0; k--) { ctx.fillStyle = k % 2 ? '#ffd23a' : '#1e6fd9'; ctx.beginPath(); ctx.arc(c, c, c * (k + 1) / 7, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 4;
+    for (let a = 0; a < 8; a++) { ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + Math.cos(a * Math.PI / 4) * c, c + Math.sin(a * Math.PI / 4) * c); ctx.stroke(); }
+  }, { clamp: true });
+  const items = [];
+  const gq = { n: { x: 0, y: 1, z: 0 } };
+  for (const t of trampolines) {
+    const g = new THREE.Group();
+    const y = groundQuery(t.x, t.z, 100, gq);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(t.r, 0.32, 10, 40).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1c2a44, roughness: 0.4, metalness: 0.5 }));
+    rim.position.y = 0.55; rim.castShadow = true;
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(t.r * 0.97, t.r * 0.97, 0.3, 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.18 }));
+    disc.position.y = 0.5; disc.receiveShadow = true;
+    // legs
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * Math.PI * 2;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.6, 6), new THREE.MeshStandardMaterial({ color: 0x555d6a, metalness: 0.6, roughness: 0.4 }));
+      leg.position.set(Math.cos(a) * t.r * 0.96, 0.25, Math.sin(a) * t.r * 0.96); g.add(leg);
+    }
+    g.add(rim, disc);
+    g.position.set(t.x, y, t.z);
+    group.add(g);
+    items.push({ t, disc, rim, g });
+  }
+  group.userData.tick = (dt) => {
+    for (const it of items) {
+      it.t.squash = Math.max(0, (it.t.squash || 0) - dt * 2.4);
+      const s = it.t.squash;
+      it.disc.position.y = 0.5 - 0.35 * s * Math.cos(s * 9);
+      it.disc.scale.y = 1 + 0.5 * s * Math.sin(s * 14);
+    }
+  };
+  return group;
+}
+
+// ------------------------------------------------------------------ rotating platforms
+export function buildTurntables() {
+  const group = new THREE.Group();
+  const items = [];
+  for (const t of turntables) {
+    const tex = canvasTex(512, 512, (ctx, w, h) => {
+      const c = w / 2;
+      for (let k = 0; k < 12; k++) { ctx.fillStyle = k % 2 ? '#d62a1e' : '#f1f1ee'; ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, c, k * Math.PI / 6, (k + 1) * Math.PI / 6); ctx.fill(); }
+      ctx.fillStyle = 'rgba(30,30,34,0.82)'; ctx.beginPath(); ctx.arc(c, c, c * 0.86, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 8; ctx.setLineDash([26, 18]); ctx.beginPath(); ctx.arc(c, c, c * 0.62, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(c, c, c * 0.3, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#fff';
+      for (let k = 0; k < 4; k++) { ctx.save(); ctx.translate(c, c); ctx.rotate(k * Math.PI / 2); ctx.beginPath(); ctx.moveTo(c * 0.72, 0); ctx.lineTo(c * 0.56, -22); ctx.lineTo(c * 0.56, 22); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    }, { clamp: true });
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(t.r, t.r, 0.3, 64), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+    const gq = { n: { x: 0, y: 1, z: 0 } };
+    disc.position.set(t.x, groundQuery(t.x, t.z, 100, gq) + 0.08, t.z);
+    disc.receiveShadow = true; disc.castShadow = false;
+    // the top is mapped with the canvas; spin it by rotating the whole disc
+    group.add(disc); items.push({ t, disc });
+  }
+  group.userData.tick = (dt) => { for (const it of items) { it.t.angle += it.t.w * dt; it.disc.rotation.y = it.t.angle; } };
+  return group;
 }

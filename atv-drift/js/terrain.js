@@ -26,6 +26,8 @@ export const CIRCUIT_C = { x: -455, z: -440, r: 190 };
 export const MEGA = { x0: -205, x1: 420, z0: 470, z1: 680 };         // south: giant jumps, sky tower, containers
 export const NSTUNT = { x0: -200, x1: 260, z0: -680, z1: -440 };     // north: canyon gap, bus jumps, star, drop
 export const CANYON = { cz: -585, hw: 17, depth: 16, x0: -10, x1: 240 };
+// west: the special stunt park (banks, trampolines, turntables, rooftops, car jumps)
+export const SPECIAL = { x0: -650, x1: -415, z0: -170, z1: 230 };
 
 export const SPAWN = { x: 0, z: 90, yaw: Math.PI };
 
@@ -297,6 +299,7 @@ export function rawHeight(x, z, noTracks = false) {
   h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, STUNT)));
   h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, MEGA)));
   h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, NSTUNT)));
+  h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, SPECIAL)));
   // canyon: a deep trench across the north zone, tapering out at both ends so a car that falls in can drive out
   {
     const dz = Math.abs(z - CANYON.cz);
@@ -398,7 +401,7 @@ export function terrainHeight(x, z, nOut) {
 export const colliders = [];
 export const rampDefs = [];   // render descriptions
 
-function makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, surface) {
+function makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, surface, bank = 0) {
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
   const sx = Math.cos(yaw), sz = -Math.sin(yaw);
   const planes = [];
@@ -410,7 +413,7 @@ function makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, surface) {
     planes.push({ x: nx / l, y: ny / l, z: nz / l, d });
   };
   const s = (yb - ya) / (ub - ua);
-  add(-s, 1, 0, ya - s * ua);          // top (index 0)
+  add(-s, 1, -bank, ya - s * ua);      // top (index 0); bank = cross slope, the +w (left) side is higher
   add(0, -1, 0, -base);                 // bottom
   add(-1, 0, 0, -ua);                   // front
   add(1, 0, 0, ub);                     // back
@@ -426,7 +429,7 @@ function makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, surface) {
   colliders.push({
     planes, surface,
     minX, maxX, minZ, maxZ,
-    minY: cy + base, maxY: cy + Math.max(ya, yb),
+    minY: cy + base, maxY: cy + Math.max(ya, yb) + Math.abs(bank) * W / 2,
   });
 }
 
@@ -436,9 +439,9 @@ function addRamp(cx, cz, yaw, W, profile, opts = {}) {
   const base = opts.base ?? -1.5;
   for (let k = 0; k < profile.length - 1; k++) {
     const [ua, ya] = profile[k], [ub, yb] = profile[k + 1];
-    makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, opts.surface || 'ramp');
+    makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, opts.surface || 'ramp', opts.bank || 0);
   }
-  if (!opts.noRender) rampDefs.push({ cx, cy, cz, yaw, W, profile, base, style: opts.style || 'ramp' });
+  if (!opts.noRender) rampDefs.push({ cx, cy, cz, yaw, W, profile, base, bank: opts.bank || 0, style: opts.style || 'ramp' });
 }
 
 function wedge(cx, cz, yaw, W, L, H, opts) {
@@ -497,6 +500,19 @@ export const tireStacks = [];
 export const grandstands = [];
 export const PI = Math.PI;
 
+// ------------------------------------------------------------------ moving floors and bounce pads
+export const trampolines = [];     // {x,z,r,power}: launches the buggy straight up
+export const turntables = [];      // {x,z,r,w,angle}: a rotating floor, w in rad/s (+ = counter-clockwise from above)
+const _fv = { x: 0, z: 0 };
+// velocity of the floor under (x,z), so tyres grip the moving surface rather than the world
+export function floorVelocity(x, z) {
+  for (let i = 0; i < turntables.length; i++) {
+    const t = turntables[i], dx = x - t.x, dz = z - t.z;
+    if (dx * dx + dz * dz < t.r * t.r) { _fv.x = t.w * dz; _fv.z = -t.w * dx; return _fv; }
+  }
+  return null;
+}
+
 // ------------------------------------------------------------------ stunt building blocks
 export const stuntProps = [];                 // pins and crates, consumed by world.js
 export const stuntLines = [];                 // every jump line {name,x,z,yaw,kind} for testing
@@ -527,9 +543,9 @@ function boxG(cx, cz, yaw, W, L, H, opts = {}) {
 }
 // a kicker with a landing ramp after a gap. returns where the landing ends.
 function jumpPair(x, z, yaw, o = {}) {
-  const { W = 10, Lk = 16, Hk = 4, p = 1.7, gap = 30, Lw = 24, Hw = Hk * 0.75, Ww = W + 2, style, cy } = o;
+  const { W = 10, Lk = 16, Hk = 4, p = 1.7, gap = 30, Lw = 24, Hw = Hk * 0.75, Ww = W + 2, style, cy, bank = 0 } = o;
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
-  kickerG(x, z, yaw, W, Lk, Hk, p, 7, { cy, style });
+  kickerG(x, z, yaw, W, Lk, Hk, p, 7, { cy, style, bank });
   const lx = x + fx * Lk / 2, lz = z + fz * Lk / 2, d = gap + Lw / 2;
   wedgeG(lx + fx * d, lz + fz * d, yaw + PI, Ww, Lw, Hw, { cy });
   return { lipX: lx, lipZ: lz, endX: lx + fx * (gap + Lw), endZ: lz + fz * (gap + Lw) };
@@ -546,7 +562,7 @@ let _cc = 0;
 const containerStyle = () => 'container' + ((_cc++) % 4);
 // a row of shipping containers along +u of a lane
 function containers(x, z, yaw, n, opts = {}) {
-  const { W = 7, L = 14, H = 2.6, gap = 1.5, stack = [] } = opts;
+  const { W = 7, L = 14, H = 2.6, gap = 0.15, stack = [] } = opts;      // a wheel falls into a wide gap, so roofs are continuous
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
   for (let i = 0; i < n; i++) {
     const d = i * (L + gap);
@@ -554,6 +570,13 @@ function containers(x, z, yaw, n, opts = {}) {
     boxG(cx, cz, yaw, W, L, H, { style: containerStyle(), cy: 0, base: -1.5 });
     if (stack.includes(i)) boxG(cx, cz, yaw, W, L, H, { style: containerStyle(), cy: H, base: -1.5 });
   }
+  const d = (n - 1) * (L + gap) + L / 2;                          // far end of the row
+  return { x: x + fx * d, z: z + fz * d, yaw };
+}
+// landing ramp whose high end touches the end of a row, at roof height
+function landingAfter(end, Lw, Ww, H = 2.5) {
+  const fx = Math.sin(end.yaw), fz = Math.cos(end.yaw);
+  wedgeG(end.x + fx * Lw / 2, end.z + fz * Lw / 2, end.yaw + PI, Ww, Lw, H, { cy: 0 });
 }
 
 function spiralTower(cx, cz, R, turns, N, W, rise) {
@@ -584,6 +607,82 @@ function spiralTower(cx, cz, R, turns, N, W, rise) {
   pinsAt(ex + 135, ez, 5);
 }
 
+// ------------------------------------------------------------------ new stunt kinds
+// banked curve (berm): the surface tilts across its width, so the car can carry speed round the outside.
+// sweep>0 turns right, sweep<0 turns left. th0 is the start angle on the circle around (cx,cz).
+function berm(cx, cz, R, W, th0, sweep, N, bankMag, style = 'bank') {
+  const dir = Math.sign(sweep), dth = sweep / N, ad = Math.abs(dth);
+  const Reff = R * Math.cos(ad / 2), L = 2 * R * Math.sin(ad / 2) + 1.2;
+  const bAt = (k) => bankMag * Math.min(1, k / 3, (N - k) / 3);            // bank eases in and out
+  for (let i = 0; i < N; i++) {
+    const th = th0 + (i + 0.5) * dth;
+    const hx = dir * -Math.sin(th), hz = dir * Math.cos(th);
+    const yaw = Math.atan2(hx, hz);
+    const b0 = bAt(i), b1 = bAt(i + 1), bm = (b0 + b1) / 2;
+    const bank = dir * bm;                                                    // outer side is higher
+    addRamp(cx + Reff * Math.cos(th), cz + Reff * Math.sin(th), yaw, W,
+      [[-L / 2, b0 * W / 2], [L / 2, b1 * W / 2]], { cy: 0, style, bank, base: -2 });
+  }
+}
+// straight banked strip heading `yaw`: a wall to ride along
+function bankStrip(x, z, yaw, Ltot, W, bankMag, N) {
+  const L = Ltot / N, fx = Math.sin(yaw), fz = Math.cos(yaw);
+  const bAt = (k) => bankMag * Math.min(1, k / 3.5, (N - k) / 3.5);          // long, gentle entry and exit
+  for (let i = 0; i < N; i++) {
+    const d = (i + 0.5) * L - Ltot / 2, b0 = bAt(i), b1 = bAt(i + 1);
+    addRamp(x + fx * d, z + fz * d, yaw, W, [[-L / 2, b0 * W / 2], [L / 2, b1 * W / 2]], { cy: 0, style: 'bank', bank: (b0 + b1) / 2, base: -2 });
+  }
+}
+function carRow(x, z, yaw, n) {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  for (let i = 0; i < n; i++) {
+    const cx = x + fx * i * 2.2, cz = z + fz * i * 2.2, k = (i * 7 + 3) % 4;
+    boxG(cx, cz, yaw, 4.4, 1.9, 1.05, { style: 'cbody' + k, cy: 0, base: -1.5 });
+    boxG(cx, cz, yaw, 2.6, 1.6, 0.75, { style: 'cglass', cy: 1.05, base: -0.3 });
+  }
+}
+function busRow(x, z, yaw, n) {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  for (let i = 0; i < n; i++) boxG(x + fx * i * 3.6, z + fz * i * 3.6, yaw, 11, 2.8, 3.1, { style: 'bus', cy: 0, base: -1.5 });
+}
+const building = (x, z, yaw, L, H, k) => boxG(x, z, yaw, 14, L, H, { style: 'bldg' + (k % 3), cy: 0, base: -3.5 });
+
+function buildSpecial(line) {
+  const S = 0, N = PI;
+  // ---- Evel Knievel: jump over a row of parked cars
+  line('car row', -630, -70, S, 'named', [-630, -170]);
+  kickerG(-630, -70, S, 12, 20, 4.8, 1.7, 7, { cy: 0 });
+  carRow(-630, -36, S, 14);                                    // last car ends near z=-6
+  wedgeG(-630, 11, N, 12, 34, 2.0, { cy: 0 });                  // high end z=-6, roof height
+  pinsAt(-634, 50, 3);
+  // ---- school buses
+  line('bus row', -595, -72, S, 'named', [-595, -170]);
+  kickerG(-595, -72, S, 14, 22, 5.6, 1.7, 7, { cy: 0 });
+  busRow(-595, -38, S, 6);                                     // last bus ends near z=-18
+  wedgeG(-595, -3, N, 14, 34, 3.2, { cy: 0 });                  // high end z=-20
+  // ---- barrel-roll ramps: the surface is tilted so the buggy leaves the lip already rolling
+  line('roll ramp L', -560, -62, S, 'named', [-560, -160]);
+  jumpPair(-560, -62, S, { W: 10, Lk: 22, Hk: 4.5, gap: 44, Lw: 30, Hw: 3.4, bank: 0.45 });
+  line('roll ramp R', -522, -62, S, 'named', [-522, -160]);
+  jumpPair(-522, -62, S, { W: 10, Lk: 22, Hk: 4.5, gap: 44, Lw: 30, Hw: 3.4, bank: -0.45 });
+  // ---- skyline: climb 14 m and hop down across four rooftops
+  line('skyline', -485, -130, S, 'named', [-485, -230]);
+  wedgeG(-485, -130, S, 14, 70, 14, { cy: 0 });
+  [[-81, 14, 0], [-35, 10.5, 1], [11, 7, 2], [57, 3.5, 0]].forEach(([z, h, k]) => building(-485, z, S, 28, h, k));
+  wedgeG(-485, 100, N, 14, 30, 3.2, { cy: 0 });
+  // ---- wall ride: a 40-degree bank to carve along
+  line('wall ride', -430, -60, S, 'manual', [-437, -160]);
+  bankStrip(-430, -35, S, 140, 11, 0.7, 12);
+  // ---- banked S-curve
+  line('berm S', -600, 100, S, 'manual', [-600, 20]);
+  berm(-576, 100, 24, 12, PI, -PI, 12, 0.6);      // left U-turn (south -> north)
+  berm(-528, 100, 24, 12, PI, PI, 12, 0.6);       // right U-turn (north -> south)
+  // ---- trampolines: three strengths, and a huge one
+  [[-625, 168, 5, 14], [-595, 168, 5.5, 20], [-565, 168, 6, 26], [-535, 168, 7, 32], [-440, 195, 9, 40]].forEach(([x, z, r, power]) => trampolines.push({ x, z, r, power }));
+  // ---- rotating floors
+  turntables.push({ x: -600, z: 208, r: 18, w: 0.9, angle: 0 }, { x: -548, z: 208, r: 16, w: -1.05, angle: 0 });
+}
+
 function buildStunts() {
   stuntProps.length = 0; stuntLines.length = 0; corridors.length = 0; _cc = 0;
   const line = (name, x, z, yaw, kind = 'named', start = null) => stuntLines.push({ name, x, z, yaw, kind, start });
@@ -605,8 +704,7 @@ function buildStunts() {
   wedgeG(-20, 600, E, 18, 56, 13); boxG(33, 600, E, 18, 44, 13); wedgeG(88, 600, Wd, 18, 66, 13);
   // lane z=655: container bus jump XL
   kickerG(-150, 655, E, 14, 30, 9, 1.7, 8);
-  containers(-120, 655, E, 5, { W: 9, stack: [1, 2] });
-  wedgeG(-28, 655, Wd, 14, 40, 3.2);
+  landingAfter(containers(-120, 655, E, 5, { W: 9, stack: [1, 2] }), 40, 14);
   crateWall(25, 655, E + PI / 2, 8, 3);
   // whoops: 20 big rollers
   for (let k = 0; k < 19; k++) addRamp(5 + k * 10, 633, E, 22, [[-5, 0.02], [0, 2.7], [5, 0.02]], { style: 'roller' });
@@ -630,11 +728,9 @@ function buildStunts() {
   line('mountain drop', 300, 466, E, 'named', [110, 466]); line('lake jump', -151, 40, Wd, 'named', [60, 40]);
   // bus jumps (north-bound, run-up starts at the ring road)
   kickerG(-170, -475, Nn, 10, 20, 5.5, 1.7, 7, { cy: 0 });
-  containers(-170, -515, Nn, 3, { W: 7 });
-  wedgeG(-170, -575, S, 12, 40, 2.8, { cy: 0 });          // starts right where the containers end, at roof height
+  landingAfter(containers(-170, -515, Nn, 3, { W: 7 }), 40, 12);       // ramp starts right where the containers end
   kickerG(-135, -470, Nn, 12, 28, 8, 1.7, 8, { cy: 0 });
-  containers(-135, -505, Nn, 4, { W: 8, stack: [1, 2] });
-  wedgeG(-135, -583, S, 14, 40, 3.2, { cy: 0 });
+  landingAfter(containers(-135, -505, Nn, 4, { W: 8, stack: [1, 2] }), 40, 14);
   crateWall(-170, -615, 0, 7, 3); crateWall(-135, -632, 0, 8, 3);
   // star plaza: 8 ramps feeding a raised plaza
   {
@@ -651,17 +747,34 @@ function buildStunts() {
   [10, 7, 4, 1.6].forEach((h, i) => boxG(359 + i * 10, 466, E, 16, 10, h, { cy: 0 }));
   crateWall(420, 466, E + PI / 2, 8, 2);
 
+  // ================= CLIFF DIVE: 22 m pier out over the oasis =================
+  {
+    const px = -225, top = 22;
+    line('cliff dive', px, -135, S, 'named', [px, -270]);
+    wedgeG(px, -135, S, 12, 110, top, { cy: 0 });                 // z -190..-80, rises to 22 m
+    boxG(px, -38, S, 12, 84, top, { cy: 0, base: top - 4 });      // deck, thin, from z -80 to 4
+    for (const z of [-70, -45, -20]) boxG(px, z, S, 4, 4, top - 4.2, { cy: 0, base: -4 });   // pillars
+    kickerG(px, -2, S, 12, 22, 3, 1.5, 6, { cy: top, base: -1.5 });
+    addRamp(px - 6.4, -38, S, 0.7, [[-42, top + 1.4], [42, top + 1.4]], { cy: 0, style: 'rail', base: top - 0.2 });
+    addRamp(px + 6.4, -38, S, 0.7, [[-42, top + 1.4], [42, top + 1.4]], { cy: 0, style: 'rail', base: top - 0.2 });
+  }
+  // ================= PLANK BRIDGE across the canyon: 4 m wide, 16 m above the floor =================
+  line('plank bridge', 130, CANYON.cz, Nn, 'named', [130, CANYON.cz + 110]);
+  boxG(130, CANYON.cz, S, 4.2, 82, 0.06, { cy: 0, base: -0.55, style: 'plank' });
   // ================= LAKE JUMP =================
   kickerG(-151, 40, Wd, 16, 24, 11, 1.7, 8);           // east shore, lip at x=-163
   wedgeG(-297, 40, E, 24, 30, 8);                       // west shore landing
   pinsAt(-345, 40, 3);
+
+  buildSpecial(line);
 
   // ================= SCATTERED RAMPS ACROSS THE WORLD =================
   const R = rng(2024);
   const zonesOk = (x, z) => {
     if (mountainR(x, z) > 680) return false;
     if (Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 45) return false;
-    for (const r of [PARK, STUNT, DRIFTLOT, MEGA, NSTUNT]) if (rectDist(x, z, r) < 45) return false;
+    for (const r of [PARK, STUNT, DRIFTLOT, MEGA, NSTUNT, SPECIAL]) if (rectDist(x, z, r) < 45) return false;
+    if (Math.abs(x + 225) < 40 && z > -280 && z < 20) return false;
     if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r + 45) return false;
     if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 70) return false;
     if (Math.hypot(x - CIRCUIT_C.x, z - CIRCUIT_C.z) < CIRCUIT_C.r + 40) return false;
@@ -672,11 +785,11 @@ function buildStunts() {
   const placed = [];
   let made = 0;
   const why = { zone: 0, near: 0, flat: 0 };
-  for (let tries = 0; tries < 30000 && made < 48; tries++) {
+  for (let tries = 0; tries < 80000 && made < 60; tries++) {
     const a = R() * PI * 2, rr = 160 + R() * 560;
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr, yaw = R() * PI * 2;
     if (!zonesOk(x, z)) { why.zone++; continue; }
-    if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 70)) { why.near++; continue; }
+    if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 62)) { why.near++; continue; }
     const kind = R();
     const big = kind > 0.82, tab = kind > 0.62 && !big, dbl = kind > 0.45 && kind <= 0.62;
     const Hk = big ? 8 + R() * 5 : 2.6 + R() * 3.4, Lk = big ? 30 + R() * 10 : 14 + R() * 8;
@@ -871,7 +984,8 @@ export function buildLayout() {
       if (along > c.from && along < c.to && Math.abs(lat) < 11 + pad) return false;
     }
     if (rectDist(x, z, DRIFTLOT) < 25 + pad || rectDist(x, z, STUNT) < 25 + pad) return false;
-    if (rectDist(x, z, MEGA) < 30 + pad || rectDist(x, z, NSTUNT) < 30 + pad) return false;
+    if (rectDist(x, z, MEGA) < 30 + pad || rectDist(x, z, NSTUNT) < 30 + pad || rectDist(x, z, SPECIAL) < 30 + pad) return false;
+    if (Math.abs(x + 225) < 22 && z > -260 && z < 0) return false;        // cliff-dive run-up
     if (x > -175 && x < -40 && Math.abs(z - 40) < 16) return false;      // lake-jump run-up
     if (trackNearest(x, z).d < TRACKS[0].hw + 14 + pad) return false;
     for (const c of colliders) if (x > c.minX - 12 && x < c.maxX + 12 && z > c.minZ - 12 && z < c.maxZ + 12) return false;
@@ -1003,6 +1117,7 @@ export function surfaceAt(x, z) {
   if (x > STUNT.x0 - 4 && x < STUNT.x1 + 4 && z > STUNT.z0 - 4 && z < STUNT.z1 + 4) return 'dirt';
   if (x > MEGA.x0 - 6 && x < MEGA.x1 + 6 && z > MEGA.z0 - 6 && z < MEGA.z1 + 6) return 'dirt';
   if (x > NSTUNT.x0 - 6 && x < NSTUNT.x1 + 6 && z > NSTUNT.z0 - 6 && z < NSTUNT.z1 + 6) return 'dirt';
+  if (x > SPECIAL.x0 - 6 && x < SPECIAL.x1 + 6 && z > SPECIAL.z0 - 6 && z < SPECIAL.z1 + 6) return 'dirt';
   if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r) return 'concrete';
   return 'sand';
 }
@@ -1023,6 +1138,8 @@ function buildZones() {
   ZONES.push(
     { id: 'mega', name: 'מגה רמפות', sub: 'קפיצת ענק · מגדל ספירלה · מכולות', x: -195, z: 545, yaw: PI / 2, inside: inRect(MEGA, 6) },
     { id: 'canyon', name: 'קניון הפעלולים', sub: 'קפיצות מעל תהום · מכולות · כוכב · מדרגות', x: 105, z: -350, yaw: PI, inside: inRect(NSTUNT, 6) },
+    { id: 'special', name: 'פארק הפעלולים המיוחדים', sub: 'מקפצות · קרוסלה · גגות העיר · מסלולים מוטים · קפיצה מעל מכוניות', x: -625, z: -150, yaw: 0, inside: inRect(SPECIAL, 6) },
+    { id: 'clifdive', name: 'צלילת הצוק', sub: 'קפיצה מגובה 22 מטר אל האגם', x: -225, z: -250, yaw: 0, inside: (x, z) => Math.abs(x + 225) < 30 && z > -200 && z < 30 },
     { id: 'lakejump', name: 'קפיצת האגם', sub: '120 מטר מעל המים', x: -70, z: 40, yaw: -PI / 2, inside: (x, z) => x > -172 && x < -40 && Math.abs(z - 40) < 22 },
     { id: 'arena', name: 'זירת הדריפט', sub: 'דריפט x2', ...SPAWN, inside: (x, z) => Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 6 },
     { id: 'park', name: 'פארק הרמפות', sub: 'קפיצות ופעלולים', x: 0, z: -78, yaw: PI, inside: inRect(PARK, 6) },
