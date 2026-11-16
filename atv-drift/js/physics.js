@@ -211,7 +211,7 @@ export class Vehicle {
       const compVel = (wh.comp - wh.prevComp) / dt;
       let Fs = CFG.spring * wh.comp + CFG.damper * compVel;
       if (wh.comp > CFG.restLen * 0.85) Fs += (wh.comp - CFG.restLen * 0.85) * 160000;
-      Fs = THREE.MathUtils.clamp(Fs, 0, 26000);
+      Fs = THREE.MathUtils.clamp(Fs, 0, 38000);
       wh.load = Fs;
       wh.point.copy(anchorW).addScaledVector(dir, t);
 
@@ -499,7 +499,7 @@ export class Vehicle {
       // effective mass along n
       tmp.copy(r).cross(n); this.invI(tmp); tmp.cross(r);
       const k = 1 / CFG.mass + n.dot(tmp);
-      const e = vn < -6 ? 0.25 : 0.05;
+      const e = tmpP.kind === 'ground' ? 0.0 : (vn < -6 ? 0.25 : 0.05);      // landings don't bounce
       const j = -(1 + e) * vn / k;
       this.vel.addScaledVector(n, j / CFG.mass);
       tmp.copy(r).cross(n).multiplyScalar(j); this.w.add(this.invI(tmp));

@@ -210,8 +210,9 @@ const _qi = new THREE.Quaternion(), _wl = new THREE.Vector3();
 function airTrack(dt) {
   const A = G.air;
   if (veh.grounded === 0) {
-    if (A.t === 0) { A.pitch = A.yaw = A.roll = 0; }
+    if (A.t === 0) { A.pitch = A.yaw = A.roll = 0; A.x0 = veh.pos.x; A.z0 = veh.pos.z; A.y0 = veh.pos.y; A.maxY = veh.pos.y; }
     A.t += dt;
+    if (veh.pos.y > A.maxY) A.maxY = veh.pos.y;
     _qi.copy(veh.q).invert();
     _wl.copy(veh.w).applyQuaternion(_qi);
     A.pitch += _wl.x * dt; A.yaw += _wl.y * dt; A.roll += _wl.z * dt;
@@ -225,6 +226,8 @@ function airTrack(dt) {
     const spins = Math.floor((Math.abs(A.yaw) + 0.9) / TWO);
     const rolls = Math.floor((Math.abs(A.roll) + 0.9) / TWO);
     const impactV = -A.vy;
+    const dist = Math.hypot(veh.pos.x - A.x0, veh.pos.z - A.z0);
+    const height = Math.max(0, A.maxY - Math.max(A.y0, veh.pos.y));
     if (impactV > 5) {
       audio.thump(Math.min(1.2, impactV / 14));
       G.shake = Math.max(G.shake, Math.min(0.8, impactV / 22));
@@ -242,13 +245,15 @@ function airTrack(dt) {
     }
     if (spins) { names.push(`${spins * 360}°`); pts += 800 * spins; }
     if (rolls) { names.push('גלגול חבית' + (rolls > 1 ? ` x${rolls}` : '')); pts += 1200 * rolls; }
+    if (dist > 30) pts += Math.round((dist - 30) * 8);          // distance bonus
+    if (height > 5) pts += Math.round((height - 5) * 70);      // height bonus
     if (pts === 0) return;
     const clean = veh.up.y > 0.93 && Math.abs(veh.slipAngle) < 0.35;
     if (clean && (names.length || t > 1.2)) { pts += 250; }
     chainAdd(pts);
     G.nitro = Math.min(1, G.nitro + t * 0.08);
-    const head = names.length ? names.join(' + ') : (t > 2 ? 'אוויר ענק!' : 'קפיצה!');
-    popup(head, names.length ? 'trick' : 'air', `${t.toFixed(1)} שנ' באוויר · +${fmt(pts)}${clean ? ' · נחיתה נקייה' : ''}`);
+    const head = names.length ? names.join(' + ') : (dist > 100 || t > 3.2 ? 'קפיצת ענק!' : t > 2 ? 'אוויר ענק!' : 'קפיצה!');
+    popup(head, names.length ? 'trick' : 'air', `${t.toFixed(1)} שנ' · ${Math.round(dist)} מ' · גובה ${Math.round(height)} מ' · +${fmt(pts)}${clean ? ' · נקי' : ''}`);
     if (names.length) audio.trick();
   }
 }
@@ -461,6 +466,10 @@ const cam = { pos: new THREE.Vector3(0, 6, 110), dir: new THREE.Vector3(0, 0, -1
 const CAMS = [{ d: 6.6, h: 2.25, l: 1.05 }, { d: 10.5, h: 3.8, l: 1.3 }, null];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 function updateCamera(dt) {
+  if (G.photo) {                                  // free camera used for screenshots
+    camera.position.copy(G.photo.pos); camera.lookAt(G.photo.look);
+    camera.fov = G.photo.fov || 55; camera.updateProjectionMatrix(); return;
+  }
   if (G.state === 'menu') {
     cam.orbit += dt * 0.18;
     const r = 7.5;
@@ -562,6 +571,9 @@ function drawMapBg() {
   const rect = (R, col) => { c.fillStyle = col; c.fillRect(...P(R.x0, R.z0), (R.x1 - R.x0) * S, (R.z1 - R.z0) * S); };
   rect(TR.PARK, 'rgba(150,110,75,0.75)');
   rect(TR.STUNT, 'rgba(150,110,75,0.75)');
+  rect(TR.MEGA, 'rgba(150,110,75,0.75)');
+  rect(TR.NSTUNT, 'rgba(150,110,75,0.75)');
+  c.fillStyle = 'rgba(60,30,25,0.95)'; c.fillRect(...P(TR.CANYON.x0 - 10, TR.CANYON.cz - 20), (TR.CANYON.x1 - TR.CANYON.x0 + 20) * S, 40 * S);
   rect(TR.DRIFTLOT, 'rgba(60,60,64,0.9)');
   c.fillStyle = 'rgba(230,230,225,0.85)';
   c.beginPath(); c.arc(...P(TR.BOWL.x, TR.BOWL.z), TR.BOWL.r * S, 0, Math.PI * 2); c.fill();
@@ -810,7 +822,7 @@ function perfTick(rawDt) {
   const fps = perfFrames / perfAcc;
   perfAcc = 0; perfFrames = 0; fpsShown = fps;
   const el = document.getElementById('fps'); if (el) el.textContent = Math.round(fps) + ' FPS';
-  if (G.state === 'menu') return;
+  if (G.state === 'menu' || G.perfLock) return;
   const base = Math.min(devicePixelRatio, quality === 'high' ? 1.5 : 1.0);
   let next = perfScale;
   if (fps < 40 && perfScale > 0.5) next = Math.max(0.5, perfScale - 0.15);
@@ -865,6 +877,7 @@ function keys() {
 
 function frame() {
   requestAnimationFrame(frame);
+  G.frames = (G.frames || 0) + 1;
   const rawDt = clock.getDelta();
   const dt = Math.min(0.1, rawDt);
   const t = clock.elapsedTime;
@@ -975,5 +988,5 @@ renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode };
+window.__game = { veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
 frame();

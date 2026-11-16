@@ -22,6 +22,10 @@ export const DRIFTLOT = { x0: 300, x1: 520, z0: -530, z1: -350 };
 export const STUNT = { x0: 430, x1: 675, z0: -175, z1: 235 };
 export const HALFPIPE = { x: 645, z0: -140, z1: 200, w: 20, depth: 8 };
 export const CIRCUIT_C = { x: -455, z: -440, r: 190 };
+// new big stunt zones
+export const MEGA = { x0: -205, x1: 420, z0: 470, z1: 680 };         // south: giant jumps, sky tower, containers
+export const NSTUNT = { x0: -200, x1: 260, z0: -680, z1: -440 };     // north: canyon gap, bus jumps, star, drop
+export const CANYON = { cz: -585, hw: 17, depth: 16, x0: -10, x1: 240 };
 
 export const SPAWN = { x: 0, z: 90, yaw: Math.PI };
 
@@ -291,6 +295,17 @@ export function rawHeight(x, z, noTracks = false) {
   // drift lot + stunt park: flat
   h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, DRIFTLOT)));
   h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, STUNT)));
+  h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, MEGA)));
+  h = lerp(h, 0, 1 - smoothstep(0, 40, rectDist(x, z, NSTUNT)));
+  // canyon: a deep trench across the north zone, tapering out at both ends so a car that falls in can drive out
+  {
+    const dz = Math.abs(z - CANYON.cz);
+    if (dz < CANYON.hw + 8 && x > CANYON.x0 - 40 && x < CANYON.x1 + 40) {
+      const along = Math.min(smoothstep(CANYON.x0 - 30, CANYON.x0 + 10, x), 1 - smoothstep(CANYON.x1 - 10, CANYON.x1 + 30, x));
+      const t = smoothstep(CANYON.hw + 6, CANYON.hw - 2, dz);
+      h = Math.min(h, h - CANYON.depth * t * along);
+    }
+  }
   // halfpipe channel in the stunt park
   {
     const dx = Math.abs(x - HALFPIPE.x);
@@ -418,7 +433,7 @@ function makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, surface) {
 // profile: array of [u, y] from front to back (y relative to cy)
 function addRamp(cx, cz, yaw, W, profile, opts = {}) {
   const cy = opts.cy ?? 0;
-  const base = -1.5;
+  const base = opts.base ?? -1.5;
   for (let k = 0; k < profile.length - 1; k++) {
     const [ua, ya] = profile[k], [ub, yb] = profile[k + 1];
     makePrism(cx, cy, cz, yaw, ua, ya, ub, yb, W, base, opts.surface || 'ramp');
@@ -481,6 +496,218 @@ export const boostPads = [];
 export const tireStacks = [];
 export const grandstands = [];
 export const PI = Math.PI;
+
+// ------------------------------------------------------------------ stunt building blocks
+export const stuntProps = [];                 // pins and crates, consumed by world.js
+export const stuntLines = [];                 // every jump line {name,x,z,yaw,kind} for testing
+const corridors = [];                         // lanes that scenery must keep clear
+const slopeAlong = (x, z, yaw, L) => {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  return (terrainHeight(x + fx * L / 2, z + fz * L / 2) - terrainHeight(x - fx * L / 2, z - fz * L / 2)) / L;
+};
+// kicker that follows the slope of the ground under it
+function kickerG(cx, cz, yaw, W, L, H, p, segs = 7, opts = {}) {
+  const sl = opts.cy != null ? 0 : slopeAlong(cx, cz, yaw, L);
+  const cy = opts.cy ?? terrainHeight(cx, cz);
+  const prof = [];
+  // the tail is sunk below the ground so the ramp grows out of it with no lip, even over bumpy terrain
+  const sink = opts.cy != null ? 0 : 0.7;
+  for (let k = 0; k <= segs; k++) { const t = k / segs, u = -L / 2 + L * t; prof.push([u, sl * u + H * Math.pow(t, p) - sink * Math.max(0, 1 - t * 3.5)]); }
+  addRamp(cx, cz, yaw, W, prof, { ...opts, cy, base: opts.base ?? -(2.5 + Math.abs(sl) * L) });
+}
+function wedgeG(cx, cz, yaw, W, L, H, opts = {}) {
+  const sl = opts.cy != null ? 0 : slopeAlong(cx, cz, yaw, L);
+  const cy = opts.cy ?? terrainHeight(cx, cz);
+  const sink = opts.cy != null ? 0 : 0.7;
+  addRamp(cx, cz, yaw, W, [[-L / 2, sl * -L / 2 + 0.03 - sink], [L / 2, sl * L / 2 + H]], { ...opts, cy, base: opts.base ?? -(2.5 + Math.abs(sl) * L) });
+}
+function boxG(cx, cz, yaw, W, L, H, opts = {}) {
+  const cy = opts.cy ?? terrainHeight(cx, cz);
+  addRamp(cx, cz, yaw, W, [[-L / 2, H], [L / 2, H]], { style: 'box', ...opts, cy, base: opts.base ?? -3.5 });
+}
+// a kicker with a landing ramp after a gap. returns where the landing ends.
+function jumpPair(x, z, yaw, o = {}) {
+  const { W = 10, Lk = 16, Hk = 4, p = 1.7, gap = 30, Lw = 24, Hw = Hk * 0.75, Ww = W + 2, style, cy } = o;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  kickerG(x, z, yaw, W, Lk, Hk, p, 7, { cy, style });
+  const lx = x + fx * Lk / 2, lz = z + fz * Lk / 2, d = gap + Lw / 2;
+  wedgeG(lx + fx * d, lz + fz * d, yaw + PI, Ww, Lw, Hw, { cy });
+  return { lipX: lx, lipZ: lz, endX: lx + fx * (gap + Lw), endZ: lz + fz * (gap + Lw) };
+}
+function pinsAt(x, z, rows = 4) {
+  let k = 0;
+  for (let r = 0; r < rows; r++) for (let c = 0; c <= r; c++) stuntProps.push({ type: 'pin', x: x + r * 1.7, z: z + (c - r / 2) * 1.5 });
+}
+function crateWall(x, z, yaw, n = 6, levels = 3) {
+  const sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  for (let i = 0; i < n; i++) for (let l = 0; l < levels; l++) stuntProps.push({ type: 'crate', x: x + sx * (i - n / 2) * 1.35, z: z + sz * (i - n / 2) * 1.35, lift: l * 1.2 });
+}
+let _cc = 0;
+const containerStyle = () => 'container' + ((_cc++) % 4);
+// a row of shipping containers along +u of a lane
+function containers(x, z, yaw, n, opts = {}) {
+  const { W = 7, L = 14, H = 2.6, gap = 1.5, stack = [] } = opts;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  for (let i = 0; i < n; i++) {
+    const d = i * (L + gap);
+    const cx = x + fx * d, cz = z + fz * d;
+    boxG(cx, cz, yaw, W, L, H, { style: containerStyle(), cy: 0, base: -1.5 });
+    if (stack.includes(i)) boxG(cx, cz, yaw, W, L, H, { style: containerStyle(), cy: H, base: -1.5 });
+  }
+}
+
+function spiralTower(cx, cz, R, turns, N, W, rise) {
+  const dth = turns * 2 * PI / N, th0 = -PI / 2 - turns * 2 * PI;
+  const chord = 2 * R * Math.sin(dth / 2), Reff = R * Math.cos(dth / 2);
+  for (let i = 0; i < N; i++) {
+    const th = th0 + (i + 0.5) * dth;
+    const x = cx + Reff * Math.cos(th), z = cz + Reff * Math.sin(th);
+    const yaw = Math.atan2(-Math.sin(th), Math.cos(th));
+    const L = chord + 1.4, y0 = i * rise, y1 = (i + 1) * rise;
+    // a thin slab, not a solid column: the second lap passes over the first, so there must be room beneath
+    addRamp(x, z, yaw, W, [[-L / 2, y0], [L / 2, y1]], { cy: 0, style: 'box', base: y0 - 1.6 });
+    for (const o of [-(W / 2 + 0.35), W / 2 + 0.35]) {          // crash barriers on both sides
+      addRamp(x + Math.cos(yaw) * o, z - Math.sin(yaw) * o, yaw, 0.7, [[-L / 2 - 0.3, y0 + 1.5], [L / 2 + 0.3, y1 + 1.5]], { cy: 0, style: 'rail', base: y0 - 0.3 });
+    }
+  }
+  const top = N * rise, ex = cx, ez = cz - R;                    // the helix ends heading east at (cx, cz-R)
+  const yaw = PI / 2;
+  boxG(ex + 10, ez, yaw, W, 20, top, { cy: 0, base: top - 1.4 });
+  for (const o of [-(W / 2 + 0.35), W / 2 + 0.35]) addRamp(ex + 10, ez - o, yaw, 0.7, [[-10, top + 1.5], [10, top + 1.5]], { cy: 0, style: 'rail', base: top - 0.3 });
+  boxG(ex + 32, ez, yaw, 5, 5, top - 1.5, { cy: 0 });            // supports under the launch kicker (clear of the first lap)
+  boxG(ex + 44, ez, yaw, 5, 5, top - 1.5, { cy: 0 });
+  boxG(cx, cz, 0, 20, 20, top - 2.5, { cy: 0 });                  // central core
+  kickerG(ex + 34, ez, yaw, W, 28, 8, 1.7, 8, { cy: top, base: -1.4 });
+  // long descending landing ramp
+  wedgeG(ex + 48 + 22 + 35, ez, -yaw, W + 14, 70, 10, { cy: 0 });
+  stuntProps.push({ type: 'pin', x: ex + 150, z: ez });
+  pinsAt(ex + 135, ez, 5);
+}
+
+function buildStunts() {
+  stuntProps.length = 0; stuntLines.length = 0; corridors.length = 0; _cc = 0;
+  const line = (name, x, z, yaw, kind = 'named', start = null) => stuntLines.push({ name, x, z, yaw, kind, start });
+  const E = PI / 2, Wd = -PI / 2, Nn = PI, S = 0;
+
+  // ================= SOUTH: MEGA RAMPS =================
+  // lane z=500: four rhythm jumps that grow
+  line('rhythm lane', -165, 500, E, 'named', [-200, 500]); line('GIGA', 80, 550, E, 'named', [-200, 550]);
+  line('tables lane', -170, 600, E, 'named', [-200, 600]); line('bus XL', -150, 655, E, 'named', [-300, 655]);
+  jumpPair(-165, 500, E, { W: 10, Lk: 14, Hk: 3.2, gap: 26, Lw: 20, Hw: 2.6 });
+  jumpPair(-85, 500, E, { W: 12, Lk: 18, Hk: 5, gap: 36, Lw: 26, Hw: 4 });
+  jumpPair(5, 500, E, { W: 12, Lk: 24, Hk: 7.5, gap: 50, Lw: 34, Hw: 6 });
+  jumpPair(135, 500, E, { W: 14, Lk: 28, Hk: 10, gap: 65, Lw: 40, Hw: 8 });
+  // lane z=550: THE GIGA JUMP. 250 m run-up, 18 m lip, 110 m gap
+  jumpPair(80, 550, E, { W: 14, Lk: 60, Hk: 18, p: 1.7, gap: 110, Lw: 100, Hw: 14, Ww: 28 });
+  pinsAt(345, 550, 5);
+  // lane z=600: two big table tops
+  wedgeG(-170, 600, E, 16, 46, 9); boxG(-125, 600, E, 16, 36, 9); wedgeG(-82, 600, Wd, 16, 46, 9);
+  wedgeG(-20, 600, E, 18, 56, 13); boxG(33, 600, E, 18, 44, 13); wedgeG(88, 600, Wd, 18, 66, 13);
+  // lane z=655: container bus jump XL
+  kickerG(-150, 655, E, 14, 30, 9, 1.7, 8);
+  containers(-120, 655, E, 5, { W: 9, stack: [1, 2] });
+  wedgeG(-28, 655, Wd, 14, 40, 3.2);
+  crateWall(25, 655, E + PI / 2, 8, 3);
+  // whoops: 20 big rollers
+  for (let k = 0; k < 19; k++) addRamp(5 + k * 10, 633, E, 22, [[-5, 0.02], [0, 2.7], [5, 0.02]], { style: 'roller' });
+  // sky tower: spiral up 24 m, then a launch
+  spiralTower(255, 640, 36, 1.25, 28, 12, 0.86);
+  // quarter-pipe arena
+  kickerG(350, 525, Wd, 40, 20, 16, 2.7, 10, { style: 'qp' });
+  kickerG(420, 525, E, 40, 20, 16, 2.7, 10, { style: 'qp' });
+  crateWall(385, 525, 0, 10, 3);
+
+  // ================= NORTH: CANYON, BUS JUMPS, STAR, DROP =================
+  const cz = CANYON.cz, lipS = cz + 23.5, hiN = cz - 23.5;
+  [[5, 3.5, 18], [55, 5, 22], [105, 6.5, 24], [155, 8.5, 28], [205, 10.5, 32]].forEach(([x, H, L]) => {
+    line('canyon ' + x, x, lipS + L / 2, Nn, 'named', [x, -400]);
+    kickerG(x, lipS + L / 2, Nn, 10, L, H, 1.7, 8, { cy: 0 });
+    const Lw = 22 + 4.4 * H;                                   // long, gentle landing: matches the flight distance
+    wedgeG(x, hiN - Lw / 2, S, 14, Lw, H * 0.75, { cy: 0 });
+    pinsAt(x - 2, hiN - Lw - 6, 3);
+  });
+  line('bus 1', -170, -475, Nn, 'named', [-170, -380]); line('bus 2', -135, -470, Nn, 'named', [-135, -380]);
+  line('mountain drop', 300, 466, E, 'named', [110, 466]); line('lake jump', -151, 40, Wd, 'named', [60, 40]);
+  // bus jumps (north-bound, run-up starts at the ring road)
+  kickerG(-170, -475, Nn, 10, 20, 5.5, 1.7, 7, { cy: 0 });
+  containers(-170, -515, Nn, 3, { W: 7 });
+  wedgeG(-170, -575, S, 12, 40, 2.8, { cy: 0 });          // starts right where the containers end, at roof height
+  kickerG(-135, -470, Nn, 12, 28, 8, 1.7, 8, { cy: 0 });
+  containers(-135, -505, Nn, 4, { W: 8, stack: [1, 2] });
+  wedgeG(-135, -583, S, 14, 40, 3.2, { cy: 0 });
+  crateWall(-170, -615, 0, 7, 3); crateWall(-135, -632, 0, 8, 3);
+  // star plaza: 8 ramps feeding a raised plaza
+  {
+    const sx = -62, sz = -625, Hs = 4.5;
+    boxG(sx, sz, 0, 28, 28, Hs, { cy: 0, base: -3 });
+    for (let k = 0; k < 8; k++) {
+      const a = k * PI / 4, diag = k % 2 === 1, lip = diag ? 19.8 : 14, L = 20, d = lip + L / 2;
+      kickerG(sx + Math.cos(a) * d, sz + Math.sin(a) * d, Math.atan2(-Math.cos(a), -Math.sin(a)), 11, L, Hs, 1.5, 7, { cy: 0 });
+    }
+  }
+  // mountain drop: climb 14 m, then roll down four steps
+  // continuous: ramp up (270..330) -> deck (330..354) -> four steps down (354..394)
+  wedgeG(300, 466, E, 16, 60, 14, { cy: 0 }); boxG(342, 466, E, 16, 24, 14, { cy: 0, base: -3.5 });
+  [10, 7, 4, 1.6].forEach((h, i) => boxG(359 + i * 10, 466, E, 16, 10, h, { cy: 0 }));
+  crateWall(420, 466, E + PI / 2, 8, 2);
+
+  // ================= LAKE JUMP =================
+  kickerG(-151, 40, Wd, 16, 24, 11, 1.7, 8);           // east shore, lip at x=-163
+  wedgeG(-297, 40, E, 24, 30, 8);                       // west shore landing
+  pinsAt(-345, 40, 3);
+
+  // ================= SCATTERED RAMPS ACROSS THE WORLD =================
+  const R = rng(2024);
+  const zonesOk = (x, z) => {
+    if (mountainR(x, z) > 680) return false;
+    if (Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 45) return false;
+    for (const r of [PARK, STUNT, DRIFTLOT, MEGA, NSTUNT]) if (rectDist(x, z, r) < 45) return false;
+    if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r + 45) return false;
+    if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 70) return false;
+    if (Math.hypot(x - CIRCUIT_C.x, z - CIRCUIT_C.z) < CIRCUIT_C.r + 40) return false;
+    if (roadDistance(x, z) < 24) return false;
+    const q = trackNearest(x, z); if (q.track && q.d < q.track.hw + 26) return false;
+    return true;
+  };
+  const placed = [];
+  let made = 0;
+  const why = { zone: 0, near: 0, flat: 0 };
+  for (let tries = 0; tries < 30000 && made < 48; tries++) {
+    const a = R() * PI * 2, rr = 160 + R() * 560;
+    const x = Math.cos(a) * rr, z = Math.sin(a) * rr, yaw = R() * PI * 2;
+    if (!zonesOk(x, z)) { why.zone++; continue; }
+    if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 70)) { why.near++; continue; }
+    const kind = R();
+    const big = kind > 0.82, tab = kind > 0.62 && !big, dbl = kind > 0.45 && kind <= 0.62;
+    const Hk = big ? 8 + R() * 5 : 2.6 + R() * 3.4, Lk = big ? 30 + R() * 10 : 14 + R() * 8;
+    const gap = big ? 50 + R() * 25 : 18 + R() * 22, Lw = big ? 40 + Hk * 4 : 20 + Hk * 5;
+    const total = Lk + gap + Lw + (dbl ? 40 : 0) + (tab ? 60 : 0);
+    // the whole line (plus run-up and run-out) must be on reasonably flat ground
+    const fx = Math.sin(yaw), fz = Math.cos(yaw);
+    let ok = true, h0 = terrainHeight(x, z);
+    for (let d = -30; d <= total + 25; d += 8) {
+      const hx = x + fx * d, hz = z + fz * d;
+      if (!zonesOk(hx, hz) || Math.abs(terrainHeight(hx, hz) - h0 - slopeAlong(x, z, yaw, total) * d) > 3.2) { ok = false; break; }
+    }
+    if (!ok) { why.flat++; continue; }
+    corridors.push({ x, z, yaw, from: -75, to: total + 45 });
+    placed.push([x, z]); made++; line('scatter ' + made + (big ? ' BIG' : tab ? ' table' : dbl ? ' double' : ''), x, z, yaw, 'scatter');
+    if (tab) {
+      kickerG(x, z, yaw, 11, Lk, Hk, 1.6, 7);
+      const d1 = Lk / 2 + 3 + 13, d2 = Lk / 2 + 3 + 26 + 15, Ht = Hk * 0.85;
+      boxG(x + fx * d1, z + fz * d1, yaw, 11, 26, Ht, {});
+      wedgeG(x + fx * d2, z + fz * d2, yaw + PI, 12, 30, Ht);
+    } else if (dbl) {
+      const r1 = jumpPair(x, z, yaw, { W: 11, Lk, Hk, gap: gap * 0.7, Lw: 16, Hw: Hk * 0.7 });
+      const nx = r1.endX + fx * 12, nz = r1.endZ + fz * 12;
+      jumpPair(nx, nz, yaw, { W: 11, Lk: Lk + 4, Hk: Hk * 1.3, gap, Lw, Hw: Hk * 0.9 });
+    } else {
+      jumpPair(x, z, yaw, { W: big ? 16 : 11, Lk, Hk, p: big ? 1.8 : 1.6, gap, Lw, Hw: Hk * (big ? 0.78 : 0.75), Ww: big ? 26 : 13 });
+    }
+    if (R() < 0.5) pinsAt(x + fx * (total + 6), z + fz * (total + 6), 4);
+  }
+  stuntProps.made = made; stuntProps.why = why;
+}
 
 export function buildLayout() {
   colliders.length = 0; rampDefs.length = 0; boostPads.length = 0;
@@ -625,6 +852,7 @@ export function buildLayout() {
       box(x, z, yaw, 34, 9, 6, { cy: y, noRender: true });
     }
   }
+  buildStunts();
   boostPads.length = 0;     // open world: no glowing boost pads
   indexColliders();
 
@@ -637,7 +865,14 @@ export function buildLayout() {
     if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r + 12 + pad) return false;
     if (roadDistance(x, z) < 14 + pad) return false;
     if (mountainR(x, z) > 700) return false;
+    for (const c of corridors) {                      // keep every jump line free of boulders
+      const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), dx = x - c.x, dz = z - c.z;
+      const along = dx * fx + dz * fz, lat = dx * fz - dz * fx;
+      if (along > c.from && along < c.to && Math.abs(lat) < 11 + pad) return false;
+    }
     if (rectDist(x, z, DRIFTLOT) < 25 + pad || rectDist(x, z, STUNT) < 25 + pad) return false;
+    if (rectDist(x, z, MEGA) < 30 + pad || rectDist(x, z, NSTUNT) < 30 + pad) return false;
+    if (x > -175 && x < -40 && Math.abs(z - 40) < 16) return false;      // lake-jump run-up
     if (trackNearest(x, z).d < TRACKS[0].hw + 14 + pad) return false;
     for (const c of colliders) if (x > c.minX - 12 && x < c.maxX + 12 && z > c.minZ - 12 && z < c.maxZ + 12) return false;
     return true;
@@ -668,6 +903,7 @@ export function buildLayout() {
     const rr = LAKE.r * (0.78 + R() * 0.35);
     const x = LAKE.x + Math.cos(a) * rr, z = LAKE.z + Math.sin(a) * rr;
     if (roadDistance(x, z) < 9) continue;
+    if (colliders.some(c => x > c.minX - 9 && x < c.maxX + 9 && z > c.minZ - 9 && z < c.maxZ + 9)) continue;
     const y = terrainHeight(x, z);
     const s = 0.85 + R() * 0.5;
     scenery.palms.push({ x, z, y, s, rot: R() * PI * 2, lean: (R() - 0.5) * 0.4 });
@@ -765,6 +1001,8 @@ export function surfaceAt(x, z) {
   if (x > DRIFTLOT.x0 && x < DRIFTLOT.x1 && z > DRIFTLOT.z0 && z < DRIFTLOT.z1) return 'asphalt';
   if (x > PARK.x0 - 4 && x < PARK.x1 + 4 && z > PARK.z0 - 4 && z < PARK.z1 + 4) return 'dirt';
   if (x > STUNT.x0 - 4 && x < STUNT.x1 + 4 && z > STUNT.z0 - 4 && z < STUNT.z1 + 4) return 'dirt';
+  if (x > MEGA.x0 - 6 && x < MEGA.x1 + 6 && z > MEGA.z0 - 6 && z < MEGA.z1 + 6) return 'dirt';
+  if (x > NSTUNT.x0 - 6 && x < NSTUNT.x1 + 6 && z > NSTUNT.z0 - 6 && z < NSTUNT.z1 + 6) return 'dirt';
   if (Math.hypot(x - BOWL.x, z - BOWL.z) < BOWL.r) return 'concrete';
   return 'sand';
 }
@@ -783,6 +1021,9 @@ function buildZones() {
   const inRect = (R, m = 0) => (x, z) => x > R.x0 - m && x < R.x1 + m && z > R.z0 - m && z < R.z1 + m;
   ZONES.length = 0;
   ZONES.push(
+    { id: 'mega', name: 'מגה רמפות', sub: 'קפיצת ענק · מגדל ספירלה · מכולות', x: -195, z: 545, yaw: PI / 2, inside: inRect(MEGA, 6) },
+    { id: 'canyon', name: 'קניון הפעלולים', sub: 'קפיצות מעל תהום · מכולות · כוכב · מדרגות', x: 105, z: -350, yaw: PI, inside: inRect(NSTUNT, 6) },
+    { id: 'lakejump', name: 'קפיצת האגם', sub: '120 מטר מעל המים', x: -70, z: 40, yaw: -PI / 2, inside: (x, z) => x > -172 && x < -40 && Math.abs(z - 40) < 22 },
     { id: 'arena', name: 'זירת הדריפט', sub: 'דריפט x2', ...SPAWN, inside: (x, z) => Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 6 },
     { id: 'park', name: 'פארק הרמפות', sub: 'קפיצות ופעלולים', x: 0, z: -78, yaw: PI, inside: inRect(PARK, 6) },
     { id: 'stunt', name: 'פארק הפעלולים', sub: 'קפיצת סקי, חצי-צינור, ספיין', x: 510, z: 228, yaw: PI, inside: inRect(STUNT, 6) },

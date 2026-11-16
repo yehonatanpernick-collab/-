@@ -6,6 +6,7 @@ import {
   GN, CELL, HALF, grid, WATER_LEVEL, ARENA, PARK, BOWL, LAKE, ROUTE,
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
+  MEGA, NSTUNT, CANYON, stuntProps,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -122,6 +123,28 @@ export function makeTextures() {
     for (let i = 0; i < img.data.length; i += 4) { img.data[i] *= 1.15; img.data[i + 1] *= 0.92; img.data[i + 2] *= 0.7; }
     ctx.putImageData(img, 0, 0);
   });
+  const containerTex = (hex, label) => canvasTex(256, 256, (ctx, w, h) => {
+    ctx.fillStyle = hex; ctx.fillRect(0, 0, w, h);
+    // corrugation
+    for (let x = 0; x < w; x += 8) { ctx.fillStyle = 'rgba(0,0,0,0.20)'; ctx.fillRect(x, 0, 3, h); ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(x + 3, 0, 2, h); }
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, w, 10); ctx.fillRect(0, h - 10, w, 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = '800 34px Rubik, Arial Black, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, w / 2, h / 2);
+    const img = ctx.getImageData(0, 0, w, h); const R = rng(label.length * 7 + 3);
+    for (let i = 0; i < img.data.length; i += 4) { const n = (R() - 0.5) * 26; img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n; }
+    ctx.putImageData(img, 0, 0);
+    // rust streaks
+    ctx.fillStyle = 'rgba(120,60,20,0.18)';
+    for (let k = 0; k < 7; k++) ctx.fillRect(R() * w, 10, 3 + R() * 6, h * (0.2 + R() * 0.5));
+  });
+  T.container0 = containerTex('#b3312a', 'CARGO');
+  T.container1 = containerTex('#2a63a8', 'FREIGHT');
+  T.container2 = containerTex('#d98a1c', 'HAULER');
+  T.container3 = containerTex('#2f8a55', 'EXPRESS');
+  T.rail = canvasTex(128, 64, (ctx, w, h) => {
+    for (let k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? '#f2f2f0' : '#d8261c'; ctx.fillRect(k * w / 8, 0, w / 8, h); }
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, h - 8, w, 8);
+  });
   T.boost = canvasTex(128, 256, (ctx, w, h) => {
     ctx.fillStyle = '#062a3a'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#28f0ff';
@@ -234,6 +257,19 @@ function colorAt(x, z, h, ny, out) {
     r += (0.70 + n2 * 0.06 - r) * f; g += (0.53 + n2 * 0.05 - g) * f; b += (0.37 + n2 * 0.04 - b) * f;
     if (Math.abs(x - HALFPIPE.x) < HALFPIPE.w && h < -0.05) {
       const c = 0.74 + n2 * 0.04; r = c; g = c * 0.97; b = c * 0.93;
+    }
+  }
+  // new stunt zones: packed dirt, canyon: layered red rock
+  {
+    for (const Z of [MEGA, NSTUNT]) {
+      const dx = Math.max(Z.x0 - x, 0, x - Z.x1), dz = Math.max(Z.z0 - z, 0, z - Z.z1);
+      const f = 1 - smoothstep(0, 20, Math.hypot(dx, dz));
+      r += (0.69 + n2 * 0.06 - r) * f; g += (0.52 + n2 * 0.05 - g) * f; b += (0.37 + n2 * 0.04 - b) * f;
+    }
+    if (Math.abs(z - CANYON.cz) < 40 && x > CANYON.x0 - 45 && x < CANYON.x1 + 45) {
+      const cn = smoothstep(-0.6, -5, h);
+      const band = 0.5 + 0.5 * Math.sin(h * 1.7 + n * 6);
+      r += ((0.55 + band * 0.18) - r) * cn; g += ((0.31 + band * 0.08) - g) * cn; b += ((0.22 + band * 0.05) - b) * cn;
     }
   }
   // track shoulders
@@ -416,7 +452,9 @@ export function buildRamps(T) {
     const fx = Math.sin(r.yaw), fz = Math.cos(r.yaw), sx = Math.cos(r.yaw), sz = -Math.sin(r.yaw);
     const W = r.W, prof = r.profile, base = r.base;
     const toW = (u, y, w) => [r.cx + fx * u + sx * w, r.cy + y, r.cz + fz * u + sz * w];
-    const topKey = r.style === 'box' ? 'deck' : r.style === 'qp' ? 'qp' : r.style === 'roller' ? 'roller' : 'chevron';
+    const isCont = r.style && r.style.startsWith('container');
+    const topKey = isCont ? r.style : r.style === 'rail' ? 'rail' : r.style === 'box' ? 'deck' : r.style === 'qp' ? 'qp' : r.style === 'roller' ? 'roller' : 'chevron';
+    const sideKey = isCont ? r.style : r.style === 'rail' ? 'rail' : 'side';
     const quad = (key, a, b, c, d, uvs) => {
       const B = bucket(key);
       const pa = new THREE.Vector3(...a), pb = new THREE.Vector3(...b), pc = new THREE.Vector3(...c);
@@ -440,16 +478,16 @@ export function buildRamps(T) {
         const w = sgn * W / 2;
         const pts = [toW(ua, base, w), toW(ua, ya, w), toW(ub, yb, w), toW(ub, base, w)];
         const uvs = [[ua / 4, base / 4], [ua / 4, ya / 4], [ub / 4, yb / 4], [ub / 4, base / 4]];
-        if (sgn > 0) quad('side', pts[0], pts[1], pts[2], pts[3], uvs);
-        else quad('side', pts[3], pts[2], pts[1], pts[0], [uvs[3], uvs[2], uvs[1], uvs[0]]);
+        if (sgn > 0) quad(sideKey, pts[0], pts[1], pts[2], pts[3], uvs);
+        else quad(sideKey, pts[3], pts[2], pts[1], pts[0], [uvs[3], uvs[2], uvs[1], uvs[0]]);
       }
     }
     // back face
     const [uL, yL] = prof[prof.length - 1];
-    if (yL > 0.1) quad('side', toW(uL, base, W / 2), toW(uL, yL, W / 2), toW(uL, yL, -W / 2), toW(uL, base, -W / 2),
+    if (yL > 0.1) quad(sideKey, toW(uL, base, W / 2), toW(uL, yL, W / 2), toW(uL, yL, -W / 2), toW(uL, base, -W / 2),
       [[0, base / 4], [0, yL / 4], [W / 4, yL / 4], [W / 4, base / 4]]);
     const [u0, y0] = prof[0];
-    if (y0 > 0.1) quad('side', toW(u0, base, -W / 2), toW(u0, y0, -W / 2), toW(u0, y0, W / 2), toW(u0, base, W / 2),
+    if (y0 > 0.1) quad(sideKey, toW(u0, base, -W / 2), toW(u0, y0, -W / 2), toW(u0, y0, W / 2), toW(u0, base, W / 2),
       [[0, base / 4], [0, y0 / 4], [W / 4, y0 / 4], [W / 4, base / 4]]);
   }
   const mats = {
@@ -458,6 +496,11 @@ export function buildRamps(T) {
     qp: new THREE.MeshStandardMaterial({ map: T.qp, roughness: 0.55, metalness: 0.05 }),
     roller: new THREE.MeshStandardMaterial({ map: T.roller, roughness: 1 }),
     side: new THREE.MeshStandardMaterial({ map: T.concrete, roughness: 0.9 }),
+    rail: new THREE.MeshStandardMaterial({ map: T.rail, roughness: 0.55 }),
+    container0: new THREE.MeshStandardMaterial({ map: T.container0, roughness: 0.6, metalness: 0.35 }),
+    container1: new THREE.MeshStandardMaterial({ map: T.container1, roughness: 0.6, metalness: 0.35 }),
+    container2: new THREE.MeshStandardMaterial({ map: T.container2, roughness: 0.6, metalness: 0.35 }),
+    container3: new THREE.MeshStandardMaterial({ map: T.container3, roughness: 0.6, metalness: 0.35 }),
   };
   for (const [k, B] of Object.entries(buckets)) {
     const geo = new THREE.BufferGeometry();
@@ -807,6 +850,7 @@ export function propLayout() {
   }
   // stunt park barrels
   for (let k = 0; k < 10; k++) props.push({ type: 'barrel', x: 600 + (k % 2) * 1.3, z: -150 + Math.floor(k / 2) * 1.3 });
+  for (const sp of stuntProps) props.push({ ...sp });
   // cones along road edges
   for (let i = 0; i < ROUTE.length; i += 2) {
     const a = ROUTE[i];
@@ -841,22 +885,36 @@ export function buildPropMeshes(props) {
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return g;
   })();
+  const vcol = (geo, fn) => {
+    geo = geo.index ? geo.toNonIndexed() : geo;
+    const pa = geo.attributes.position; const c = new Float32Array(pa.count * 3);
+    for (let i = 0; i < pa.count; i++) { const col = fn(pa.getX(i), pa.getY(i), pa.getZ(i)).map(v => Math.pow(v, 2.2)); c[i * 3] = col[0]; c[i * 3 + 1] = col[1]; c[i * 3 + 2] = col[2]; }
+    geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); geo.deleteAttribute('uv'); return geo;
+  };
+  const crateGeo = vcol(new THREE.BoxGeometry(1.15, 1.15, 1.15).translate(0, 0.575, 0), (x, y, z) => {
+    const e = Math.max(Math.abs(x), Math.abs(z)) > 0.5 || Math.abs(y - 0.575) > 0.5;
+    return e ? [0.42, 0.27, 0.13] : [0.7, 0.5, 0.26];
+  });
+  const pinGeo = vcol(new THREE.LatheGeometry([[0.0, 0], [0.28, 0.02], [0.3, 0.3], [0.2, 0.75], [0.13, 1.05], [0.17, 1.3], [0.2, 1.5], [0.15, 1.7], [0.0, 1.75]].map(([r, y]) => new THREE.Vector2(r, y)), 14),
+    (x, y) => (y > 1.0 && y < 1.2) ? [0.85, 0.12, 0.1] : [0.95, 0.95, 0.92]);
   const coneMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 });
   const barrelMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.5 });
+  const crateMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
+  const pinMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35 });
   const group = new THREE.Group();
   for (const p of props) {
-    const m = new THREE.Mesh(p.type === 'cone' ? coneGeo : barrelGeo, p.type === 'cone' ? coneMat : barrelMat);
+    const m = new THREE.Mesh(p.type === 'cone' ? coneGeo : p.type === 'crate' ? crateGeo : p.type === 'pin' ? pinGeo : barrelGeo, p.type === 'cone' ? coneMat : p.type === 'crate' ? crateMat : p.type === 'pin' ? pinMat : barrelMat);
     m.castShadow = true;
     const gq = { n: { x: 0, y: 1, z: 0 } };
     const y = groundQuery(p.x, p.z, 100, gq);
-    p.pos = new THREE.Vector3(p.x, y, p.z);
+    p.pos = new THREE.Vector3(p.x, y + (p.lift || 0), p.z);
     p.home = p.pos.clone();
     p.vel = new THREE.Vector3();
     p.q = new THREE.Quaternion();
     p.w = new THREE.Vector3();
-    p.r = p.type === 'cone' ? 0.35 : 0.45;
-    p.h = p.type === 'cone' ? 0.8 : 1.2;
-    p.mass = p.type === 'cone' ? 1 : 3;
+    p.r = p.type === 'cone' ? 0.35 : p.type === 'crate' ? 0.6 : p.type === 'pin' ? 0.3 : 0.45;
+    p.h = p.type === 'cone' ? 0.8 : p.type === 'crate' ? 1.15 : p.type === 'pin' ? 1.75 : 1.2;
+    p.mass = p.type === 'cone' ? 1 : p.type === 'pin' ? 1.5 : 3;
     p.mesh = m;
     p.knocked = false;
     p.sleep = true;
