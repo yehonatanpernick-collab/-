@@ -5,9 +5,10 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import * as TR from './terrain.js';
-import { Vehicle, GRAVITY } from './physics.js';
+import { Vehicle, GRAVITY, CFG } from './physics.js';
 import * as W from './world.js';
 import { loadCar, syncCar } from './car.js';
+import { buildMaverick } from './car2.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -130,13 +131,28 @@ try {
   $('#load-msg').textContent = 'שגיאה בטעינת הדגם: ' + e.message;
   throw e;
 }
+const cars = { rzr: car, maverick: buildMaverick() };
+scene.add(cars.maverick.root);
+const CAR_TUNE = { rzr: { engine: CFG.engine, maxSpeed: CFG.maxSpeed, boostSpeed: CFG.boostSpeed }, maverick: { engine: CFG.engine * 1.12, maxSpeed: CFG.maxSpeed * 1.07, boostSpeed: CFG.boostSpeed * 1.05 } };
+const CAR_PAINT = { rzr: null, maverick: null };
+let carId = store.get('car', 'rzr');
+if (!cars[carId]) carId = 'rzr';
+function selectCar(id) {
+  carId = id; car = cars[id]; store.set('car', id);
+  for (const k in cars) cars[k].root.visible = k === id;
+  Object.assign(CFG, CAR_TUNE[id]);
+  const pc = store.get('paint_' + id, null); if (pc) car.setPaint(pc);
+  document.querySelectorAll('[data-car]').forEach(b => b.classList.toggle('sel', b.dataset.car === id));
+  if (typeof markPaint === 'function') markPaint();
+}
 scene.add(car.root);
 const PAINTS = [
   { c: '#c8102e', n: 'אדום' }, { c: '#f2a900', n: 'צהוב' }, { c: '#1e6fd9', n: 'כחול' },
   { c: '#2a2a2e', n: 'שחור' }, { c: '#f2f2f2', n: 'לבן' }, { c: '#2bb34a', n: 'ירוק' },
 ];
-let paint = store.get('paint', null);
-if (paint) car.setPaint(paint);
+let paint = null;
+let markPaint = null;
+selectCar(carId);
 const veh = new Vehicle();
 veh.reset(TR.SPAWN.x, TR.SPAWN.z, TR.SPAWN.yaw);
 setLoad(1, 'מוכן!');
@@ -761,12 +777,14 @@ $('#settings-close').addEventListener('click', () => openSettings(false));
 function buildMenu() {
   const sw = $('#swatches');
   sw.innerHTML = PAINTS.map(p => `<button class="sw" style="--c:${p.c}" data-c="${p.c}" aria-label="${p.n}" title="${p.n}"></button>`).join('');
-  const mark = () => sw.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === paint));
+  const mark = markPaint = () => { paint = store.get('paint_' + carId, null); sw.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === paint)); };
   sw.addEventListener('click', (e) => {
     const b = e.target.closest('.sw'); if (!b) return;
-    paint = b.dataset.c; car.setPaint(paint); store.set('paint', paint); mark();
+    car.setPaint(b.dataset.c); store.set('paint_' + carId, b.dataset.c); mark();
   });
   mark();
+  document.querySelectorAll('[data-car]').forEach(b => b.addEventListener('click', () => selectCar(b.dataset.car)));
+  selectCar(carId);
   if (G.best > 0) $('#menu-best').textContent = `שיא ניקוד: ${fmt(G.best)}`;
 }
 function startGame() {
