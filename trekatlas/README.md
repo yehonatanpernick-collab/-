@@ -34,7 +34,8 @@ node --test trekatlas/test/*.test.js
 
 ## מקורות נתונים (כולם חינמיים, בלי מפתח)
 
-- **גובה:** Mapzen Terrain Tiles ב-AWS · **מפה:** MapLibre GL 5.24 בתצוגת גלובוס (קידוד Terrarium, זום 12 ≈ 30 מ׳ לפיקסל)
+- **מפה:** MapLibre GL 5.24 בתצוגת גלובוס
+- **גובה:** Mapzen Terrain Tiles ב-AWS (קידוד Terrarium, זום 12 ≈ 30 מ׳ לפיקסל)
 - **לוויין:** Esri World Imagery · **טופוגרפית:** OpenTopoMap
 - **שבילים לניתוב:** OSRM foot (routing.openstreetmap.de)
 - **תמונות ותיאורים:** ויקיפדיה (עברית ואנגלית)
