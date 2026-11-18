@@ -564,26 +564,37 @@ const water = new Water(waterGeo, {
 water.rotation.x = -Math.PI/2; water.frustumCulled=false; water.material.uniforms.size.value = 1.4; water.receiveShadow = false;
 Object.assign(water.material.uniforms, { uHeight:{value:heightTex}, uGrid:{value:new THREE.Vector2(TS,TN)}, uNoise:{value:noiseTex},
   uDeep:{value:new C(0.015,0.06,0.09)}, uShallow:{value:new C(0.09,0.42,0.4)}, uSky:{value:new C(0.5,0.4,0.45)}, uSunW:{value:sunDir} });
+const WAVES_GLSL=`
+const vec4 GW[6]=vec4[6](vec4(1.0,0.3,260.0,0.22),vec4(0.7,-0.7,171.0,0.18),vec4(0.2,1.0,118.0,0.15),vec4(-0.5,0.85,79.0,0.13),vec4(0.95,-0.2,52.0,0.11),vec4(-0.15,-1.0,34.0,0.10));
+const vec4 DW[6]=vec4[6](vec4(0.6,0.8,23.0,0.10),vec4(-0.9,0.3,15.3,0.09),vec4(0.3,-0.95,10.1,0.08),vec4(0.85,0.5,6.7,0.07),vec4(-0.4,-0.9,4.5,0.06),vec4(0.1,1.0,3.0,0.05));
+void waveSum(vec2 p,float t,float amp,float fp,out vec3 d,out vec3 n,out float cr){
+  d=vec3(0.0); n=vec3(0.0,1.0,0.0); cr=0.0;
+  for(int i=0;i<6;i++){ vec2 dir=normalize(GW[i].xy); float k=6.2832/GW[i].z; float w=sqrt(9.8*k);
+    float q=GW[i].w*amp*(1.0-smoothstep(GW[i].z*0.08,GW[i].z*0.3,fp)); float a=q/k;
+    float f=k*dot(dir,p)-w*t; float c=cos(f), s=sin(f);
+    d+=vec3(dir.x*a*c,a*s,dir.y*a*c); n.x-=dir.x*q*c; n.z-=dir.y*q*c; n.y-=q*s; cr+=q*s; } }
+vec2 detailN(vec2 p,float t,float amp,float fp){ vec2 r=vec2(0.0);
+  for(int i=0;i<6;i++){ vec2 dir=normalize(DW[i].xy); float k=6.2832/DW[i].z; float w=sqrt(9.8*k);
+    float q=DW[i].w*amp*(1.0-smoothstep(DW[i].z*0.08,DW[i].z*0.3,fp)); float f=k*dot(dir,p)-w*t+float(i)*1.7;
+    r-=dir*q*cos(f); } return r; }`;
 water.material.vertexShader = `
 uniform mat4 textureMatrix; uniform float time; uniform sampler2D uHeight; uniform vec2 uGrid;
-varying vec4 mirrorCoord; varying vec4 worldPosition; varying vec3 vWN; varying float vCrest;
+varying vec4 mirrorCoord; varying vec4 worldPosition; varying vec2 vP0; varying float vAmp; varying float vAmpD;
 #include <common>
 #include <fog_pars_vertex>
 #include <shadowmap_pars_vertex>
 #include <logdepthbuf_pars_vertex>
+${WAVES_GLSL}
 void main(){
   vec4 wp=modelMatrix*vec4(position,1.0);
   vec2 huv=(wp.xz+uGrid.x*0.5)/uGrid.x; huv=(huv*(uGrid.y-1.0)+0.5)/uGrid.y;
   float bed=(huv.x>0.0&&huv.x<1.0&&huv.y>0.0&&huv.y<1.0)?texture2D(uHeight,huv).r:-95.0;
   float dist=length(wp.xz-cameraPosition.xz);
-  float fade=(1.0-smoothstep(500.0,3200.0,dist))*smoothstep(0.0,14.0,-bed)*(1.0-smoothstep(90.0,320.0,cameraPosition.y));
-  float t=time*1.8; vec3 d=vec3(0.0); vec3 n=vec3(0.0,1.0,0.0); float crest=0.0;
-  vec4 W[6]; W[0]=vec4(1.0,0.25,110.0,0.09); W[1]=vec4(0.8,-0.55,71.0,0.08); W[2]=vec4(0.35,0.95,46.0,0.07); W[3]=vec4(-0.6,0.8,29.0,0.06); W[4]=vec4(0.95,-0.15,18.0,0.05); W[5]=vec4(-0.2,-1.0,12.0,0.04);
-  for(int i=0;i<6;i++){ vec2 dir=normalize(W[i].xy); float k=6.2832/W[i].z; float c=sqrt(9.8/k); float a=W[i].w/k*fade;
-    float f=k*(dot(dir,wp.xz)-c*t); float cf=cos(f), sf=sin(f);
-    d.x+=dir.x*a*cf; d.z+=dir.y*a*cf; d.y+=a*sf;
-    n.x-=dir.x*k*a*cf; n.z-=dir.y*k*a*cf; n.y-=W[i].w*fade*sf*0.5; crest+=W[i].w*fade*sf; }
-  wp.xyz+=d; vWN=normalize(n); vCrest=crest;
+  vAmpD=0.7*mix(0.25,1.0,smoothstep(0.0,25.0,-bed));
+  vAmp=vAmpD*(1.0-smoothstep(2500.0,7000.0,dist));
+  vP0=wp.xz;
+  vec3 d,n; float cr; waveSum(wp.xz,time*1.8,vAmp,0.0,d,n,cr);
+  wp.xyz+=d*smoothstep(0.0,6.0,-bed);
   worldPosition=wp; mirrorCoord=textureMatrix*wp;
   vec4 mvPosition=viewMatrix*wp; gl_Position=projectionMatrix*mvPosition;
   #include <beginnormal_vertex>
@@ -596,7 +607,8 @@ water.material.fragmentShader = `
 uniform sampler2D mirrorSampler; uniform float alpha; uniform float time; uniform float size; uniform float distortionScale;
 uniform sampler2D normalSampler; uniform vec3 sunColor; uniform vec3 sunDirection; uniform vec3 eye; uniform vec3 waterColor;
 uniform sampler2D uHeight; uniform vec2 uGrid; uniform sampler2D uNoise; uniform vec3 uDeep; uniform vec3 uShallow; uniform vec3 uSky;
-varying vec4 mirrorCoord; varying vec4 worldPosition; varying vec3 vWN; varying float vCrest;
+varying vec4 mirrorCoord; varying vec4 worldPosition; varying vec2 vP0; varying float vAmp; varying float vAmpD;
+${WAVES_GLSL}
 vec4 getNoise(vec2 uv){
   vec2 uv0=(uv/103.0)+vec2(time/17.0,time/29.0); vec2 uv1=uv/107.0-vec2(time/-19.0,time/31.0);
   vec2 uv2=uv/vec2(8907.0,9803.0)+vec2(time/101.0,time/97.0); vec2 uv3=uv/vec2(1091.0,1027.0)-vec2(time/109.0,time/-113.0);
@@ -625,7 +637,10 @@ void main(){
   float rough=smoothstep(0.32,0.68,texture2D(uNoise,wp*0.00022+vec2(time*0.0008,-time*0.0005)).r);
   n.xz*=mix(0.4,1.3,rough);
   n.xz*=mix(0.25,1.0,smoothstep(0.0,10.0,depth))*mix(1.0,0.45,smoothstep(300.0,5000.0,dist));
-  vec3 N=normalize(vec3(n.x*0.8+vWN.x*1.1,n.y,n.z*0.8+vWN.z*1.1));
+  float fpw=length(fwidth(vP0)); vec3 gd,gn; float gcr; waveSum(vP0,time*1.8,vAmp,fpw,gd,gn,gcr);
+  vec2 dn=detailN(vP0,time*1.8,vAmpD*mix(0.6,1.2,rough),fpw);
+  vec3 N=normalize(vec3(gn.x+dn.x+n.x*0.3,max(gn.y,0.2),gn.z+dn.y+n.z*0.3));
+  float crestH=gd.y/6.0;
   vec3 R=reflect(-sunDirection,N); float sp=max(dot(E,R),0.0);
   vec3 spec=sunColor*(pow(sp,900.0)*40.0+pow(sp,120.0)*2.0+pow(sp,18.0)*0.12);
   float gl=texture2D(uNoise,wp*0.12+time*0.05).b*texture2D(uNoise,wp*0.1-time*0.04).b;
@@ -636,17 +651,18 @@ void main(){
   float sunUp=clamp(sunDirection.y*4.0+0.35,0.0,1.0);
   vec3 lightIn=sunColor*0.28*sunUp+uSky*0.35;
   vec3 body=mix(uShallow,uDeep,1.0-exp(-depth*0.07))*lightIn;
-  float sss=pow(max(dot(-E,sunDirection)*0.5+0.5,0.0),6.0)*clamp(1.15-N.y,0.0,1.0);
-  body+=uShallow*sunColor*sss*0.9*sunUp;
+  float sss=pow(max(dot(-E,sunDirection)*0.5+0.5,0.0),5.0)*(clamp(1.1-N.y,0.0,1.0)*0.6+smoothstep(-0.1,0.7,crestH))*sunUp;
+  body+=vec3(0.06,0.32,0.34)*sunColor*sss*0.45;
+  body*=1.0+0.15*clamp(crestH,0.0,1.0);
   float sh=getShadowMask();
   vec3 col=mix(body*mix(0.55,1.0,sh),refl,F)+spec*sh;
   float fn=texture2D(uNoise,wp*0.025+vec2(time*0.012,-time*0.008)).b, fn2=texture2D(uNoise,wp*0.08-vec2(time*0.02,0.0)).r;
   float surf=0.5+0.5*sin(depth*0.9-time*3.0+fn*5.0);
-  float foam=smoothstep(9.0,0.0,depth)*smoothstep(0.62,0.95,surf*0.7+fn2*0.5)*smoothstep(-1.0,1.0,depth)
-            +smoothstep(1.6,0.0,depth)*smoothstep(0.35,0.7,fn*0.6+fn2*0.6)
+  float foam=smoothstep(4.0,0.0,depth)*smoothstep(0.8,0.97,surf*0.75+fn2*0.4)*smoothstep(-1.0,1.0,depth)*0.8
+            +smoothstep(0.8,0.0,depth)*smoothstep(0.45,0.75,fn*0.6+fn2*0.6)
             +smoothstep(0.92,0.99,fn2*0.5+sw.x+0.5)*0.12*rough*smoothstep(10.0,40.0,depth)*(1.0-smoothstep(400.0,2500.0,dist))
-            +smoothstep(0.28,0.42,vCrest+fn2*0.08)*smoothstep(0.55,0.85,fn)*0.35;
-  vec3 foamC=sunColor*0.55*sunUp+uSky*0.6+vec3(0.06);
+            +smoothstep(0.46,0.32,gn.y+fn2*0.1)*smoothstep(0.6,0.95,fn*0.7+fn2*0.5)*0.35*(1.0-smoothstep(600.0,3500.0,dist));
+  vec3 foamC=(sunColor*0.55*sunUp+uSky*0.6+vec3(0.06))*1.5;
   col=mix(col,foamC,clamp(foam,0.0,1.0)*0.85);
   gl_FragColor=vec4(col,1.0);
   #include <tonemapping_fragment>
@@ -1273,7 +1289,7 @@ function updatePlayer(dt){
   // speed streaks
   if(pl.speed>115) for(let i=0;i<Math.round((pl.speed-115)*.6*dt*60/60*3);i++){ tv3.copy(camera.position).addScaledVector(pl.fwd,rr(40,120)).add(tv2.set(rr(-40,40),rr(-25,25),rr(-40,40))); fx.emit(tv3,tv.set(0,0,0),rr(.6,1),rr(.4,.7),3,0); }
   // collisions
-  const h=terrainH(pl.pos.x,pl.pos.z), floor=Math.max(h,0)+4.5;
+  const h=terrainH(pl.pos.x,pl.pos.z), floor=h>0?h+4.5:9;
   if(pl.pos.y<floor){
     if(h>0){ hurt(22); burst(pl.pos,60,50,4,1,1); puff(pl.pos,20,20,12); pl.pos.y=floor+6; pl.pitch=.7; pl.speed*=.6; }
     else { hurt(8); for(let i=0;i<140;i++){ tv.set(rr(-1,1),rr(.6,2),rr(-1,1)).multiplyScalar(rr(10,45)); fx.emit(tv2.set(pl.pos.x+rr(-6,6),.5,pl.pos.z+rr(-6,6)),tv,rr(5,10),rr(1,2),3,1); } pl.pos.y=floor+4; pl.pitch=.55; }
