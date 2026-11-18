@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrekAtlas · אטלס טרקים</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1512; --panel: #14201b; --panel2: #1b2a24; --line: #2a3d35;
+    --text: #eef4f0; --muted: #94a89e; --accent: #f2a541; --green: #5fbf8a; --danger: #e86a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: 'Rubik', system-ui, sans-serif; }
+  #app { display: flex; height: 100%; }
+  #panel { width: 380px; flex-shrink: 0; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; z-index: 2; }
+  #map { flex: 1; position: relative; }
+  header { padding: 14px 16px 8px; display: flex; align-items: baseline; gap: 8px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header span { color: var(--muted); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+  .tab { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--text); border-color: var(--accent); }
+  .view { display: none; overflow-y: auto; padding: 12px 16px 24px; flex: 1; }
+  .view.on { display: block; }
+  input, select, button { font: inherit; color: var(--text); }
+  input[type=text], input[type=date], input[type=number], select {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
+  }
+  .btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #1b1208; border-color: var(--accent); font-weight: 500; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .item { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; text-align: right; }
+  .item:hover { border-color: var(--accent); }
+  .item b { display: block; }
+  .item small { color: var(--muted); }
+  h3 { font-size: 14px; color: var(--muted); font-weight: 500; margin: 16px 0 8px; }
+  .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .stat { background: var(--panel2); border-radius: 10px; padding: 8px; text-align: center; }
+  .stat b { display: block; font-size: 17px; }
+  .stat small { color: var(--muted); font-size: 11px; }
+  #profile { width: 100%; height: 130px; background: var(--panel2); border-radius: 10px; display: block; margin-top: 8px; cursor: crosshair; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th { color: var(--muted); font-weight: 400; }
+  label.field { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .warn { background: #2b2214; border: 1px solid #5a4320; color: #f3d6a4; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5; margin-top: 12px; }
+  .wp { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; }
+  .wp button { background: none; border: 0; color: var(--muted); cursor: pointer; }
+  /* map overlays */
+  #layers { position: absolute; top: 10px; right: 10px; z-index: 3; background: rgba(20,32,27,.92); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+  #modeBadge { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(20,32,27,.92); border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 6px 14px; font-size: 13px; pointer-events: none; }
+  #status { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(20,32,27,.92); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--muted); display: none; }
+  .wp-marker { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #1b1208; font-size: 11px; font-weight: 700; display: grid; place-items: center; border: 2px solid #fff; cursor: grab; }
+  .wp-marker.start { background: var(--green); }
+  .place-marker { font-size: 20px; cursor: pointer; filter: drop-shadow(0 1px 2px #000); }
+  .peak-marker { font-size: 11px; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; pointer-events: none; }
+  .peak-marker::before { content: '▲ '; color: var(--accent); }
+  .maplibregl-popup-content { background: var(--panel); color: var(--text); border-radius: 10px; font-family: inherit; direction: rtl; text-align: right; }
+  .maplibregl-popup-tip { border-top-color: var(--panel) !important; border-bottom-color: var(--panel) !important; }
+  .maplibregl-popup-close-button { color: var(--muted); left: 0; right: auto; }
+  .hover-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+  @media (max-width: 760px) {
+    #app { flex-direction: column-reverse; }
+    #panel { width: 100%; height: 46%; border-left: 0; border-top: 1px solid var(--line); }
+    header { display: none; }
+    #layers { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header><h1>🏔️ TrekAtlas</h1><span>לחקור את העולם, לתכנן את הטרק</span></header>
+    <nav class="tabs">
+      <button class="tab on" data-view="explore">🌍 גלה</button>
+      <button class="tab" data-view="plan">🥾 תכנן</button>
+      <button class="tab" data-view="trips">🎒 הטיולים שלי</button>
+    </nav>
+
+    <section class="view on" id="view-explore">
+      <form id="searchForm" class="row">
+        <input type="text" id="searchInput" placeholder="חפש מקום, הר או שמורה…" style="flex:1">
+        <button class="btn primary">חפש</button>
+      </form>
+      <div id="searchResults" class="list" style="margin-top:8px"></div>
+      <div class="chips" id="cats"></div>
+      <div class="list" id="places"></div>
+      <p class="hint" style="margin-top:14px">טיפ: לחיצה על המפה מראה גובה ונקודת התחלה. גררו עם מקש ימני (או שתי אצבעות) כדי להטות ולסובב את התלת-ממד.</p>
+    </section>
+
+    <section class="view" id="view-plan">
+      <p class="hint" id="planHint">לחצו על המפה כדי להוסיף נקודות למסלול. גררו נקודה כדי להזיז אותה. כדאי להפעיל "שבילים" ולצייר לאורכם.</p>
+      <div class="row">
+        <button class="btn" id="undoBtn">↶ בטל נקודה</button>
+        <button class="btn" id="loopBtn">⟲ חזרה להתחלה</button>
+        <button class="btn" id="reverseBtn">⇄ הפוך כיוון</button>
+        <button class="btn" id="clearBtn">🗑 נקה</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <canvas id="profile"></canvas>
+
+      <h3>הגדרות הליכה</h3>
+      <div class="grid2">
+        <div><label class="field">קצב</label>
+          <select id="pace">
+            <option value="0.75">רגוע / עם תרמיל כבד</option>
+            <option value="1" selected>ממוצע</option>
+            <option value="1.25">מהיר / קל</option>
+          </select></div>
+        <div><label class="field">שעות הליכה ביום</label>
+          <input type="number" id="maxHours" min="1" max="14" step="0.5" value="6"></div>
+        <div><label class="field">תאריך יציאה</label><input type="date" id="startDate"></div>
+        <div><label class="field">&nbsp;</label><button class="btn" id="weatherBtn" style="width:100%">🌦 תחזית לימי הטרק</button></div>
+      </div>
+
+      <h3>חלוקה לימים</h3>
+      <div id="stages"><p class="hint">הוסיפו לפחות שתי נקודות.</p></div>
+
+      <h3>נקודות המסלול</h3>
+      <div id="wpList"></div>
+
+      <h3>שמירה וייצוא</h3>
+      <div class="row">
+        <input type="text" id="tripName" placeholder="שם הטיול" style="flex:1">
+        <button class="btn primary" id="saveBtn">שמור</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="gpxBtn">⬇ ייצוא GPX</button>
+        <label class="btn">⬆ ייבוא GPX<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml" hidden></label>
+      </div>
+      <div class="warn">⚠️ המסלול מחושב בקווים ישרים בין הנקודות שבחרתם, והזמנים הם הערכה (נוסחת טובלר) בלי הפסקות. אל תסתמכו עליו לניווט. בדקו מצב שבילים, היתרים ותחזית מקומית לפני היציאה.</div>
+    </section>
+
+    <section class="view" id="view-trips">
+      <div class="list" id="tripsList"></div>
+    </section>
+  </aside>
+
+  <main id="map">
+    <div id="layers">
+      <label><input type="radio" name="base" value="sat" checked> לוויין</label>
+      <label><input type="radio" name="base" value="topo"> טופוגרפית</label>
+      <label><input type="checkbox" id="terrainToggle" checked> תלת-ממד</label>
+      <label><input type="checkbox" id="trailsToggle"> שבילים ופסגות (OSM)</label>
+    </div>
+    <div id="status"></div>
+    <div id="modeBadge" hidden>מצב תכנון: לחצו להוספת נקודה</div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/places.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
