@@ -192,9 +192,69 @@ ${trkpts}
     return String(s ?? '').replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&#39;', '"': '&quot;' }[c]));
   }
 
+  // Steepest sustained grade (%), measured over ~windowM so one noisy DEM
+  // pixel at a cliff doesn't dominate.
+  function maxGrade(profile, windowM = 200) {
+    let best = 0, j = 0;
+    for (let i = 1; i < profile.length; i++) {
+      while (j < i && profile[i].d - profile[j].d > windowM) j++;
+      const k = Math.max(0, j - 1);
+      const dx = profile[i].d - profile[k].d;
+      if (dx >= windowM / 2) best = Math.max(best, Math.abs(profile[i].ele - profile[k].ele) / dx);
+    }
+    return best * 100;
+  }
+
+  // Grade class for colouring the profile: 0 easy … 3 very steep.
+  function gradeClass(pct) {
+    const a = Math.abs(pct);
+    return a < 8 ? 0 : a < 15 ? 1 : a < 25 ? 2 : 3;
+  }
+
+  // Difficulty from "effort kilometres" (Swiss Alpine Club style: 1 km flat
+  // ≈ 100 m of ascent) for the hardest day, plus top altitude.
+  function difficulty(stats, stages, maxEle) {
+    const day = (stages && stages.length)
+      ? stages.reduce((m, s) => Math.max(m, s.distance / 1000 + s.ascent / 100 + s.descent / 300), 0)
+      : stats.distance / 1000 + stats.ascent / 100 + stats.descent / 300;
+    let level = day < 10 ? 0 : day < 20 ? 1 : day < 30 ? 2 : 3;
+    if (maxEle > 3500 && level < 2) level = 2; // altitude alone makes it demanding
+    if (maxEle > 5000) level = 3;
+    return { level, effortKm: day, label: ['קל', 'בינוני', 'מאתגר', 'קשה מאוד'][level] };
+  }
+
+  // Join routed legs ([[lon,lat],...] each) into one line without duplicate joints.
+  function mergeLegs(legs) {
+    const out = [];
+    for (const leg of legs) {
+      for (let i = 0; i < leg.length; i++) {
+        const p = leg[i], q = out[out.length - 1];
+        if (q && Math.abs(q[0] - p[0]) < 1e-7 && Math.abs(q[1] - p[1]) < 1e-7) continue;
+        out.push(p);
+      }
+    }
+    return out;
+  }
+
+  // OSRM response -> coordinates, or null when no route was found.
+  function parseOsrm(json) {
+    if (!json || json.code !== 'Ok' || !json.routes || !json.routes.length) return null;
+    const c = json.routes[0].geometry && json.routes[0].geometry.coordinates;
+    return Array.isArray(c) && c.length > 1 ? c : null;
+  }
+
+  // Initial compass bearing (degrees) from a to b, for the fly-over camera.
+  function bearing(a, b) {
+    const φ1 = toRad(a[1]), φ2 = toRad(b[1]), Δλ = toRad(b[0] - a[0]);
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  }
+
   const api = {
     haversine, pathLength, resample, terrariumHeight, tileXY, toblerKmh,
     routeStats, splitStages, buildGPX, parseGPX, thin, formatDuration, formatDistance, escapeHtml,
+    maxGrade, gradeClass, difficulty, mergeLegs, parseOsrm, bearing,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TrekGeo = api;

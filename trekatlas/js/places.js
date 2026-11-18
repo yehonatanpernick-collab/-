@@ -87,3 +87,22 @@ window.TREK_CATS = {
   desert: { he: 'מדבר', icon: '🐪' },
   israel: { he: 'ישראל', icon: '🇮🇱' },
 };
+
+// English Wikipedia article for places whose name above isn't the article title.
+// The app looks up the Hebrew article through the interlanguage link.
+window.TREK_WIKI = {
+  'Annapurna I': 'Annapurna',
+  'Annapurna Base Camp': 'Annapurna Sanctuary',
+  'Zhangjiajie': 'Zhangjiajie National Forest Park',
+  'Plitvice Lakes': 'Plitvice Lakes National Park',
+  'Kilimanjaro': 'Mount Kilimanjaro',
+  'Rwenzori (Margherita)': 'Margherita Peak',
+  'Fitz Roy': 'Monte Fitz Roy',
+  'Torres del Paine': 'Torres del Paine National Park',
+  'Reinebringen': 'Reinebringen',
+  'Lake Louise': 'Lake Louise (Alberta)',
+  'Tongariro Alpine Crossing': 'Tongariro Alpine Crossing',
+  'Kīlauea': 'Kīlauea',
+  'Mount Olympus': 'Mount Olympus',
+  'Grand Canyon': 'Grand Canyon',
+};

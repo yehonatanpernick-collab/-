@@ -2,163 +2,290 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TrekAtlas · אטלס טרקים</title>
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<meta name="description" content="לחקור הרים ונופי טבע בעולם על גלובוס תלת-ממדי, ולתכנן טרקים: מסלול לאורך שבילים, פרופיל גובה, חלוקה לימים ותחזית.">
+<link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Karantina:wght@400;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
+  /* Layout: full-bleed globe; a floating field-notebook panel on the right
+     (desktop) that becomes a bottom sheet on phones. Palette from topo maps:
+     trail-marker red, contour brown, water blue, on map paper. */
   :root {
-    --bg: #0d1512; --panel: #14201b; --panel2: #1b2a24; --line: #2a3d35;
-    --text: #eef4f0; --muted: #94a89e; --accent: #f2a541; --green: #5fbf8a; --danger: #e86a5a;
+    --paper: #f3f6f4; --surface: #ffffff; --ink: #16242a; --muted: #5b6b6f; --line: #d6dfda;
+    --trail: #d23f2a; --trail-ink: #ffffff; --contour: #96663b; --water: #2b78ad; --forest: #2f7d4e;
+    --g0: #3c9a5c; --g1: #d6a526; --g2: #e1742a; --g3: #c42f2b;
+    --shadow: 0 10px 40px rgba(16, 32, 36, .22), 0 1px 3px rgba(16, 32, 36, .12);
+    --glass: rgba(243, 246, 244, .94);
+    --f-display: 'Karantina', 'Assistant', system-ui, sans-serif;
+    --f-body: 'Assistant', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    color-scheme: light;
   }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --paper: #11191b; --surface: #182326; --ink: #e8efec; --muted: #93a4a5; --line: #2a383b;
+    --trail: #ff6b4f; --trail-ink: #1b0c08; --contour: #cf9d6c; --water: #5eaee3; --forest: #5fbf86;
+    --shadow: 0 10px 40px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4); --glass: rgba(17, 25, 27, .93);
+    color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --paper: #11191b; --surface: #182326; --ink: #e8efec; --muted: #93a4a5; --line: #2a383b;
+    --trail: #ff6b4f; --trail-ink: #1b0c08; --contour: #cf9d6c; --water: #5eaee3; --forest: #5fbf86;
+    --shadow: 0 10px 40px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4); --glass: rgba(17, 25, 27, .93);
+    color-scheme: dark;
+  }
+
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: 'Rubik', system-ui, sans-serif; }
-  #app { display: flex; height: 100%; }
-  #panel { width: 380px; flex-shrink: 0; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; z-index: 2; }
-  #map { flex: 1; position: relative; }
-  header { padding: 14px 16px 8px; display: flex; align-items: baseline; gap: 8px; }
-  header h1 { margin: 0; font-size: 20px; }
-  header span { color: var(--muted); font-size: 13px; }
-  .tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--line); }
-  .tab { flex: 1; background: none; border: 0; color: var(--muted); padding: 10px 4px; font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
-  .tab.on { color: var(--text); border-color: var(--accent); }
-  .view { display: none; overflow-y: auto; padding: 12px 16px 24px; flex: 1; }
-  .view.on { display: block; }
-  input, select, button { font: inherit; color: var(--text); }
-  input[type=text], input[type=date], input[type=number], select {
-    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05080a; color: var(--ink); font: 15px/1.5 var(--f-body); }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--trail); outline-offset: 2px; }
+  #map { position: fixed; inset: 0; }
+
+  /* ---------- panel ---------- */
+  #panel {
+    position: fixed; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom));
+    width: 410px; display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.2);
+    border-radius: 20px; box-shadow: var(--shadow); z-index: 5; overflow: hidden; border: 1px solid var(--line);
   }
-  .btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
-  .btn:hover { border-color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #1b1208; border-color: var(--accent); font-weight: 500; }
-  .btn:disabled { opacity: .45; cursor: default; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; }
-  .chip.on { border-color: var(--accent); color: var(--accent); }
-  .list { display: flex; flex-direction: column; gap: 6px; }
-  .item { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; text-align: right; }
-  .item:hover { border-color: var(--accent); }
-  .item b { display: block; }
-  .item small { color: var(--muted); }
-  h3 { font-size: 14px; color: var(--muted); font-weight: 500; margin: 16px 0 8px; }
-  .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
-  .stat { background: var(--panel2); border-radius: 10px; padding: 8px; text-align: center; }
-  .stat b { display: block; font-size: 17px; }
-  .stat small { color: var(--muted); font-size: 11px; }
-  #profile { width: 100%; height: 130px; background: var(--panel2); border-radius: 10px; display: block; margin-top: 8px; cursor: crosshair; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  td, th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; }
-  th { color: var(--muted); font-weight: 400; }
-  label.field { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
+  .brand svg { flex-shrink: 0; }
+  .brand h1 { margin: 0; font: 700 34px/0.9 var(--f-display); letter-spacing: .5px; }
+  .brand p { margin: 0; color: var(--muted); font-size: 13px; }
+  #sheetHandle { display: none; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 16px 10px; padding: 4px; background: var(--line); border-radius: 12px; }
+  .seg button { border: 0; background: none; border-radius: 9px; padding: 7px 4px; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; gap: 6px; align-items: center; justify-content: center; }
+  .seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .seg .count { background: var(--trail); color: var(--trail-ink); border-radius: 99px; font-size: 11px; padding: 0 6px; line-height: 17px; }
+  .view { display: none; flex: 1; overflow-y: auto; padding: 4px 16px 24px; overscroll-behavior: contain; }
+  .view.on { display: flex; flex-direction: column; gap: 14px; }
+  .view > * { min-width: 0; }
+
+  .search { position: relative; }
+  .search input { width: 100%; padding: 11px 40px 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+  .search svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; cursor: pointer; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--trail); border-color: var(--trail); color: var(--trail-ink); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.ghost { background: none; border-color: transparent; color: var(--muted); padding: 6px 8px; }
+  .btn.ghost:hover { color: var(--ink); background: var(--line); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.small { padding: 5px 9px; font-size: 13px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 11px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .6px; margin: 0; }
+
+  .places { display: flex; flex-direction: column; }
+  .place { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--line); cursor: pointer; background: none; border-inline: 0; border-top: 0; text-align: right; width: 100%; }
+  .place:hover { background: var(--line); }
+  .place i { width: 10px; height: 10px; border-radius: 50%; }
+  .place b { font-weight: 600; display: block; }
+  .place small { color: var(--muted); font-size: 12px; }
+  .place .ele { font: 500 12px var(--f-mono); color: var(--contour); white-space: nowrap; }
+
+  /* place card */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .card .hero { position: relative; height: 170px; background: linear-gradient(160deg, #2a4b55, #1a2d33); }
+  .card .hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .hero .shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(6,12,14,.82), rgba(6,12,14,0) 60%); }
+  .card .hero .t { position: absolute; bottom: 10px; right: 14px; left: 14px; color: #fff; }
+  .card .hero h2 { margin: 0; font: 700 44px/0.9 var(--f-display); text-wrap: balance; }
+  .card .hero .sub { font-size: 13px; opacity: .85; }
+  .card .hero .close { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.45); color: #fff; border: 0; border-radius: 99px; width: 30px; height: 30px; cursor: pointer; }
+  .card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .card .extract { margin: 0; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .extract.open { -webkit-line-clamp: unset; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fact { background: var(--paper); border-radius: 8px; padding: 4px 9px; font-size: 13px; display: inline-flex; gap: 5px; align-items: baseline; }
+  .fact b { font: 500 13px var(--f-mono); }
+  .nearby { display: flex; flex-direction: column; gap: 2px; }
+  .nearby button { background: none; border: 0; padding: 4px 0; text-align: right; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .nearby button:hover { color: var(--trail); }
+  .nearby span:last-child { color: var(--muted); font: 500 11px var(--f-mono); white-space: nowrap; }
+  .skeleton { background: linear-gradient(90deg, var(--line), var(--paper), var(--line)); background-size: 200% 100%; animation: sk 1.2s infinite; border-radius: 6px; height: 12px; }
+  @keyframes sk { to { background-position: -200% 0; } }
+
+  /* planner */
+  .steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+  .steps li::before { content: counter(s); width: 30px; height: 30px; border-radius: 50%; background: var(--trail); color: var(--trail-ink); display: grid; place-items: center; font: 700 20px var(--f-display); }
+  .steps b { display: block; }
+  .steps small { color: var(--muted); }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; cursor: pointer; }
+  .switch small { color: var(--muted); display: block; font-size: 12px; }
+  .switch input { appearance: none; width: 40px; height: 23px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; flex-shrink: 0; transition: background .2s; }
+  .switch input::after { content: ''; position: absolute; top: 3px; right: 3px; width: 17px; height: 17px; border-radius: 50%; background: #fff; transition: right .2s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked { background: var(--forest); }
+  .switch input:checked::after { right: 20px; }
+  .summary { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .summary .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pill { white-space: nowrap; border-radius: 99px; padding: 2px 10px; font-weight: 700; font-size: 13px; color: #fff; }
+  .lv0 { background: var(--g0); } .lv1 { background: var(--g1); color: #2a2104; } .lv2 { background: var(--g2); } .lv3 { background: var(--g3); }
+  .big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; }
+  .big div { display: flex; flex-direction: column; }
+  .big b { font: 700 29px/1 var(--f-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .big b span { font: 600 13px var(--f-body); color: var(--muted); margin-right: 3px; }
+  .big small { color: var(--muted); font-size: 12px; line-height: 1.3; }
+  #profile { width: 100%; height: 140px; display: block; cursor: crosshair; touch-action: none; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 4px; border-radius: 2px; margin-left: 4px; vertical-align: middle; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .warn { background: #2b2214; border: 1px solid #5a4320; color: #f3d6a4; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5; margin-top: 12px; }
-  .wp { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; }
-  .wp button { background: none; border: 0; color: var(--muted); cursor: pointer; }
-  /* map overlays */
-  #layers { position: absolute; top: 10px; right: 10px; z-index: 3; background: rgba(20,32,27,.92); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
-  #modeBadge { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(20,32,27,.92); border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 6px 14px; font-size: 13px; pointer-events: none; }
-  #status { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(20,32,27,.92); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--muted); display: none; }
-  .wp-marker { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #1b1208; font-size: 11px; font-weight: 700; display: grid; place-items: center; border: 2px solid #fff; cursor: grab; }
-  .wp-marker.start { background: var(--green); }
-  .place-marker { font-size: 20px; cursor: pointer; filter: drop-shadow(0 1px 2px #000); }
-  .peak-marker { font-size: 11px; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; pointer-events: none; }
-  .peak-marker::before { content: '▲ '; color: var(--accent); }
-  .maplibregl-popup-content { background: var(--panel); color: var(--text); border-radius: 10px; font-family: inherit; direction: rtl; text-align: right; }
-  .maplibregl-popup-tip { border-top-color: var(--panel) !important; border-bottom-color: var(--panel) !important; }
-  .maplibregl-popup-close-button { color: var(--muted); left: 0; right: auto; }
-  .hover-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .field input, .field select { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; color: var(--ink); font-weight: 400; font-size: 14px; width: 100%; }
+  .days { display: flex; flex-direction: column; gap: 8px; }
+  .day { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; }
+  .day .n { font: 700 30px/0.9 var(--f-display); color: var(--trail); text-align: center; }
+  .day .n small { display: block; font: 600 11px var(--f-body); color: var(--muted); }
+  .day .m { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .day .m .warn { color: var(--g3); font-weight: 600; }
+  .day .w { text-align: left; font-size: 13px; white-space: nowrap; }
+  .day .w b { font: 500 14px var(--f-mono); }
+  .day .w small { display: block; color: var(--muted); font-size: 11px; }
+  .wps { display: flex; flex-direction: column; font-size: 13px; }
+  .wps div { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .wps code { font: 500 12px var(--f-mono); color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); border-inline-start: 3px solid var(--contour); padding: 2px 10px; margin: 0; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 18px 8px; }
+
+  .trip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .trip h3 { margin: 0; font: 700 28px/1 var(--f-display); }
+  .trip .facts .fact { background: var(--paper); }
+
+  /* ---------- map chrome ---------- */
+  .mapbar { position: fixed; top: max(16px, env(safe-area-inset-top)); left: max(64px, calc(env(safe-area-inset-left) + 56px)); z-index: 4; display: flex; gap: 6px; flex-wrap: wrap; }
+  .mapbar .btn { background: var(--glass); backdrop-filter: blur(10px); box-shadow: var(--shadow); font-size: 13px; padding: 7px 11px; }
+  .mapbar .btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #toast { position: fixed; bottom: max(28px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 6; background: var(--ink); color: var(--paper); border-radius: 99px; padding: 8px 16px; font-size: 13px; box-shadow: var(--shadow); max-width: calc(100vw - 32px); text-align: center; }
+  #flyStop { position: fixed; bottom: max(28px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 6; }
+
+  .pin { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: pointer; position: relative; transition: transform .15s; }
+  .pin:hover, .pin.sel { transform: scale(1.35); }
+  .pin span { position: absolute; top: 50%; right: 20px; transform: translateY(-50%); white-space: nowrap; color: #fff; font: 600 13px var(--f-body); text-shadow: 0 0 4px #000, 0 0 2px #000; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .pin:hover span, .labels .pin span, .pin.sel span { opacity: 1; }
+  .wp { width: 24px; height: 24px; border-radius: 50%; background: var(--trail); color: var(--trail-ink); border: 2.5px solid #fff; display: grid; place-items: center; font: 700 15px var(--f-display); box-shadow: 0 1px 5px rgba(0,0,0,.5); cursor: grab; }
+  .wp.start { background: var(--forest); color: #fff; }
+  .wp.end { background: var(--ink); color: var(--paper); }
+  .osm-peak { font: 600 11px var(--f-body); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; pointer-events: none; }
+  .osm-peak::before { content: '▲ '; color: #f0b36a; }
+  .hover-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--trail); box-shadow: 0 0 0 3px rgba(0,0,0,.25); }
+  .maplibregl-ctrl-group { background: var(--glass) !important; border-radius: 10px !important; box-shadow: var(--shadow) !important; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
+
   @media (max-width: 760px) {
-    #app { flex-direction: column-reverse; }
-    #panel { width: 100%; height: 46%; border-left: 0; border-top: 1px solid var(--line); }
-    header { display: none; }
-    #layers { font-size: 12px; }
+    #panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 62vh; border-radius: 20px 20px 0 0; transition: height .25s ease; padding-bottom: env(safe-area-inset-bottom); }
+    #panel.collapsed { height: 158px; }
+    #sheetHandle { display: block; width: 100%; height: 22px; border: 0; background: none; cursor: pointer; position: relative; flex-shrink: 0; }
+    #sheetHandle::after { content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 42px; height: 5px; border-radius: 99px; background: var(--muted); opacity: .5; }
+    .brand { padding-top: 0; } .brand p { display: none; } .brand h1 { font-size: 28px; }
+    .mapbar { left: max(56px, calc(env(safe-area-inset-left) + 52px)); right: 12px; }
+    #toast, #flyStop { bottom: calc(62vh + 12px); }
+    #panel.collapsed ~ #toast, #panel.collapsed ~ #flyStop { bottom: 170px; }
   }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
-<div id="app">
-  <aside id="panel">
-    <header><h1>🏔️ TrekAtlas</h1><span>לחקור את העולם, לתכנן את הטרק</span></header>
-    <nav class="tabs">
-      <button class="tab on" data-view="explore">🌍 גלה</button>
-      <button class="tab" data-view="plan">🥾 תכנן</button>
-      <button class="tab" data-view="trips">🎒 הטיולים שלי</button>
-    </nav>
+<div id="map" dir="ltr"></div>
 
-    <section class="view on" id="view-explore">
-      <form id="searchForm" class="row">
-        <input type="text" id="searchInput" placeholder="חפש מקום, הר או שמורה…" style="flex:1">
-        <button class="btn primary">חפש</button>
-      </form>
-      <div id="searchResults" class="list" style="margin-top:8px"></div>
-      <div class="chips" id="cats"></div>
-      <div class="list" id="places"></div>
-      <p class="hint" style="margin-top:14px">טיפ: לחיצה על המפה מראה גובה ונקודת התחלה. גררו עם מקש ימני (או שתי אצבעות) כדי להטות ולסובב את התלת-ממד.</p>
-    </section>
+<div class="mapbar" role="toolbar" aria-label="שכבות">
+  <button class="btn" id="bSat" aria-pressed="true">לוויין</button>
+  <button class="btn" id="bTopo" aria-pressed="false">טופוגרפית</button>
+  <button class="btn" id="b3d" aria-pressed="true">תלת-ממד</button>
+  <button class="btn" id="bTrails" aria-pressed="false" title="שבילים ופסגות מ-OpenStreetMap, מזום 12">שבילים</button>
+  <button class="btn" id="bGlobe" title="חזרה לגלובוס">🌍</button>
+</div>
 
-    <section class="view" id="view-plan">
-      <p class="hint" id="planHint">לחצו על המפה כדי להוסיף נקודות למסלול. גררו נקודה כדי להזיז אותה. כדאי להפעיל "שבילים" ולצייר לאורכם.</p>
-      <div class="row">
-        <button class="btn" id="undoBtn">↶ בטל נקודה</button>
-        <button class="btn" id="loopBtn">⟲ חזרה להתחלה</button>
-        <button class="btn" id="reverseBtn">⇄ הפוך כיוון</button>
-        <button class="btn" id="clearBtn">🗑 נקה</button>
+<aside id="panel" class="collapsed">
+  <button id="sheetHandle" aria-label="הרחב או כווץ את הלוח"></button>
+  <div class="brand">
+    <svg width="38" height="38" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="19" fill="var(--trail)"/>
+      <path d="M6 29 L15 15 L20 22 L25 13 L34 29 Z" fill="var(--trail-ink)"/>
+      <path d="M22.6 17 L25 13 L27.4 17 L25.8 16.2 L24.2 17.4 Z" fill="var(--trail)"/>
+    </svg>
+    <div><h1>TrekAtlas</h1><p>לחקור הרים ונופים, לתכנן את הטרק הבא</p></div>
+  </div>
+  <nav class="seg" role="tablist">
+    <button class="on" data-view="explore" role="tab">גלה</button>
+    <button data-view="plan" role="tab">תכנן <span class="count" id="wpCount" hidden>0</span></button>
+    <button data-view="trips" role="tab">הטיולים שלי</button>
+  </nav>
+
+  <section class="view on" id="view-explore">
+    <form class="search" id="searchForm" role="search">
+      <input id="searchInput" type="search" placeholder="חפשו הר, שמורה או עיר בכל העולם" autocomplete="off">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </form>
+    <div id="searchResults" class="places" hidden></div>
+    <div id="detail"></div>
+    <div class="row" style="justify-content:space-between">
+      <p class="label">יעדים מובחרים · <span id="placeCount"></span></p>
+      <button class="btn small" id="surprise">🎲 הפתיעו אותי</button>
+    </div>
+    <div class="chips" id="cats"></div>
+    <div class="places" id="places"></div>
+  </section>
+
+  <section class="view" id="view-plan">
+    <ol class="steps" id="planSteps">
+      <li><div><b>בחרו נקודת התחלה</b><small>לחיצה על המפה, או "תכננו מכאן" בכרטיס של יעד</small></div></li>
+      <li><div><b>הוסיפו נקודות בדרך</b><small>המסלול נצמד לשבילים ולדרכים. גררו נקודה כדי להזיז אותה</small></div></li>
+      <li><div><b>קבלו את התמונה המלאה</b><small>פרופיל גובה, רמת קושי, חלוקה לימים ותחזית לכל יום</small></div></li>
+    </ol>
+    <label class="switch" for="snap"><span>הצמדה לשבילים<small>מסלול הליכה לפי OpenStreetMap. כבוי: קו ישר</small></span><input type="checkbox" id="snap" checked></label>
+    <div id="planBody" hidden>
+      <div class="summary">
+        <div class="top"><span class="pill" id="diff"></span>
+          <div class="row" style="gap:2px">
+            <button class="btn ghost small" id="undoBtn" title="בטל נקודה אחרונה">↶ בטל</button>
+            <button class="btn ghost small" id="loopBtn" title="סגור מעגל לנקודת ההתחלה">⟲ מעגל</button>
+            <button class="btn ghost small" id="reverseBtn" title="הפוך כיוון">⇄</button>
+            <button class="btn ghost small" id="clearBtn" title="נקה מסלול">🗑</button>
+          </div>
+        </div>
+        <div class="big" id="big"></div>
+        <canvas id="profile" aria-label="פרופיל גובה"></canvas>
+        <div class="legend"><span><i style="background:var(--g0)"></i>עד 8%</span><span><i style="background:var(--g1)"></i>8–15%</span><span><i style="background:var(--g2)"></i>15–25%</span><span><i style="background:var(--g3)"></i>מעל 25%</span></div>
+        <div class="row"><button class="btn" id="flyBtn">▶ טיסה מעל המסלול</button><span class="note" id="routeNote" hidden></span></div>
       </div>
-      <div class="stats" id="stats"></div>
-      <canvas id="profile"></canvas>
 
-      <h3>הגדרות הליכה</h3>
-      <div class="grid2">
-        <div><label class="field">קצב</label>
-          <select id="pace">
-            <option value="0.75">רגוע / עם תרמיל כבד</option>
-            <option value="1" selected>ממוצע</option>
-            <option value="1.25">מהיר / קל</option>
-          </select></div>
-        <div><label class="field">שעות הליכה ביום</label>
-          <input type="number" id="maxHours" min="1" max="14" step="0.5" value="6"></div>
-        <div><label class="field">תאריך יציאה</label><input type="date" id="startDate"></div>
-        <div><label class="field">&nbsp;</label><button class="btn" id="weatherBtn" style="width:100%">🌦 תחזית לימי הטרק</button></div>
+      <div class="grid2" style="margin-top:14px">
+        <label class="field">קצב הליכה
+          <select id="pace"><option value="0.75">רגוע / תרמיל כבד</option><option value="1" selected>ממוצע</option><option value="1.25">מהיר / קל</option></select></label>
+        <label class="field">שעות הליכה ביום<input type="number" id="maxHours" min="1" max="14" step="0.5" value="6"></label>
+        <label class="field" style="grid-column:1/-1">תאריך יציאה<input type="date" id="startDate"></label>
       </div>
 
-      <h3>חלוקה לימים</h3>
-      <div id="stages"><p class="hint">הוסיפו לפחות שתי נקודות.</p></div>
+      <p class="label" style="margin-top:14px">חלוקה לימים</p>
+      <div class="days" id="days"></div>
 
-      <h3>נקודות המסלול</h3>
-      <div id="wpList"></div>
-
-      <h3>שמירה וייצוא</h3>
+      <p class="label" style="margin-top:14px">שמירה ושיתוף</p>
       <div class="row">
-        <input type="text" id="tripName" placeholder="שם הטיול" style="flex:1">
+        <input id="tripName" class="field" style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px" placeholder="שם הטיול">
         <button class="btn primary" id="saveBtn">שמור</button>
       </div>
       <div class="row" style="margin-top:8px">
-        <button class="btn" id="gpxBtn">⬇ ייצוא GPX</button>
-        <label class="btn">⬆ ייבוא GPX<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml" hidden></label>
+        <button class="btn small" id="gpxBtn">⬇ GPX</button>
+        <label class="btn small">⬆ ייבוא GPX<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml" hidden></label>
+        <button class="btn small" id="shareBtn">🔗 העתק קישור</button>
       </div>
-      <div class="warn">⚠️ המסלול מחושב בקווים ישרים בין הנקודות שבחרתם, והזמנים הם הערכה (נוסחת טובלר) בלי הפסקות. אל תסתמכו עליו לניווט. בדקו מצב שבילים, היתרים ותחזית מקומית לפני היציאה.</div>
-    </section>
-
-    <section class="view" id="view-trips">
-      <div class="list" id="tripsList"></div>
-    </section>
-  </aside>
-
-  <main id="map">
-    <div id="layers">
-      <label><input type="radio" name="base" value="sat" checked> לוויין</label>
-      <label><input type="radio" name="base" value="topo"> טופוגרפית</label>
-      <label><input type="checkbox" id="terrainToggle" checked> תלת-ממד</label>
-      <label><input type="checkbox" id="trailsToggle"> שבילים ופסגות (OSM)</label>
+      <details style="margin-top:12px"><summary class="label" style="cursor:pointer">נקודות המסלול</summary><div class="wps" id="wpList"></div></details>
+      <p class="note" style="margin-top:12px">הזמנים הם הערכה לפי נוסחת טובלר, בלי הפסקות. בדקו מצב שבילים, היתרים ותחזית מקומית לפני היציאה. האפליקציה אינה תחליף לניווט.</p>
     </div>
-    <div id="status"></div>
-    <div id="modeBadge" hidden>מצב תכנון: לחצו להוספת נקודה</div>
-  </main>
-</div>
+    <label class="btn small" id="importEmpty" style="align-self:flex-start">⬆ או ייבאו קובץ GPX<input type="file" id="gpxInput2" accept=".gpx,application/gpx+xml" hidden></label>
+  </section>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <section class="view" id="view-trips"><div id="tripsList" style="display:flex;flex-direction:column;gap:10px"></div></section>
+</aside>
+<div id="toast" hidden></div>
+<button class="btn primary" id="flyStop" hidden>■ עצור טיסה</button>
+
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="js/geo.js"></script>
 <script src="js/places.js"></script>
 <script src="js/app.js"></script>

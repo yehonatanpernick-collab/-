@@ -100,3 +100,36 @@ test('formatting and HTML escaping', () => {
   assert.equal(G.formatDistance(12345), '12.3 ק״מ');
   assert.equal(G.escapeHtml('<img onerror=x>'), '&lt;img onerror=x&gt;');
 });
+
+test('maxGrade ignores single-pixel spikes and finds sustained slope', () => {
+  const prof = [];
+  for (let i = 0; i <= 50; i++) prof.push({ d: i * 40, ele: i < 25 ? i * 4 : 100 }); // 10% for 1 km, then flat
+  prof[40].ele = 160; // one 60 m spike
+  const g = G.maxGrade(prof, 200);
+  assert.ok(g >= 9 && g <= 40, `grade ${g}`);
+  assert.equal(G.gradeClass(5), 0);
+  assert.equal(G.gradeClass(-12), 1);
+  assert.equal(G.gradeClass(20), 2);
+  assert.equal(G.gradeClass(40), 3);
+});
+
+test('difficulty levels', () => {
+  assert.equal(G.difficulty({ distance: 5000, ascent: 200, descent: 200 }, [], 800).label, 'קל');
+  assert.equal(G.difficulty({ distance: 15000, ascent: 900, descent: 900 }, [], 1500).level, 2);
+  assert.equal(G.difficulty({ distance: 5000, ascent: 300, descent: 0 }, [], 5600).level, 3);
+  // multi-day: judged by the hardest day, not the whole trek
+  const stages = [{ distance: 12000, ascent: 600, descent: 300 }, { distance: 8000, ascent: 200, descent: 600 }];
+  assert.equal(G.difficulty({ distance: 20000, ascent: 800, descent: 900 }, stages, 2000).level, 1);
+});
+
+test('mergeLegs and parseOsrm', () => {
+  assert.deepEqual(G.mergeLegs([[[0, 0], [1, 1]], [[1, 1], [2, 2]]]), [[0, 0], [1, 1], [2, 2]]);
+  assert.equal(G.parseOsrm({ code: 'NoRoute' }), null);
+  assert.deepEqual(G.parseOsrm({ code: 'Ok', routes: [{ geometry: { coordinates: [[1, 2], [3, 4]] } }] }), [[1, 2], [3, 4]]);
+});
+
+test('bearing', () => {
+  near(G.bearing([0, 0], [0, 1]), 0, 1e-6, 'north');
+  near(G.bearing([0, 0], [1, 0]), 90, 1e-6, 'east');
+  near(G.bearing([0, 0], [-1, 0]), 270, 1e-6, 'west');
+});
