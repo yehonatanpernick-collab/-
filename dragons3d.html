@@ -322,6 +322,41 @@ function terrainHRaw(x,z){
 const TS = 9400, TSEG = LOWQ ? 420 : 720, TN = TSEG+1, TSTEP = TS/TSEG;
 const HGRID = new Float32Array(TN*TN);
 for(let r=0;r<TN;r++) for(let c=0;c<TN;c++) HGRID[r*TN+c]=terrainHRaw(-TS/2+c*TSTEP, -TS/2+r*TSTEP);
+// hydraulic erosion: rain droplets carve gullies and leave sediment fans
+const EROD=new Float32Array(TN*TN), FLOW=new Float32Array(TN*TN);
+(()=>{
+  const N=TN, H=HGRID, orig=H.slice(), cell=TSTEP; for(let i=0;i<H.length;i++) H[i]/=cell;
+  const Rb=2, bo=[], bw=[]; let ws=0;
+  for(let y=-Rb;y<=Rb;y++) for(let x=-Rb;x<=Rb;x++){ const d=Math.hypot(x,y); if(d<=Rb){ const w=1-d/(Rb+.001); bo.push(y*N+x); bw.push(w); ws+=w; } }
+  for(let k=0;k<bw.length;k++) bw[k]/=ws;
+  const inertia=.06, capF=3, minCap=.01, depS=.25, eroS=.3, evap=.02, grav=4, life=40, maxStep=.6, drops=Math.round(N*N*.6);
+  for(let n=0;n<drops;n++){
+    let x=1+Math.random()*(N-3), y=1+Math.random()*(N-3); if(H[(y|0)*N+(x|0)]<.5) continue;
+    let dx=0,dy=0,speed=1,water=1,sed=0;
+    for(let l=0;l<life;l++){
+      const cx=x|0, cy=y|0, i=cy*N+cx, ox=x-cx, oy=y-cy;
+      const a=H[i],b=H[i+1],c=H[i+N],d=H[i+N+1];
+      const gx=(b-a)*(1-oy)+(d-c)*oy, gy=(c-a)*(1-ox)+(d-b)*ox, h=a*(1-ox)*(1-oy)+b*ox*(1-oy)+c*(1-ox)*oy+d*ox*oy;
+      dx=dx*inertia-gx*(1-inertia); dy=dy*inertia-gy*(1-inertia); const len=Math.hypot(dx,dy); if(len<1e-6) break; dx/=len; dy/=len;
+      x+=dx; y+=dy; if(x<3||y<3||x>=N-4||y>=N-4) break;
+      const nx=x|0, ny=y|0, j=ny*N+nx, px=x-nx, py=y-ny;
+      const nh=H[j]*(1-px)*(1-py)+H[j+1]*px*(1-py)+H[j+N]*(1-px)*py+H[j+N+1]*px*py, dh=nh-h;
+      FLOW[i]+=water;
+      const cap=Math.max(-dh*speed*water*capF,minCap);
+      if(sed>cap||dh>0){ const amt=dh>0?Math.min(dh,sed):(sed-cap)*depS; sed-=amt; H[i]+=amt*(1-ox)*(1-oy); H[i+1]+=amt*ox*(1-oy); H[i+N]+=amt*(1-ox)*oy; H[i+N+1]+=amt*ox*oy; }
+      else { const amt=Math.min((cap-sed)*eroS,-dh,maxStep); for(let k=0;k<bo.length;k++) H[i+bo[k]]-=amt*bw[k]; sed+=amt; }
+      if(nh<0) break;
+      speed=Math.sqrt(Math.max(0,speed*speed-dh*grav)); water*=1-evap;
+    }
+  }
+  // smooth the change once so the carving reads as gullies, not spikes
+  const dlt=new Float32Array(N*N); for(let i=0;i<N*N;i++) dlt[i]=H[i]*cell-orig[i];
+  const fl=FLOW.slice();
+  for(let r=1;r<N-1;r++) for(let c=1;c<N-1;c++){ const i=r*N+c; let s1=0,s2=0;
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const w=(dx||dy)?((dx&&dy)?1:2):4; s1+=dlt[i+dy*N+dx]*w; s2+=fl[i+dy*N+dx]*w; }
+    EROD[i]=s1/16; FLOW[i]=s2/16; }
+  for(let i=0;i<N*N;i++) H[i]=Math.max(-95,orig[i]+EROD[i]);
+})();
 function terrainH(x,z){
   const fx=(x+TS/2)/TSTEP, fz=(z+TS/2)/TSTEP; if(!(fx>=0&&fz>=0&&fx<TSEG&&fz<TSEG)) return -95;
   const c=Math.floor(fx), r=Math.floor(fz), tx=fx-c, tz=fz-r, i=r*TN+c;
@@ -354,14 +389,17 @@ vec3 dirFog(vec3 col, vec3 wp, vec3 fogC, float dens){
     for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){ m1+=g(r+dr*3,c+dc*3); m2+=g(r+dr*10,c+dc*10); }
     ao[r*TN+c]=clamp(.55+(h-m1/8)/45+(h-m2/8)/220,0,1); }
   geo.setAttribute('aAO',new THREE.BufferAttribute(ao,1));
+  const ae=new Float32Array(p.count), af=new Float32Array(p.count), lf=Math.log(1+40);
+  for(let i=0;i<p.count;i++){ ae[i]=clamp(EROD[i]/30,-1,1); af[i]=clamp(Math.log(1+FLOW[i])/lf,0,1); }
+  geo.setAttribute('aEro',new THREE.BufferAttribute(ae,1)); geo.setAttribute('aFlow',new THREE.BufferAttribute(af,1));
   const mat = new THREE.MeshStandardMaterial({ roughness:.92, metalness:0, envMapIntensity:.45 });
   mat.onBeforeCompile = sh=>{
     sh.uniforms.uNoise={value:noiseTex}; sh.uniforms.uTime=uTime; sh.uniforms.uSunW={value:sunDir};
     if(LOWQ) sh.fragmentShader='#define LOWQ_T\n'+sh.fragmentShader;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAO; varying vec3 vWP; varying vec3 vWN; varying float vAO;')
-      .replace('#include <fog_vertex>','#include <fog_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz; vWN=normalize(mat3(modelMatrix)*objectNormal); vAO=aAO;');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAO; attribute float aEro; attribute float aFlow; varying vec3 vWP; varying vec3 vWN; varying float vAO; varying float vEro; varying float vFlow;')
+      .replace('#include <fog_vertex>','#include <fog_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz; vWN=normalize(mat3(modelMatrix)*objectNormal); vAO=aAO; vEro=aEro; vFlow=aFlow;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>',`#include <common>
-      varying vec3 vWP; varying vec3 vWN; varying float vAO; uniform sampler2D uNoise; uniform float uTime;
+      varying vec3 vWP; varying vec3 vWN; varying float vAO; varying float vEro; varying float vFlow; uniform sampler2D uNoise; uniform float uTime;
       float nA(vec2 p){ return texture2D(uNoise,p).r; } float nB(vec2 p){ return texture2D(uNoise,p).g; }
       float tri(vec3 p, vec3 w, float s){ return nA(p.zy*s)*w.x+nA(p.xz*s)*w.y+nA(p.xy*s)*w.z; }
       float triB(vec3 p, vec3 w, float s){ return nB(p.zy*s)*w.x+nB(p.xz*s)*w.y+nB(p.xy*s)*w.z; }
@@ -374,7 +412,9 @@ vec3 dirFog(vec3 col, vec3 wp, vec3 fogC, float dens){
       float rockAmt=smoothstep(0.23,0.38,slope+(n2-0.5)*0.22+(r2-0.5)*0.14);
       float screeAmt=smoothstep(0.14,0.26,slope+(n3-0.5)*0.15)*(1.0-rockAmt);
       vec3 sand=vec3(0.62,0.50,0.36)*(0.85+0.3*n4);
-      vec3 grass=mix(vec3(0.10,0.17,0.05),vec3(0.30,0.33,0.11),smoothstep(0.3,0.75,n2));
+      rockAmt=max(rockAmt,smoothstep(-0.25,-0.75,vEro)*smoothstep(15.0,60.0,vWP.y)*smoothstep(0.08,0.2,slope));
+      vec3 grass=mix(vec3(0.11,0.16,0.06),vec3(0.33,0.32,0.15),smoothstep(0.3,0.75,n2));
+      grass=mix(grass,vec3(0.06,0.13,0.04),vFlow*0.55*(1.0-smoothstep(150.0,350.0,vWP.y)));
       grass=mix(grass,vec3(0.38,0.30,0.15),smoothstep(0.55,0.85,n3)*0.5);
       grass=mix(grass,vec3(0.06,0.11,0.04),smoothstep(0.45,0.2,ao)*0.6);
       grass*=0.8+0.4*n4;
@@ -388,6 +428,8 @@ vec3 dirFog(vec3 col, vec3 wp, vec3 fogC, float dens){
       col=mix(col,grass,smoothstep(9.0,20.0,vWP.y+n3*12.0));
       col=mix(col,scree,screeAmt*smoothstep(12.0,30.0,vWP.y));
       col=mix(col,rock,max(rockAmt,smoothstep(320.0,480.0,h)));
+      col=mix(col,scree*vec3(0.95,0.92,0.88),smoothstep(0.08,0.55,vEro)*(1.0-rockAmt*0.6)*0.75*smoothstep(10.0,40.0,vWP.y));
+      col*=mix(1.0,0.7,vFlow*smoothstep(20.0,80.0,vWP.y));
       float snowAmt=smoothstep(500.0,600.0,h+n2*90.0+(ao-0.5)*80.0)*(1.0-smoothstep(0.4,0.62,slope+(r2-0.5)*0.22));
       col=mix(col,vec3(0.95,0.94,0.99),snowAmt);
       col*=mix(0.7,1.1,ao);
@@ -580,6 +622,8 @@ void main(){
   vec3 n=noise.xzy*vec3(1.5,1.0,1.5);
   vec2 sw=vec2(texture2D(uNoise,wp*0.0005+vec2(time*0.003,0.0)).g,texture2D(uNoise,wp*0.0005+vec2(0.37,time*0.0025)).r)-0.5;
   n.xz+=sw*0.9;
+  float rough=smoothstep(0.32,0.68,texture2D(uNoise,wp*0.00022+vec2(time*0.0008,-time*0.0005)).r);
+  n.xz*=mix(0.4,1.3,rough);
   n.xz*=mix(0.25,1.0,smoothstep(0.0,10.0,depth))*mix(1.0,0.45,smoothstep(300.0,5000.0,dist));
   vec3 N=normalize(vec3(n.x*0.8+vWN.x*1.1,n.y,n.z*0.8+vWN.z*1.1));
   vec3 R=reflect(-sunDirection,N); float sp=max(dot(E,R),0.0);
@@ -600,7 +644,7 @@ void main(){
   float surf=0.5+0.5*sin(depth*0.9-time*3.0+fn*5.0);
   float foam=smoothstep(9.0,0.0,depth)*smoothstep(0.62,0.95,surf*0.7+fn2*0.5)*smoothstep(-1.0,1.0,depth)
             +smoothstep(1.6,0.0,depth)*smoothstep(0.35,0.7,fn*0.6+fn2*0.6)
-            +smoothstep(0.92,0.99,fn2*0.5+sw.x+0.5)*0.12*smoothstep(10.0,40.0,depth)*(1.0-smoothstep(400.0,2500.0,dist))
+            +smoothstep(0.92,0.99,fn2*0.5+sw.x+0.5)*0.12*rough*smoothstep(10.0,40.0,depth)*(1.0-smoothstep(400.0,2500.0,dist))
             +smoothstep(0.28,0.42,vCrest+fn2*0.08)*smoothstep(0.55,0.85,fn)*0.35;
   vec3 foamC=sunColor*0.55*sunUp+uSky*0.6+vec3(0.06);
   col=mix(col,foamC,clamp(foam,0.0,1.0)*0.85);
@@ -1053,7 +1097,7 @@ const grade=new ShaderPass({ uniforms:{tDiffuse:{value:null},uTime,uSun:{value:n
       vec3 c=texture2D(tDiffuse,vUv).rgb;
       if(uVis>0.002){
         vec2 st=(uSun-vUv)/56.0; vec2 p=vUv+st*hash(vUv+uTime); float dec=1.0; vec3 acc=vec3(0.0);
-        for(int i=0;i<56;i++){ p+=st; vec3 s=texture2D(tDiffuse,clamp(p,0.0,1.0)).rgb; float l=dot(s,vec3(.3,.59,.11)); acc+=s*smoothstep(.9,4.5,l)*dec; dec*=.963; }
+        for(int i=0;i<56;i++){ p+=st; vec3 s=texture2D(tDiffuse,clamp(p,0.0,1.0)).rgb; float l=dot(s,vec3(.3,.59,.11)); acc+=s*smoothstep(.9,4.5,l)*dec*exp(-length((p-uSun)*vec2(uAspect,1.))*4.0); dec*=.963; }
         c+=acc/56.0*uVis*uRayCol*1.15;
         vec2 sv=uSun-.5;
         for(int k=0;k<4;k++){ float g=float(k); float sc=-0.35-g*0.42; vec2 gp=.5+sv*sc; float rad=.025+g*.022; float r=length((vUv-gp)*vec2(uAspect,1.0));
