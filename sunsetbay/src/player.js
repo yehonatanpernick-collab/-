@@ -157,9 +157,10 @@ function playerFire() {
   if (!P.wasAiming) { h.yaw = cam.yaw; }
   const o = new THREE.Vector3(), d = new THREE.Vector3(); aimRay(o, d);
   h.mixer.update(0); h.handPos(_hp);
-  shootFrom(_hp, o, d, Wp, 'player');
+  const mv = Math.hypot(h.vx, h.vz), still = inpAim() ? 1 : 1.8;
+  shootFrom(_hp, o, d, { ...Wp, spread: Wp.spread * still * (1 + mv * 0.35) * (1 + (P.heat || 0) * 0.6) }, 'player'); P.heat = Math.min(1.5, (P.heat || 0) + (w === 2 ? 0.12 : 0.3));
   FX.fx_muzzle(_hp.x, _hp.y, _hp.z, w === 3); sound.shot(Wp.snd, 0);
-  cam.pitch = clamp(cam.pitch - (w === 3 ? 0.035 : w === 2 ? 0.008 : 0.016), -0.55, 1.2); cam.yaw += rnd(-1, 1) * (w === 2 ? 0.004 : 0.002);
+  cam.kick = (cam.kick || 0) + (w === 3 ? 0.06 : w === 2 ? 0.014 : 0.03); cam.kickY = rnd(-1, 1) * (w === 2 ? 0.006 : 0.004); cam.yaw += cam.kickY; cam.fovKick = w === 3 ? 3 : 1.2;
   FX.shake(w === 3 ? 0.18 : 0.04);
   alarm(h.x, h.z, 35, 1);
   P.noiseT = 2;
@@ -172,6 +173,7 @@ function playerFire() {
    UPDATE
    ===================================================================== */
 const K = c => !!input.keys[c];
+const inpAim = () => input.mouse.r || input.touch.fire;
 export function updatePlayer(dt) {
   const P = player, h = P.h, inp = input;
   P.fireT -= dt; P.aimHold -= dt; P.noiseT -= dt; P.hurtT = Math.max(0, P.hurtT - dt * 0.8); P.meleeT = (P.meleeT || 0) - dt;
@@ -316,11 +318,10 @@ function updateOnFoot(dt, ix, iz, pr) {
   if (r.my > 0 && P.vy > 0 && Math.abs(r.my) < Math.abs(P.vy * dt) * 0.2) P.vy = 0; // bonked head
   h.x = t.x; h.z = t.z; h.y = t.y - 0.86;
   // airborne anim
-  if (!P.grounded) { P.jumpT = (P.jumpT || 0) + dt; if (P.jumpT > 0.5 && !h.oneShot && P.vy < -2) h.playBase('fall', 0.2); }
-  else if (h.oneShot && (h.baseName === 'jump' || h.baseName === 'runJump') && P.jumpT > 0.25) { h.oneShot = null; h.oneShotFull = false; }
+  if (!P.grounded) { P.jumpT = (P.jumpT || 0) + dt; P.airT = (P.airT2 = (P.airT2 || 0) + dt); if (P.airT2 > 0.45 && !h.oneShot && P.vy < -3.5) h.playBase('fall', 0.2); } else { P.airT2 = 0; if (h.oneShot && (h.baseName === 'jump' || h.baseName === 'runJump') && P.jumpT > 0.25) { h.oneShot = null; h.oneShotFull = false; } }
   // locomotion animation
   const hs = Math.hypot(h.vx, h.vz);
-  if (P.grounded || P.jumpT < 0.5) {
+  if (P.grounded || (P.airT2 || 0) < 0.45) {
     if (aiming && hs > 0.3) {
       const fx = Math.sin(h.yaw), fz = Math.cos(h.yaw), fwd = (h.vx * fx + h.vz * fz) / hs, side = (h.vx * -fz + h.vz * fx) / hs;
       const clip = fwd < -0.5 ? 'walkBack' : side > 0.55 ? 'strafeL' : side < -0.55 ? 'strafeR' : null;
@@ -370,7 +371,8 @@ export function updateCamera(dt) {
     if (!aim && cam.look <= 0 && hs > 1.5 && !P.entering) cam.yaw += wrapA(h.yaw - cam.yaw) * (1 - Math.exp(-dt * 0.9));
     if (P.dead) { D = 6.5; cam.yaw += dt * 0.25; cam.pitch = damp(cam.pitch, 0.55, 1, dt); }
   }
-  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
+  cam.kick = (cam.kick || 0) * Math.exp(-dt * 9); cam.fovKick = (cam.fovKick || 0) * Math.exp(-dt * 12); player.heat = (player.heat || 0) * Math.exp(-dt * 4);
+  const pe = cam.pitch - cam.kick, cp = Math.cos(pe), sp = Math.sin(pe), fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   _dir.set(-fx * cp, sp, -fz * cp);
   const hit = camRay({ x: _tgt.x, y: _tgt.y, z: _tgt.z }, { x: _dir.x, y: _dir.y, z: _dir.z }, Math.max(D, cam.D || 0) + 0.3, P.car ? P.car.collider : null);
   cam.D = damp(cam.D ?? D, D, 9, dt); if (P.car && Math.abs(cam.D - D) > 4) cam.D = D;
@@ -381,7 +383,7 @@ export function updateCamera(dt) {
   if (smoothPos) camera.position.lerp(_des, 1 - Math.exp(-dt * 20)); else camera.position.copy(_des);
   if (FX.shakeAmt > 0) { const s = FX.shakeAmt; camera.position.x += rnd(-1, 1) * s * 0.2; camera.position.y += rnd(-1, 1) * s * 0.16; camera.position.z += rnd(-1, 1) * s * 0.2; FX.decayShake(dt); }
   camera.lookAt(_tgt);
-  setFov(fovT, dt);
+  setFov(fovT + (cam.fovKick || 0), dt);
   // headlights for the player car
   if (headL.length) {
     const v = P.car, n = W.lampsOn(sky_night()), on = v && !v.dead && v.lights && n > 0.05;

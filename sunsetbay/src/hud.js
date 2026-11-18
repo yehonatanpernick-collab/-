@@ -27,7 +27,8 @@ export function hudHeat(force) {
   el.classList.toggle('flash', wanted.level > 0 && wanted.evade <= 1.5);
   el.classList.toggle('evade', wanted.level > 0 && wanted.evade > 1.5);
 }
-export function hitMarker() { const c = $('crosshair'); c.classList.add('hit'); clearTimeout(c._t); c._t = setTimeout(() => c.classList.remove('hit'), 120); }
+export function hitMarker(kill) {
+  if (sound.ok) { sound.tone('triangle', kill ? 1500 : 2200, kill ? 900 : 1900, kill ? 0.12 : 0.05, kill ? 0.16 : 0.08); } const c = $('crosshair'); c.classList.add('hit'); clearTimeout(c._t); c._t = setTimeout(() => c.classList.remove('hit'), 120); }
 export function addMoney(n, quiet) {
   player.money = Math.max(0, player.money + n);
   if (!quiet) { const d = $('moneyDelta'); d.textContent = (n >= 0 ? '+' : '−') + fmtMoney(Math.abs(n)); d.style.color = n >= 0 ? 'var(--sea)' : 'var(--coral)'; d.classList.add('show'); clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('show'), 1800); }

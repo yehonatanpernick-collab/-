@@ -310,10 +310,10 @@ function addBillboard(x0, z0, x1, z1, top, side) {
 }
 
 /* ---------- blocks ---------- */
-const STY_LOW = ['plaster', 'plaster', 'brick', 'plaster2', 'plaster', 'brick2'];
-const STY_MID = ['brick', 'conc', 'plaster', 'brick2', 'conc', 'plaster2'];
+const STY_LOW = ['plaster', 'plaster', 'plaster2', 'plaster', 'plaster2', 'brick'];
+const STY_MID = ['plaster', 'plaster2', 'plaster', 'conc', 'plaster', 'brick'];
 const STY_TOW = ['glass', 'dark', 'glass', 'conc', 'glass'];
-const TINTS_LOW = ['#f6e3c4', '#efd0ab', '#dce8ea', '#f3d4c6', '#f2ead6', '#d6e4d2', '#ffffff', '#fbe0b0', '#d4deec', '#f0c9b4'];
+const TINTS_LOW = ['#f3dcc0', '#eec9a8', '#f5e6cf', '#e9b99a', '#f2d6d0', '#dfe9e4', '#fff4e2', '#f6d8a8', '#e8cfb9', '#e4c4a4', '#f7efe2'];
 const tint = () => new THREE.Color(spick(TINTS_LOW));
 const ftint = (a = 0.85, b = 1.05) => { const v = sr(a, b); return new THREE.Color(v, v * sr(0.97, 1.02), v * sr(0.95, 1.03)); };
 
@@ -344,12 +344,12 @@ function genBlock(bi, bj) {
   const lx0 = x0 + SWK, lx1 = x1 - SWK, lz0 = z0 + SWK, lz1 = z1 - SWK;
   const Y = CURB;
   switch (t) {
-    case 'L': perimeter(lx0, lz0, lx1, lz1, 6, 16, STY_LOW, 12, 17, { ads: true }); courtyardTrees(lx0 + 18, lz0 + 18, lx1 - 18, lz1 - 18); break;
+    case 'L': perimeter(lx0, lz0, lx1, lz1, 4.6, 10, STY_LOW, 12, 17, { ads: true }); courtyardTrees(lx0 + 18, lz0 + 18, lx1 - 18, lz1 - 18); break;
     case 'M': {
       const gap = 5, hw = (lx1 - lx0 - gap) / 2;
       for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
         const bx0 = lx0 + a * (hw + gap), bz0 = lz0 + b * (hw + gap), ins = sr(0, 3);
-        const st = spick(STY_MID), fh = FACADE_STYLES[st].floorH, h = 4.6 + Math.round(sr(14, 46) / fh) * fh;
+        const st = spick(STY_MID), fh = FACADE_STYLES[st].floorH, h = 4.6 + Math.round(sr(4, 16) / fh) * fh;
         addBuilding(bx0 + (a ? ins : 0), bz0 + (b ? ins : 0), bx0 + hw - (a ? 0 : ins), bz0 + hw - (b ? 0 : ins), h, st, { shops: true, tint: st.startsWith('plaster') ? tint() : ftint(), billboard: sr() < 0.3 ? (b ? 'z1' : 'z0') : null });
       }
       break;
@@ -486,6 +486,12 @@ function tree(x, z, y = CURB, s = 1) {
   inst('treeTrunk', m); inst('treeBranch', m); inst('treeLeaf', m, new THREE.Color(g, g * sr(0.95, 1.08), g * sr(0.85, 1)));
   pAdd({ x, z, r: 0.3 * sc, kind: 'tree', alive: true, solid: true });
 }
+// tall, thin Washingtonia palms that line the boulevards
+function laPalm(x, z, y = CURB) {
+  const H = sr(17, 25), ry = sr(0, 6.28), s = sr(0.9, 1.1);
+  inst('laTrunk', M4(x, y, z, ry, s, H, s)); inst('laCrown', M4(x, y + H, z, ry, s * sr(0.85, 1.05)), new THREE.Color().setHSL(sr(0.2, 0.26), 0.42, sr(0.3, 0.38))); inst('laSkirt', M4(x, y + H, z, ry, s));
+  pAdd({ x, z, r: 0.25, kind: 'tree', alive: true, solid: true });
+}
 function palm(x, z, y = 0, s = 1) {
   const sc = s * sr(0.85, 1.2), ry = sr(0, 6.28);
   inst('palmTrunk', M4(x, y, z, ry, sc)); inst('palmLeaves', M4(x, y, z, ry, sc), new THREE.Color().setHSL(sr(0.2, 0.28), 0.45, sr(0.32, 0.42)));
@@ -523,9 +529,9 @@ function genStreets() {
         pAdd({ x: lx, z: lz, r: 0.22, kind: 'lamp', alive: true, inst: ['lampPost', 'lampHead'], idx: li, ry, knock: true });
       }
       const tB = blockType(axis === 0 ? seg : (side > 0 ? line : line - 1), axis === 0 ? (side > 0 ? line : line - 1) : seg);
-      if (tB && tB !== 'K' && tB !== 'T' && tB !== 'B') for (let u = a + 27; u < b - 8; u += 26) {
+      if (tB && tB !== 'T' && tB !== 'B') for (let u = a + 20; u < b - 6; u += 13) {
         const off = side * (HRW + 1.6); const [tx, tz] = axis === 0 ? [u, c + off] : [c + off, u];
-        if (sr() < 0.85) tree(tx, tz, CURB, 0.9);
+        laPalm(tx, tz, CURB);
       }
       if (sr() < 0.35) { const u = sr(a + 8, b - 8), off = side * (HRW + 0.7); const [hx, hz] = axis === 0 ? [u, c + off] : [c + off, u]; inst('hydrant', M4(hx, CURB, hz)); pAdd({ x: hx, z: hz, r: 0.2, kind: 'hydrant', alive: true, knock: true, inst: ['hydrant'], idx: INST.hydrant.list.length - 1 }); }
       if (sr() < 0.3 && tB && tB !== 'K') { const u = sr(a + 10, b - 10), off = side * (HRW + 4.2); const [bx, bz] = axis === 0 ? [u, c + off] : [c + off, u]; benchSpots.push([bx, bz, axis === 0 ? (side > 0 ? Math.PI : 0) : (side > 0 ? -Math.PI / 2 : Math.PI / 2)]); }
@@ -634,6 +640,25 @@ function updateWheel(dt, night) {
 }
 
 /* ---------- ramps ---------- */
+// distant coastal mountains across the bay, like the hills around Los Angeles
+function genHills() {
+  const NA = 240, NR = 26, R0 = 560, R1 = 980, pos = [], col = [], idx = [];
+  const fb = (a, r) => { let h = 0, f = 1, amp = 1; for (let o = 0; o < 5; o++) { h += amp * Math.sin(a * 3 * f + o * 1.7 + Math.sin(r * 0.004 * f + o) * 1.3) * Math.cos(r * 0.006 * f - o * 0.9); f *= 2.1; amp *= 0.5; } return h; };
+  for (let j = 0; j <= NR; j++) for (let i = 0; i <= NA; i++) {
+    const a = i / NA * Math.PI * 2, r = R0 + (R1 - R0) * j / NR, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    // high to the north and west, low over the open sea to the east (where the pier is)
+    const side = 0.55 + 0.45 * Math.cos(a - Math.PI * 1.15), prof = Math.sin(Math.PI * Math.pow(j / NR, 0.7));
+    let h = (60 + 95 * side) * prof * (0.65 + 0.35 * fb(a, r)) + 18 * prof * fb(a * 3.3, r * 1.7);
+    if (j === 0) h = -6;
+    pos.push(x, h, z);
+    const dry = clamp(h / 150, 0, 1), t = sr(0.92, 1.05);
+    col.push((0.36 + 0.26 * dry) * t, (0.33 + 0.16 * dry) * t, (0.22 + 0.08 * dry) * t);
+  }
+  for (let j = 0; j < NR; j++) for (let i = 0; i < NA; i++) { const a = j * (NA + 1) + i, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }));
+  m.receiveShadow = false; m.castShadow = false; m.matrixAutoUpdate = false; scene.add(m);
+}
 function genRamps() {
   const mat = new THREE.MeshStandardMaterial({ map: T_.metal.c, normalMap: T_.metal.n, color: 0xe2a63a, roughness: 0.55, metalness: 0.5 });
   for (const r of RAMPS) {
@@ -711,6 +736,22 @@ export function buildWorld(T, M) {
     instDef('palmLeaves', lg, new THREE.MeshStandardMaterial({ map: TEX.palm, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.75 }), { chunk: true });
   }
   {
+    // LA palm: unit-height trunk (scaled per instance) + crown with a dead-frond skirt
+    const t = new THREE.CylinderGeometry(0.17, 0.26, 1, 7, 1); t.translate(0, 0.5, 0);
+    instDef('laTrunk', t, pbr(T.wood, { color: 0x9c8a76, roughness: 0.95 }), { chunk: true });
+    const parts = [];
+    for (let k = 0; k < 16; k++) {
+      const g = new THREE.PlaneGeometry(0.95, 3.4, 1, 5); g.rotateX(-Math.PI / 2); g.translate(0, 0, 1.7);
+      const lp = g.attributes.position; for (let i = 0; i < lp.count; i++) { const z = lp.getZ(i); lp.setY(i, 0.45 * z - 0.2 * z * z); }
+      g.rotateY(k / 16 * Math.PI * 2 + (k % 2) * 0.15); parts.push(g);
+    }
+    const skirt = new THREE.CylinderGeometry(0.75, 0.35, 1.6, 9, 1, true); skirt.translate(0, -0.7, 0);
+    const sc = new Float32Array(skirt.attributes.position.count * 3).fill(0); skirt.setAttribute('color', new THREE.BufferAttribute(sc, 3));
+    const lg = mergeGeometries(parts.map(g => { const n = g.attributes.position.count, c = new Float32Array(n * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; })); lg.computeVertexNormals();
+    instDef('laCrown', lg, new THREE.MeshStandardMaterial({ map: TEX.palm, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.75 }), { chunk: true });
+    instDef('laSkirt', skirt, new THREE.MeshStandardMaterial({ color: 0x6e5a42, roughness: 1, side: THREE.DoubleSide }), { chunk: true });
+  }
+  {
     const ni = g => g.index ? g.toNonIndexed() : g;
     const hb = new THREE.CylinderGeometry(0.15, 0.17, 0.62, 16); hb.translate(0, 0.37, 0);
     const hf = new THREE.CylinderGeometry(0.21, 0.21, 0.07, 16); hf.translate(0, 0.07, 0);
@@ -733,7 +774,7 @@ export function buildWorld(T, M) {
     instDef('pool', pg, MAT.pool, { shadow: false, receive: false });
   }
   for (let bj = 0; bj < NB; bj++) for (let bi = 0; bi < NB; bi++) genBlock(bi, bj);
-  genStreets(); genPier(); genRamps();
+  genStreets(); genPier(); genRamps(); genHills();
   for (const [x, z, ry] of benchSpots) inst('bench', M4(x, CURB, z, ry));
   // ---- materials
   MAT.fac = {}; for (const k in FACADE_STYLES) MAT.fac[k] = makeFacadeMaterial(k, T);

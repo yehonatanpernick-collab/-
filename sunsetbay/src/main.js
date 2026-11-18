@@ -178,7 +178,7 @@ async function boot() {
     W.buildWorld(G.T, G.M); buildStatic();
     FX.initFX(); initVehicleFX(); setupPost(); setMoodTimes(CFG.moodSeconds); buildMapBase();
     const gun = prepGun(G.M.pistol); AI.setGunModel(gun); setPickupGun(gun);
-    const m0 = store.get('sb2-mood', 'auto'); if (m0 !== 'auto') { sky.auto = false; setMood(m0, 0); } else setMood('day', 0);
+    const m0 = store.get('sb2-mood', 'auto'); if (m0 !== 'auto') { sky.auto = false; setMood(m0, 0); } else setMood('sunset', 0);
     setMoodHooks(moodGet, moodSet); setNightSource(() => sky.night);
     const sv = store.get('sb2-save', null);
     if (sv) { player.money = sv.money || 0; mission.idx = sv.idx || 0; player.owned = sv.owned || player.owned; player.ammo = sv.ammo || player.ammo; player.mag = sv.mag || player.mag; Object.assign(stats, sv.stats || {}); flags.firstRun = false; $('newBtn').hidden = false; }

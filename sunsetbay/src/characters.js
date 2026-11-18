@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { buildRig, retargetClip, normBone } from './retarget.js';
 import { loadGLTF, scene, camera } from './render.js';
-import { clamp, damp, wrapA, rnd, pick } from './core.js';
+import { clamp, damp, wrapA, rnd, pick, smooth } from './core.js';
 import { interp } from './state.js';
 
 // logical clip -> [file, loop]
@@ -103,7 +103,7 @@ export class Human {
     const s = target / this.entry.height; this.model.scale.setScalar(s); this.model.position.y = -this.entry.minY * s;
     this.height = target; this.root.add(this.model); scene.add(this.root);
     this.mixer = new THREE.AnimationMixer(this.model);
-    this.actions = new Map(); this.base = null; this.upper = null; this.oneShot = null;
+    this.actions = new Map(); this.lw = new Map(); this.base = null; this.upper = null; this.oneShot = null;
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.vx = 0; this.vz = 0; this.vy = 0; this.speed = 0;
     this.hp = kind === 'cop' ? 90 : kind === 'gang' ? 80 : kind === 'player' ? 100 : 45; this.alive = true; this.state = 'normal';
     this.aiming = false; this.aimPitch = 0; this.recoil = 0; this.weapon = 0; this.hidden = false;
@@ -115,17 +115,20 @@ export class Human {
     const key = logical + ':' + part; let a = this.actions.get(key); if (a) return a;
     const clip = lib.clip(this.entry, logical, part); if (!clip) return null;
     a = this.mixer.clipAction(clip); const loop = ANIMS[logical][1];
-    a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; this.actions.set(key, a); return a;
+    a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.userData = { name: logical, loop }; this.actions.set(key, a); return a;
   }
-  // base layer (full or lower body), crossfaded
+  // ---- base-layer weight blending (all base clips sum to 1, so bones never fall back to the bind pose)
+  get part() { return (this.aiming || (this.oneShot && !this.oneShotFull)) ? 'lower' : 'full'; }
+  _tw(a, w) { let L = this.lw.get(a); if (!L) { L = { w: 0, tw: 0 }; this.lw.set(a, L); a.enabled = true; a.setEffectiveWeight(0); a.play(); } L.tw = w; return L; }
+  _setTargets(map, fade) { for (const [a, L] of this.lw) if (!map.has(a)) L.tw = 0; for (const [a, w] of map) this._tw(a, w); this.fade = Math.max(0.06, fade); }
+  _blend(dt) {
+    const k = dt / (this.fade || 0.2); let tot = 0;
+    for (const L of this.lw.values()) { L.w += clamp(L.tw - L.w, -k, k); tot += L.w; }
+    for (const [a, L] of this.lw) { a.setEffectiveWeight(tot > 0 ? L.w / tot : 0); if (L.w <= 1e-4 && L.tw === 0) { a.stop(); this.lw.delete(a); } }
+  }
   playBase(logical, fade = 0.25, ts = 1) {
-    const part = this.aiming && !this.oneShotFull ? 'lower' : 'full';
-    const a = this.action(logical, part); if (!a) return;
-    a.timeScale = ts;
-    if (this.base === a) return;
-    a.reset(); a.setEffectiveWeight(1); a.play();
-    if (this.base) a.crossFadeFrom(this.base, fade, false);
-    this.base = a; this.baseName = logical;
+    const a = this.action(logical, this.part); if (!a) return;
+    a.timeScale = ts; this._setTargets(new Map([[a, 1]]), fade); this.base = a; this.baseName = logical; this.locoOn = false;
   }
   setUpper(logical, fade = 0.15) {
     const a = logical ? this.action(logical, 'upper') : null;
@@ -136,24 +139,40 @@ export class Human {
   }
   playOnce(logical, { fade = 0.12, ts = 1, full = true, then = null } = {}) {
     const a = this.action(logical, full ? 'full' : 'upper'); if (!a) return 0;
-    a.reset(); a.timeScale = ts; a.setEffectiveWeight(1); a.play();
-    if (full && this.base) { a.crossFadeFrom(this.base, fade, false); this.base = a; this.baseName = logical; }
+    a.reset(); a.timeScale = ts; a.play();
+    if (full) { this._setTargets(new Map([[a, 1]]), fade); this.base = a; this.baseName = logical; this.locoOn = false; }
+    else { a.setEffectiveWeight(1); a.fadeIn(fade); }
     this.oneShot = a; this.oneShotFull = full;
-    this.onFinished = act => { if (act === a) { this.oneShot = null; this.oneShotFull = false; if (then) then(); } };
+    this.onFinished = act => { if (act === a) { if (!full) a.fadeOut(0.18); this.oneShot = null; this.oneShotFull = false; if (then) then(); } };
     return a.getClip().duration / ts;
   }
-  clipSpeed(logical) { lib.clip(this.entry, logical); const s = this.entry.speeds.get(logical); return (s || 1.4) * this.height * 0.53; }
-  // choose locomotion by speed; returns nothing
+  clipSpeed(logical) { lib.clip(this.entry, logical); const s = this.entry.speeds.get(logical); return Math.max(0.6, (s || 1.4) * this.height * 0.53); }
+  // locomotion blend space: idle -> walk -> run -> sprint by speed, all moving clips phase-locked
   locomote(speed, dt, opts = {}) {
     if (this.state !== 'normal' || this.oneShotFull) return;
-    const aimingChanged = (this.aiming && this.base && this.base.getClip().name.endsWith(':full')) || (!this.aiming && this.base && this.base.getClip().name.endsWith(':lower'));
-    if (aimingChanged) { const n = this.baseName; this.base = null; this.playBase(LOCO.has(n) || n.startsWith('idle') ? n : 'idle', 0.15); }
-    if (speed < 0.25) { this.playBase(opts.idle || this.idleClip, 0.3); return; }
-    let name = opts.walk || this.walkClip;
-    if (speed > 5.6) name = 'sprint'; else if (speed > 2.7) name = 'run';
-    if (opts.back) name = speed > 2.7 ? 'walkBack' : 'walkBack';
-    const cs = Math.max(0.6, this.clipSpeed(name));
-    this.playBase(name, 0.25, clamp(speed / cs, 0.6, 1.6));
+    const part = this.part, idle = this.action(opts.idle || this.idleClip, part); if (!idle) return;
+    const wName = opts.back ? 'walkBack' : (opts.walk || this.walkClip), strafe = !!(opts.back || opts.walk);
+    const slots = [[wName, this.clipSpeed(wName)]];
+    if (!strafe) slots.push(['run', this.clipSpeed('run')], ['sprint', Math.max(this.clipSpeed('sprint'), this.clipSpeed('run') + 1)]);
+    const ws = new Array(slots.length).fill(0); let wIdle = 0;
+    const s0 = slots[0][1];
+    if (speed < 0.12) wIdle = 1;
+    else if (speed < s0) { const t = smooth(0, s0 * 0.75, speed); wIdle = 1 - t; ws[0] = t; }
+    else { let k = 0; while (k < slots.length - 1 && speed > slots[k + 1][1]) k++; if (k === slots.length - 1) ws[k] = 1; else { const t = (speed - slots[k][1]) / (slots[k + 1][1] - slots[k][1]); ws[k] = 1 - t; ws[k + 1] = t; } }
+    const map = new Map(); if (wIdle > 0) { map.set(idle, wIdle); idle.timeScale = 1; }
+    let wm = 0, S = 0, Dm = 0; const acts = [];
+    slots.forEach(([n, sp], i) => { if (ws[i] <= 0) return; const a = this.action(n, part); if (!a) return; acts.push([a, ws[i]]); wm += ws[i]; S += ws[i] * sp; Dm += ws[i] * a.getClip().duration; });
+    if (wm > 0) {
+      S /= wm; Dm /= wm; const r = clamp(speed / S, 0.55, 1.6);
+      // phase lock: new clips start at the leader's normalized phase
+      let lead = null, lw = -1; for (const [a] of acts) { const L = this.lw.get(a); if (L && L.w > lw) { lw = L.w; lead = a; } }
+      for (const [a, w] of acts) {
+        a.timeScale = r * a.getClip().duration / Dm;
+        if (!this.lw.has(a) && lead && lead !== a) a.time = (lead.time / lead.getClip().duration % 1) * a.getClip().duration;
+        map.set(a, w * (1 - wIdle) / wm * (wIdle > 0 ? 1 : 1));
+      }
+    }
+    this._setTargets(map, this.locoOn ? 0.18 : 0.25); this.locoOn = true; this.baseName = 'loco';
   }
   attachGun(gunModel) {
     if (this.gun) return; const hand = this.bones.RightHand; if (!hand || !gunModel) return;
@@ -173,7 +192,7 @@ export class Human {
     else { this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.yaw; }
     const every = this.dist < 35 ? 1 : this.dist < 80 ? 2 : 4;
     this.lodT += dt;
-    if (vis && (frame % every === 0 || this.kind === 'player')) { this.mixer.update(this.lodT); this.lodT = 0; this.postPose(); }
+    if (vis && (frame % every === 0 || this.kind === 'player')) { this._blend(this.lodT); this.mixer.update(this.lodT); this.lodT = 0; this.postPose(); }
     const sh = this.dist < 45; if (sh !== this.shadowOn) { this.shadowOn = sh; this.model.traverse(o => { if (o.isMesh) o.castShadow = sh; }); }
     if (this.gun) this.gun.visible = this.weapon > 0 && this.alive && this.state === 'normal' && !this.hidden;
     this.recoil = Math.max(0, this.recoil - dt * 6);

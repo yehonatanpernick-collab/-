@@ -12,7 +12,7 @@ export const CFG = {
   evadeTime: [0, 10, 14, 18, 24, 30],
   copShootFrom: 2, copAccuracy: 0.3,
   respawnFeePct: 0.08,
-  moodSeconds: { day: 420, sunset: 200, night: 420 },
+  moodSeconds: { day: 240, sunset: 900, night: 300 },
   stuntMinAir: 0.9,
 };
 export const QUALITY = {

@@ -522,17 +522,17 @@ export function raycastAll(origin, dir, maxD, skipCar) {
 }
 export function shootFrom(muzzle, aimOrigin, aimDir, W_, by) {
   const n = W_.pellets || 1;
-  let anyHit = false;
+  let anyHit = false, killed = false;
   for (let k = 0; k < n; k++) {
     const sp = W_.spread;
     _d.copy(aimDir).add(_rv.set(rnd(-sp, sp), rnd(-sp, sp), rnd(-sp, sp))).normalize();
     const hit = raycastAll(aimOrigin, _d.clone(), W_.range, player.car);
     FX.tracer(muzzle.x, muzzle.y, muzzle.z, hit.p.x, hit.p.y, hit.p.z);
-    if (hit.kind === 'human') { damageHuman(hit.h, W_.dmg * (hit.head ? 2.6 : 1), by, player.x, player.z, false); FX.fx_hit(hit.p.x, hit.p.y, hit.p.z, 'flesh'); anyHit = true; }
+    if (hit.kind === 'human') { damageHuman(hit.h, W_.dmg * (hit.head ? 2.6 : 1), by, player.x, player.z, false); FX.fx_hit(hit.p.x, hit.p.y, hit.p.z, 'flesh'); anyHit = true; if (!hit.h.alive) killed = true; }
     else if (hit.kind === 'car') { damageCar(hit.v, W_.dmg * 1.2, by); FX.fx_hit(hit.p.x, hit.p.y, hit.p.z, 'metal'); if (hit.v.variant === 'police') addHeat(0.5, 'copcar'); if (hit.v.mode === 'traffic' && Math.random() < 0.35) knockLoose(hit.v, hit.v.vx, hit.v.vz); anyHit = true; }
     else if (hit.kind !== 'none') { FX.fx_hit(hit.p.x, hit.p.y, hit.p.z, 'dust'); if (hit.n && hit.kind === 'wall') FX.bulletHole(hit.p.x, hit.p.y, hit.p.z, hit.n[0], hit.n[1], hit.n[2]); }
   }
-  if (anyHit) hitMarker();
+  if (anyHit) hitMarker(killed);
 }
 export function damageCar(v, n, by) {
   if (!v || v.dead) return; v.hp -= n; if (by) v.lastBy = by;
@@ -598,7 +598,8 @@ export function handleContacts(ev) {
       if (v.graceT && performance.now() - v.graceT < 800) { if (other && other.kind === 'prop' && other.ref.alive) { if (other.ref.knock) knockProp(other.ref, v); else removePropCollider(other.ref); } continue; }
       const thr = other && (other.kind === 'ground' || other.kind === 'sand') ? 45 : 25;
       if (imp > thr) {
-        const dmg = Math.min(350, (imp - thr) * 1.6); damageCar(v, dmg, other && other.kind === 'car' && other.ref.isPlayer ? 'player' : v.lastBy);
+        const now = performance.now(); if (v._dmgT && now - v._dmgT < 160) continue; v._dmgT = now;
+        const dmg = Math.min(180, (imp - thr) * 0.9); damageCar(v, dmg, other && other.kind === 'car' && other.ref.isPlayer ? 'player' : v.lastBy);
         if (v.camDist < 70 && (!v._snd || clock.t - v._snd > 0.25)) { v._snd = clock.t; sound.impact(clamp(imp / 160, 0.15, 1), v.camDist); FX.fx_sparks(v.x, v.y + 0.6, v.z, Math.min(30, imp / 6)); }
         if (v.isPlayer) FX.shake(clamp(imp / 300, 0.05, 0.7));
         if (other && other.kind === 'car' && other.ref.variant === 'police' && v.isPlayer) addHeat(0.5, 'ram');
