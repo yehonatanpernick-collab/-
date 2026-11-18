@@ -180,7 +180,7 @@ skyU.turbidity.value = 10; skyU.rayleigh.value = 3.1; skyU.mieCoefficient.value 
 skyU.uFog = { value: new C(0xb8705a) };
 sky.material.fragmentShader = 'uniform vec3 uFog;\n' + sky.material.fragmentShader.replace(
   'gl_FragColor = vec4( retColor, 1.0 );',
-  'float hz = smoothstep(-0.03, 0.16, direction.y); retColor = min(mix(uFog, retColor, hz), vec3(40.0)); gl_FragColor = vec4( retColor, 1.0 );');
+  'float hz = smoothstep(-0.03, 0.16, direction.y); vec3 fcs = mix(uFog*vec3(0.72,0.8,1.05), uFog*vec3(1.4,1.12,0.88), pow(max(dot(direction, vSunDirection),0.0),5.0)); retColor = min(mix(fcs, retColor, hz), vec3(40.0)); gl_FragColor = vec4( retColor, 1.0 );');
 scene.add(sky);
 const sunDir = new V3();
 const SUN_AZ = 198;
@@ -301,62 +301,108 @@ const perlin = new ImprovedNoise();
 function fbm(x,z,o,zz=1.7){ let a=1,f=1,s=0,n=0; for(let i=0;i<o;i++){ s+=a*perlin.noise(x*f,z*f,zz); n+=a; a*=.5; f*=2.03; } return s/n; }
 function ridged(x,z,o){ let a=.55,f=1,s=0,prev=1; for(let i=0;i<o;i++){ let n=1-Math.abs(perlin.noise(x*f,z*f,7.3)); n*=n; s+=n*a*prev; prev=n; a*=.5; f*=2.1; } return s; }
 const SPAWN = new V3(0, 0, 2700);
-function terrainH(x,z){
+function terrainHRaw(x,z){
   const d = Math.hypot(x,z);
+  // domain warp bends the ridgelines into eroded, branching shapes
+  const wx = x + fbm(x*.0006,z*.0006,3,5.5)*430, wz = z + fbm(x*.0006,z*.0006,3,8.8)*430;
   const e = fbm(x*0.00042+11.3, z*0.00042-4.1, 4)*1.9 + 0.12;
-  const r = ridged(x*0.0011, z*0.0011, 6);
-  let h = e*420 + Math.max(0, e+0.12)*r*1080 + fbm(x*0.004,z*0.004,3,4.4)*22;
+  const r = ridged(wx*0.0011, wz*0.0011, 6);
+  let h = e*420 + Math.max(0, e+0.12)*Math.pow(r,1.3)*1300 + fbm(wx*0.004,wz*0.004,3,4.4)*24;
   const fall = 1 - sm(2900, 4300, d);
   h = h*fall - 95*(1-fall);
   const sd = Math.hypot(x-SPAWN.x, z-SPAWN.z);
   h = lerp(-95, h, sm(350, 1100, sd));
   return Math.max(h, -95);
 }
-function slopeAt(x,z){ const e=6; const dx=terrainH(x+e,z)-terrainH(x-e,z), dz=terrainH(x,z+e)-terrainH(x,z-e); return Math.hypot(dx,dz)/(2*e); }
-const TS = 9400, TSEG = LOWQ ? 340 : 560;
+const TS = 9400, TSEG = LOWQ ? 340 : 600, TN = TSEG+1, TSTEP = TS/TSEG;
+const HGRID = new Float32Array(TN*TN);
+for(let r=0;r<TN;r++) for(let c=0;c<TN;c++) HGRID[r*TN+c]=terrainHRaw(-TS/2+c*TSTEP, -TS/2+r*TSTEP);
+function terrainH(x,z){
+  const fx=(x+TS/2)/TSTEP, fz=(z+TS/2)/TSTEP; if(!(fx>=0&&fz>=0&&fx<TSEG&&fz<TSEG)) return -95;
+  const c=Math.floor(fx), r=Math.floor(fz), tx=fx-c, tz=fz-r, i=r*TN+c;
+  const a=HGRID[i],b=HGRID[i+1],cc=HGRID[i+TN],d=HGRID[i+TN+1]; return (a+(b-a)*tx)*(1-tz)+(cc+(d-cc)*tx)*tz;
+}
+function slopeAt(x,z){ const e=8; const dx=terrainH(x+e,z)-terrainH(x-e,z), dz=terrainH(x,z+e)-terrainH(x,z-e); return Math.hypot(dx,dz)/(2*e); }
+// seabed / height texture for the water shader
+const heightTex = (()=>{ const d=new Uint16Array(TN*TN); for(let i=0;i<d.length;i++) d[i]=THREE.DataUtils.toHalfFloat(HGRID[i]);
+  const t=new THREE.DataTexture(d,TN,TN,THREE.RedFormat,THREE.HalfFloatType); t.magFilter=t.minFilter=THREE.LinearFilter; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.needsUpdate=true; return t; })();
+// aerial perspective: bluish away from the sun, glowing toward it, mist pooling in valleys
+const FOG_GLSL = `
+uniform vec3 uSunW;
+vec3 dirFog(vec3 col, vec3 wp, vec3 fogC, float dens){
+  vec3 dv=wp-cameraPosition; float dist=length(dv); vec3 V=dv/max(dist,1e-3);
+  float ff=1.0-exp(-dens*dens*dist*dist);
+  float hf=exp(-max(wp.y,0.0)/75.0)*smoothstep(150.0,1600.0,dist)*0.38;
+  ff=clamp(ff+(1.0-ff)*hf,0.0,1.0);
+  float sg=pow(max(dot(V,uSunW),0.0),5.0);
+  vec3 fc=mix(fogC*vec3(0.72,0.8,1.05),fogC*vec3(1.4,1.12,0.88),sg);
+  return mix(col,fc,ff);
+}`;
 (()=>{
   const geo = new THREE.PlaneGeometry(TS, TS, TSEG, TSEG); geo.rotateX(-Math.PI/2);
   const p = geo.attributes.position;
-  for(let i=0;i<p.count;i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)));
+  for(let i=0;i<p.count;i++) p.setY(i, HGRID[i]);
   geo.computeVertexNormals(); geo.deleteAttribute('uv');
+  // cavity/ridge term from local curvature at two scales
+  const ao=new Float32Array(p.count), g=(r,c)=>HGRID[clamp(r,0,TSEG)*TN+clamp(c,0,TSEG)];
+  for(let r=0;r<TN;r++) for(let c=0;c<TN;c++){ const h=HGRID[r*TN+c]; let m1=0,m2=0;
+    for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){ m1+=g(r+dr*3,c+dc*3); m2+=g(r+dr*10,c+dc*10); }
+    ao[r*TN+c]=clamp(.55+(h-m1/8)/45+(h-m2/8)/220,0,1); }
+  geo.setAttribute('aAO',new THREE.BufferAttribute(ao,1));
   const mat = new THREE.MeshStandardMaterial({ roughness:.92, metalness:0, envMapIntensity:.45 });
   mat.onBeforeCompile = sh=>{
-    sh.uniforms.uNoise={value:noiseTex}; sh.uniforms.uTime=uTime;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP; varying vec3 vWN;')
-      .replace('#include <fog_vertex>','#include <fog_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz; vWN=normalize(mat3(modelMatrix)*objectNormal);');
+    sh.uniforms.uNoise={value:noiseTex}; sh.uniforms.uTime=uTime; sh.uniforms.uSunW={value:sunDir};
+    sh.vertexShader = sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAO; varying vec3 vWP; varying vec3 vWN; varying float vAO;')
+      .replace('#include <fog_vertex>','#include <fog_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz; vWN=normalize(mat3(modelMatrix)*objectNormal); vAO=aAO;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>',`#include <common>
-      varying vec3 vWP; varying vec3 vWN; uniform sampler2D uNoise; uniform float uTime;
-      float nA(vec2 p){ return texture2D(uNoise,p).r; } float nB(vec2 p){ return texture2D(uNoise,p).g; }`)
+      varying vec3 vWP; varying vec3 vWN; varying float vAO; uniform sampler2D uNoise; uniform float uTime;
+      float nA(vec2 p){ return texture2D(uNoise,p).r; } float nB(vec2 p){ return texture2D(uNoise,p).g; }
+      float tri(vec3 p, vec3 w, float s){ return nA(p.zy*s)*w.x+nA(p.xz*s)*w.y+nA(p.xy*s)*w.z; }
+      float triB(vec3 p, vec3 w, float s){ return nB(p.zy*s)*w.x+nB(p.xz*s)*w.y+nB(p.xy*s)*w.z; }
+      ${FOG_GLSL}`)
     .replace('#include <color_fragment>',`#include <color_fragment>
-      vec3 wn0=normalize(vWN);
+      vec3 wn0=normalize(vWN); vec3 tw=pow(abs(wn0),vec3(4.0)); tw/=tw.x+tw.y+tw.z;
       float n1=nA(vWP.xz*0.00035), n2=nA(vWP.xz*0.0031), n3=nB(vWP.xz*0.021), n4=nA(vWP.xz*0.09);
-      float slope=1.0-wn0.y; float h=vWP.y+(n1-0.5)*90.0;
-      float rockAmt=smoothstep(0.24,0.40,slope+(n2-0.5)*0.22);
+      float r1=tri(vWP,tw,0.011), r2=triB(vWP,tw,0.042), r3=tri(vWP,tw,0.15);
+      float slope=1.0-wn0.y; float h=vWP.y+(n1-0.5)*90.0; float ao=vAO;
+      float rockAmt=smoothstep(0.23,0.38,slope+(n2-0.5)*0.22+(r2-0.5)*0.14);
+      float screeAmt=smoothstep(0.14,0.26,slope+(n3-0.5)*0.15)*(1.0-rockAmt);
       vec3 sand=vec3(0.62,0.50,0.36)*(0.85+0.3*n4);
-      vec3 grass=mix(vec3(0.11,0.18,0.05),vec3(0.30,0.33,0.11),smoothstep(0.3,0.75,n2));
-      grass=mix(grass,vec3(0.38,0.30,0.15),smoothstep(0.55,0.85,n3)*0.55);
+      vec3 grass=mix(vec3(0.10,0.17,0.05),vec3(0.30,0.33,0.11),smoothstep(0.3,0.75,n2));
+      grass=mix(grass,vec3(0.38,0.30,0.15),smoothstep(0.55,0.85,n3)*0.5);
+      grass=mix(grass,vec3(0.06,0.11,0.04),smoothstep(0.45,0.2,ao)*0.6);
       grass*=0.8+0.4*n4;
-      float strata=0.5+0.5*sin(vWP.y*0.16+n2*9.0+n3*3.0);
-      vec3 rock=mix(vec3(0.19,0.16,0.15),vec3(0.44,0.37,0.31),n3*0.55+strata*0.45)*(0.75+0.5*n4);
+      vec3 scree=mix(vec3(0.33,0.27,0.18),vec3(0.42,0.36,0.29),r3)*(0.8+0.4*n4);
+      float strata=0.5+0.5*sin(vWP.y*0.13+r1*11.0+n2*4.0);
+      float sharp=smoothstep(0.3,0.7,strata);
+      vec3 rock=mix(vec3(0.15,0.125,0.115),vec3(0.47,0.40,0.34),r2*0.5+sharp*0.35+r3*0.15);
+      rock=mix(rock,vec3(0.36,0.26,0.22),smoothstep(0.55,0.8,r1)*0.45);
+      rock*=0.65+0.7*ao;
       vec3 col=mix(sand*0.5,sand,smoothstep(-25.0,1.5,vWP.y));
       col=mix(col,grass,smoothstep(9.0,20.0,vWP.y+n3*12.0));
-      col=mix(col,rock,max(rockAmt,smoothstep(300.0,470.0,h)));
-      float snowAmt=smoothstep(520.0,610.0,h+n2*90.0)*(1.0-smoothstep(0.42,0.62,slope));
-      col=mix(col,vec3(0.94,0.93,0.97),snowAmt);
+      col=mix(col,scree,screeAmt*smoothstep(12.0,30.0,vWP.y));
+      col=mix(col,rock,max(rockAmt,smoothstep(320.0,480.0,h)));
+      float snowAmt=smoothstep(500.0,600.0,h+n2*90.0+(ao-0.5)*80.0)*(1.0-smoothstep(0.4,0.62,slope+(r2-0.5)*0.22));
+      col=mix(col,vec3(0.95,0.94,0.99),snowAmt);
+      col*=mix(0.7,1.1,ao);
       float shore=smoothstep(3.2,0.3,vWP.y)*smoothstep(-0.6,0.3,vWP.y);
       float foam=smoothstep(0.5,0.72,nA(vWP.xz*0.03+vec2(uTime*0.01,0.0))+0.3*sin(vWP.y*5.0-uTime*2.2));
-      col*=mix(1.0,0.62,smoothstep(5.0,0.0,vWP.y));
+      col*=mix(1.0,0.6,smoothstep(5.0,0.0,vWP.y));
       col=mix(col,vec3(0.9,0.86,0.82),shore*foam*0.75);
       diffuseColor.rgb=col;
-      float tRough=mix(mix(0.96,0.86,rockAmt),0.5,snowAmt);
+      float fp=length(fwidth(vWP)); float f3=1.0-smoothstep(0.35,1.2,fp), f2=1.0-smoothstep(1.5,5.0,fp), fs=1.0-smoothstep(5.0,14.0,fp);
+      float tRough=mix(mix(0.96,0.86,rockAmt),0.42,snowAmt);
       tRough=mix(tRough,0.45,smoothstep(4.0,0.5,vWP.y));`)
     .replace('#include <roughnessmap_fragment>','float roughnessFactor = tRough;')
     .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
-      { float e=1.0/256.0; vec2 q=vWP.xz*0.021; float a=nB(q+vec2(e,0.0))-nB(q-vec2(e,0.0)); float b=nB(q+vec2(0.0,e))-nB(q-vec2(0.0,e));
-        vec2 q2=vWP.xz*0.09; float c=nA(q2+vec2(e,0.0))-nA(q2-vec2(e,0.0)); float d=nA(q2+vec2(0.0,e))-nA(q2-vec2(0.0,e));
-        float k=mix(1.4,4.0,rockAmt)*(1.0-snowAmt*0.7);
-        vec3 wn=normalize(wn0+vec3(-(a*2.0+c),0.0,-(b*2.0+d))*k);
-        normal=normalize((viewMatrix*vec4(wn,0.0)).xyz); }`);
+      #define BAT(q) ((triB(q,tw,0.042)*5.0*f2+tri(q,tw,0.15)*1.6*f3+smoothstep(0.3,0.7,0.5+0.5*sin((q).y*0.13+r1*11.0+n2*4.0))*2.2*fs)*rockAmt+tri(q,tw,0.15)*0.6*f3*(1.0-rockAmt))
+      { float fadeB=1.0-smoothstep(400.0,1800.0,length(vViewPosition));
+        vec3 T1=normalize(abs(wn0.y)<0.99?cross(wn0,vec3(0.0,1.0,0.0)):cross(wn0,vec3(1.0,0.0,0.0))); vec3 T2=cross(wn0,T1);
+        float e=0.6; float b0=BAT(vWP), b1=BAT(vWP+T1*e), b2=BAT(vWP+T2*e);
+        vec2 gg=vec2(b1-b0,b2-b0)/e*(1.0-snowAmt*0.85)*fadeB; float gl=length(gg); if(gl>0.9) gg*=0.9/gl;
+        vec3 wn=normalize(wn0-(gg.x*T1+gg.y*T2));
+        normal=normalize((viewMatrix*vec4(wn,0.0)).xyz); }`)
+    .replace('#include <fog_fragment>','gl_FragColor.rgb=dirFog(gl_FragColor.rgb,vWP,fogColor,fogDensity);');
   };
   const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = true; scene.add(m);
 })();
@@ -454,11 +500,72 @@ const fallMat = new THREE.ShaderMaterial({ uniforms:{uNoise:{value:noiseTex},uTi
   }
 })();
 
-/* water */
+/* water: planar reflection + depth colour, shore foam, swell, glints */
 const water = new Water(new THREE.PlaneGeometry(24000,24000), {
   textureWidth:LOWQ?256:512, textureHeight:LOWQ?256:512, waterNormals, sunDirection:new V3(), sunColor:0xffb070,
   waterColor:0x08141d, distortionScale:3.4, fog:true });
-water.rotation.x = -Math.PI/2; water.material.uniforms.size.value = 1.4; scene.add(water);
+water.rotation.x = -Math.PI/2; water.material.uniforms.size.value = 1.4; water.receiveShadow = true;
+Object.assign(water.material.uniforms, { uHeight:{value:heightTex}, uGrid:{value:new THREE.Vector2(TS,TN)}, uNoise:{value:noiseTex},
+  uDeep:{value:new C(0.015,0.06,0.09)}, uShallow:{value:new C(0.09,0.42,0.4)}, uSky:{value:new C(0.5,0.4,0.45)}, uSunW:{value:sunDir} });
+water.material.fragmentShader = `
+uniform sampler2D mirrorSampler; uniform float alpha; uniform float time; uniform float size; uniform float distortionScale;
+uniform sampler2D normalSampler; uniform vec3 sunColor; uniform vec3 sunDirection; uniform vec3 eye; uniform vec3 waterColor;
+uniform sampler2D uHeight; uniform vec2 uGrid; uniform sampler2D uNoise; uniform vec3 uDeep; uniform vec3 uShallow; uniform vec3 uSky;
+varying vec4 mirrorCoord; varying vec4 worldPosition;
+vec4 getNoise(vec2 uv){
+  vec2 uv0=(uv/103.0)+vec2(time/17.0,time/29.0); vec2 uv1=uv/107.0-vec2(time/-19.0,time/31.0);
+  vec2 uv2=uv/vec2(8907.0,9803.0)+vec2(time/101.0,time/97.0); vec2 uv3=uv/vec2(1091.0,1027.0)-vec2(time/109.0,time/-113.0);
+  vec4 noise=texture2D(normalSampler,uv0)+texture2D(normalSampler,uv1)+texture2D(normalSampler,uv2)+texture2D(normalSampler,uv3);
+  return noise*0.5-1.0; }
+#include <common>
+#include <packing>
+#include <bsdfs>
+#include <fog_pars_fragment>
+#include <logdepthbuf_pars_fragment>
+#include <lights_pars_begin>
+#include <shadowmap_pars_fragment>
+#include <shadowmask_pars_fragment>
+${FOG_GLSL}
+void main(){
+  #include <logdepthbuf_fragment>
+  vec2 wp=worldPosition.xz;
+  vec3 toEye=eye-worldPosition.xyz; float dist=length(toEye); vec3 E=toEye/dist;
+  vec2 huv=(wp+uGrid.x*0.5)/uGrid.x; huv=(huv*(uGrid.y-1.0)+0.5)/uGrid.y;
+  float bed=(huv.x>0.0&&huv.x<1.0&&huv.y>0.0&&huv.y<1.0)?texture2D(uHeight,huv).r:-95.0;
+  float depth=max(-bed,0.0);
+  vec4 noise=getNoise(wp*size);
+  vec3 n=noise.xzy*vec3(1.5,1.0,1.5);
+  vec2 sw=vec2(texture2D(uNoise,wp*0.0005+vec2(time*0.003,0.0)).g,texture2D(uNoise,wp*0.0005+vec2(0.37,time*0.0025)).r)-0.5;
+  n.xz+=sw*1.3;
+  n.xz*=mix(0.25,1.0,smoothstep(0.0,10.0,depth))*mix(1.0,0.45,smoothstep(300.0,5000.0,dist));
+  vec3 N=normalize(n);
+  vec3 R=reflect(-sunDirection,N); float sp=max(dot(E,R),0.0);
+  vec3 spec=sunColor*(pow(sp,900.0)*40.0+pow(sp,120.0)*2.0+pow(sp,18.0)*0.12);
+  float gl=texture2D(uNoise,wp*0.12+time*0.05).b*texture2D(uNoise,wp*0.1-time*0.04).b;
+  spec+=sunColor*smoothstep(0.6,0.85,gl)*pow(sp,60.0)*2.5*(1.0-smoothstep(100.0,450.0,dist));
+  vec2 distortion=N.xz*(0.001+1.0/dist)*distortionScale;
+  vec3 refl=texture2D(mirrorSampler,mirrorCoord.xy/mirrorCoord.w+distortion).rgb;
+  float theta=max(dot(E,N),0.0); float F=clamp(0.06+0.94*pow(1.0-theta,5.0),0.0,1.0);
+  float sunUp=clamp(sunDirection.y*4.0+0.35,0.0,1.0);
+  vec3 lightIn=sunColor*0.28*sunUp+uSky*0.35;
+  vec3 body=mix(uShallow,uDeep,1.0-exp(-depth*0.07))*lightIn;
+  float sss=pow(max(dot(-E,sunDirection)*0.5+0.5,0.0),6.0)*clamp(1.15-N.y,0.0,1.0);
+  body+=uShallow*sunColor*sss*0.9*sunUp;
+  float sh=getShadowMask();
+  vec3 col=mix(body*mix(0.55,1.0,sh),refl,F)+spec*sh;
+  float fn=texture2D(uNoise,wp*0.025+vec2(time*0.012,-time*0.008)).b, fn2=texture2D(uNoise,wp*0.08-vec2(time*0.02,0.0)).r;
+  float surf=0.5+0.5*sin(depth*0.9-time*3.0+fn*5.0);
+  float foam=smoothstep(9.0,0.0,depth)*smoothstep(0.62,0.95,surf*0.7+fn2*0.5)*smoothstep(-1.0,1.0,depth)
+            +smoothstep(1.6,0.0,depth)*smoothstep(0.35,0.7,fn*0.6+fn2*0.6)
+            +smoothstep(0.86,0.97,fn2*0.5+sw.x+0.5)*0.22*smoothstep(10.0,40.0,depth)*(1.0-smoothstep(400.0,2500.0,dist));
+  vec3 foamC=sunColor*0.55*sunUp+uSky*0.6+vec3(0.06);
+  col=mix(col,foamC,clamp(foam,0.0,1.0)*0.85);
+  gl_FragColor=vec4(col,1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  gl_FragColor.rgb=dirFog(gl_FragColor.rgb,worldPosition.xyz,fogColor,fogDensity);
+}`;
+scene.add(water);
 
 /* procedural cloud decks (sun-lit fbm, follows the camera) */
 function cloudDeck(y, scale, cov, streak, op){
@@ -475,7 +582,7 @@ function cloudDeck(y, scale, cov, streak, op){
         vec3 V=normalize(vWP-cameraPosition); float ph=pow(max(dot(V,uSun),0.0),5.0);
         vec3 col=mix(uShade,uLit,light)*(0.8+0.4*(1.0-dens))+uLit*ph*(1.2-dens)*2.2;
         float dist=length(vWP.xz-cameraPosition.xz);
-        col=mix(col,uFog*1.1,smoothstep(5000.0,24000.0,dist)*0.8);
+        vec3 fcc=mix(uFog*vec3(0.72,0.8,1.05),uFog*vec3(1.4,1.12,0.88),pow(max(dot(V,uSun),0.0),5.0)); col=mix(col,fcc,smoothstep(5000.0,24000.0,dist)*0.85);
         gl_FragColor=vec4(col,dens*uOp*(1.0-smoothstep(18000.0,28000.0,dist)));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -540,14 +647,14 @@ function puff(p, n, speed, size, life=2){ for(let i=0;i<n;i++){ tv.set(rr(-1,1),
 
 /* golden motes in the light */
 const motes = (()=>{
-  const N=1400, a=new Float32Array(N*3); for(let i=0;i<N*3;i++) a[i]=rr(0,420);
+  const N=500, a=new Float32Array(N*3); for(let i=0;i<N*3;i++) a[i]=rr(0,420);
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(a,3));
   const m=new THREE.ShaderMaterial({ uniforms:{uCam:{value:new V3()},uTime,uCol:{value:new C(1,.7,.4)},uScale:{value:innerHeight}},
     vertexShader:`uniform vec3 uCam; uniform float uTime; uniform float uScale; varying float vA;
       void main(){ vec3 p=position+vec3(sin(uTime*.3+position.y)*6.,uTime*1.5,cos(uTime*.25+position.x)*6.);
         p=mod(p-uCam+210.,420.)-210.+uCam; vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv;
         vA=smoothstep(210.,60.,length(p-uCam))*(.5+.5*sin(uTime*2.+position.z)); gl_PointSize=max(1.5,0.45*uScale/ -mv.z); }`,
-    fragmentShader:`uniform vec3 uCol; varying float vA; void main(){ float r=length(gl_PointCoord-.5); if(r>.5) discard; gl_FragColor=vec4(uCol*vA*smoothstep(.5,0.,r)*1.4,1.); }`,
+    fragmentShader:`uniform vec3 uCol; varying float vA; void main(){ float r=length(gl_PointCoord-.5); if(r>.5) discard; gl_FragColor=vec4(uCol*vA*smoothstep(.5,0.,r)*.7,1.); }`,
     transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
   const p=new THREE.Points(g,m); p.frustumCulled=false; scene.add(p); return m;
 })();
@@ -906,7 +1013,7 @@ function setSun(elev){
   const k=sm(-2.8,5.2,elev);
   sunLight.color.copy(cRed).lerp(cWarm,k); sunLight.intensity=0.3+3.0*sm(-2.8,4.5,elev);
   water.material.uniforms.sunColor.value.copy(sunLight.color);
-  hemi.color.copy(hemiB).lerp(hemiA,k); hemi.intensity=.35+.45*k;
+  hemi.color.copy(hemiB).lerp(hemiA,k); hemi.intensity=.35+.45*k; water.material.uniforms.uSky.value.copy(hemi.color).multiplyScalar(hemi.intensity);
   scene.fog.color.copy(fogB).lerp(fogA,k); skyU.uFog.value.copy(scene.fog.color).multiplyScalar(1.02);
   skyU.rayleigh.value=lerp(4.2,3.1,k); skyU.turbidity.value=lerp(12,10,k);
   for(const [deck,b] of [[deckLow,1],[deckHigh,1.25]]){ const u=deck.material.uniforms;
