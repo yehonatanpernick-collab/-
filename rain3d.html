@@ -255,6 +255,14 @@ function showFatal(t) { const e = $('err'); e.style.display = 'flex'; e.textCont
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
+// MapLibre 4.7.1 bug: easeTo/flyTo freeze terrain elevation while animating
+// but only unfreeze it when options.freezeElevation is set, so after every
+// flyTo the camera keeps orbiting the elevation sampled at the start of the
+// flight (often 0). Release the freeze once the move ends.
+map.on('moveend', () => {
+  if (map.terrain && map._elevationFreeze) { map._elevationFreeze = false; map.triggerRepaint(); }
+});
+
 /* =====================================================================
    State
    ===================================================================== */
