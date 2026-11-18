@@ -148,6 +148,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.6;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+canvas.addEventListener('webglcontextlost',e=>e.preventDefault()); canvas.addEventListener('webglcontextrestored',()=>location.reload());
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xb8705a, 0.00015);
@@ -179,7 +180,7 @@ skyU.turbidity.value = 10; skyU.rayleigh.value = 3.1; skyU.mieCoefficient.value 
 skyU.uFog = { value: new C(0xb8705a) };
 sky.material.fragmentShader = 'uniform vec3 uFog;\n' + sky.material.fragmentShader.replace(
   'gl_FragColor = vec4( retColor, 1.0 );',
-  'float hz = smoothstep(-0.03, 0.16, direction.y); retColor = mix(uFog, retColor, hz); gl_FragColor = vec4( retColor, 1.0 );');
+  'float hz = smoothstep(-0.03, 0.16, direction.y); retColor = min(mix(uFog, retColor, hz), vec3(40.0)); gl_FragColor = vec4( retColor, 1.0 );');
 scene.add(sky);
 const sunDir = new V3();
 const SUN_AZ = 198;
@@ -864,6 +865,12 @@ const pr=renderer.getPixelRatio();
 const rt=new THREE.WebGLRenderTarget(innerWidth*pr, innerHeight*pr, {type:THREE.HalfFloatType, samples:LOWQ?0:4});
 const composer=new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene,camera));
+const sanitize=new ShaderPass({ uniforms:{tDiffuse:{value:null}},
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`uniform sampler2D tDiffuse; varying vec2 vUv;
+    float fixc(float v){ return (v>=0.0 && v<=60.0) ? v : (v>60.0 ? 60.0 : 0.0); }
+    void main(){ vec4 c=texture2D(tDiffuse,vUv); gl_FragColor=vec4(fixc(c.r),fixc(c.g),fixc(c.b),1.0); }` });
+composer.addPass(sanitize);
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.5,.6,1.5); composer.addPass(bloom);
 const grade=new ShaderPass({ uniforms:{tDiffuse:{value:null},uTime,uSun:{value:new THREE.Vector2(.5,.5)},uVis:{value:0},uAspect:{value:1},uRayCol:{value:new C(1,.6,.35)}},
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
@@ -1067,7 +1074,7 @@ function updateWyverns(dt, firing){
     eul.set(-w.pitch,w.yaw,w.roll,'YXZ'); w.d.root.quaternion.setFromEuler(eul);
     const fw=tv.set(0,0,1).applyQuaternion(w.d.root.quaternion); w.pos.addScaledVector(fw,w.speed*dt*(w.state==='falling'?.5:1));
     w.d.root.position.copy(w.pos);
-    if(w.pos.distanceTo(camera.position)<1500) w.d.update({time:clockT+w.phase,phase:w.phase,amp:w.state==='falling'?.2:.9,turn:clamp(-w.roll,-1,1),jawOpen:0,sweep:w.state==='falling'?.6:0,pitch:w.pitch*.5,fire:w.burn>0?1:0});
+    if(w.pos.distanceTo(camera.position)<(LOWQ?800:1500)) w.d.update({time:clockT+w.phase,phase:w.phase,amp:w.state==='falling'?.2:.9,turn:clamp(-w.roll,-1,1),jawOpen:0,sweep:w.state==='falling'?.6:0,pitch:w.pitch*.5,fire:w.burn>0?1:0});
   }
   for(const s of spits){ if(s.life<=0) continue; s.life-=dt; s.m.position.addScaledVector(s.v,dt); fx.emit(s.m.position,tv.set(rr(-3,3),rr(-3,3),rr(-3,3)),rr(2,4),rr(.3,.6),2,1);
     if(s.m.position.distanceTo(pl.pos)<9){ hurt(12); burst(s.m.position,40,30,3,2,.8); s.life=0; }
@@ -1145,7 +1152,7 @@ function frame(now){
   if(mode==='play'){ gT+=dt; if(gT>=GAME_LEN) endGame('sun'); else if(pl.hp<=0) endGame('hp'); }
   ELEV_NOW = mode==='intro' ? ELEV0 : lerp(ELEV0,ELEV1,clamp(gT/GAME_LEN,0,1));
   setSun(ELEV_NOW);
-  envTimer-=dt; if(envTimer<=0){ refreshEnv(); envTimer=mode==='play'?4:30; }
+  envTimer-=dt; if(envTimer<=0 && (!LOWQ || mode!=='play')){ refreshEnv(); envTimer=mode==='play'?10:60; }
   const firing=updatePlayer(dt);
   updateWyverns(dt,firing);
   updateCollectibles(dt);
@@ -1168,6 +1175,10 @@ function onResize(){
 addEventListener('resize',onResize); onResize();
 resetGame(); mode='intro';
 setSun(ELEV0); refreshEnv();
+{ const hid=[]; scene.traverse(o=>{ if(!o.visible){ hid.push(o); o.visible=true; } });
+  fx.emit(new V3(),new V3(),1,.01,0); smoke.emit(new V3(),new V3(),1,.01,4);
+  try{ renderer.compile(scene,camera); composer.render(); }catch(e){}
+  hid.forEach(o=>o.visible=false); }
 requestAnimationFrame(frame);
 const sb=$('startBtn'); sb.disabled=false; sb.textContent='המריאו';
 window.__game={pl,get mode(){return mode},startGame,camera,scene,renderer,get clock(){return clockT}};
