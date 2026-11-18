@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ממלכת השקיעה</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik+Pixels&family=Rubik:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#fff4dc; --shade:#1a0f2a; --gold:#ffc65a; }
+  html,body { margin:0; height:100%; background:#120a1e; overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none; }
+  body { font-family:'Rubik',sans-serif; color:var(--ink); }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #stage { position:relative; }
+  canvas { display:block; width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .pix { font-family:'Rubik Pixels','Rubik',monospace; }
+  #hud { position:absolute; inset:0; pointer-events:none; padding:1.5% 2%; display:flex; justify-content:space-between; align-items:flex-start;
+         font-size:clamp(12px,2.6vmin,22px); text-shadow:2px 2px 0 var(--shade); }
+  #hud .grp { display:flex; gap:.9em; align-items:center; }
+  #hearts { color:#ff5a6e; letter-spacing:.1em; }
+  #sunbar { width:7em; height:.7em; background:#2a173d; border:2px solid var(--shade); box-shadow:0 0 0 2px #6a3f7a; position:relative; }
+  #sunfill { position:absolute; inset:0; transform-origin:right; background:linear-gradient(90deg,#ff7a3c,#ffd36b); }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+             text-shadow:3px 3px 0 var(--shade); background:linear-gradient(transparent 0%, rgba(18,10,30,.35) 100%); }
+  .overlay h1 { margin:0; font-size:clamp(28px,8vmin,72px); color:var(--gold); letter-spacing:.04em; }
+  .overlay p { font-family:'Rubik',sans-serif; font-weight:500; margin:.5em 0 0; font-size:clamp(12px,2.6vmin,20px); max-width:90%; line-height:1.5; }
+  .overlay .blink { margin-top:1.2em; color:#fff; animation:blink 1.1s steps(2) infinite; font-size:clamp(14px,3.2vmin,26px); }
+  .keys { opacity:.85; font-size:clamp(11px,2.1vmin,16px)!important; }
+  @keyframes blink { 50% { opacity:0; } }
+  .hidden { display:none!important; }
+  #touch { position:fixed; inset:auto 0 0 0; display:none; justify-content:space-between; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); pointer-events:none; direction:ltr; }
+  #touch .side { display:flex; gap:12px; pointer-events:auto; }
+  #touch button { width:64px; height:64px; border-radius:14px; border:3px solid #6a3f7a; background:rgba(42,23,61,.55); color:var(--ink);
+                  font-size:26px; font-family:'Rubik',sans-serif; touch-action:none; }
+  #touch button.on { background:rgba(255,160,80,.55); }
+  body.touch #touch { display:flex; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="hud" class="pix hidden">
+      <div class="grp"><span id="hearts">❤❤❤</span><span>✦ <span id="shards">0</span></span></div>
+      <div class="grp"><span>☀</span><div id="sunbar"><div id="sunfill"></div></div></div>
+      <div class="grp"><span id="score">0</span></div>
+    </div>
+    <div id="title" class="overlay pix">
+      <h1>ממלכת השקיעה</h1>
+      <p>השמש שוקעת על הממלכה. אספו רסיסי שמש ✦ כדי לעכב את הלילה,<br>הביסו יצורי צללים, ורוצו רחוק ככל האפשר.</p>
+      <p class="keys">חיצים / A D – תנועה · רווח / W – קפיצה (כפולה!) · X / J – כישוף</p>
+      <div class="blink">לחצו רווח או הקישו כדי להתחיל</div>
+    </div>
+    <div id="over" class="overlay pix hidden">
+      <h1 id="overTitle">הלילה ירד</h1>
+      <p id="overText"></p>
+      <div class="blink">לחצו רווח או הקישו לשחק שוב</div>
+    </div>
+  </div>
+</div>
+<div id="touch">
+  <div class="side"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="side"><button data-k="fire">✦</button><button data-k="jump">▲</button></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const W = 320, H = 180, GROUND = 150, TILE = 8;
+const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+cv.width = W; cv.height = H; ctx.imageSmoothingEnabled = false;
+const stage = document.getElementById('stage');
+function resize() {
+  let s = Math.min(innerWidth / W, innerHeight / H);
+  if (s >= 2) s = Math.floor(s);
+  stage.style.width = (W * s) + 'px'; stage.style.height = (H * s) + 'px';
+}
+addEventListener('resize', resize); resize();
+
+// ---------- helpers ----------
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+const mix = (a, b, t) => [lerp(a[0],b[0],t), lerp(a[1],b[1],t), lerp(a[2],b[2],t)];
+const css = c => `rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const mixHex = (a, b, t) => css(mix(hex(a), hex(b), clamp(t,0,1)));
+function hash(i) { const h = Math.sin(i * 127.1 + 311.7) * 43758.5453; return h - Math.floor(h); }
+function vnoise(x) { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash(i), hash(i + 1), u); }
+function fbm(x) { return vnoise(x) * .6 + vnoise(x * 2.3 + 7) * .28 + vnoise(x * 5.1 + 3) * .12; }
+let seed = 1;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const BAYER = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+
+// ---------- sprites (auto-outlined) ----------
+const OUTLINE = '#140a20';
+function mk(rows, pal) {
+  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  rows = rows.map(r => r.padEnd(w, '.'));
+  const c = document.createElement('canvas'); c.width = w + 2; c.height = h + 2;
+  const g = c.getContext('2d');
+  const solid = (x, y) => y >= 0 && y < h && x >= 0 && x < w && rows[y][x] !== '.';
+  g.fillStyle = OUTLINE;
+  for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++)
+    if (!solid(x, y) && (solid(x-1,y) || solid(x+1,y) || solid(x,y-1) || solid(x,y+1))) g.fillRect(x + 1, y + 1, 1, 1);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ch = rows[y][x]; if (ch !== '.' && pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x + 1, y + 1, 1, 1); }
+  }
+  return c;
+}
+function flip(c) {
+  const d = document.createElement('canvas'); d.width = c.width; d.height = c.height;
+  const g = d.getContext('2d'); g.scale(-1, 1); g.drawImage(c, -c.width, 0); return d;
+}
+const MAGE_PAL = { p:'#6b46c1', P:'#9a7bea', y:'#ffd34d', s:'#f2c39b', e:'#2a1a3a', b:'#3d5bbf', B:'#6d8cf0', c:'#c9463d',
+                   w:'#8a5a2b', g:'#d8ffff', G:'#5fd0ff', k:'#2a1f3a' };
+const MAGE_BODY = [
+  '.....pP.....',
+  '....ppP.....',
+  '....ppPp....',
+  '...ppyppp...',
+  '..pppppppp..',
+  '....ssss..g.',
+  '....sese.gGg',
+  '....ssss..w.',
+  '...bBbbbc.w.',
+  '..bBbbbbbcw.',
+  '..bbbyybbsw.',
+  '...Bbbbbb.w.',
+  '...Bbbbbb.w.',
+  '..bBbbbbbb..',
+];
+const LEGS = {
+  idle: ['...kk..kk...', '...kk..kk...'],
+  run1: ['..kk....kk..', '..k......kk.'],
+  run2: ['....kk.kk...', '....kk.kk...'],
+  jump: ['..kk....kk..', '..k......k..'],
+};
+const SPR = {};
+for (const [n, l] of Object.entries(LEGS)) { SPR['mage_' + n] = mk([...MAGE_BODY, ...l], MAGE_PAL); SPR['mage_' + n + '_L'] = flip(SPR['mage_' + n]); }
+SPR.slime1 = mk(['...gggg...', '..gGgggg..', '.gGgggggg.', '.ggeggegg.', 'gggggggggg', 'gggggggggg'], { g:'#58c46a', G:'#c8ffb8', e:'#1a1a2a' });
+SPR.slime2 = mk(['..........', '...gggg...', '.gGggggggg', 'gGggeggegg', 'gggggggggg', 'gggggggggg'], { g:'#58c46a', G:'#c8ffb8', e:'#1a1a2a' });
+const BATP = { o:'#3a2552', r:'#ff4a5a' };
+SPR.bat1 = mk(['o.........o', 'oo..o.o..oo', 'ooooooooooo', '.oooroorooo', '..o.....o..'], BATP);
+SPR.bat2 = mk(['....o.o....', '...ooooo...', '.oooroorooo', 'ooo.....ooo', 'o.........o'], BATP);
+SPR.shard = mk(['..y..', '.yWy.', 'yyWyy', 'yWyyy', '.yyy.', '..y..'], { y:'#ffb83d', W:'#fff6c0' });
+
+// ---------- input ----------
+const keys = { left:false, right:false, jump:false, fire:false };
+let jumpPressed = false, firePressed = false, anyPressed = false;
+const KMAP = { ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', ArrowUp:'jump', KeyW:'jump', Space:'jump', KeyX:'fire', KeyJ:'fire', KeyZ:'fire' };
+addEventListener('keydown', e => {
+  const k = KMAP[e.code];
+  if (k) { e.preventDefault(); if (!keys[k]) { if (k === 'jump') jumpPressed = true; if (k === 'fire') firePressed = true; } keys[k] = true; }
+  if (e.code === 'KeyP' && state === 'play') paused = !paused;
+  if (e.code === 'KeyM') muted = !muted;
+  anyPressed = true; audioInit();
+});
+addEventListener('keyup', e => { const k = KMAP[e.code]; if (k) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+document.querySelectorAll('#touch button').forEach(b => {
+  const k = b.dataset.k;
+  const on = e => { e.preventDefault(); audioInit(); if (!keys[k]) { if (k === 'jump') jumpPressed = true; if (k === 'fire') firePressed = true; } keys[k] = true; b.classList.add('on'); anyPressed = true; };
+  const off = e => { e.preventDefault(); keys[k] = false; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
+});
+stage.addEventListener('pointerdown', () => { audioInit(); if (state !== 'play') anyPressed = true; });
+
+// ---------- audio ----------
+let actx = null, muted = false;
+function audioInit() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } else if (actx.state === 'suspended') actx.resume(); }
+function sfx(f1, f2, dur, type = 'square', vol = .06) {
+  if (!actx || muted) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+const S = {
+  jump: () => sfx(300, 620, .12), djump: () => sfx(500, 1000, .14, 'triangle', .07),
+  shard: () => { sfx(880, 1320, .08, 'triangle', .07); setTimeout(() => sfx(1320, 1760, .1, 'triangle', .06), 60); },
+  bolt: () => sfx(900, 300, .15, 'sawtooth', .03), kill: () => sfx(220, 60, .2, 'square', .06),
+  hurt: () => sfx(160, 50, .3, 'sawtooth', .08), over: () => { sfx(440, 110, 1.2, 'triangle', .08); },
+};
+
+// ---------- world state ----------
+const DAY_LEN = 75 * 60;           // frames of daylight
+let state = 'title', paused = false, frame = 0;
+let player, platforms, enemies, shards, bolts, parts, genX, cam, progress, score, shardCount, kills, best = 0;
+try { best = +localStorage.getItem('sunset_best') || 0; } catch (e) {}
+
+function reset() {
+  seed = 1 + (Math.random() * 1e6 | 0);
+  player = { x: 40, y: GROUND - 15, vx: 0, vy: 0, w: 8, h: 15, face: 1, ground: false, coyote: 0, jumps: 0, buffer: 0,
+             inv: 0, hearts: 3, cd: 0, anim: 0, safeX: 40 };
+  platforms = []; enemies = []; shards = []; bolts = []; parts = [];
+  genX = 0; cam = 0; progress = 0; score = 0; shardCount = 0; kills = 0;
+  genUntil(W * 2);
+}
+
+function genUntil(limit) {
+  while (genX < limit) {
+    const early = genX < 240;
+    const len = (early ? 34 : 7 + (rnd() * 14 | 0)) * TILE;
+    const seg = { x: genX, y: GROUND, w: len, h: H - GROUND, ground: true };
+    platforms.push(seg);
+    if (!early) {
+      // slime patrol
+      if (rnd() < .7 && len >= 10 * TILE) enemies.push({ type: 'slime', x: genX + len * .5, y: GROUND - 6, w: 10, h: 6, vx: rnd() < .5 ? -.4 : .4, min: genX + 4, max: genX + len - 14, t: rnd() * 100 });
+      // floating platform with shards
+      if (rnd() < .55) {
+        const pw = (3 + (rnd() * 4 | 0)) * TILE, px = genX + 16 + rnd() * Math.max(8, len - pw - 32), py = 98 + (rnd() * 3 | 0) * 9;
+        platforms.push({ x: px, y: py, w: pw, h: 6, ground: false });
+        for (let i = 0; i < pw / 16; i++) shards.push({ x: px + 6 + i * 16, y: py - 12, t: rnd() * 6 });
+      } else if (rnd() < .6) {
+        for (let i = 0; i < 3; i++) shards.push({ x: genX + len * .3 + i * 14, y: GROUND - 14, t: rnd() * 6 });
+      }
+      // bat
+      if (rnd() < .35 + Math.min(.35, genX / 20000)) enemies.push({ type: 'bat', x: genX + rnd() * len, y: 70, base: 62 + rnd() * 40, w: 11, h: 5, t: rnd() * 100, vx: -.5 });
+    }
+    genX += len;
+    if (!early) {
+      const gapT = 2 + (rnd() * (2 + Math.min(2, genX / 6000)) | 0);
+      const gap = gapT * TILE;
+      // arc of shards over the gap
+      for (let i = 0; i < 3; i++) shards.push({ x: genX + gap * (i + 1) / 4 - 2, y: GROUND - 26 - Math.sin(Math.PI * (i + 1) / 4) * 18, t: rnd() * 6 });
+      genX += gap;
+    }
+  }
+}
+
+// ---------- particles ----------
+function burst(x, y, n, colors, spd = 1.5, life = 30) {
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, s = rnd() * spd;
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .5, life: life * (.5 + rnd() * .5), max: life, c: colors[i % colors.length], g: .05 });
+  }
+}
+
+// ---------- update ----------
+function hurt(dir) {
+  const p = player;
+  if (p.inv > 0) return;
+  p.hearts--; p.inv = 90; p.vy = -3; p.vx = dir * 2.2;
+  S.hurt(); burst(p.x + 4, p.y + 7, 14, ['#ff5a6e', '#ffd0d0']);
+  if (p.hearts <= 0) endGame('fallen');
+}
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+function update() {
+  frame++;
+  if (state !== 'play' || paused) { updateAmbient(); return; }
+  const p = player;
+
+  // daylight
+  progress += 1 / DAY_LEN;
+  if (progress >= 1) { progress = 1; endGame('night'); return; }
+
+  // horizontal movement
+  const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  if (dir) { p.vx = clamp(p.vx + dir * .28, -1.7, 1.7); p.face = dir; } else p.vx *= p.ground ? .72 : .92;
+  if (Math.abs(p.vx) < .05) p.vx = 0;
+
+  // jumping (coyote time + buffer + double jump)
+  if (jumpPressed) p.buffer = 7;
+  jumpPressed = false;
+  if (p.buffer > 0) {
+    if (p.ground || p.coyote > 0) { p.vy = -4.4; p.jumps = 1; p.coyote = 0; p.buffer = 0; S.jump(); burst(p.x + 4, p.y + 15, 5, ['#e8d0b0']); }
+    else if (p.jumps < 2) { p.vy = -3.9; p.jumps = 2; p.buffer = 0; S.djump(); burst(p.x + 4, p.y + 14, 10, ['#9ff0ff', '#ffffff', '#c9a6ff'], 1.2, 22); }
+    else p.buffer--;
+  }
+  if (!keys.jump && p.vy < -1.5) p.vy += .25;  // variable jump height
+  p.vy = Math.min(p.vy + .24, 5.5);
+
+  // spells
+  if (p.cd > 0) p.cd--;
+  if (firePressed && p.cd === 0) {
+    bolts.push({ x: p.x + (p.face > 0 ? 11 : -6), y: p.y + 6, vx: p.face * 4.2, life: 48 });
+    p.cd = 16; S.bolt();
+  }
+  firePressed = false;
+
+  // integrate + one-way platform collision
+  const prevBottom = p.y + p.h;
+  p.x += p.vx; p.y += p.vy;
+  if (p.x < cam - 2) { p.x = cam - 2; p.vx = 0; }
+  const wasGround = p.ground; p.ground = false;
+  if (p.vy >= 0) for (const pl of platforms) {
+    if (p.x + p.w > pl.x + 1 && p.x < pl.x + pl.w - 1 && prevBottom <= pl.y + .01 && p.y + p.h >= pl.y) {
+      p.y = pl.y - p.h; p.vy = 0; p.ground = true; p.jumps = 0;
+      if (pl.ground && p.x > pl.x + 4 && p.x < pl.x + pl.w - 12) p.safeX = p.x;
+      if (!wasGround) burst(p.x + 4, p.y + p.h, 4, ['#e8d0b0'], .8, 14);
+      break;
+    }
+  }
+  if (!p.ground && wasGround && p.vy >= 0) p.coyote = 6; else if (p.coyote > 0) p.coyote--;
+  if (p.y > H + 20) {
+    hurt(0);
+    if (state === 'play') { p.x = p.safeX; p.y = GROUND - p.h - 20; p.vx = 0; p.vy = 0; }
+  }
+  if (p.inv > 0) p.inv--;
+  p.anim += Math.abs(p.vx) * .12;
+
+  // camera
+  cam = Math.max(cam, lerp(cam, p.x - 110, .12));
+  genUntil(cam + W * 2);
+  score = Math.max(score, Math.floor(p.x / 8)) ; // distance part kept separately below
+
+  // bolts
+  for (const b of bolts) {
+    b.x += b.vx; b.life--;
+    if (frame % 2) parts.push({ x: b.x, y: b.y + (rnd() - .5) * 2, vx: -b.vx * .1, vy: (rnd() - .5) * .3, life: 14, max: 14, c: rnd() < .5 ? '#9ff0ff' : '#c9a6ff', g: 0 });
+    for (const e of enemies) if (!e.dead && overlap({ x: b.x - 2, y: b.y - 2, w: 5, h: 4 }, e)) { killEnemy(e); b.life = 0; break; }
+  }
+  bolts = bolts.filter(b => b.life > 0);
+
+  // enemies
+  for (const e of enemies) {
+    if (e.dead || e.x < cam - 60 || e.x > cam + W + 60) continue;
+    e.t++;
+    if (e.type === 'slime') {
+      e.x += e.vx; if (e.x < e.min || e.x > e.max) e.vx *= -1;
+    } else {
+      e.x += e.vx + Math.sin(e.t * .03) * .3;
+      const ty = e.base + Math.sin(e.t * .05) * 14 + (Math.abs(e.x - p.x) < 70 ? (p.y - e.base) * .35 : 0);
+      e.y = lerp(e.y, ty, .04);
+    }
+    const pb = { x: p.x, y: p.y, w: p.w, h: p.h };
+    if (overlap(pb, e)) {
+      if (p.vy > 0.5 && prevBottom <= e.y + 3) { killEnemy(e); p.vy = -3.6; p.jumps = 1; }
+      else hurt(p.x < e.x ? -1 : 1);
+    }
+  }
+  enemies = enemies.filter(e => !e.dead && e.x > cam - 100);
+
+  // shards
+  for (const s of shards) {
+    if (s.got) continue;
+    s.t += .08;
+    if (overlap({ x: p.x - 2, y: p.y - 2, w: p.w + 4, h: p.h + 4 }, { x: s.x, y: s.y, w: 7, h: 8 })) {
+      s.got = true; shardCount++; progress = Math.max(0, progress - 2.4 * 60 / DAY_LEN);
+      S.shard(); burst(s.x + 3, s.y + 4, 12, ['#ffd36b', '#fff6c0', '#ff9a3c'], 1.4, 26);
+    }
+  }
+  shards = shards.filter(s => !s.got && s.x > cam - 40);
+  platforms = platforms.filter(pl => pl.x + pl.w > cam - 40);
+
+  updateAmbient();
+  updateHUD();
+}
+function killEnemy(e) {
+  e.dead = true; kills++; S.kill();
+  burst(e.x + e.w / 2, e.y + e.h / 2, 16, e.type === 'slime' ? ['#58c46a', '#c8ffb8', '#2a5a35'] : ['#3a2552', '#ff4a5a', '#7a5a9a'], 1.8, 30);
+}
+function totalScore() { return Math.floor(player.x / 8) + shardCount * 100 + kills * 50; }
+
+function updateAmbient() {
+  for (const q of parts) { q.x += q.vx; q.y += q.vy; q.vy += q.g; q.life--; }
+  parts = parts.filter(q => q.life > 0);
+  if (parts.length > 400) parts.splice(0, parts.length - 400);
+  if (state !== 'play') { cam += .35; progress = .22 + Math.sin(frame * .002) * .12; genUntil(cam + W * 2); platforms = platforms.filter(pl => pl.x + pl.w > cam - 40); }
+}
+
+// ---------- HUD / screens ----------
+const $ = id => document.getElementById(id);
+function updateHUD() {
+  if (frame % 4) return;
+  $('hearts').textContent = '❤'.repeat(Math.max(0, player.hearts)) + '♡'.repeat(Math.max(0, 3 - player.hearts));
+  $('shards').textContent = shardCount;
+  $('score').textContent = totalScore();
+  $('sunfill').style.transform = `scaleX(${1 - progress})`;
+}
+function startGame() {
+  reset(); state = 'play'; paused = false; jumpPressed = firePressed = false;
+  $('title').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.remove('hidden');
+}
+function endGame(why) {
+  if (state !== 'play') return;
+  state = 'over'; S.over();
+  const sc = totalScore(), rec = sc > best;
+  if (rec) { best = sc; try { localStorage.setItem('sunset_best', best); } catch (e) {} }
+  $('overTitle').textContent = why === 'night' ? 'הלילה ירד על הממלכה' : 'הקוסם נפל';
+  $('overText').innerHTML = `ניקוד: <b>${sc}</b> ${rec ? '· שיא חדש! ★' : `· שיא: ${best}`}<br>✦ ${shardCount} רסיסים · ⚔ ${kills} צללים · ${Math.floor(player.x / 8)} צעדים`;
+  $('over').classList.remove('hidden'); $('hud').classList.add('hidden');
+  overAt = frame;
+}
+let overAt = 0;
+
+// ---------- palettes over time (progress 0 → 1) ----------
+const SKY_KEYS = [
+  { p: 0,   c: ['#3a2a78', '#b0478a', '#ff8a4c', '#ffd27a'] },
+  { p: .45, c: ['#2a1d5e', '#8a2f78', '#ea5a42', '#ffa24e'] },
+  { p: .75, c: ['#151034', '#4a2060', '#a8364a', '#e0703e'] },
+  { p: 1,   c: ['#06061a', '#130f36', '#2c1a4a', '#4a2448'] },
+];
+const SKY_Y = [0, .42, .66, .78];
+function skyStops(p) {
+  let i = 0; while (i < SKY_KEYS.length - 2 && p > SKY_KEYS[i + 1].p) i++;
+  const a = SKY_KEYS[i], b = SKY_KEYS[i + 1], t = clamp((p - a.p) / (b.p - a.p), 0, 1);
+  return a.c.map((c, k) => mix(hex(c), hex(b.c[k]), t));
+}
+function skyAt(stops, fy) {
+  if (fy <= SKY_Y[0]) return stops[0];
+  for (let i = 0; i < SKY_Y.length - 1; i++) if (fy <= SKY_Y[i + 1]) return mix(stops[i], stops[i + 1], (fy - SKY_Y[i]) / (SKY_Y[i + 1] - SKY_Y[i]));
+  return stops[stops.length - 1];
+}
+const sunPos = p => ({ x: 236, y: 46 + p * 100, r: 17 });
+
+// sky is baked into an offscreen canvas and refreshed only when the light changes
+const sky = document.createElement('canvas'); sky.width = W; sky.height = H;
+const sctx = sky.getContext('2d'), simg = sctx.createImageData(W, H);
+let skyP = -1;
+function bakeSky(p) {
+  skyP = p;
+  const stops = skyStops(p), NB = 16, bands = [];
+  for (let i = 0; i < NB; i++) bands.push(skyAt(stops, (i + .5) / NB));
+  const sun = sunPos(p), glowC = mix([255, 190, 110], [180, 70, 90], p), d = simg.data;
+  const sunTop = mix([255, 246, 190], [255, 150, 90], p), sunBot = mix([255, 150, 70], [210, 60, 70], p);
+  for (let y = 0; y < H; y++) {
+    const t = y / H * NB - .5, i0 = Math.floor(t), f = t - i0;
+    for (let x = 0; x < W; x++) {
+      const th = BAYER[y & 3][x & 3] / 16;
+      let c = bands[clamp(f > th ? i0 + 1 : i0, 0, NB - 1)];
+      const dx = x - sun.x, dy = (y - sun.y) * 1.15, dist = Math.sqrt(dx * dx + dy * dy);
+      let r, g, b;
+      if (dist < sun.r && !(y > sun.y + 2 && (y - Math.floor(sun.y)) % 5 === 0 && y < sun.y + sun.r)) {
+        const v = clamp((y - (sun.y - sun.r)) / (sun.r * 2), 0, 1), q = Math.floor(v * 4 + th) / 4;
+        [r, g, b] = mix(sunTop, sunBot, q);
+      } else {
+        const glow = Math.max(0, 1 - dist / 95) * (1 - p * .6);
+        const lv = Math.floor(glow * 4 + th) / 4;
+        r = c[0] + (glowC[0] - c[0]) * lv * .55; g = c[1] + (glowC[1] - c[1]) * lv * .55; b = c[2] + (glowC[2] - c[2]) * lv * .55;
+      }
+      const k = (y * W + x) * 4; d[k] = r; d[k + 1] = g; d[k + 2] = b; d[k + 3] = 255;
+    }
+  }
+  sctx.putImageData(simg, 0, 0);
+}
+
+// ambient decorations
+const STARS = Array.from({ length: 70 }, (_, i) => ({ x: hash(i * 3.1) * W, y: hash(i * 7.7) * 115, ph: hash(i * 1.3) * 6, b: hash(i * 9.1) }));
+const CLOUDS = Array.from({ length: 5 }, (_, i) => ({ x: i * 90 + hash(i) * 40, y: 22 + hash(i + 9) * 45, s: .7 + hash(i + 4) * .7,
+  lumps: Array.from({ length: 4 }, (_, j) => ({ dx: (j - 1.5) * 14 + hash(i * 10 + j) * 6, dy: hash(i * 20 + j) * 5, rx: 10 + hash(i * 30 + j) * 9, ry: 4 + hash(i * 40 + j) * 3 })) }));
+const FLIES = Array.from({ length: 26 }, (_, i) => ({ x: hash(i * 5.5) * 600, y: 100 + hash(i * 2.2) * 45, ph: hash(i * 8.8) * 6 }));
+const BIRDS = Array.from({ length: 4 }, (_, i) => ({ x: 40 + i * 13, y: 40 + (i % 2) * 5 + i * 2, ph: i }));
+
+// ---------- render ----------
+function render() {
+  const p = progress;
+  if (Math.abs(p - skyP) > .003) bakeSky(p);
+  ctx.drawImage(sky, 0, 0);
+
+  // stars
+  if (p > .45) {
+    const a = clamp((p - .45) / .4, 0, 1);
+    for (const s of STARS) {
+      const tw = (Math.sin(frame * .05 + s.ph) + 1) / 2;
+      if (s.b * a > .25 + tw * .2) { ctx.fillStyle = s.b > .85 ? '#fff6c8' : '#cfc8ff'; ctx.fillRect(s.x | 0, s.y | 0, 1, 1);
+        if (s.b > .93 && tw > .6) { ctx.fillRect((s.x | 0) - 1, s.y | 0, 3, 1); ctx.fillRect(s.x | 0, (s.y | 0) - 1, 1, 3); } }
+    }
+  }
+
+  // clouds lit from below by the sun
+  const cTop = mixHex('#b25c9a', '#2a1d4a', p), cMid = mixHex('#ff9a7a', '#5a2c58', p), cLit = mixHex('#ffe0a0', '#a04a5a', p);
+  for (const c of CLOUDS) {
+    const cx = ((c.x - cam * .04 - frame * .03 * c.s) % (W + 120) + W + 120) % (W + 120) - 60;
+    for (const l of c.lumps) {
+      const ox = cx + l.dx * c.s, oy = c.y + l.dy, rx = l.rx * c.s, ry = l.ry;
+      for (let dy = -ry; dy <= ry; dy++) {
+        const hw = Math.round(rx * Math.sqrt(1 - (dy / ry) ** 2));
+        ctx.fillStyle = dy > ry * .45 ? cLit : dy > -ry * .2 ? cMid : cTop;
+        ctx.fillRect(Math.round(ox - hw), Math.round(oy + dy), hw * 2, 1);
+      }
+    }
+  }
+
+  // birds (only early in the evening)
+  if (p < .6) {
+    ctx.fillStyle = mixHex('#3a1d40', '#1a1030', p);
+    for (const b of BIRDS) {
+      const bx = ((b.x + frame * .25 - cam * .1) % (W + 80) + W + 80) % (W + 80) - 40, by = b.y + Math.sin(frame * .02 + b.ph) * 2;
+      const up = Math.sin(frame * .2 + b.ph) > 0;
+      ctx.fillRect(bx | 0, by | 0, 1, 1); ctx.fillRect((bx | 0) - 2, (by | 0) - (up ? 1 : -1), 2, 1); ctx.fillRect((bx | 0) + 1, (by | 0) - (up ? 1 : -1), 2, 1);
+    }
+  }
+
+  // far mountains with a rim of sunset light
+  const farC = mixHex('#7a3f86', '#1d1438', p), rimC = mixHex('#ffb070', '#4a2c6a', p);
+  for (let x = 0; x < W; x++) {
+    const wx = x + cam * .12, top = Math.round(128 - fbm(wx / 55) * 58);
+    ctx.fillStyle = farC; ctx.fillRect(x, top, 1, H - top);
+    const prev = Math.round(128 - fbm((wx - 1) / 55) * 58);
+    if (prev > top || x % 3 === 0) { ctx.fillStyle = rimC; ctx.fillRect(x, top, 1, 1); }
+  }
+
+  // mid hills with castles
+  const midC = mixHex('#4e2462', '#140e2a', p);
+  const hill = wx => Math.round(140 - fbm(wx / 80 + 50) * 26);
+  ctx.fillStyle = midC;
+  for (let x = 0; x < W; x++) { const t = hill(x + cam * .3); ctx.fillRect(x, t, 1, H - t); }
+  drawCastles(midC, p);
+
+  // near pine forest
+  const nearC = mixHex('#2e1640', '#0d0819', p);
+  ctx.fillStyle = nearC;
+  for (let x = 0; x < W; x++) { const t = Math.round(150 - fbm((x + cam * .6) / 40 + 90) * 10); ctx.fillRect(x, t, 1, H - t); }
+  const off = cam * .6, start = Math.floor(off / 14) - 1;
+  for (let i = start; i < start + W / 14 + 3; i++) {
+    const tx = i * 14 + hash(i) * 10 - off, th = 16 + hash(i + .5) * 22;
+    const base = Math.round(150 - fbm((tx + off) / 40 + 90) * 10) + 2;
+    for (let y = 0; y < th; y++) { const hw = Math.round((y / th) * (th * .28) * (1 - .25 * ((y % 5) / 5))); ctx.fillRect(Math.round(tx - hw), Math.round(base - th + y), hw * 2 + 1, 1); }
+  }
+
+  // fireflies at dusk
+  if (p > .3) {
+    const a = clamp((p - .3) / .3, 0, 1);
+    for (const f of FLIES) {
+      const fx = ((f.x - cam * .8 + Math.sin(frame * .01 + f.ph) * 10) % 600 + 600) % 600 - 140;
+      if (fx < 0 || fx > W) continue;
+      if ((Math.sin(frame * .06 + f.ph) + 1) / 2 * a > .4) { ctx.fillStyle = '#e8ff8a'; ctx.fillRect(fx | 0, (f.y + Math.sin(frame * .03 + f.ph * 2) * 4) | 0, 1, 1); }
+    }
+  }
+
+  // ---- play layer ----
+  ctx.save(); ctx.translate(-Math.round(cam), 0);
+  drawPlatforms(p);
+
+  for (const s of shards) {
+    const sy = Math.round(s.y + Math.sin(s.t) * 2), sx = Math.round(s.x);
+    if (Math.sin(s.t * 1.7) > .3) { ctx.fillStyle = 'rgba(255,210,110,.25)'; ctx.fillRect(sx - 1, sy, 9, 8); ctx.fillRect(sx + 1, sy - 2, 5, 12); }
+    ctx.drawImage(SPR.shard, sx - 1, sy - 1);
+  }
+  for (const e of enemies) {
+    if (e.dead) continue;
+    if (e.type === 'slime') {
+      const sp = Math.floor(e.t / 14) % 2 ? SPR.slime2 : SPR.slime1;
+      ctx.drawImage(e.vx < 0 ? sp : sp, Math.round(e.x) - 1, Math.round(e.y) - 1);
+    } else {
+      const sp = Math.floor(e.t / 8) % 2 ? SPR.bat2 : SPR.bat1;
+      ctx.drawImage(sp, Math.round(e.x) - 1, Math.round(e.y) - 1);
+    }
+  }
+  for (const b of bolts) {
+    ctx.fillStyle = '#5fd0ff'; ctx.fillRect(Math.round(b.x) - 2, Math.round(b.y) - 1, 5, 3);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(b.x) - 1, Math.round(b.y), 3, 1);
+  }
+  if (state === 'play' || state === 'over') drawPlayer();
+  for (const q of parts) {
+    ctx.globalAlpha = clamp(q.life / q.max * 1.5, 0, 1); ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // dusk vignette deepens with the night
+  if (p > .5) { ctx.fillStyle = `rgba(10,6,30,${(p - .5) * .5})`; ctx.fillRect(0, 0, W, H); }
+  if (paused) { ctx.fillStyle = 'rgba(10,6,30,.5)'; ctx.fillRect(0, 0, W, H); }
+}
+
+function drawCastles(col, p) {
+  const off = cam * .3, period = 520;
+  const first = Math.floor((off - 120) / period);
+  for (let k = first; k <= first + 2; k++) {
+    const cx = Math.round(k * period + 260 + hash(k) * 120 - off);
+    if (cx < -80 || cx > W + 80) continue;
+    const base = Math.round(140 - fbm((cx + off) / 80 + 50) * 26) + 3;
+    ctx.fillStyle = col;
+    const towers = [[-26, 26, 6], [-14, 34, 8], [0, 46, 9], [14, 30, 7], [24, 22, 6]];
+    ctx.fillRect(cx - 24, base - 18, 50, 18);                     // curtain wall
+    for (let x = -24; x < 26; x += 4) ctx.fillRect(cx + x, base - 20, 2, 2);  // battlements
+    for (const [dx, h, w] of towers) {
+      ctx.fillRect(cx + dx - (w >> 1), base - h, w, h);
+      for (let y = 0; y < w + 4; y++) { const hw = Math.round((y / (w + 4)) * (w / 2 + 1)); ctx.fillRect(cx + dx - hw, base - h - (w + 4) + y, hw * 2 + 1, 1); }
+      ctx.fillRect(cx + dx, base - h - w - 8, 1, 4);              // spire
+    }
+    // flag on the keep
+    ctx.fillStyle = mixHex('#e04a5a', '#5a1a3a', p); ctx.fillRect(cx + 1, base - 46 - 17 + (frame >> 4) % 2, 4, 2);
+    // windows light up as night falls
+    const lit = clamp((p - .25) / .35, 0, 1);
+    const wins = [[-14, 24], [0, 34], [0, 26], [14, 22], [-26, 18], [24, 14], [-6, 10], [8, 10]];
+    wins.forEach(([wx, wy], i) => {
+      if (hash(k * 13 + i) < lit) { ctx.fillStyle = (frame + i * 37) % 160 < 4 ? '#ffb040' : '#ffd76a'; ctx.fillRect(cx + wx, base - wy, 1, 2); }
+    });
+  }
+}
+
+function drawPlatforms(p) {
+  const grass = mixHex('#8cc84e', '#2a5a3e', p), grassHi = mixHex('#ffd27a', '#4a7a5a', p), dirt = mixHex('#6a3a2c', '#24141e', p), dirt2 = mixHex('#8a4e34', '#321c26', p);
+  const stone = mixHex('#8a7a9a', '#3a3050', p), stoneHi = mixHex('#ffc890', '#5a4a70', p), stoneLo = mixHex('#4a3a5a', '#1a1428', p);
+  for (const pl of platforms) {
+    const x0 = Math.round(pl.x), x1 = Math.round(pl.x + pl.w);
+    if (x1 < cam - 4 || x0 > cam + W + 4) continue;
+    if (pl.ground) {
+      ctx.fillStyle = dirt; ctx.fillRect(x0, pl.y, pl.w, pl.h);
+      ctx.fillStyle = dirt2;
+      for (let y = pl.y + 5; y < H; y += 3) for (let x = x0 + ((y >> 1) % 4); x < x1; x += 4 + ((x * 7 + y) % 3)) ctx.fillRect(x, y, 1, 1);
+      ctx.fillStyle = grass; ctx.fillRect(x0, pl.y, pl.w, 3);
+      for (let x = x0; x < x1; x += 2) if (hash(x) > .4) ctx.fillRect(x, pl.y + 3, 1, 1 + (hash(x * 3) * 2 | 0));
+      ctx.fillStyle = grassHi; ctx.fillRect(x0, pl.y, pl.w, 1);
+      for (let x = x0 + 1; x < x1; x += 3) if (hash(x + .3) > .6) ctx.fillRect(x, pl.y - 1, 1, 1);
+      // flowers
+      for (let x = x0 + 3; x < x1 - 3; x += 7) if (hash(x * 1.7) > .82) { ctx.fillStyle = hash(x) > .5 ? '#ff7aa8' : '#ffe07a'; ctx.fillRect(x, pl.y - 2, 1, 1); }
+      ctx.fillStyle = OUTLINE; ctx.fillRect(x0 - 1, pl.y, 1, pl.h); ctx.fillRect(x1, pl.y, 1, pl.h);
+    } else {
+      ctx.fillStyle = OUTLINE; ctx.fillRect(x0 - 1, pl.y - 1, pl.w + 2, pl.h + 2);
+      ctx.fillStyle = stone; ctx.fillRect(x0, pl.y, pl.w, pl.h);
+      ctx.fillStyle = stoneLo; for (let x = x0 + 7; x < x1; x += 8) ctx.fillRect(x, pl.y + 1, 1, pl.h - 1); ctx.fillRect(x0, pl.y + pl.h - 1, pl.w, 1);
+      ctx.fillStyle = stoneHi; ctx.fillRect(x0, pl.y, pl.w, 1);
+      // glowing rune under floating stones
+      ctx.fillStyle = `rgba(160,220,255,${.35 + Math.sin(frame * .05 + pl.x) * .2})`; ctx.fillRect(x0 + (pl.w >> 1) - 1, pl.y + pl.h + 1, 3, 1);
+    }
+  }
+}
+
+function drawPlayer() {
+  const p = player;
+  if (p.inv > 0 && (p.inv >> 2) % 2) return;
+  let n = 'idle';
+  if (!p.ground) n = 'jump'; else if (Math.abs(p.vx) > .2) n = Math.floor(p.anim) % 2 ? 'run1' : 'run2';
+  const sp = SPR['mage_' + n + (p.face < 0 ? '_L' : '')];
+  const bob = n === 'idle' && Math.floor(frame / 30) % 2 ? 1 : 0;
+  ctx.drawImage(sp, Math.round(p.x) - 3, Math.round(p.y) - 1 + bob);
+  // staff gem glows brighter as the dark grows
+  ctx.fillStyle = `rgba(160,240,255,${.15 + progress * .35})`;
+  const gx = p.face > 0 ? Math.round(p.x) + 7 : Math.round(p.x) - 1;
+  ctx.fillRect(gx - 1, Math.round(p.y) + 4 + bob, 5, 5);
+}
+
+// ---------- main loop (fixed 60 Hz step) ----------
+let last = performance.now(), acc = 0;
+function loop(now) {
+  acc += Math.min(100, now - last); last = now;
+  while (acc >= 1000 / 60) {
+    if (anyPressed && state === 'title') startGame();
+    else if (anyPressed && state === 'over' && frame - overAt > 40) startGame();
+    anyPressed = false;
+    update(); acc -= 1000 / 60;
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+reset(); state = 'title';
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
