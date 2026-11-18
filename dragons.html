@@ -15,7 +15,10 @@
     --muted: #b4a8d8;
     --hp: #ff4f6d;
     --mana: #44c8ff;
+    color-scheme: dark;
   }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0920; --text: #f4efff; } }
+  :root[data-theme="dark"] { --bg: #0b0920; --text: #f4efff; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: 'Rubik', sans-serif; overflow: hidden; user-select: none; touch-action: none; }
