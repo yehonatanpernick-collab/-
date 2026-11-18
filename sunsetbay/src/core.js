@@ -16,10 +16,10 @@ export const CFG = {
   stuntMinAir: 0.9,
 };
 export const QUALITY = {
-  ultra: { dpr: 2, shadow: 4096, shadowR: 90, ao: true, bloom: true, smaa: true, peds: 30, traffic: 18, far: 1500, aniso: 16 },
-  high: { dpr: 1.5, shadow: 2048, shadowR: 70, ao: true, bloom: true, smaa: true, peds: 24, traffic: 14, far: 1200, aniso: 8 },
-  medium: { dpr: 1, shadow: 2048, shadowR: 55, ao: false, bloom: true, smaa: false, peds: 16, traffic: 10, far: 900, aniso: 4 },
-  low: { dpr: 0.8, shadow: 0, shadowR: 0, ao: false, bloom: false, smaa: false, peds: 9, traffic: 7, far: 600, aniso: 2 },
+  ultra: { dpr: 2, shadow: 4096, shadowR: 90, ao: true, bloom: true, smaa: true, peds: 12, traffic: 8, far: 1500, aniso: 16 },
+  high: { dpr: 1.5, shadow: 2048, shadowR: 70, ao: true, bloom: true, smaa: true, peds: 10, traffic: 7, far: 1200, aniso: 8 },
+  medium: { dpr: 1, shadow: 2048, shadowR: 55, ao: false, bloom: true, smaa: false, peds: 8, traffic: 6, far: 900, aniso: 4 },
+  low: { dpr: 0.8, shadow: 0, shadowR: 0, ao: false, bloom: false, smaa: false, peds: 6, traffic: 4, far: 600, aniso: 2 },
 };
 /* =====================================================================
    UTILS

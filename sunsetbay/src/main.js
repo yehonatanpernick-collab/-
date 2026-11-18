@@ -6,7 +6,7 @@ import { initPhysics, buildStatic, world, events, R } from './physics.js';
 import { lib, Human, ANIMS, MODELS, PLAYER_MODEL, updateFrustum } from './characters.js';
 import { loadCar, CARS, NIGHT, initVehicleFX } from './vehicles.js';
 import * as FX from './fx.js';
-import { clock, humans, vehicles, pickups, player, cam, wanted, mission, flags, input, stats } from './state.js';
+import { clock, humans, vehicles, pickups, player, cam, wanted, mission, flags, input, stats, interp } from './state.js';
 import * as AI from './ai.js';
 import { updateHUD, drawMinimap, buildMapBase, toast, gps } from './hud.js';
 import { MISSIONS, missionTick, updatePickups, setupPickups, setPickupGun, updateRacer, computeGPS, save, startMission, closeMissionCard } from './missions.js';
@@ -67,7 +67,8 @@ function manage(dt) {
     const d = Math.hypot(s.x - px, s.z - pz);
     if (s.v && (s.v.removed || s.v.mode !== 'parked' || Math.hypot(s.v.x - s.x, s.v.z - s.z) > 3)) { if (s.v && !s.v.removed) s.v.spot = null; s.v = null; s.cool = 120; }
     s.cool = Math.max(0, (s.cool || 0) - 0.4);
-    if (!s.v && s.cool <= 0 && d < 140 && d > 25) { const [type, opts] = parkedTypeFor(s); s.v = AI.spawnVehicle(type, s.x, s.z, s.h, opts); if (s.v) { s.v.spot = s; s.v.mode = 'parked'; s.v.hand = true; } }
+    if (s.use === undefined) s.use = Math.random() < 0.45 || !!s.type;
+    if (s.use && !s.v && s.cool <= 0 && d < 140 && d > 25) { const [type, opts] = parkedTypeFor(s); s.v = AI.spawnVehicle(type, s.x, s.z, s.h, opts); if (s.v) { s.v.spot = s; s.v.mode = 'parked'; s.v.hand = true; } }
     else if (s.v && d > 220 && s.v.mode === 'parked') { AI.removeVehicle(s.v); s.v = null; }
   }
   let pc = 0;
@@ -86,6 +87,8 @@ function manage(dt) {
    ===================================================================== */
 function step(dt) {
   clock.t += dt; clock.frame++;
+  for (const v of vehicles) v.savePrev();
+  for (const h of humans) { h.pX = h.x; h.pY = h.y; h.pZ = h.z; h.pYaw = h.yaw; }
   if (flags.running) updatePlayer(dt);
   for (const v of vehicles) {
     if (v.removed) continue;
@@ -121,6 +124,9 @@ function step(dt) {
 const _focus = new THREE.Vector3();
 let last = performance.now(), acc = 0, fpsT = 0, frames = 0, fps = 60;
 function render(rdt) {
+  const adt0 = rdt * flags.timeScale;
+  for (const h of humans) h.update(adt0, clock.frame);
+  for (const v of vehicles) v.sync(rdt);
   const fc = window.game && window.game.free;
   if (fc) { camera.position.set(fc.p[0], fc.p[1], fc.p[2]); camera.lookAt(fc.l[0], fc.l[1], fc.l[2]); if (fc.fov && camera.fov !== fc.fov) { camera.fov = fc.fov; camera.updateProjectionMatrix(); } } else updateCamera(rdt);
   camera.updateMatrixWorld(); updateFrustum();
@@ -128,9 +134,7 @@ function render(rdt) {
   updateSky(flags.running ? rdt : rdt * 0.5, flags.running ? _focus : camera.position);
   NIGHT.v = W.lampsOn(sky.night);
   W.updateWorld(rdt, sky.night, clock.t);
-  const adt = rdt * flags.timeScale;
-  for (const h of humans) h.update(adt, clock.frame);
-  for (const v of vehicles) v.sync(rdt);
+  const adt = adt0;
   FX.updateFX(adt);
   if (flags.running) {
     updateHUD(rdt);
@@ -143,8 +147,8 @@ function render(rdt) {
 function frame(now) {
   requestAnimationFrame(frame);
   const rdt = Math.min(0.1, (now - last) / 1000); last = now;
-  if (!flags.paused && !flags.modal) { acc += rdt * flags.timeScale; let n = 0; while (acc >= CFG.step && n < 4) { step(CFG.step); acc -= CFG.step; n++; } if (n === 4) acc = 0; }
-  else input.pressed.clear();
+  if (!flags.paused && !flags.modal) { acc += rdt * flags.timeScale; let n = 0; while (acc >= CFG.step && n < 4) { step(CFG.step); acc -= CFG.step; n++; } if (n === 4) acc = 0; interp.a = clamp(acc / CFG.step, 0, 1); }
+  else { input.pressed.clear(); interp.a = 1; }
   render(flags.paused ? 0 : rdt);
 }
 function onResize() {
@@ -201,7 +205,7 @@ window.game = {
   press(code, ms = 120) { input.keys[code] = true; input.pressed.add(code); setTimeout(() => { input.keys[code] = false; }, ms); },
   hold(code, on) { input.keys[code] = on; if (on) input.pressed.add(code); },
   mouse(btn, on) { input.mouse[btn] = on; },
-  step(n = 1) { for (let i = 0; i < n; i++) step(CFG.step); render(CFG.step); },
+  step(n = 1) { for (let i = 0; i < n; i++) step(CFG.step); interp.a = 1; render(CFG.step); },
   render() { render(1 / 60); },
   start: startGame, mood: moodSet,
   teleport(x, z, h) { if (player.car) player.car.place(x, z, h ?? player.car.h); else { const y = W.groundHeight(x, z); player.h.setPosition(x, y, z); player.collider.setTranslation({ x, y: y + 0.86, z }); if (h !== undefined) { player.h.yaw = h; cam.yaw = h; } } player.x = x; player.z = z; },

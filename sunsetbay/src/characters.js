@@ -3,6 +3,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { buildRig, retargetClip, normBone } from './retarget.js';
 import { loadGLTF, scene, camera } from './render.js';
 import { clamp, damp, wrapA, rnd, pick } from './core.js';
+import { interp } from './state.js';
 
 // logical clip -> [file, loop]
 export const ANIMS = {
@@ -160,14 +161,16 @@ export class Human {
     const o = GUN_GRIP; g.position.set(o.p[0] * s, o.p[1] * s, o.p[2] * s); g.rotation.set(o.r[0], o.r[1], o.r[2]);
     hand.add(g); this.gun = g; g.visible = false;
   }
-  setPosition(x, y, z) { this.x = x; this.y = y; this.z = z; this.root.position.set(x, y, z); }
+  setPosition(x, y, z) { this.x = x; this.y = y; this.z = z; this.pX = undefined; this.root.position.set(x, y, z); }
   update(dt, frame) {
     // LOD: skip far / invisible characters
     this.dist = Math.hypot(this.x - camera.position.x, this.z - camera.position.z);
     _sph.center.set(this.x, this.y + 1, this.z); _sph.radius = 1.4;
     const vis = !this.hidden && this.dist < 180 && frustum.intersectsSphere(_sph);
     this.root.visible = !this.hidden && this.dist < 180;
-    this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.yaw;
+    const a = interp.a;
+    if (this.pX !== undefined && a < 1 && Math.abs(this.x - this.pX) + Math.abs(this.z - this.pZ) < 3) { this.root.position.set(this.pX + (this.x - this.pX) * a, this.pY + (this.y - this.pY) * a, this.pZ + (this.z - this.pZ) * a); this.root.rotation.y = this.pYaw + wrapA(this.yaw - this.pYaw) * a; }
+    else { this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.yaw; }
     const every = this.dist < 35 ? 1 : this.dist < 80 ? 2 : 4;
     this.lodT += dt;
     if (vis && (frame % every === 0 || this.kind === 'player')) { this.mixer.update(this.lodT); this.lodT = 0; this.postPose(); }
@@ -181,9 +184,9 @@ export class Human {
       const sp = this.bones.Spine2 || this.bones.Spine1; if (sp) { _q.setFromAxisAngle(_v.set(1, 0, 0), -this.aimPitch * 0.3); sp.quaternion.multiply(_q); }
       const arm = this.bones.RightArm, hand = this.bones.RightHand;
       if (arm && hand && this.gun) {
-        this.root.position.set(this.x, this.y, this.z); this.root.rotation.y = this.yaw; this.root.updateMatrixWorld(true);
+        this.root.updateMatrixWorld(true);
         const ap = this.aimPitch + this.recoil * 0.12, cp = Math.cos(ap);
-        _d.set(Math.sin(this.yaw) * cp, Math.sin(ap), Math.cos(this.yaw) * cp);
+        const ry = this.root.rotation.y; _d.set(Math.sin(ry) * cp, Math.sin(ap), Math.cos(ry) * cp);
         arm.getWorldPosition(_s); hand.getWorldPosition(_h); _c.subVectors(_h, _s).normalize();
         rotateBoneWorld(arm, _qa.setFromUnitVectors(_c, _d));
         _g.set(0, 0, 1).applyQuaternion(this.gun.getWorldQuaternion(_qb));

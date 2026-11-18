@@ -157,7 +157,7 @@ function aheadLimit(v, fx, fz, maxD, latW) {
 }
 export function updateTraffic(v, dt) {
   const a = v.ai, [fx, fz] = DIRS[a.d];
-  let target = a.cruise;
+  let target = a.hold ? 0 : a.cruise;
   if (a.phase === 'edge') {
     const stopS = CELL - HRW - 5.6;
     const ls = W.lightState(a.d % 2 === 0 ? 0 : 1, clock.t);
@@ -179,7 +179,7 @@ export function updateTraffic(v, dt) {
     }
   } else {
     const T = a.turn, turning = T.nd !== a.d;
-    const [lim] = aheadLimit(v, Math.sin(v.h), Math.cos(v.h), 12, 1.3); target = Math.min(turning ? 8 : a.cruise, lim);
+    const [lim] = aheadLimit(v, Math.sin(v.h), Math.cos(v.h), 12, 1.3); target = a.hold ? 0 : Math.min(turning ? 8 : a.cruise, lim);
     a.speed = a.speed < target ? Math.min(target, a.speed + 3 * dt) : Math.max(target, a.speed - 8 * dt);
     a.braking = target < a.speed - 0.5;
     T.t += a.speed * dt / T.len;

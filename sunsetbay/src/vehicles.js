@@ -3,6 +3,7 @@ import { R, world, G, groups, colliderInfo } from './physics.js';
 import { loadGLTF, scene, camera } from './render.js';
 import { clamp, damp, lerp, pick, rnd } from './core.js';
 import { TEX, groundHeight } from './world.js';
+import { interp } from './state.js';
 
 export const CARS = {
   bavaria: { file: 'cars/bavaria.glb', name: 'Bavaria 30', len: 4.36, paint: /PAINT/i, hide: /EMBLEM/i, head: /LENS/i, tail: /TAILLIGHT/i, wheel: /RIM|TIRE|Brake_disc|Brake_Disc|Calipers|Logo_Plane/i, mass: 1250, force: 8000, maxV: 52, grip: 2.2, colors: [0xb3141e, 0xe8e5dc, 0x1b1d22, 0x23395e, 0x6b7076, 0x2d5a3d, 0xc7b38a] },
@@ -179,10 +180,11 @@ export class Vehicle {
     this.makeController();
   }
   place(x, z, h, y) {
-    this.x = x; this.z = z; this.h = h; this.y = y !== undefined ? y : Math.max(0, groundHeight(x, z));
+    this.x = x; this.z = z; this.h = h; this.y = y !== undefined ? y : Math.max(0, groundHeight(x, z)); this.pP = null;
     if (this.body) { this.body.setTranslation({ x, y: this.y + 0.05, z }, true); this.body.setRotation(yawQ(h), true); this.body.setLinvel({ x: 0, y: 0, z: 0 }, true); this.body.setAngvel({ x: 0, y: 0, z: 0 }, true); }
     this.sync();
   }
+  savePrev() { if (!this.body) return; const t = this.body.translation(), r = this.body.rotation(); this.pP = [t.x, t.y, t.z]; this.pQ = [r.x, r.y, r.z, r.w]; }
   get dynamic() { return this.body && this.body.bodyType() === R.RigidBodyType.Dynamic; }
   drive(dt) {
     const c = this.ctrl; if (!c || !this.dynamic) return;
@@ -223,7 +225,11 @@ export class Vehicle {
     this.vx = lv.x; this.vz = lv.z; this.vy = lv.y; this.speedAbs = Math.hypot(lv.x, lv.z); this.fwdSpeed = lv.x * _v.x + lv.z * _v.z;
   }
   sync(dt = 0) {
-    if (this.body) { const t = this.body.translation(), r = this.body.rotation(); this.mesh.position.set(t.x, t.y, t.z); this.mesh.quaternion.set(r.x, r.y, r.z, r.w); }
+    if (this.body) {
+      const t = this.body.translation(), r = this.body.rotation(), a = interp.a;
+      this.mesh.position.set(t.x, t.y, t.z); this.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      if (this.pP && a < 1) { this.mesh.position.set(this.pP[0] + (t.x - this.pP[0]) * a, this.pP[1] + (t.y - this.pP[1]) * a, this.pP[2] + (t.z - this.pP[2]) * a); _q2.set(this.pQ[0], this.pQ[1], this.pQ[2], this.pQ[3]); this.mesh.quaternion.copy(_q2.slerp(this.mesh.quaternion, a)); }
+    }
     else { this.mesh.position.set(this.x, this.y, this.z); this.mesh.rotation.set(0, this.h, 0); }
     // wheels
     const c = this.ctrl;
@@ -249,6 +255,7 @@ export class Vehicle {
   }
 }
 export const NIGHT = { v: 0 };
+const _q2 = new THREE.Quaternion();
 const THROW_MAT = new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -4, fog: false });
 export function initVehicleFX() { THROW_MAT.map = TEX.headThrow; THROW_MAT.needsUpdate = true; }
 export function yawQ(h) { _q.setFromEuler(new THREE.Euler(0, h, 0)); return { x: _q.x, y: _q.y, z: _q.z, w: _q.w }; }

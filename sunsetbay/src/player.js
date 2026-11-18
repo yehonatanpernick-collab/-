@@ -30,11 +30,11 @@ function placeCollider(x, y, z) { player.collider.setTranslation({ x, y: y + 0.8
 /* =====================================================================
    CARS: enter / exit / jack
    ===================================================================== */
-export function nearestEnterable() {
+export function nearestEnterable(extra = 1.7) {
   let best = null, bd = 1e9; const h = player.h;
   for (const v of vehicles) {
     if (v.removed || v.dead || v.locked || v.fire > 0 || v.mode === 'racer' || v.drowned) continue;
-    const d = Math.hypot(v.x - player.x, v.z - player.z); if (d < v.hlen + 1.7 && d < bd && Math.abs(v.y - h.y) < 1.6) { bd = d; best = v; }
+    const d = Math.hypot(v.x - player.x, v.z - player.z); if (d < v.hlen + extra && d < bd && Math.abs(v.y - h.y) < 1.6) { bd = d; best = v; }
   }
   return best;
 }
@@ -184,7 +184,7 @@ export function updatePlayer(dt) {
     if (h.state === 'air' || h.state === 'down') ragdollStep(h, dt);
     P.x = h.x; P.z = h.z; return;
   }
-  if (pr.has('KeyF')) { if (P.car) exitCar(false); else if (h.state === 'normal') { const v = nearestEnterable(); if (v) enterCar(v); } }
+  if (pr.has('KeyF')) { if (P.car) exitCar(false); else if (P.entering) cancelEnter(); else if (h.state === 'normal') { const v = nearestEnterable(3.6); if (v) startEnter(v); } }
   if (P.car) updateDriving(dt, ix, iz, pr);
   else updateOnFoot(dt, ix, iz, pr);
 }
@@ -212,12 +212,63 @@ function updateDriving(dt, ix, iz, pr) {
   else if (P.airT !== undefined && P.airT !== null) { if (P.airT > CFG.stuntMinAir && !v.dead) stuntBonus(P.airT, Math.hypot(v.x - P.airX, v.z - P.airZ)); P.airT = null; }
 }
 const CAM_FILTER = groups(0xffff, G.STATIC);
+function startEnter(v) { player.entering = { v, t: 0, phase: 'walk' }; if (v.mode === 'traffic' && v.ai) v.ai.hold = true; }
+function cancelEnter() { const E = player.entering; if (E && E.v.ai) E.v.ai.hold = false; player.entering = null; }
+// walk to the driver's door, turn to the car, climb in
+function enterStep(dt, ix, iz) {
+  const P = player, h = P.h, E = P.entering, v = E.v;
+  if (v.removed || v.dead || v.fire > 0 || (Math.abs(ix) + Math.abs(iz) > 0.5 && E.t > 0.25 && E.phase === 'walk')) { cancelEnter(); return false; }
+  E.t += dt; h.aiming = false; h.setUpper(null, 0.15);
+  const lx = Math.cos(v.h), lz = -Math.sin(v.h), fx = Math.sin(v.h), fz = Math.cos(v.h);
+  let tx = v.x + lx * (v.hwid + 0.5) + fx * 0.35, tz = v.z + lz * (v.hwid + 0.5) + fz * 0.35;
+  const doorD = Math.hypot(tx - h.x, tz - h.z);
+  // not on the driver's side yet: walk around the nearer end of the car first
+  const ox = h.x - v.x, oz = h.z - v.z, lat = ox * lx + oz * lz, lon = ox * fx + oz * fz;
+  if (lat < v.hwid + 0.2) {
+    const sgn = lon >= 0 ? 1 : -1;
+    if (Math.abs(lon) < v.hlen + 0.5) { const l2 = clamp(lat, -(v.hwid + 0.7), v.hwid + 0.7); tx = v.x + fx * sgn * (v.hlen + 0.9) + lx * l2; tz = v.z + fz * sgn * (v.hlen + 0.9) + lz * l2; }
+    else { tx = v.x + fx * sgn * (v.hlen + 0.6) + lx * (v.hwid + 0.7); tz = v.z + fz * sgn * (v.hlen + 0.6) + lz * (v.hwid + 0.7); }
+  }
+  const dx = tx - h.x, dz = tz - h.z, d = Math.max(0.01, Math.hypot(dx, dz));
+  if (E.phase === 'walk' && (doorD < 0.3 || E.t > 4)) { E.phase = 'in'; E.t2 = 0; }
+  if (E.phase === 'in') {
+    E.t2 += dt; const face = Math.atan2(-lx, -lz);
+    h.yaw += wrapA(face - h.yaw) * Math.min(1, dt * 14);
+    h.vx = damp(h.vx, 0, 14, dt); h.vz = damp(h.vz, 0, 14, dt); h.locomote(0, dt);
+    if (E.t2 > 0.28) { player.entering = null; enterCar(v); }
+    return true;
+  }
+  const sp = doorD > 2.5 ? CFG.jogSpeed : Math.max(1.3, doorD * 1.8);
+  h.yaw += wrapA(Math.atan2(dx, dz) - h.yaw) * Math.min(1, dt * 10);
+  h.vx = damp(h.vx, dx / d * sp, 9, dt); h.vz = damp(h.vz, dz / d * sp, 9, dt);
+  P.vy -= CFG.gravity * dt; const r = moveHumanCollider(player.collider, h.vx * dt, P.vy * dt, h.vz * dt), t = player.collider.translation();
+  P.grounded = r.grounded; if (P.grounded && P.vy < 0) P.vy = -1;
+  h.x = t.x; h.z = t.z; h.y = t.y - 0.86; P.x = h.x; P.z = h.z;
+  h.locomote(Math.hypot(h.vx, h.vz), dt);
+  footstep(dt, Math.hypot(h.vx, h.vz));
+  return true;
+}
+function footstep(dt, hs) { const P = player; if (P.grounded && hs > 0.5) { P.stepD = (P.stepD || 0) + hs * dt; const stride = hs > 5 ? 1.55 : hs > 2.7 ? 1.25 : 0.72; if (P.stepD > stride) { P.stepD = 0; sound.step(0, hs > 5 ? 0.5 : 0.32); } } }
+// GTA-style soft lock: when aiming starts, swing the crosshair onto the nearest target in front
+function findLockTarget() {
+  const c = camera.position; camera.getWorldDirection(_fwd); let best = null, bs = 1e9;
+  for (const o of humans) {
+    if (o === player.h || !o.alive || o.hidden || o.state === 'dead') continue;
+    const dx = o.x - c.x, dy = o.y + 1.25 - c.y, dz = o.z - c.z, d = Math.hypot(dx, dy, dz); if (d > 45 || d < 1) continue;
+    const cosA = (dx * _fwd.x + dy * _fwd.y + dz * _fwd.z) / d; if (cosA < 0.94) continue;
+    if (!W.losClear(player.x, player.z, o.x, o.z)) continue;
+    const hostile = o.kind === 'gang' && o.ai.hostile || o.kind === 'cop' && wanted.level > 0;
+    const score = (1 - cosA) * 60 + d * 0.05 - (hostile ? 3 : 0); if (score < bs) { bs = score; best = o; }
+  }
+  return best;
+}
 function updateOnFoot(dt, ix, iz, pr) {
   const P = player, h = P.h, inp = input;
   sound.setEngine(false, 0, 0); sound.setSkid(0);
   if (h.state === 'air' || h.state === 'down' || h.state === 'dead') {
     ragdollStep(h, dt); P.x = h.x; P.z = h.z; placeCollider(h.x, h.y, h.z); return;
   }
+  if (P.entering && h.state === 'normal') { if (enterStep(dt, ix, iz)) return; }
   // weapons
   if (pr.has('KeyQ') || pr.has('WheelUp')) cycleWeapon(-1);
   if (pr.has('KeyE') || pr.has('WheelDown') || inp.touch.weapTap) cycleWeapon(1);
@@ -230,6 +281,13 @@ function updateOnFoot(dt, ix, iz, pr) {
   if (firing && (Wp.auto || Wp.melee || !P.fireHeld)) playerFire();
   P.fireHeld = firing;
   const aiming = !Wp.melee && (inp.mouse.r || P.aimHold > 0 || inp.touch.fire);
+  if (aiming && !P.wasAiming && (inp.mouse.r || inp.touch.fire)) { const tg = findLockTarget(); P.lock = tg ? { h: tg, t: 0.22 } : null; }
+  if (P.lock) {
+    const o = P.lock.h, c = camera.position; P.lock.t -= dt;
+    if (!aiming || !o.alive || P.lock.t <= 0) P.lock = null;
+    else { const dx = o.x - c.x, dy = o.y + 1.3 * (o.height / 1.78) - c.y, dz = o.z - c.z, hd = Math.hypot(dx, dz), k = Math.min(1, dt * 16);
+      cam.yaw += wrapA(Math.atan2(dx, dz) - cam.yaw) * k; cam.pitch += (Math.atan2(-dy, hd) - cam.pitch) * k; }
+  }
   h.aiming = aiming; P.wasAiming = aiming;
   if (aiming) { h.yaw += wrapA(cam.yaw - h.yaw) * Math.min(1, dt * 20); h.aimPitch = clamp(-cam.pitch * 0.9 + 0.12, -0.7, 0.7); h.setUpper(P.reloadT > 0 ? null : 'aim', 0.12); }
   else h.setUpper(null, 0.2);
@@ -239,8 +297,14 @@ function updateOnFoot(dt, ix, iz, pr) {
   const sprint = K('ShiftLeft') || K('ShiftRight') || inp.touch.sprint;
   const walk = K('AltLeft') || K('ControlLeft');
   const speed = (aiming ? CFG.aimSpeed * 1.25 : sprint ? CFG.runSpeed : walk ? CFG.walkSpeed : CFG.jogSpeed) * mag * (P.meleeT > 0 ? 0.3 : 1);
-  if (mag > 0.1 && !aiming) h.yaw += wrapA(Math.atan2(mx, mz) - h.yaw) * Math.min(1, dt * 10);
-  h.vx = damp(h.vx, mx * speed, 10, dt); h.vz = damp(h.vz, mz * speed, 10, dt);
+  let ux = mx, uz = mz;
+  if (mag > 0.1 && !aiming) {
+    const dy = wrapA(Math.atan2(mx, mz) - h.yaw); h.yaw += dy * Math.min(1, dt * (Math.abs(dy) > 2.2 ? 16 : 9));
+    // run along the facing direction so turns curve naturally instead of sliding sideways
+    const fx = Math.sin(h.yaw), fz = Math.cos(h.yaw), al = Math.max(0, fx * mx + fz * mz); ux = fx * al; uz = fz * al;
+  }
+  const curS = Math.hypot(h.vx, h.vz), rate = speed > curS ? 6.5 : 9;
+  h.vx = damp(h.vx, ux * speed, rate, dt); h.vz = damp(h.vz, uz * speed, rate, dt);
   // jump & gravity
   if ((pr.has('Space') || inp.touch.jumpTap) && P.grounded && P.meleeT <= 0) {
     P.vy = CFG.jumpV; P.grounded = false; h.playOnce(Math.hypot(h.vx, h.vz) > 3 ? 'runJump' : 'jump', { fade: 0.1, ts: 1.25 }); P.jumpT = 0;
@@ -263,8 +327,7 @@ function updateOnFoot(dt, ix, iz, pr) {
       h.locomote(hs, dt, clip ? { walk: clip } : {});
     } else h.locomote(hs, dt, { idle: P.weapon > 0 ? 'pistolIdle' : 'idle' });
   }
-  // footsteps
-  if (P.grounded && hs > 0.5) { P.stepD = (P.stepD || 0) + hs * dt; const stride = hs > 5 ? 1.55 : hs > 2.7 ? 1.25 : 0.72; if (P.stepD > stride) { P.stepD = 0; sound.step(0, hs > 5 ? 0.5 : 0.32); } }
+  footstep(dt, hs);
   P.x = h.x; P.z = h.z;
 }
 
@@ -290,20 +353,28 @@ export function updateCamera(dt) {
     cam.look = Math.max(0, cam.look - dt);
     if (cam.look <= 0) { const behind = v.fwdSpeed < -3 ? v.h + Math.PI : v.h; cam.yaw += wrapA(behind - cam.yaw) * (1 - Math.exp(-dt * (2.0 + sp * 0.05))); cam.pitch = damp(cam.pitch, cam.carMode === 2 ? 0.3 : 0.16, 2, dt); }
     D = [5.6, 7.6, 11.5][cam.carMode] * (0.6 + v.hlen / 5.5) + sp * 0.03;
-    _tgt.set(v.x, v.y + 0.75 + v.H * 0.5, v.z);
+    const mp = v.mesh.position; _tgt.set(mp.x, mp.y + 0.75 + v.H * 0.5, mp.z); cam.ty = undefined;
     fovT = 58 + clamp(sp - 12, 0, 45) * 0.3; smoothPos = true;
   } else {
-    const h = P.h, aim = h.aiming && !P.dead;
+    const h = P.h, aim = h.aiming && !P.dead, rp = h.root.position, hs = Math.hypot(h.vx, h.vz);
     D = aim ? 1.9 : 3.4; fovT = aim ? 44 : 58;
-    const rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw), so = aim ? 0.62 : 0.42;
+    cam.so = damp(cam.so ?? 0.42, aim ? 0.62 : 0.42, 10, dt);
+    const rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw), so = cam.so;
     const down = h.state === 'dead' || h.state === 'down';
-    _tgt.set(h.x + rx * so, h.y + (down ? 0.5 : aim ? 1.6 : 1.5) * (h.height / 1.78), h.z + rz * so);
+    // smooth the height so curb steps and landings don't jolt the view
+    const ty = rp.y + (down ? 0.5 : aim ? 1.6 : 1.5) * (h.height / 1.78);
+    cam.ty = cam.ty === undefined || Math.abs(cam.ty - ty) > 3 ? ty : damp(cam.ty, ty, 9, dt);
+    _tgt.set(rp.x + rx * so, cam.ty, rp.z + rz * so);
+    // drift the camera back behind the player while running and the mouse is idle
+    cam.look = Math.max(0, cam.look - dt);
+    if (!aim && cam.look <= 0 && hs > 1.5 && !P.entering) cam.yaw += wrapA(h.yaw - cam.yaw) * (1 - Math.exp(-dt * 0.9));
     if (P.dead) { D = 6.5; cam.yaw += dt * 0.25; cam.pitch = damp(cam.pitch, 0.55, 1, dt); }
   }
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw);
   _dir.set(-fx * cp, sp, -fz * cp);
-  const hit = camRay({ x: _tgt.x, y: _tgt.y, z: _tgt.z }, { x: _dir.x, y: _dir.y, z: _dir.z }, D + 0.3, P.car ? P.car.collider : null);
-  const want = Math.max(0.6, Math.min(D, hit - 0.3));
+  const hit = camRay({ x: _tgt.x, y: _tgt.y, z: _tgt.z }, { x: _dir.x, y: _dir.y, z: _dir.z }, Math.max(D, cam.D || 0) + 0.3, P.car ? P.car.collider : null);
+  cam.D = damp(cam.D ?? D, D, 9, dt); if (P.car && Math.abs(cam.D - D) > 4) cam.D = D;
+  const want = Math.max(0.6, Math.min(cam.D, hit - 0.3));
   camDist = want < camDist ? want : damp(camDist, want, 4, dt);
   _des.copy(_tgt).addScaledVector(_dir, camDist);
   const gy = groundHeight(_des.x, _des.z) + 0.3; if (_des.y < gy) _des.y = gy;
@@ -378,7 +449,8 @@ export function setupInput() {
   document.querySelectorAll('#sndSeg button').forEach(b => b.addEventListener('click', () => { sound.setOn(b.dataset.s === '1'); markSegs(); }));
   document.querySelectorAll('#timeSeg button').forEach(b => b.addEventListener('click', () => { moodSetter(b.dataset.m); markSegs(); }));
   setHintSource(() => {
-    if (!player.car) { const v = nearestEnterable(); if (v) return IS_TOUCH ? (v.mode === 'traffic' ? 'הקש <kbd>רכב</kbd> כדי לגנוב' : 'הקש <kbd>רכב</kbd> כדי להיכנס') : (v.mode === 'traffic' || (v.mode === 'police' && !v.ai.deployed) ? 'לחץ <kbd>F</kbd> כדי לגנוב את הרכב' : 'לחץ <kbd>F</kbd> כדי להיכנס לרכב'); }
+    if (!player.car && !player.entering) { const v = nearestEnterable(3.6); if (v) return IS_TOUCH ? (v.mode === 'traffic' ? 'הקש <kbd>רכב</kbd> כדי לגנוב' : 'הקש <kbd>רכב</kbd> כדי להיכנס') : (v.mode === 'traffic' || (v.mode === 'police' && !v.ai.deployed) ? 'לחץ <kbd>F</kbd> כדי לגנוב את הרכב' : 'לחץ <kbd>F</kbd> כדי להיכנס לרכב'); }
+    else if (!player.car) return '';
     else if (player.car.fire > 0) return 'הרכב עולה באש! צא ממנו <kbd>F</kbd>';
     else if (player.car.upY < 0.3 && player.car.speedAbs < 2) return 'הרכב התהפך… מיד יוחזר לגלגלים';
     return '';

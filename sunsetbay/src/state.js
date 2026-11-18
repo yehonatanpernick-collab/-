@@ -1,6 +1,7 @@
 // Shared mutable game state (imported by every gameplay module)
 import { CFG } from './core.js';
 export const clock = { t: 0, frame: 0 };
+export const interp = { a: 1 };   // render interpolation factor between fixed steps
 export const humans = [];     // Human instances (incl. player)
 export const vehicles = [];   // Vehicle instances
 export const pickups = [];
