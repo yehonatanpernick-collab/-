@@ -9,6 +9,7 @@ import { Vehicle, GRAVITY, CFG } from './physics.js';
 import * as W from './world.js';
 import { loadCar, syncCar } from './car.js';
 import { buildMaverick } from './car2.js';
+import { loadMaverick } from './car3.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -153,6 +154,10 @@ const PAINTS = [
 let paint = null;
 let markPaint = null;
 selectCar(carId);
+loadMaverick(window.DUNE_MAV_URL || 'assets/maverick.glb').then(real => {   // swap in the real model when it arrives
+  const old = cars.maverick; scene.remove(old.root);
+  cars.maverick = real; scene.add(real.root); selectCar(carId);
+}).catch(e => console.warn('Maverick model failed, using fallback', e));
 const veh = new Vehicle();
 veh.reset(TR.SPAWN.x, TR.SPAWN.z, TR.SPAWN.yaw);
 setLoad(1, 'מוכן!');
