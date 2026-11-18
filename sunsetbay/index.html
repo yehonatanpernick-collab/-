@@ -1,0 +1,265 @@
+<title>Sunset Bay</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Heebo:wght@400;500;700;800&family=Secular+One&display=swap">
+<style>
+/* Layout: full-bleed WebGL city; HUD is a 3x3 grid pinned inside safe-area gutters; menus are glass sheets over the live city. */
+:root{
+  --night:#06070d; --ink:#f6f1e7; --ink-2:rgba(246,241,231,.68); --ink-3:rgba(246,241,231,.42);
+  --glass:rgba(9,11,20,.55); --glass-2:rgba(9,11,20,.82); --line:rgba(255,206,160,.18);
+  --amber:#ffb24a; --ember:#ff6a3d; --sea:#3fd8c6; --coral:#ff5a5f; --vest:#62b6ff; --siren-r:#ff2d3c; --siren-b:#2f6bff;
+  --f-display:'Big Shoulders Display','Arial Narrow','Roboto Condensed',sans-serif;
+  --f-he-display:'Secular One','Heebo','Arial Hebrew',sans-serif;
+  --f-body:'Heebo','Arial Hebrew','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--night);color:var(--ink);font-family:var(--f-body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;transition:filter .6s ease}
+#gl.dead{filter:grayscale(.85) contrast(1.1) brightness(.8)}
+#gl.busted{filter:grayscale(.6) sepia(.25) brightness(.85)}
+[hidden]{display:none!important}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+
+/* ---------- HUD grid ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(12px + env(safe-area-inset-bottom,0px));box-sizing:border-box;opacity:0;transition:opacity .5s}
+#hud.on{opacity:1}
+.panel{background:var(--glass);backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);border:1px solid var(--line);border-radius:14px}
+#status{grid-row:1;grid-column:3;justify-self:end;display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
+#clockRow{display:flex;gap:10px;align-items:baseline;font-family:var(--f-display);font-weight:800;letter-spacing:.04em;color:var(--ink-2);font-size:18px;font-variant-numeric:tabular-nums}
+#clockRow .radio{font-size:13px;letter-spacing:.12em;color:var(--sea);text-transform:uppercase}
+#money{font-family:var(--f-display);font-weight:900;font-size:40px;line-height:.9;color:var(--amber);letter-spacing:.02em;font-variant-numeric:tabular-nums;text-shadow:0 2px 14px rgba(0,0,0,.55),0 0 1px #000}
+#money .delta{font-size:20px;color:var(--sea);margin-inline-end:8px;opacity:0;transition:opacity .3s}
+#money .delta.show{opacity:1}
+#weapon{display:flex;align-items:center;gap:10px;padding:6px 12px;direction:rtl}
+#weapon .wname{font-family:var(--f-he-display);font-size:15px}
+#weapon .ammo{font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;direction:ltr}
+#weapon .ammo small{color:var(--ink-3);font-size:15px}
+#heat{display:flex;gap:4px;direction:ltr;height:22px}
+#heat i{display:block;width:22px;height:22px;background:rgba(255,255,255,.14);clip-path:polygon(50% 0,100% 45%,100% 100%,50% 58%,0 100%,0 45%)}
+#heat i.on{background:var(--siren-r);filter:drop-shadow(0 0 6px var(--siren-r))}
+#heat.flash i.on:nth-child(odd){animation:sirA .5s steps(1) infinite}
+#heat.flash i.on:nth-child(even){animation:sirB .5s steps(1) infinite}
+#heat.evade i.on{animation:fadeB 1s ease-in-out infinite!important;background:var(--ink-2)}
+@keyframes sirA{0%{background:var(--siren-r)}50%{background:var(--siren-b)}}
+@keyframes sirB{0%{background:var(--siren-b)}50%{background:var(--siren-r)}}
+@keyframes fadeB{50%{opacity:.25}}
+
+#toasts{grid-row:1;grid-column:2;justify-self:center;display:flex;flex-direction:column;gap:6px;align-items:center;direction:rtl;max-width:min(520px,60vw)}
+.toast{padding:7px 16px;font-weight:700;font-size:15px;animation:tIn .35s ease-out;text-align:center}
+.toast b{color:var(--amber);font-family:var(--f-display);font-size:19px;letter-spacing:.03em;direction:ltr;unicode-bidi:isolate}
+.toast.out{opacity:0;transform:translateY(-8px);transition:all .4s}
+@keyframes tIn{from{opacity:0;transform:translateY(-10px)}}
+
+#mapWrap{grid-row:3;grid-column:1;justify-self:start;align-self:end;display:flex;flex-direction:column;gap:6px;width:clamp(150px,19vw,214px)}
+#minimap{width:100%;aspect-ratio:1;border-radius:18px;display:block;border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.45);background:#0b0e16}
+.bars{display:flex;gap:6px}
+.bar{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.bar>i{display:block;height:100%;width:100%;transform-origin:left;transition:transform .25s}
+#hp>i{background:linear-gradient(90deg,#ff3f56,var(--coral))}
+#ar>i{background:linear-gradient(90deg,#3e8eff,var(--vest))}
+#ar.empty{opacity:.35}
+
+#bottomCenter{grid-row:3;grid-column:2;justify-self:center;align-self:end;display:flex;flex-direction:column;align-items:center;gap:8px;direction:rtl;max-width:min(640px,58vw)}
+#objective{padding:9px 18px;font-size:16px;font-weight:500;text-align:center;line-height:1.35}
+#objective:empty{display:none}
+#objective em{font-style:normal;color:var(--amber);font-weight:700}
+#timer{font-family:var(--f-display);font-weight:900;font-size:34px;color:var(--ink);letter-spacing:.04em;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+#timer.low{color:var(--coral)}
+#hint{padding:6px 14px;font-size:14px;color:var(--ink);background:var(--glass-2);border-radius:999px;border:1px solid var(--line)}
+#hint kbd{font-family:var(--f-display);font-weight:800;background:var(--amber);color:#1a1206;border-radius:5px;padding:0 7px;margin:0 3px;font-size:15px}
+
+#speedo{grid-row:3;grid-column:3;justify-self:end;align-self:end;text-align:right;direction:ltr;line-height:.85}
+#speedo .v{font-family:var(--f-display);font-weight:900;font-size:68px;font-variant-numeric:tabular-nums;color:var(--ink);text-shadow:0 3px 16px rgba(0,0,0,.6)}
+#speedo .u{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.18em;color:var(--amber)}
+#speedo .dmg{margin-top:8px;height:5px;width:130px;margin-left:auto;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+#speedo .dmg i{display:block;height:100%;background:var(--sea);transform-origin:left;transition:transform .3s,background .3s}
+
+#crosshair{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none;opacity:0;transition:opacity .15s}
+#crosshair.on{opacity:1}
+#crosshair svg{width:100%;height:100%;overflow:visible}
+#crosshair path{stroke:#fff;stroke-width:2;fill:none;filter:drop-shadow(0 0 2px #000)}
+#crosshair circle{fill:#fff}
+#crosshair.hit path{stroke:var(--coral)}
+#damageVignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,0,20,.55));opacity:0;transition:opacity .4s}
+
+#banner{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .5s;direction:rtl;text-align:center;padding-inline:max(16px,env(safe-area-inset-left,0px))}
+#banner.on{opacity:1}
+#banner .big{font-family:var(--f-he-display);font-size:clamp(46px,9vw,108px);line-height:1;color:var(--amber);text-shadow:0 6px 40px rgba(0,0,0,.7),0 0 2px #000;letter-spacing:.01em}
+#banner .big.bad{color:var(--coral)}
+#banner .sub{margin-top:10px;font-size:clamp(16px,2.2vw,22px);font-weight:500;color:var(--ink);text-shadow:0 2px 10px #000}
+#banner .sub b{font-family:var(--f-display);color:var(--sea);font-size:1.3em;direction:ltr;unicode-bidi:isolate}
+
+/* ---------- Menus ---------- */
+.sheet{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:flex-start;direction:rtl;z-index:5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-bottom,0px));box-sizing:border-box;overflow-y:auto}
+#menu{background:linear-gradient(270deg,rgba(6,7,13,.92) 0%,rgba(6,7,13,.7) 38%,rgba(6,7,13,0) 72%)}
+.menuInner{width:min(560px,100%);margin-block:auto;display:flex;flex-direction:column;gap:clamp(12px,2.6vh,22px);padding-inline:clamp(0px,4vw,56px)}
+.eyebrow{font-family:var(--f-display);font-weight:800;letter-spacing:.32em;font-size:13px;color:var(--sea);text-transform:uppercase;direction:ltr;text-align:right}
+.logo{font-family:var(--f-display);font-weight:900;font-size:clamp(54px,min(12vw,17vh),148px);line-height:.78;letter-spacing:-.01em;text-transform:uppercase;direction:ltr;text-align:right;margin:0;
+  background:linear-gradient(180deg,#ffe2a8 0%,var(--amber) 42%,var(--ember) 78%,#c2275a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 8px 30px rgba(255,106,61,.35))}
+.logo span{display:block}
+.heName{font-family:var(--f-he-display);font-size:clamp(22px,3vw,30px);margin:-6px 0 0;color:var(--ink)}
+.tag{font-size:17px;line-height:1.6;color:var(--ink-2);max-width:46ch;margin:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{pointer-events:auto;cursor:pointer;border:0;border-radius:12px;padding:14px 26px;font-size:18px;font-weight:800;color:#1b1206;background:linear-gradient(180deg,#ffc56e,var(--amber));box-shadow:0 10px 30px rgba(255,150,40,.3);transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(255,150,40,.42)}
+.btn.ghost{background:rgba(255,255,255,.07);color:var(--ink);box-shadow:none;border:1px solid var(--line);font-weight:600;font-size:15px;padding:11px 18px}
+.btn.ghost:hover{background:rgba(255,255,255,.13)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.04)}
+.seg button{pointer-events:auto;cursor:pointer;border:0;background:transparent;color:var(--ink-2);padding:8px 13px;font-size:14px;font-weight:600}
+.seg button.on{background:var(--amber);color:#1b1206}
+.label{font-size:13px;color:var(--ink-3);letter-spacing:.06em}
+.controls{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;color:var(--ink-2);max-width:460px}
+.controls kbd{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.04em;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;padding:1px 7px;white-space:nowrap;direction:ltr;display:inline-block}
+.credits{font-size:11px;color:var(--ink-3);line-height:1.5;max-width:60ch}
+.ticker{font-size:13px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:12px;max-width:52ch;line-height:1.5}
+.ticker b{color:var(--amber);font-weight:700}
+#loading{font-family:var(--f-display);letter-spacing:.2em;font-size:14px;color:var(--ink-3);direction:ltr;text-align:right}
+#loadWrap{display:flex;flex-direction:column;gap:6px;max-width:420px}
+#loadBar{height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+#loadBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--ember));transition:width .3s}
+
+#pause{background:rgba(6,7,13,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);justify-content:center}
+#pause .card{margin-block:auto;width:min(520px,100%);padding:26px;display:flex;flex-direction:column;gap:18px}
+#pause h2{font-family:var(--f-he-display);font-weight:400;font-size:34px;margin:0;color:var(--amber)}
+#pause .grid{display:grid;grid-template-columns:auto 1fr;gap:12px 16px;align-items:center}
+.stat{font-family:var(--f-display);font-weight:800;font-size:18px;color:var(--ink);direction:ltr;unicode-bidi:isolate}
+
+#bigmap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(4,6,12,.86);z-index:4;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));box-sizing:border-box}
+#bigmap canvas{max-width:100%;max-height:100%;aspect-ratio:1;width:min(88vh,92vw);border-radius:20px;border:1px solid var(--line)}
+#bigmap .legend{position:absolute;bottom:max(18px,env(safe-area-inset-bottom,0px));right:max(18px,env(safe-area-inset-right,0px));direction:rtl;font-size:13px;color:var(--ink-2);display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;max-width:90vw}
+#bigmap .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:6px;background:var(--c);vertical-align:-1px}
+
+#missionCard{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:4;direction:rtl;padding-inline:max(16px,env(safe-area-inset-left,0px))}
+#missionCard .card{width:min(480px,100%);padding:24px 26px;display:flex;flex-direction:column;gap:12px;background:var(--glass-2)}
+#missionCard .who{font-size:13px;color:var(--sea);letter-spacing:.08em;font-weight:700}
+#missionCard h3{margin:0;font-family:var(--f-he-display);font-weight:400;font-size:32px;color:var(--amber)}
+#missionCard p{margin:0;line-height:1.65;color:var(--ink-2);font-size:16px}
+#missionCard .pay{font-family:var(--f-display);font-weight:900;font-size:26px;color:var(--ink);direction:ltr;text-align:right}
+
+/* ---------- Touch ---------- */
+#touch{position:fixed;inset:0;pointer-events:none;z-index:3}
+#stick{position:absolute;left:max(22px,env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);pointer-events:auto;touch-action:none}
+#stick i{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.4)}
+.tb{position:absolute;pointer-events:auto;touch-action:none;width:64px;height:64px;border-radius:50%;background:rgba(10,12,22,.5);border:1px solid rgba(255,255,255,.25);color:var(--ink);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;direction:rtl}
+.tb.big{width:84px;height:84px;background:rgba(255,90,95,.35);font-size:15px}
+.tb.act{background:rgba(255,178,74,.55)}
+body.touch #mapWrap{grid-row:1;grid-column:1;align-self:start;width:clamp(110px,26vw,150px)}
+body.touch #speedo{grid-row:1;grid-column:2;align-self:start;justify-self:center;text-align:center}
+body.touch #speedo .v{font-size:44px}
+body.touch #speedo .dmg{margin:6px auto 0;width:90px}
+body.touch #bottomCenter{grid-column:1/4;margin-bottom:150px}
+@media (orientation:landscape){body.touch #bottomCenter{margin-bottom:0;max-width:calc(100vw - 470px)}body.touch #objective{font-size:13px;padding:6px 12px}}
+body.touch #minimap{cursor:pointer}
+.touchHelp{display:none;font-size:15px;line-height:1.6;color:var(--ink-2);max-width:46ch;margin:0}
+body.touch-ui .controls{display:none}
+body.touch-ui .touchHelp{display:block}
+body.touch #toasts{grid-row:2;align-self:start;margin-top:6px}
+body.touch #status{transform-origin:top right;transform:scale(.82)}
+@media (max-height:620px){.controls,.credits{font-size:11px;color:var(--ink-3);line-height:1.5;max-width:60ch}
+.ticker{display:none}}
+@media (max-width:700px){#menu{background:linear-gradient(0deg,rgba(6,7,13,.94) 0%,rgba(6,7,13,.78) 55%,rgba(6,7,13,.45) 100%)}#objective{font-size:14px}#money{font-size:32px}.controls{font-size:13px}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+
+<canvas id="gl" tabindex="0" aria-label="עולם המשחק"></canvas>
+
+<div id="hud" aria-live="polite">
+  <div id="status">
+    <div id="clockRow"><span class="radio" id="radioName"></span><span id="clock">18:10</span></div>
+    <div id="money"><span class="delta" id="moneyDelta"></span><span id="moneyVal">$0</span></div>
+    <div id="weapon" class="panel"><span class="wname" id="wname">אגרופים</span><span class="ammo" id="ammo"></span></div>
+    <div id="heat" aria-label="רמת מצוד"><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div id="toasts"></div>
+  <div id="mapWrap">
+    <canvas id="minimap" width="400" height="400" aria-label="מפה"></canvas>
+    <div class="bars"><div class="bar" id="hp"><i></i></div><div class="bar" id="ar"><i></i></div></div>
+  </div>
+  <div id="bottomCenter">
+    <div id="timer" hidden></div>
+    <div id="hint" hidden></div>
+    <div id="objective" class="panel"></div>
+  </div>
+  <div id="speedo" hidden><div class="v" id="spd">0</div><div class="u">KM/H</div><div class="dmg"><i id="cardmg"></i></div></div>
+</div>
+<div id="crosshair"><svg viewBox="0 0 26 26"><path d="M13 1v8M13 17v8M1 13h8M17 13h8"/><circle cx="13" cy="13" r="1.4"/></svg></div>
+<div id="damageVignette"></div>
+<div id="banner"><div class="big" id="bannerBig"></div><div class="sub" id="bannerSub"></div></div>
+
+<div id="touch" hidden>
+  <div id="stick"><i></i></div>
+  <div class="tb big" id="tFire" style="right:max(22px,env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px))">ירי</div>
+  <div class="tb" id="tJump" style="right:calc(max(22px,env(safe-area-inset-right,0px)) + 100px);bottom:calc(24px + env(safe-area-inset-bottom,0px))">קפיצה</div>
+  <div class="tb" id="tEnter" style="right:calc(max(22px,env(safe-area-inset-right,0px)) + 14px);bottom:calc(128px + env(safe-area-inset-bottom,0px))">רכב</div>
+  <div class="tb" id="tSprint" style="right:calc(max(22px,env(safe-area-inset-right,0px)) + 100px);bottom:calc(104px + env(safe-area-inset-bottom,0px))">ריצה</div>
+  <div class="tb" id="tWeap" style="right:calc(max(22px,env(safe-area-inset-right,0px)) + 186px);bottom:calc(24px + env(safe-area-inset-bottom,0px))">נשק</div>
+  <div class="tb" id="tPause" style="left:calc(max(16px,env(safe-area-inset-left,0px)) + clamp(110px,26vw,150px) + 10px);top:calc(12px + env(safe-area-inset-top,0px));width:42px;height:42px;font-size:15px" aria-label="עצירה">II</div>
+</div>
+
+<div id="menu" class="sheet">
+  <div class="menuInner">
+    <div class="eyebrow">Open city · Night shift</div>
+    <h1 class="logo"><span>Sunset</span><span>Bay</span></h1>
+    <p class="heName">מפרץ השקיעה</p>
+    <p class="tag">אי אחד, שבעה רובעים ולילה ארוך לפניך. נהג, ברח, הסתבך עם החוק ובנה לעצמך שם בעיר שלא הולכת לישון.</p>
+    <div class="row">
+      <button class="btn" id="playBtn" disabled>טוען את העיר…</button>
+      <button class="btn ghost" id="newBtn" hidden>משחק חדש</button>
+    </div>
+    <div class="row"><span class="label">גרפיקה</span>
+      <div class="seg" id="qualSeg"><button data-q="ultra">אולטרה</button><button data-q="high">גבוהה</button><button data-q="medium">בינונית</button><button data-q="low">נמוכה</button></div>
+    </div>
+    <div class="controls" id="ctrlList">
+      <span><kbd>W A S D</kbd></span><span>תנועה / נהיגה</span>
+      <span><kbd>עכבר</kbd></span><span>מצלמה · <kbd>קליק ימני</kbd> כיוון · <kbd>קליק</kbd> ירי</span>
+      <span><kbd>F</kbd></span><span>כניסה ויציאה מרכב (גם גניבה)</span>
+      <span><kbd>Space</kbd></span><span>קפיצה · בלם יד ברכב</span>
+      <span><kbd>Shift</kbd></span><span>ריצה</span>
+      <span><kbd>Q / E · 1-4</kbd></span><span>החלפת נשק · <kbd>R</kbd> טעינה / רדיו ברכב</span>
+      <span><kbd>H · C · L</kbd></span><span>צופר · מצלמת רכב · פנסים</span>
+      <span><kbd>M · Esc</kbd></span><span>מפה · עצירה</span>
+    </div>
+    <p class="touchHelp">ג׳ויסטיק משמאל לתנועה ונהיגה · גרירה על המסך מסובבת את המצלמה · מימין: ירי, קפיצה ובלם יד, ריצה, כניסה לרכב והחלפת נשק (ברכב: רדיו) · נגיעה במפה פותחת אותה</p>
+    <div class="credits" id="credits">דמויות ואנימציות: Mixamo (Adobe) · רכבים: BMW E30 – Martin Trafas, Tesla Model 3 – Ameer Studio, Ferrari 458 – vicent091036 (CC BY 4.0) · טקסטורות ושמיים: ambientCG, Poly Haven (CC0) · מנוע: three.js, Rapier</div>
+    <div class="ticker"><b>BAY FM 101.3</b> · מזג אוויר: 24° ושקיעה מושלמת מעל המזח. המשטרה מבקשת מהנהגים להאט באזור הנמל.</div>
+    <div id="loadWrap"><div id="loadBar"><i></i></div><div id="loading">LOADING · 0%</div></div>
+  </div>
+</div>
+
+<div id="pause" class="sheet" hidden>
+  <div class="card panel">
+    <h2>הפסקה</h2>
+    <div class="grid">
+      <span class="label">כסף</span><span class="stat" id="pMoney">$0</span>
+      <span class="label">משימות</span><span class="stat" id="pMissions">0/4</span>
+      <span class="label">שעה</span><div class="seg" id="timeSeg"><button data-m="day">יום</button><button data-m="sunset">שקיעה</button><button data-m="night">לילה</button><button data-m="auto">מחזור</button></div>
+      <span class="label">גרפיקה</span><div class="seg" id="qualSeg2"><button data-q="ultra">אולטרה</button><button data-q="high">גבוהה</button><button data-q="medium">בינונית</button><button data-q="low">נמוכה</button></div>
+      <span class="label">סאונד</span><div class="seg" id="sndSeg"><button data-s="1">פועל</button><button data-s="0">כבוי</button></div>
+    </div>
+    <div class="row"><button class="btn" id="resumeBtn">המשך</button><button class="btn ghost" id="resetBtn">התחל מההתחלה</button></div>
+    <div class="label" id="resetConfirm" hidden>לחץ שוב על "התחל מההתחלה" כדי לאשר. כל ההתקדמות תימחק.</div>
+  </div>
+</div>
+
+<div id="bigmap" hidden>
+  <canvas id="bigmapCanvas" width="900" height="900"></canvas>
+  <div class="legend"><span style="--c:#ffb24a">משימה</span><span style="--c:#3fd8c6">יעד</span><span style="--c:#ff5a5f">מטרה</span><span style="--c:#62b6ff">משטרה</span><span style="--c:#9cff8a">בית חולים</span><span style="--c:#fff">אתה</span></div>
+</div>
+
+<div id="missionCard" hidden>
+  <div class="card panel">
+    <div class="who" id="mcWho"></div>
+    <h3 id="mcTitle"></h3>
+    <p id="mcText"></p>
+    <div class="pay" id="mcPay"></div>
+    <div class="row"><button class="btn" id="mcGo">יאללה</button><button class="btn ghost" id="mcNo">לא עכשיו</button></div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/","rapier":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/rapier.es.js"}}</script>
+<script type="module" src="src/main.js"></script>
