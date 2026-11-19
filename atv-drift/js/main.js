@@ -13,6 +13,7 @@ import { loadMaverick } from './car3.js';
 import { loadRig, RIG_SPECS } from './rigs.js';
 import { createLighting, TIMES } from './lighting.js';
 import { FarTerrain } from './farterrain.js';
+import { createMulti } from './multi.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -1020,6 +1021,15 @@ function keys() {
   if (input.pressed.has('KeyM')) { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); }
 }
 
+const multi = await createMulti({
+  TR, veh, camera, scene, popup,
+  getCar: () => car, getCarId: () => carId, getPaint: () => store.get('paint_' + carId, null),
+  loadCarById: async (id) => { const d = CARS.find(c => c.id === id); if (!d) throw new Error('car'); const c = id === 'rzr' ? await loadCar(window.DUNE_MODEL_URL || 'assets/rzr.glb') : await d.load(); if (c.paintable === undefined) c.paintable = true; return c; },
+  resetTo: (x, z, yaw, hold) => { if (hold) { veh.vel.set(0, 0, 0); veh.w.set(0, 0, 0); } else veh.reset(x, z, yaw); },
+  freeze: () => {},
+  closeMenus: () => { if (G.state === 'menu') startGame(); else if (G.state === 'pause') pause(false); },
+});
+
 function frame() {
   requestAnimationFrame(frame);
   G.frames = (G.frames || 0) + 1;
@@ -1028,6 +1038,7 @@ function frame() {
   const t = clock.elapsedTime;
   perfTick(rawDt);
   const inp = input.update(dt);
+  if (multi.frozen) Object.assign(inp, { throttle: 0, brake: 1, steer: 0, handbrake: true, boost: false, lean: 0, roll: 0 });
   keys();
 
   if (G.state === 'play' || G.state === 'menu') {
@@ -1109,6 +1120,7 @@ function frame() {
   clouds.userData.tick(t, camera.position);
   tod.update(Math.min(dt, 0.1), camera.position, camera.position.y);
   skyCtl.sky.position.copy(camera.position);
+  multi.update(dt, t);
   far.update(veh.pos.x, veh.pos.z, 5);
   volcano.userData.tick(t);
   if (gradePass) { gradePass.uniforms.uTime.value = t % 100; gradePass.uniforms.uBlur.value = G.state === 'play' ? Math.min(1, Math.max(0, (veh.speed - 32) / 40)) * 0.9 : 0; }
@@ -1141,5 +1153,5 @@ renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { far, tod, volcano, selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
+window.__game = { multi, far, tod, volcano, selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
 frame();

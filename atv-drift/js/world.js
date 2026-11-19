@@ -1557,12 +1557,67 @@ export function buildVolcano(T) {
   glow.position.set(V.x, cy + 60, V.z);
   group.add(glow);
   // smoke plume rising 1.5 km above the crater
+  const puffGeo = new THREE.PlaneGeometry(1, 1);
   const puffs = [];
-  for (let i = 0; i < 60; i++) {
-    const mat = new THREE.SpriteMaterial({ map: T.soft, color: 0x4a4440, transparent: true, depthWrite: false, opacity: 0.4 });
-    const sp = new THREE.Sprite(mat);
+  for (let i = 0; i < 60; i++) {                                     // round, camera-facing smoke puffs (alpha from distance to the centre)
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uCol: { value: new THREE.Color(0x4a4440) }, uOp: { value: 0.3 }, uSize: { value: 100 } },
+      vertexShader: 'varying vec2 vUv; uniform float uSize; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0.0,0.0,0.0,1.0); gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); }',
+      fragmentShader: 'varying vec2 vUv; uniform vec3 uCol; uniform float uOp; void main(){ float d = length(vUv - 0.5) * 2.0; float a = pow(clamp(1.0 - d, 0.0, 1.0), 1.6) * uOp; if (a < 0.003) discard; gl_FragColor = vec4(uCol, a);\n#include <colorspace_fragment>\n}',
+      transparent: true, depthWrite: false, fog: false,
+    });
+    const sp = new THREE.Mesh(puffGeo, mat); sp.frustumCulled = false; sp.renderOrder = 4;
     group.add(sp);
-    puffs.push({ sp, ph: i / 60, dx: (Math.random() - 0.5) * 140, dz: (Math.random() - 0.5) * 140, sz: 0.8 + Math.random() * 0.6 });
+    puffs.push({ sp, mat, ph: i / 60, dx: (Math.random() - 0.5) * 140, dz: (Math.random() - 0.5) * 140, sz: 0.8 + Math.random() * 0.6 });
+  }
+  // lava rivers: glowing streams that spill over the crater rim and creep down the gullies
+  const flowTex = canvasTex(128, 256, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, 'rgba(110,18,4,0)'); g.addColorStop(0.16, 'rgba(255,110,20,1)'); g.addColorStop(0.5, 'rgba(255,215,100,1)');
+    g.addColorStop(0.84, 'rgba(255,110,20,1)'); g.addColorStop(1, 'rgba(110,18,4,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    const R = rng(11);
+    for (let i = 0; i < 70; i++) {                                   // dark crust drifting on the stream
+      ctx.fillStyle = `rgba(60,14,5,${0.1 + R() * 0.25})`;
+      ctx.beginPath(); ctx.ellipse(20 + R() * (w - 40), R() * h, 3 + R() * 9, 6 + R() * 14, 0, 0, 7); ctx.fill();
+    }
+  });
+  flowTex.wrapS = THREE.ClampToEdgeWrapping;
+  const flowMat = new THREE.MeshBasicMaterial({ map: flowTex, vertexColors: true, transparent: true, toneMapped: false, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const flowPath = (th0, steps = 170) => {
+    let x = V.x + Math.cos(th0) * V.rr, z = V.z + Math.sin(th0) * V.rr, dx = Math.cos(th0), dz = Math.sin(th0);
+    const pts = [];
+    for (let i = 0; i < steps; i++) {
+      pts.push([x, z]);
+      const e = 7, gx = (rawHeightAt(x + e, z) - rawHeightAt(x - e, z)) / (2 * e), gz = (rawHeightAt(x, z + e) - rawHeightAt(x, z - e)) / (2 * e);
+      let nx = -gx, nz = -gz; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      dx = dx * 0.78 + nx * 0.22; dz = dz * 0.78 + nz * 0.22;
+      const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
+      x += dx * 8; z += dz * 8;
+    }
+    return pts;
+  };
+  for (const off of [0.9, 2.15, 3.5, 5.2]) {
+    const th0 = V.theta + off, pts = flowPath(th0), n = pts.length;
+    const pos = new Float32Array(n * 2 * 3), uv = new Float32Array(n * 2 * 2), col = new Float32Array(n * 2 * 3), idx = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      let tx = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const w = (i < 14 ? 7 + i * 1.3 : 25 - (i / n) * 15) * 0.5, [x, z] = pts[i];
+      for (let sd = 0; sd < 2; sd++) {
+        const px = x + (-tz) * w * (sd ? 1 : -1), pz = z + tx * w * (sd ? 1 : -1), k = i * 2 + sd;
+        pos[k * 3] = px; pos[k * 3 + 1] = rawHeightAt(px, pz) + 1.1; pos[k * 3 + 2] = pz;
+        uv[k * 2] = sd; uv[k * 2 + 1] = i * 8 / 36;
+        const f = 3.4 - 2.2 * (i / n);                                         // hot at the crater, cooling downslope
+        col[k * 3] = f; col[k * 3 + 1] = f * (0.85 - 0.45 * i / n); col[k * 3 + 2] = f * (0.55 - 0.45 * i / n);
+      }
+      if (i < n - 1) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, flowMat); m.frustumCulled = false; m.renderOrder = 3;
+    group.add(m);
   }
   const tang = (phi) => { const a = V.phi0 + phi; return [-V.b * Math.cos(a) - Math.sin(a), -V.b * Math.sin(a) + Math.cos(a)]; };
   const signTex = (lines, bg = '#1c2a3a') => canvasTex(512, 256, (ctx, w, h) => {
@@ -1619,13 +1674,14 @@ export function buildVolcano(T) {
     for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 0.5 - t * 5) * 0.9 * (pa.getX(i) + 7) / 14);
     pa.needsUpdate = true;
     glow.intensity = 36000 + Math.sin(t * 3.1) * 5000 + Math.sin(t * 7.3) * 3000;
+    flowTex.offset.y = -t * 0.05;
     lava.material.color.setRGB(1.5 + Math.sin(t * 2) * 0.15, 1.1 + Math.sin(t * 3.3) * 0.12, 0.9);
     for (const p of puffs) {
       const a = ((t * 0.02 + p.ph) % 1);
       p.sp.position.set(V.x + p.dx + a * 420 + Math.sin(a * 6 + p.ph * 9) * 40, cy + 40 + a * 1500, V.z + p.dz + a * 150);
-      const sz = (160 + a * 800) * p.sz; p.sp.scale.set(sz, sz, 1);
-      p.sp.material.opacity = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
-      const c = 0.2 + a * 0.35; p.sp.material.color.setRGB(c, c * 0.95, c * 0.9);
+      p.mat.uniforms.uSize.value = (160 + a * 800) * p.sz;
+      p.mat.uniforms.uOp.value = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
+      const c = 0.2 + a * 0.35; p.mat.uniforms.uCol.value.setRGB(c, c * 0.95, c * 0.9);
     }
   };
   return group;
