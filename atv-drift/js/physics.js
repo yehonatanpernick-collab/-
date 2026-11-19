@@ -415,6 +415,12 @@ export class Vehicle {
         const tq = CFG.inertia.z * (46 * (tgt - roll) - 12 * wRoll);
         T.addScaledVector(fwd, THREE.MathUtils.clamp(tq, -9000, 9000));
       }
+      // ---- steep slopes: keep the nose from climbing past ~30 degrees by itself (no backwards flips on hill climbs)
+      if (!this.bike && lean === 0) {
+        const pu = Math.asin(THREE.MathUtils.clamp(fwd.dot(gN), -1, 1)), nr = -this.w.dot(left);
+        if (pu > 0.5) T.addScaledVector(left, -CFG.inertia.x * (9 * (0.35 - pu) - 3.5 * nr));
+        else if (pu < -0.55) T.addScaledVector(left, -CFG.inertia.x * (9 * (-0.4 - pu) - 3.5 * nr));
+      }
       // ---- wheelie / stoppie: lean keys tilt the buggy on the ground
       if (lean !== 0) {
         const pitchUp = Math.asin(THREE.MathUtils.clamp(fwd.dot(gN), -1, 1));   // + nose up

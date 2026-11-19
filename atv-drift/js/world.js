@@ -1474,9 +1474,9 @@ export function buildVegetation(T) {
       list.push({ im, cx: c.cx, cz: c.cz, range: kind === 'grass' ? 240 : 600 });
     }
   }
-  group.userData.update = (cam, t) => {
+  group.userData.update = (cam, t, scale = 1) => {
     uniforms.uTime.value = t;
-    for (const e of list) e.im.visible = Math.hypot(cam.x - e.cx, cam.z - e.cz) < e.range;
+    for (const e of list) e.im.visible = Math.hypot(cam.x - e.cx, cam.z - e.cz) < e.range * scale;
   };
   return group;
 }

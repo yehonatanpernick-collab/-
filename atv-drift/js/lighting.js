@@ -78,6 +78,7 @@ export function createLighting(o) {
   const tmp = new THREE.Color();
   let pendingEnv = true, settle = 0, autoT = 0;
   const api = {
+    setFlare(on) { if (flare) flare.visible = !!on; },
     get index() { return idx; }, get name() { return TIMES[idx].name; }, auto: !!o.auto,
     headlights: heads,
     set(i) { idx = (i + TIMES.length) % TIMES.length; pendingEnv = true; settle = 0; },

@@ -36,7 +36,7 @@ export const SPECIAL = { x0: -650, x1: -415, z0: -170, z1: 230 };
 // It sits far east of the main world; the world itself is unbounded (analytic terrain outside the grid).
 export const BOUND = 60000;
 const LANE_KICK = 500;
-export const VOLCANO = { x: 14500, z: 0, R: 10500, rr: 600, H: 5895, depth: 200, hw: 10, Rs: 10300, Re: 720, phiMax: 7.6, p: 1.15 };
+export const VOLCANO = { x: 12500, z: 0, R: 10500, rr: 600, H: 5895, depth: 200, hw: 10, Rs: 10300, Re: 720, phiMax: 7.6, p: 1.15 };
 VOLCANO.b = Math.log(VOLCANO.Rs / VOLCANO.Re) / VOLCANO.phiMax;
 VOLCANO.phi0 = Math.PI;                                     // the road starts on the west side, facing the old world
 VOLCANO.theta = VOLCANO.phi0 + VOLCANO.phiMax;              // angle of the summit plaza = the giant descent lane
@@ -71,7 +71,7 @@ export function lavaAt(x, z) {
   }
   return false;
 }
-export const LOOKOUT = { x: 0, z: 0, y: 0, yaw: 0, r: 26, alt: 4500 };           // the viewing deck on the volcano road
+export const LOOKOUT = { x: 0, z: 0, y: 0, yaw: 0, r: 26, phi: 6.2 };           // the viewing deck on the volcano road
 export const PADS = [];                                                   // landing pads {x,z,r,y}
 export const HIGHWAYS = [
   [[760, 0], [2600, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                     // east: from the original map to the volcano
@@ -582,14 +582,21 @@ export function buildGrid() {
 // Triangle interpolation that exactly matches the rendered mesh:
 // each cell is split along the diagonal (i+1,j)-(i,j+1).
 const _n = { x: 0, y: 1, z: 0 };
+const _lat = new Map();
+function latticeH(i, j) {
+  const k = i * 262144 + j;
+  let h = _lat.get(k);
+  if (h === undefined) { h = rawHeight(-HALF + i * CELL, -HALF + j * CELL); if (_lat.size > 60000) _lat.clear(); _lat.set(k, h); }
+  return h;
+}
 export function terrainHeight(x, z, nOut) {
-  if (x < -HALF + 1 || x > HALF - 1 || z < -HALF + 1 || z > HALF - 1) {          // outside the grid: analytic terrain
-    const h = rawHeight(x, z);
-    if (nOut) {
-      const e = 2, hx = rawHeight(x + e, z) - rawHeight(x - e, z), hz = rawHeight(x, z + e) - rawHeight(x, z - e);
-      const nx = -hx / (2 * e), nz = -hz / (2 * e), l = Math.hypot(nx, 1, nz);
-      nOut.x = nx / l; nOut.y = 1 / l; nOut.z = nz / l;
-    }
+  if (x < -HALF + 1 || x > HALF - 1 || z < -HALF + 1 || z > HALF - 1) {          // outside the grid: the same 4 m triangles the far tiles draw, so wheels sit exactly on the visible ground
+    const gx = (x + HALF) / CELL, gz = (z + HALF) / CELL, i = Math.floor(gx), j = Math.floor(gz), u = gx - i, v = gz - j;
+    const h00 = latticeH(i, j), h10 = latticeH(i + 1, j), h01 = latticeH(i, j + 1), h11 = latticeH(i + 1, j + 1);
+    let h, dhdx, dhdz;
+    if (u + v <= 1) { dhdx = h10 - h00; dhdz = h01 - h00; h = h00 + dhdx * u + dhdz * v; }
+    else { dhdx = h11 - h01; dhdz = h11 - h10; h = h11 - dhdx * (1 - u) - dhdz * (1 - v); }
+    if (nOut) { const nx = -dhdx / CELL, nz = -dhdz / CELL, l = Math.hypot(nx, 1, nz); nOut.x = nx / l; nOut.y = 1 / l; nOut.z = nz / l; }
     return h;
   }
   let fx = (x + HALF) / CELL, fz = (z + HALF) / CELL;
@@ -950,7 +957,7 @@ function buildBigTrampolines() {
   }
   // ---- the lookout: a round deck on the outer side of the road at 4,500 m, facing the whole valley below
   {
-    const f = phiAtAlt(LOOKOUT.alt), q = volcanoPoint(f), yaw = volcanoYaw(f);
+    const f = LOOKOUT.phi, q = volcanoPoint(f), yaw = volcanoYaw(f);                 // on the west face: the whole original map lies below
     const fx = Math.sin(yaw), fz = Math.cos(yaw), ox = fz, oz = -fx;                // right of travel; test which side is downhill
     const outward = (Math.hypot(q.x + ox * 30 - V.x, q.z + oz * 30 - V.z) > q.r) ? 1 : -1;
     const cx = q.x + ox * outward * (V.hw + 30), cz = q.z + oz * outward * (V.hw + 30);

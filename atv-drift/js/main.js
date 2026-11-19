@@ -30,7 +30,14 @@ const fmtTime = (s) => {
 };
 
 // ---------------------------------------------------------------- renderer
-let quality = store.get('quality', matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
+// four graphics levels
+const QL = [null,
+  { n: 'מינימלית', dpr: 1.0, shadow: 1024, composer: false, ao: false, flare: false, veg: 0.45, tshadow: false },
+  { n: 'בינונית', dpr: 1.5, shadow: 2048, composer: false, ao: false, flare: false, veg: 0.8, tshadow: false },
+  { n: 'גבוהה', dpr: 1.75, shadow: 4096, composer: true, ao: false, flare: true, veg: 1, tshadow: true },
+  { n: 'אולטרה', dpr: 2.0, shadow: 4096, composer: true, ao: true, flare: true, veg: 1.25, tshadow: true },
+];
+let quality = (() => { const v = store.get('qlevel', null); if (v >= 1 && v <= 4) return v; const old = store.get('quality', null); if (old === 'low') return 2; if (old === 'high') return 3; return matchMedia('(pointer: coarse)').matches ? 2 : 3; })();
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.86;
@@ -87,17 +94,16 @@ const GradeShader = {
     }`,
 };
 let composer = null, bloom = null, gradePass = null, aoPass = null;
-let aoOn = store.get('ao', true);
 let terrainMesh = null;
 function applyQuality() {
-  const hi = quality === 'high';
-  const dpr = Math.min(devicePixelRatio, hi ? 2.0 : 1.75) * perfScale;
+  const q = QL[quality], hi = q.composer;
+  const dpr = Math.min(devicePixelRatio, q.dpr) * perfScale;
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
-  const ms = hi ? 4096 : 2048;
-  sun.shadow.mapSize.set(ms, ms);
+  sun.shadow.mapSize.set(q.shadow, q.shadow);
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-  if (terrainMesh) terrainMesh.castShadow = hi;
+  if (terrainMesh) terrainMesh.castShadow = q.tshadow;
+  tod?.setFlare(q.flare);
   if (hi) {
     const rt = new THREE.WebGLRenderTarget(innerWidth * dpr, innerHeight * dpr, { type: THREE.HalfFloatType, samples: 4 });
     composer = new EffectComposer(renderer, rt);
@@ -105,7 +111,7 @@ function applyQuality() {
     composer.setSize(innerWidth, innerHeight);
     composer.addPass(new RenderPass(scene, camera));
     aoPass = null;
-    if (aoOn) {
+    if (q.ao) {
       aoPass = new GTAOPass(scene, camera, innerWidth * dpr, innerHeight * dpr);
       aoPass.output = GTAOPass.OUTPUT.Default;
       aoPass.blendIntensity = 0.85;
@@ -119,8 +125,8 @@ function applyQuality() {
     gradePass.uniforms.uTexel.value.set(1 / (innerWidth * dpr), 1 / (innerHeight * dpr));
     composer.addPass(gradePass);
     composer.addPass(new OutputPass());
-  } else composer = null;
-  const qb = $('#q-btn'); if (qb) qb.textContent = hi ? 'גבוהה' : 'חסכונית';
+  } else { composer = null; bloom = null; gradePass = null; aoPass = null; }
+  const qb = $('#q-btn'); if (qb) qb.textContent = `${quality} · ${q.n}`;
 }
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -159,7 +165,7 @@ particles.mat.uniforms.fogColor.value.copy(scene.fog.color);
 particles.mat.uniforms.fogNear.value = scene.fog.near;
 particles.mat.uniforms.fogFar.value = scene.fog.far;
 const skids = new Skids(scene, 7000);
-const tod = createLighting({ scene, sun, hemi, skyCtl, clouds, sunDir, renderer, particles, camera, flare: quality === 'high',
+const tod = createLighting({ scene, sun, hemi, skyCtl, clouds, sunDir, renderer, particles, camera, flare: true,
   setBloom: (v) => { if (bloom) bloom.strength = v; }, start: store.get('tod', 'golden'), auto: store.get('todAuto', false) });
 
 // ---------------------------------------------------------------- car
@@ -620,7 +626,8 @@ function updateCamera(dt) {
   G.shake = Math.max(0, G.shake - dt * 2.2);
   const fovT = 62 + Math.min(sp * 3.6, 170) * 0.1 + (veh.boostActive ? 9 : 0);
   cam.fov += (fovT - cam.fov) * (1 - Math.exp(-dt * 3));
-  camera.fov = G.camMode === 2 ? cam.fov + 6 : cam.fov;
+  cam.zoomK = (cam.zoomK || 0) + (((G.onLook && input.down('zoom')) ? 1 : 0) - (cam.zoomK || 0)) * Math.min(1, dt * 5);
+  camera.fov = (G.camMode === 2 ? cam.fov + 6 : cam.fov) * (1 - 0.8 * cam.zoomK);                  // binoculars on the lookout deck
   camera.updateProjectionMatrix();
 }
 
@@ -889,14 +896,11 @@ $('#resume-btn').addEventListener('click', () => pause(false));
 $('#reset-btn').addEventListener('click', () => { resetCar(true); pause(false); });
 $('#pause-btn').addEventListener('click', () => pause(G.state !== 'pause'));
 { const row = document.querySelector('#pause .btn-row'); if (row) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '🗺 מפת העולם'; b.addEventListener('click', () => { pause(false); showWorldMap(); }); row.appendChild(b); } }
-$('#q-btn').addEventListener('click', () => { quality = quality === 'high' ? 'low' : 'high'; store.set('quality', quality); applyQuality(); });
+$('#q-btn').addEventListener('click', () => { quality = quality % 4 + 1; store.set('qlevel', quality); perfScale = 1; applyQuality(); });
 const todLabel = () => { $('#tod-btn').textContent = tod.name; $('#tod-auto').textContent = tod.auto ? 'פועל' : 'כבוי'; };
 $('#tod-btn').addEventListener('click', () => { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); });
 $('#tod-auto').addEventListener('click', () => { tod.auto = !tod.auto; store.set('todAuto', tod.auto); todLabel(); });
 todLabel();
-const aoLabel = () => { $('#ao-btn').textContent = aoOn ? 'פועל' : 'כבוי'; };
-$('#ao-btn').addEventListener('click', () => { aoOn = !aoOn; store.set('ao', aoOn); aoLabel(); applyQuality(); });
-aoLabel();
 const muteLabel = () => { $('#mute-btn').textContent = audio.muted ? 'כבוי' : 'פועל'; };
 $('#mute-btn').addEventListener('click', () => { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); });
 muteLabel();
@@ -933,10 +937,9 @@ function perfTick(rawDt) {
   perfAcc = 0; perfFrames = 0; fpsShown = fps;
   const el = document.getElementById('fps'); if (el) el.textContent = Math.round(fps) + ' FPS';
   if (G.state === 'menu' || G.perfLock) return;
-  const base = Math.min(devicePixelRatio, quality === 'high' ? 2.0 : 1.75);
+  const base = Math.min(devicePixelRatio, QL[quality].dpr);
   let next = perfScale;
   if (fps < 40 && perfScale > 0.85) next = Math.max(0.85, perfScale - 0.1);              // never go blurry: shed effects instead
-  else if (fps < 40 && aoOn && quality === 'high') { aoOn = false; applyQuality(); popup('כיביתי אפקט עומק', 'air', 'כדי לשמור על חדות וחלקות'); }
   else if (fps > 58 && perfScale < 1) next = Math.min(1, perfScale + 0.05);
   if (next !== perfScale) {
     perfScale = next;
@@ -945,14 +948,14 @@ function perfTick(rawDt) {
     composer?.setPixelRatio(base * perfScale); composer?.setSize(innerWidth, innerHeight);
   }
   // still slow at the lowest resolution: drop to the light graphics preset automatically
-  if (fps < 28 && perfScale <= 0.85 && quality === 'high') {
+  if (fps < 28 && perfScale <= 0.85 && quality > 1) {
     perfLowSince++;
-    if (perfLowSince >= 3) { quality = 'low'; store.set('quality', quality); applyQuality(); perfScale = 1; perfLowSince = 0; popup('עברתי לגרפיקה חסכונית', 'air', 'כדי לשמור על חלקות'); }
+    if (perfLowSince >= 3) { quality--; store.set('qlevel', quality); applyQuality(); perfScale = 1; perfLowSince = 0; popup('הורדתי רמת גרפיקה', 'air', 'עכשיו: ' + QL[quality].n); }
   } else perfLowSince = 0;
 }
 
 // ---------------------------------------------------------------- world map (N) — the whole valley, every area, you and the lookout
-const WM = { x0: -1800, x1: 26000, z0: -11500, z1: 11500, W: 640, H: 529, base: null, done: 0, building: false, el: null, cv: null };
+const WM = { x0: -1800, x1: 24500, z0: -11500, z1: 11500, W: 640, H: 560, base: null, done: 0, building: false, el: null, cv: null };
 function buildWorldMapBase() {
   if (WM.base || WM.building) return;
   WM.building = true;
@@ -1104,7 +1107,7 @@ function stuntPads(dt) {
   {
     const L = TR.LOOKOUT, dl = Math.hypot(veh.pos.x - L.x, veh.pos.z - L.z);
     if (dl < L.r) {
-      if (!G.onLook) { G.onLook = true; popup('👁 תצפית', 'bank', 'עצרו כדי לראות את כל העמק · N למפה'); }
+      if (!G.onLook) { G.onLook = true; popup('👁 תצפית', 'bank', 'Z = משקפת (זום) · N = מפה · עצרו להצגת כל העמק'); }
       if (veh.speed < 5) { G.lookT = (G.lookT || 0) + dt; if (G.lookT > 1.5 && !G.lookShown) { G.lookShown = true; showWorldMap(true); } } else G.lookT = 0;
     } else if (dl > L.r + 25) { G.onLook = false; G.lookT = 0; G.lookShown = false; }
   }
@@ -1267,7 +1270,7 @@ function frame() {
   trampGroup.userData.tick(G.state === 'pause' ? 0 : dt);
   turnGroup.userData.tick(G.state === 'pause' ? 0 : dt);
   updateCamera(dt);
-  vegetation.userData.update(camera.position, t);
+  vegetation.userData.update(camera.position, t, QL[quality].veg);
   clouds.userData.tick(t, camera.position);
   tod.update(Math.min(dt, 0.1), camera.position, camera.position.y);
   skyCtl.sky.position.copy(camera.position);
