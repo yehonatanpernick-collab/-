@@ -37,6 +37,7 @@ const QL = [null,
   { n: 'גבוהה', dpr: 1.75, shadow: 4096, composer: true, ao: false, flare: true, veg: 1, tshadow: true },
   { n: 'אולטרה', dpr: 2.0, shadow: 4096, composer: true, ao: true, flare: true, veg: 1.25, tshadow: true },
 ];
+let autoPerf = store.get('autoPerf', true) !== false;
 let quality = (() => { const v = store.get('qlevel', null); if (v >= 1 && v <= 4) return v; const old = store.get('quality', null); if (old === 'low') return 2; if (old === 'high') return 3; return matchMedia('(pointer: coarse)').matches ? 2 : 3; })();
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -82,9 +83,9 @@ const GradeShader = {
         c.rgb += clamp(c.rgb - nb * 0.25, vec3(-0.25), vec3(0.25)) * 0.55;
       }
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      c.rgb = pow(max(c.rgb, vec3(0.0)) / 0.18, vec3(1.07)) * 0.18;   // contrast around mid grey
+      c.rgb = pow(max(c.rgb, vec3(0.0)) / 0.18, vec3(1.13)) * 0.18;   // contrast around mid grey
       l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      c.rgb = mix(vec3(l), c.rgb, 1.12);                   // saturation
+      c.rgb = mix(vec3(l), c.rgb, 1.22);                   // saturation
       c.rgb *= mix(vec3(0.97, 0.99, 1.04), vec3(1.05, 1.0, 0.94), smoothstep(0.05, 0.8, l)); // cool shadows, warm lights
       vec2 d = vUv - 0.5;
       c.rgb *= 1.0 - uVig * smoothstep(0.25, 0.85, dot(d, d) * 2.2);
@@ -899,6 +900,9 @@ $('#resume-btn').addEventListener('click', () => pause(false));
 $('#reset-btn').addEventListener('click', () => { resetCar(true); pause(false); });
 $('#pause-btn').addEventListener('click', () => pause(G.state !== 'pause'));
 { const row = document.querySelector('#pause .btn-row'); if (row) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '🗺 מפת העולם'; b.addEventListener('click', () => { pause(false); showWorldMap(); }); row.appendChild(b); } }
+const apLabel = () => { $('#ap-btn').textContent = autoPerf ? 'פועל' : 'כבוי'; };
+$('#ap-btn').addEventListener('click', () => { autoPerf = !autoPerf; store.set('autoPerf', autoPerf); if (!autoPerf && perfScale !== 1) { perfScale = 1; applyQuality(); } apLabel(); });
+apLabel();
 $('#q-btn').addEventListener('click', () => { quality = quality % 4 + 1; store.set('qlevel', quality); perfScale = 1; applyQuality(); });
 const todLabel = () => { $('#tod-btn').textContent = tod.name; $('#tod-auto').textContent = tod.auto ? 'פועל' : 'כבוי'; };
 $('#tod-btn').addEventListener('click', () => { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); });
@@ -939,7 +943,7 @@ function perfTick(rawDt) {
   const fps = perfFrames / perfAcc;
   perfAcc = 0; perfFrames = 0; fpsShown = fps;
   const el = document.getElementById('fps'); if (el) el.textContent = Math.round(fps) + ' FPS';
-  if (G.state === 'menu' || G.perfLock) return;
+  if (G.state === 'menu' || G.perfLock || !autoPerf) return;
   const base = Math.min(devicePixelRatio, QL[quality].dpr);
   let next = perfScale;
   if (fps < 40 && perfScale > 0.85) next = Math.max(0.85, perfScale - 0.1);              // never go blurry: shed effects instead

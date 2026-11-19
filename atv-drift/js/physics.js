@@ -242,6 +242,8 @@ export class Vehicle {
       wh.surf = surf;
       const baseMu = wh.front ? CFG.muFront : M.muRear;
       let mu = baseMu * (GRIP[surf] ?? 1);
+      // walls: slopes steeper than ~45 degrees off the trail give almost no grip, so the buggy slides back instead of climbing them
+      if (wh.surface === 'terrain' && surf !== 'trail' && surf !== 'chute' && n.y < 0.72) mu *= 0.06 + 0.94 * THREE.MathUtils.smoothstep(n.y, 0.42, 0.72);
       const share = m / 4;
 
       // slip angle -> grip falloff (sliding friction lower than peak)
