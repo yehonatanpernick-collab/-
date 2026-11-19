@@ -1023,9 +1023,32 @@ function showWorldMap(fromLookout) {
   if (!WM.el) {
     WM.el = document.createElement('div'); WM.el.className = 'hidden';
     WM.el.style.cssText = 'position:fixed;inset:0;z-index:46;display:grid;place-items:center;background:rgba(6,8,12,.82);backdrop-filter:blur(6px);direction:rtl';
-    WM.el.innerHTML = '<div style="width:min(96vw,1280px);color:#fff;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:22px">🗺 מפת העולם</b><span class="wm-msg" style="color:#ffd23a;font-weight:700"></span><button class="wm-x" style="background:#ffffff22;color:#fff;border:1px solid #ffffff44;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px">סגירה (N)</button></div><canvas style="width:100%;border-radius:14px;border:1px solid #ffffff33;background:#1b2430"></canvas><div style="margin-top:8px;font-size:13px;color:#ffffffaa">🔵 אתם · 🟢 תצפית על כל העמק · 🔴 הר הגעש · קווים כהים = כבישים מהירים בין האזורים · לטיסה לאזור: תפריט ההשהיה</div></div>';
+    WM.el.innerHTML = '<div style="width:min(96vw,1280px);color:#fff;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:22px">🗺 מפת העולם</b><span class="wm-msg" style="color:#ffd23a;font-weight:700"></span><button class="wm-x" style="background:#ffffff22;color:#fff;border:1px solid #ffffff44;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px">סגירה (N)</button></div><canvas style="width:100%;border-radius:14px;border:1px solid #ffffff33;background:#1b2430"></canvas><div style="margin-top:8px;font-size:13px;color:#ffffffaa">🔵 אתם · 🟢 תצפית על כל העמק · 🔴 הר הגעש · קווים כהים = כבישים מהירים בין האזורים · לחצו על המפה כדי לעבור לשם (לחיצה על שם של אזור מעבירה לנקודת ההתחלה שלו)</div></div>';
     WM.cv = WM.el.querySelector('canvas'); WM.cv.width = 1280; WM.cv.height = Math.round(1280 * (WM.z1 - WM.z0) / (WM.x1 - WM.x0));
     WM.el.querySelector('.wm-x').onclick = () => toggleWorldMap(false);
+    WM.cv.style.cursor = 'crosshair';
+    WM.cv.addEventListener('click', (e) => {                                 // click / tap the map to teleport there
+      const r = WM.cv.getBoundingClientRect(), mx = (e.clientX - r.left) / r.width, mz = (e.clientY - r.top) / r.height;
+      let x = WM.x0 + mx * (WM.x1 - WM.x0), z = WM.z0 + mz * (WM.z1 - WM.z0), yaw = Math.atan2(veh.fwd.x, veh.fwd.z), label = 'המקום שבחרת';
+      const mPer = (WM.x1 - WM.x0) / r.width;                                // metres per screen pixel
+      const near = (px, pz, pr) => Math.hypot(px - x, pz - z) < pr * mPer;
+      let snapped = false;
+      for (const zn of TR.ZONES) {                                           // snap to an area's proper start spot
+        if (zn.id === 'summit' || zn.id === 'slide' || zn.id.startsWith('volcano')) continue;
+        if (near(zn.x, zn.z, 18)) { x = zn.x; z = zn.z; yaw = zn.yaw; label = zn.name; snapped = true; break; }
+      }
+      if (!snapped && near(TR.LOOKOUT.x, TR.LOOKOUT.z, 20)) { const zl = TR.ZONES.find(q => q.id === 'lookout'); x = zl.x; z = zl.z; yaw = zl.yaw; label = '👁 תצפית'; snapped = true; }
+      if (!snapped) {                                                        // on the volcano trail: land on the road, facing uphill
+        let best = null, bd = 1e9;
+        for (let f = 0; f <= TR.VOLCANO.phiMax; f += 0.02) { const p = TR.volcanoPoint(f), d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = f; } }
+        if (best !== null && bd < 22 * mPer) { const p = TR.volcanoPoint(best); x = p.x; z = p.z; yaw = TR.volcanoYaw(best); label = `הר הגעש · ${TR.altitudeOf(p.y).toLocaleString('en-US')} מ׳`; snapped = true; }
+      }
+      if (!snapped && near(TR.VOLCANO.x, TR.VOLCANO.z, 18)) { const zs = TR.ZONES.find(q => q.id === 'summit'); x = zs.x; z = zs.z; yaw = zs.yaw; label = '🌋 פסגת הר הגעש'; snapped = true; }
+      if (x < TR.shoreX(z) + 30) { x = TR.shoreX(z) + 80; label = 'חוף הים'; }
+      veh.reset(x, z, yaw); veh.updateAxes(); resetCar();
+      toggleWorldMap(false);
+      popup('🧭 הגעתם', 'bank', label);
+    });
     document.body.appendChild(WM.el);
   }
   buildWorldMapBase();
