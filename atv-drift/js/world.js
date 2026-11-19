@@ -1616,8 +1616,8 @@ export function buildVolcano(T) {
   for (let i = 0; i < 60; i++) {                                     // round, camera-facing smoke puffs (alpha from distance to the centre)
     const mat = new THREE.ShaderMaterial({
       uniforms: { uCol: { value: new THREE.Color(0x4a4440) }, uOp: { value: 0.3 }, uSize: { value: 100 } },
-      vertexShader: 'varying vec2 vUv; uniform float uSize; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0.0,0.0,0.0,1.0); gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); }',
-      fragmentShader: 'varying vec2 vUv; uniform vec3 uCol; uniform float uOp; void main(){ float d = length(vUv - 0.5) * 2.0; float a = pow(clamp(1.0 - d, 0.0, 1.0), 1.6) * uOp; if (a < 0.003) discard; gl_FragColor = vec4(uCol, a);\n#include <colorspace_fragment>\n}',
+      vertexShader: 'varying vec2 vUv; varying float vD; uniform float uSize; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0.0,0.0,0.0,1.0); vD = length(c.xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); }',
+      fragmentShader: 'varying vec2 vUv; varying float vD; uniform vec3 uCol; uniform float uOp; void main(){ float d = length(vUv - 0.5) * 2.0; float a = pow(clamp(1.0 - d, 0.0, 1.0), 1.6) * uOp * smoothstep(500.0, 3000.0, vD); if (a < 0.003) discard; gl_FragColor = vec4(uCol, a);\n#include <colorspace_fragment>\n}',
       transparent: true, depthWrite: false, fog: false,
     });
     const sp = new THREE.Mesh(puffGeo, mat); sp.frustumCulled = false; sp.renderOrder = 4;
@@ -1720,7 +1720,7 @@ export function buildVolcano(T) {
     for (const p of puffs) {
       const a = ((t * 0.02 + p.ph) % 1);
       p.sp.position.set(V.x + p.dx + a * 800 + Math.sin(a * 6 + p.ph * 9) * 40, cy + 60 + a * 3200, V.z + p.dz + a * 300);
-      p.mat.uniforms.uSize.value = (300 + a * 1600) * p.sz;
+      p.mat.uniforms.uSize.value = (260 + a * 900) * p.sz;
       p.mat.uniforms.uOp.value = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
       const c = 0.2 + a * 0.35; p.mat.uniforms.uCol.value.setRGB(c, c * 0.95, c * 0.9);
     }
