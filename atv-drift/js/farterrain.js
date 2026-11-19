@@ -2,6 +2,7 @@
 // (4 m cells near the player, up to 1 km cells at the horizon), built on demand from rawHeight().
 import * as THREE from 'three';
 import { rawHeight, HALF } from './terrain.js';
+import { setColorCell } from './world.js';
 
 const S0 = 256, LEVELS = 9;
 const RES = [64, 64, 32, 32, 32, 32, 32, 32, 32];
@@ -37,6 +38,7 @@ export class FarTerrain {
     const pos = new Float32Array((nv + skirtN) * 3), nor = new Float32Array((nv + skirtN) * 3);
     const col = new Float32Array((nv + skirtN) * 3), uv = new Float32Array((nv + skirtN) * 2);
     const c3 = this.c3, drop = cell * 1.6 + 4;
+    setColorCell(cell);
     for (let jj = 0; jj < V; jj++) for (let ii = 0; ii < V; ii++) {
       const k = jj * V + ii, hi = (jj + 1) * W + (ii + 1);
       const x = ox + ii * cell, z = oz + jj * cell, h = H[hi];
@@ -48,6 +50,7 @@ export class FarTerrain {
       this.colorAt(x, z, h, nor[k * 3 + 1], c3);
       col[k * 3] = c3[0]; col[k * 3 + 1] = c3[1]; col[k * 3 + 2] = c3[2];
     }
+    setColorCell(4);
     // skirts: drop copies of the edge vertices so neighbouring LODs never show cracks
     const edge = [];
     for (let a = 0; a < V; a++) edge.push(a);                              // z = 0 row

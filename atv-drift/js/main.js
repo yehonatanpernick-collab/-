@@ -57,10 +57,10 @@ scene.add(hemi);
 
 // colour grade: gentle filmic contrast, warm highlights, slight vignette (works in linear HDR)
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uTime: { value: 0 }, uBlur: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uTime: { value: 0 }, uBlur: { value: 0 }, uTexel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uVig; uniform float uTime; uniform float uBlur; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uVig; uniform float uTime; uniform float uBlur; uniform vec2 uTexel; varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
       if (uBlur > 0.01) {                                        // radial speed blur, strongest at the screen edges
@@ -68,6 +68,11 @@ const GradeShader = {
         vec3 acc = c.rgb;
         for (int i = 1; i < 7; i++) acc += texture2D(tDiffuse, vUv - dd * uBlur * 0.055 * float(i)).rgb;
         c.rgb = acc / 7.0;
+      }
+      {                                                          // unsharp mask: crisp edges and texture detail
+        vec3 nb = texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(uTexel.x, 0.0)).rgb
+                + texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, uTexel.y)).rgb;
+        c.rgb += clamp(c.rgb - nb * 0.25, vec3(-0.25), vec3(0.25)) * 0.55;
       }
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb = pow(max(c.rgb, vec3(0.0)) / 0.18, vec3(1.07)) * 0.18;   // contrast around mid grey
@@ -86,10 +91,10 @@ let aoOn = store.get('ao', true);
 let terrainMesh = null;
 function applyQuality() {
   const hi = quality === 'high';
-  const dpr = Math.min(devicePixelRatio, hi ? 1.5 : 1.0);
+  const dpr = Math.min(devicePixelRatio, hi ? 2.0 : 1.75) * perfScale;
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
-  const ms = hi ? 4096 : 1536;
+  const ms = hi ? 4096 : 2048;
   sun.shadow.mapSize.set(ms, ms);
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
   if (terrainMesh) terrainMesh.castShadow = hi;
@@ -111,6 +116,7 @@ function applyQuality() {
     bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.6, 0.95);
     composer.addPass(bloom);
     gradePass = new ShaderPass(GradeShader);
+    gradePass.uniforms.uTexel.value.set(1 / (innerWidth * dpr), 1 / (innerHeight * dpr));
     composer.addPass(gradePass);
     composer.addPass(new OutputPass());
   } else composer = null;
@@ -926,7 +932,7 @@ function perfTick(rawDt) {
   perfAcc = 0; perfFrames = 0; fpsShown = fps;
   const el = document.getElementById('fps'); if (el) el.textContent = Math.round(fps) + ' FPS';
   if (G.state === 'menu' || G.perfLock) return;
-  const base = Math.min(devicePixelRatio, quality === 'high' ? 1.5 : 1.0);
+  const base = Math.min(devicePixelRatio, quality === 'high' ? 2.0 : 1.75);
   let next = perfScale;
   if (fps < 40 && perfScale > 0.5) next = Math.max(0.5, perfScale - 0.15);
   else if (fps > 58 && perfScale < 1) next = Math.min(1, perfScale + 0.05);

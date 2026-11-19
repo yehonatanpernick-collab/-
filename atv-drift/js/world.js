@@ -18,7 +18,7 @@ function canvasTex(w, h, draw, opts = {}) {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = opts.clamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
   t.colorSpace = opts.linear ? THREE.NoColorSpace : THREE.SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = 16;
   return t;
 }
 function noiseFill(ctx, w, h, base, amp, scale = 1, seed = 1) {
@@ -52,7 +52,7 @@ function tileNoise(u, v, f) {
 
 export function makeTextures() {
   const T = {};
-  T.sand = canvasTex(512, 512, (ctx, w, h) => {
+  T.sand = canvasTex(1024, 1024, (ctx, w, h) => {
     noiseFill(ctx, w, h, 205, 80, 1, 3);
     // ripples
     ctx.globalAlpha = 0.07; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
@@ -66,10 +66,10 @@ export function makeTextures() {
     }
     ctx.globalAlpha = 1;
     const R = rng(9);
-    for (let i = 0; i < 2200; i++) {
-      const v = 150 + R() * 100;
-      ctx.fillStyle = `rgba(${v},${v * 0.92},${v * 0.8},${0.35 + R() * 0.4})`;
-      ctx.fillRect(R() * w, R() * h, 1 + R() * 1.6, 1 + R() * 1.6);
+    for (let i = 0; i < 14000; i++) {                         // sand grains and tiny pebbles
+      const v = 140 + R() * 110;
+      ctx.fillStyle = `rgba(${v},${v * 0.92},${v * 0.8},${0.35 + R() * 0.45})`;
+      ctx.fillRect(R() * w, R() * h, 1 + R() * 1.8, 1 + R() * 1.8);
     }
   });
   T.asphalt = canvasTex(512, 512, (ctx, w, h) => {
@@ -274,9 +274,12 @@ export function buildSky(scene, renderer, sunDir) {
 }
 
 // ------------------------------------------------------------------ terrain
+let _cell = 4;
+export const setColorCell = (c) => { _cell = c; };                       // mesh resolution being coloured: fine noise is faded out where it would alias
 export function colorAt(x, z, h, ny, out) {
-  const n = fbm(x * 0.03, z * 0.03, 3);
-  const n2 = fbm(x * 0.15 + 9, z * 0.15, 2);
+  const fa = 1 - smoothstep(5, 12, _cell), fb = 1 - smoothstep(14, 48, _cell);
+  const n = 0.5 + (fbm(x * 0.03, z * 0.03, 3) - 0.5) * fb;
+  const n2 = 0.5 + (fbm(x * 0.15 + 9, z * 0.15, 2) - 0.5) * fa;
   // base sand
   let r = 0.86 + (n - 0.5) * 0.12, g = 0.70 + (n - 0.5) * 0.11, b = 0.50 + (n - 0.5) * 0.10;
   // dunes are lighter, crests lighter still
@@ -370,7 +373,7 @@ export function colorAt(x, z, h, ny, out) {
     const f = 1 - smoothstep(0, 22, Math.hypot(dx, dz));
     if (f > 0) {                                                // salt flats: white, hexagon-ish cracks
       const cr = Math.abs(fbm(x * 0.045 + 3, z * 0.045 - 8, 3) - 0.5);
-      const c = 0.93 + n2 * 0.05 - (1 - smoothstep(0, 0.016, cr)) * 0.12;
+      const c = 0.93 + n2 * 0.05 - (1 - smoothstep(0, 0.07, cr)) * 0.07 * fa;
       r += (c - r) * f; g += (c * 0.995 - g) * f; b += (c * 1.01 - b) * f;
     }
     const fd = Math.hypot(x - FOREST.x, z - FOREST.z);
@@ -430,7 +433,7 @@ export function colorAt(x, z, h, ny, out) {
     const di = Math.hypot(x - ICE.x, z - ICE.z);
     if (di < ICE.r + 1800) {
       const ice = 1 - smoothstep(ICE.r - 40, ICE.r + 40, di), cr = Math.abs(fbm(x * 0.012 + 8, z * 0.012 - 3, 3) - 0.5);
-      const c = 0.8 + n2 * 0.06 - (1 - smoothstep(0, 0.014, cr)) * 0.16;
+      const c = 0.8 + n2 * 0.06 - (1 - smoothstep(0, 0.07, cr)) * 0.09 * fa;
       r += (c * 0.82 - r) * ice; g += (c * 0.93 - g) * ice; b += (c * 1.04 - b) * ice;       // pale blue ice with cracks
       const snow = (1 - ice) * (1 - smoothstep(ICE.r + 1500, ICE.r + 1800, di)) * smoothstep(ICE.r + 80, ICE.r + 300, di);
       r += (0.95 - r) * snow; g += (0.96 - g) * snow; b += (0.99 - b) * snow;                 // snowy hills around it
@@ -518,10 +521,11 @@ export function buildTerrain(T) {
         vec4 t2 = texture2D(map, vMapUv * 0.173 + vec2(0.31, 0.77));
         vec4 t3 = texture2D(map, vMapUv * 0.031 + vec2(0.13, 0.41));
         vec4 sampledDiffuseColor = mix(mix(t1, t2, 0.45), t3, 0.25);
+        sampledDiffuseColor = mix(sampledDiffuseColor, t3, smoothstep(40.0, 220.0, -vViewPosition.z));   // far away: no fine detail (it would shimmer)
         sampledDiffuseColor = mix(sampledDiffuseColor, vec4(1.0), cool * 0.85);      // snow / rock: no sand tint
         diffuseColor *= sampledDiffuseColor;
       #endif`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool))'));
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - smoothstep(30.0, 160.0, -vViewPosition.z)))'));
     sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);');
   };
   const mesh = new THREE.Mesh(geo, mat);
