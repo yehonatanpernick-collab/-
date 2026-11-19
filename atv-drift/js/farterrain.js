@@ -5,7 +5,7 @@ import { rawHeight, HALF } from './terrain.js';
 import { setColorCell } from './world.js';
 
 const S0 = 256, LEVELS = 9;
-const RES = [64, 64, 32, 32, 32, 32, 32, 32, 32];
+const RES = [64, 64, 64, 48, 32, 32, 32, 32, 32];
 
 export class FarTerrain {
   constructor(scene, baseMat, colorAt) {
@@ -37,7 +37,7 @@ export class FarTerrain {
     const V = n + 1, nv = V * V, skirtN = 4 * V;
     const pos = new Float32Array((nv + skirtN) * 3), nor = new Float32Array((nv + skirtN) * 3);
     const col = new Float32Array((nv + skirtN) * 3), uv = new Float32Array((nv + skirtN) * 2);
-    const c3 = this.c3, drop = cell * 1.6 + 4;
+    const c3 = this.c3, drop = cell * 0.8 + 4;
     setColorCell(cell);
     for (let jj = 0; jj < V; jj++) for (let ii = 0; ii < V; ii++) {
       const k = jj * V + ii, hi = (jj + 1) * W + (ii + 1);
@@ -109,7 +109,7 @@ export class FarTerrain {
       const S = S0 << l, x0 = i * S, z0 = j * S;
       if (this.inside(x0, x0 + S, z0, z0 + S)) return;
       const dx = Math.max(x0 - px, 0, px - (x0 + S)), dz = Math.max(z0 - pz, 0, pz - (z0 + S));
-      if (l === 0 || Math.hypot(dx, dz) > S * 1.15) { leaves.push({ l, i, j, d: Math.hypot(dx, dz) }); return; }
+      if (l === 0 || Math.hypot(dx, dz) > S * 1.7) { leaves.push({ l, i, j, d: Math.hypot(dx, dz) }); return; }
       for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) rec(l - 1, i * 2 + a, j * 2 + b);
     };
     const top = LEVELS - 1;

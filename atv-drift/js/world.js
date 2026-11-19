@@ -388,7 +388,8 @@ export function colorAt(x, z, h, ny, out) {
       const kk = V.H / 5000, hh = Math.max(0, h) / kk, th = Math.atan2(z - V.z, x - V.x);
       const nv = fbm(x * 0.0007 + 3, z * 0.0007 - 7, 4), nv2 = fbm(x * 0.004 + 1, z * 0.004 + 5, 3);
       const gul = Math.sin(th * 61 + fbm(x * 0.0007, z * 0.0007, 3) * 11);          // same phase as the gullies in the height field
-      let br = 0.27 + nv2 * 0.1, bg = 0.235 + nv2 * 0.08, bb = 0.215 + nv2 * 0.07;
+      const iron = fbm(x * 0.02 + 40, z * 0.02 - 17, 3), band = 0.5 + 0.5 * Math.sin(h * 0.09 + nv * 9);
+      let br = 0.25 + nv2 * 0.14 + (iron - 0.5) * 0.16 + band * 0.05, bg = 0.215 + nv2 * 0.1 + (iron - 0.5) * 0.08 + band * 0.04, bb = 0.2 + nv2 * 0.08 - (iron - 0.5) * 0.03 + band * 0.035;
       const rid = 0.5 + 0.5 * gul;
       br += rid * 0.09; bg += rid * 0.075; bb += rid * 0.06;                               // ridges lighter, gullies darker
       const lowA = 1 - smoothstep(0, 450, hh);                                              // foothills: desert dust
@@ -516,6 +517,13 @@ export function buildTerrain(T) {
   mat.envMapIntensity = 0.55;
   // sample the detail texture at two scales so the tiling never shows
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uVolc = { value: new THREE.Vector3(VOLCANO.x, VOLCANO.z, VOLCANO.R) };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vWPos; uniform vec3 uVolc;
+      float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnz(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `
       #ifdef USE_MAP
         vec4 t1 = texture2D(map, vMapUv);
@@ -524,10 +532,17 @@ export function buildTerrain(T) {
         vec4 sampledDiffuseColor = mix(mix(t1, t2, 0.45), t3, 0.25);
         sampledDiffuseColor = mix(sampledDiffuseColor, t3, smoothstep(150.0, 700.0, -vViewPosition.z));   // far away: no fine detail (it would shimmer)
         sampledDiffuseColor = mix(sampledDiffuseColor, vec4(1.0), cool * 0.85);      // snow / rock: no sand tint
+        if (volc > 0.0) {                                                              // volcano: rock, scree and wind-packed snow instead of sand grain
+          float dd = -vViewPosition.z;
+          float n1 = vnz(vWPos.xz * 0.09), n2 = vnz(vWPos.xz * 0.45 + 7.0), n3 = vnz(vWPos.xz * 2.1 + 3.0), n4 = vnz(vWPos.xz * 7.0 + 11.0);
+          float rock = 0.5 + 0.95 * (n1 * 0.34 + n2 * 0.3 + n3 * 0.22 + n4 * 0.14);
+          rock = mix(rock, 0.95, smoothstep(160.0, 1100.0, dd));
+          sampledDiffuseColor = mix(sampledDiffuseColor, vec4(vec3(rock), 1.0), volc);
+        }
         diffuseColor *= sampledDiffuseColor;
       #endif`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - 0.85 * volc) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = 1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy));');
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
