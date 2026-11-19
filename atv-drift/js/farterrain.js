@@ -117,9 +117,10 @@ export class FarTerrain {
     return leaves;
   }
 
-  update(px, pz, budgetMs = 6) {
+  update(px, pz, budgetMs = 6, vx = 0, vz = 0) {
     this.frame++;
     const leaves = this.select(px, pz);
+    const ahead = (vx || vz) ? this.select(px + vx * 1.6, pz + vz * 1.6) : [];     // prefetch where the buggy is heading
     const vis = new Set(), missing = [];
     for (const L of leaves) {
       const t = this.tiles.get(this.key(L.l, L.i, L.j));
@@ -132,11 +133,15 @@ export class FarTerrain {
         if (a) { vis.add(a); a.used = this.frame; break; }
       }
     }
-    missing.sort((a, b) => b.l - a.l || a.d - b.d);                   // coarse first (fast), then near-to-far
+    for (const L of ahead) if (!this.tiles.has(this.key(L.l, L.i, L.j))) missing.push({ ...L, d: L.d + 400 });
+    // tiles right under / around the buggy first (any level), then the rest coarse-first
+    const NEAR = 700;
+    missing.sort((a, b) => ((a.d < NEAR) !== (b.d < NEAR)) ? (a.d < NEAR ? -1 : 1) : (a.d < NEAR ? a.d - b.d : (b.l - a.l || a.d - b.d)));
     const t0 = performance.now();
     let built = 0;
     for (const L of missing) {
-      if (built > 0 && performance.now() - t0 > budgetMs) break;
+      const lim = L.d < NEAR ? Math.max(budgetMs, 14) : budgetMs;
+      if (built > 0 && performance.now() - t0 > lim) break;
       this.tiles.set(this.key(L.l, L.i, L.j), this.build(L.l, L.i, L.j)); built++;
     }
     for (const t of this.tiles.values()) t.mesh.visible = vis.has(t) || (t.used === this.frame);
@@ -145,7 +150,7 @@ export class FarTerrain {
       const old = [...this.tiles.entries()].filter(([, t]) => this.frame - t.used > 600 && t.l < LEVELS - 1).sort((a, b) => a[1].used - b[1].used).slice(0, 60);
       for (const [k, t] of old) { this.group.remove(t.mesh); t.mesh.geometry.dispose(); this.tiles.delete(k); }
     }
-    return missing.length - built;
+    return missing.filter(L => L.d < 1e9).length - built;
   }
 
   async prebuild(px, pz, onProgress) {

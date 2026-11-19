@@ -1279,7 +1279,7 @@ function frame() {
   tod.update(Math.min(dt, 0.1), camera.position, camera.position.y);
   skyCtl.sky.position.copy(camera.position);
   multi.update(dt, t);
-  far.update(veh.pos.x, veh.pos.z, 5);
+  far.update(veh.pos.x, veh.pos.z, 5, veh.vel.x, veh.vel.z);
   volcano.userData.tick(t);
   if (gradePass) { gradePass.uniforms.uTime.value = t % 100; gradePass.uniforms.uBlur.value = G.state === 'play' ? Math.min(1, Math.max(0, (veh.speed - 32) / 40)) * 0.9 : 0; }
 
