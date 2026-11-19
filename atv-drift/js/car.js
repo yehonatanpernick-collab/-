@@ -57,6 +57,15 @@ export async function loadCar(url, onProgress) {
     }
   }
   for (const mt of mats) { mt.envMapIntensity = 1.0; }
+  // glossy clear-coated paint
+  if (paint) {
+    const pm = new THREE.MeshPhysicalMaterial({
+      name: 'CaraP', color: paint.color.clone(), map: paint.map, normalMap: paint.normalMap, roughnessMap: paint.roughnessMap,
+      metalnessMap: paint.metalnessMap, aoMap: paint.aoMap, roughness: 0.34, metalness: 0.35, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.5,
+    });
+    for (const m of meshes) { if (Array.isArray(m.material)) m.material = m.material.map(x => x === paint ? pm : x); else if (m.material === paint) m.material = pm; }
+    paint = pm;
+  }
 
   // lights
   const brakeLights = meshes.filter(m => /lights_brakes/i.test(nameOf(m)));
@@ -125,10 +134,17 @@ export function syncCar(car, veh, t) {
   for (let i = 0; i < 4; i++) {
     const w = car.wheels[i];
     // physics wheels: 0 FL(+x), 1 FR, 2 RL, 3 RR
-    const pw = veh.wheels.find(x => x.front === w.front && (x.x > 0) === w.left);
-    const centerY = pw.anchor.y - pw.susp;            // relative to CoM
+    let centerY, pw;
+    if (car.bike) {                                   // one visual wheel per axle: use the mean of the two physics wheels
+      const a = veh.wheels[w.front ? 0 : 2], b2 = veh.wheels[w.front ? 1 : 3];
+      pw = a; centerY = ((a.anchor.y - a.susp) + (b2.anchor.y - b2.susp)) / 2;
+    } else {
+      pw = veh.wheels.find(x => x.front === w.front && (x.x > 0) === w.left);
+      centerY = pw.anchor.y - pw.susp;                // relative to CoM
+    }
     w.steer.position.y = w.baseY + (centerY - staticY);
-    w.steer.rotation.y = pw.steerAngle;
+    if (w.fork) w.fork.quaternion.setFromAxisAngle(w.axis, pw.steerAngle * 0.85);
+    else w.steer.rotation.y = pw.steerAngle;
     w.spin.rotation.x = pw.spin;
   }
   if (car.lean) {

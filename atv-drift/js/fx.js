@@ -27,21 +27,22 @@ export class Particles {
       uniforms: { map: { value: tex }, scale: { value: 600 }, fogColor: { value: new THREE.Color() }, fogNear: { value: 1 }, fogFar: { value: 1000 } },
       vertexShader: `
         attribute float alpha; attribute float size; attribute vec3 color;
-        varying float vA; varying vec3 vC; varying float vFog;
+        varying float vA; varying vec3 vC; varying float vFog; varying float vNear;
         uniform float scale; uniform float fogNear; uniform float fogFar;
         void main(){
           vA = alpha; vC = color;
           vec4 mv = modelViewMatrix * vec4(position,1.0);
-          gl_PointSize = size * scale / -mv.z;
+          gl_PointSize = min(size * scale / -mv.z, 110.0);
+          vNear = smoothstep(2.5, 11.0, -mv.z);                   // fade out anything close to the camera
           gl_Position = projectionMatrix * mv;
           vFog = smoothstep(fogNear, fogFar, -mv.z);
         }`,
       fragmentShader: `
         uniform sampler2D map; uniform vec3 fogColor;
-        varying float vA; varying vec3 vC; varying float vFog;
+        varying float vA; varying vec3 vC; varying float vFog; varying float vNear;
         void main(){
           vec4 t = texture2D(map, gl_PointCoord);
-          float a = t.a * vA;
+          float a = t.a * vA * vNear;
           if (a < 0.01) discard;
           gl_FragColor = vec4(mix(vC, fogColor, vFog), a);
           #include <colorspace_fragment>

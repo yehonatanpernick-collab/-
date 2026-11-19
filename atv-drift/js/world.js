@@ -7,7 +7,7 @@ import {
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
   MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
-  VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, coneH, altitudeOf,
+  rawHeight as rawHeightAt, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -274,7 +274,7 @@ export function buildSky(scene, renderer, sunDir) {
 }
 
 // ------------------------------------------------------------------ terrain
-function colorAt(x, z, h, ny, out) {
+export function colorAt(x, z, h, ny, out) {
   const n = fbm(x * 0.03, z * 0.03, 3);
   const n2 = fbm(x * 0.15 + 9, z * 0.15, 2);
   // base sand
@@ -380,23 +380,38 @@ function colorAt(x, z, h, ny, out) {
       r += ((0.27 + nd * 0.12) * gr - r) * ff; g += ((0.31 + nd * 0.08) * gr - g) * ff; b += ((0.15 + nd * 0.04) * gr - b) * ff;
     }
     const V = VOLCANO, vr = Math.hypot(x - V.x, z - V.z);
-    const wv = 1 - smoothstep(V.R * 0.8, V.R * 1.08, vr);
-    if (wv > 0) {                                               // basalt, scoria, snow cap
-      const t = Math.max(0, h / V.H);
-      let br = 0.30 + n2 * 0.10, bg = 0.26 + n2 * 0.08, bb = 0.24 + n2 * 0.07;
-      const sc = smoothstep(0.5, 0.85, t) * (0.5 + 0.5 * fbm(x * 0.04, z * 0.04, 3));
-      br += (0.55 - br) * sc * 0.7; bg += (0.24 - bg) * sc * 0.7; bb += (0.14 - bb) * sc * 0.7;
-      const dusty = 1 - smoothstep(0.02, 0.22, t);
-      br += (r - br) * dusty * 0.7; bg += (g - bg) * dusty * 0.7; bb += (b - bb) * dusty * 0.7;
-      const snow = smoothstep(0.5, 0.64, t + (fbm(x * 0.02 + 4, z * 0.02, 4) - 0.5) * 0.2) * (1 - smoothstep(0.5, 0.8, slope) * 0.5);
-      const sn = 0.94 + n2 * 0.05;
-      br += (sn - br) * snow; bg += (sn - bg) * snow; bb += (sn * 1.03 - bb) * snow;
-      const crater = smoothstep(V.rr * 0.95, V.rr * 0.3, vr);
-      br += (0.16 - br) * crater * 0.6; bg += (0.13 - bg) * crater * 0.6; bb += (0.12 - bb) * crater * 0.6;
+    const wv = 1 - smoothstep(V.R * 0.96, V.R * 1.04, vr);
+    if (wv > 0) {                                               // forest belt, basalt gullies, lava rivers, snow cap
+      const hh = Math.max(0, h), th = Math.atan2(z - V.z, x - V.x);
+      const nv = fbm(x * 0.0012 + 3, z * 0.0012 - 7, 4), nv2 = fbm(x * 0.007 + 1, z * 0.007 + 5, 3);
+      const gul = Math.sin(th * 61 + fbm(x * 0.0012, z * 0.0012, 3) * 11);          // same phase as the gullies in the height field
+      let br = 0.27 + nv2 * 0.1, bg = 0.235 + nv2 * 0.08, bb = 0.215 + nv2 * 0.07;
+      const rid = 0.5 + 0.5 * gul;
+      br += rid * 0.09; bg += rid * 0.075; bb += rid * 0.06;                               // ridges lighter, gullies darker
+      const lowA = 1 - smoothstep(0, 450, hh);                                              // foothills: desert dust
+      br += (r - br) * lowA * 0.75; bg += (g - bg) * lowA * 0.75; bb += (b - bb) * lowA * 0.75;
+      const forest = smoothstep(120, 400, hh) * (1 - smoothstep(1000, 1500, hh)) * smoothstep(0.38, 0.58, nv2 + (1 - slope) * 0.15);
+      br += (0.085 + nv * 0.05 - br) * forest * 0.85; bg += (0.15 + nv * 0.07 - bg) * forest * 0.85; bb += (0.07 - bb) * forest * 0.85;
+      const sc = smoothstep(3400, 4900, hh) * (0.5 + 0.5 * nv2);                           // red scoria near the summit
+      br += (0.5 - br) * sc * 0.55; bg += (0.2 - bg) * sc * 0.55; bb += (0.12 - bb) * sc * 0.55;
+      const lava = smoothstep(0.86, 0.97, gul) * smoothstep(1500, 2200, hh) * (1 - smoothstep(4300, 4900, hh));
+      br += (0.14 - br) * lava * 0.8; bg += (0.06 - bg) * lava * 0.8; bb += (0.05 - bb) * lava * 0.8;
+      const snow = smoothstep(2200, 2900, hh + (nv - 0.5) * 900) * (1 - smoothstep(0.5, 0.85, slope) * 0.55);
+      const sn = 0.93 + nv2 * 0.06;
+      const snowA = snow * (1 - lava * 0.8) * (1 - smoothstep(0.55, 0.8, fbm(x * 0.02 + 5, z * 0.02 - 3, 3)) * 0.35);   // wind-blown bare rock patches
+      br += (sn - br) * snowA; bg += (sn - bg) * snowA; bb += (sn * 1.03 - bb) * snowA;
+      const crater = smoothstep(V.rr * 1.0, V.rr * 0.35, vr);
+      br += (0.14 - br) * crater * 0.7; bg += (0.115 - bg) * crater * 0.7; bb += (0.105 - bb) * crater * 0.7;
       const q = volcanoRoad(x, z);
-      if (q.d < V.hw + 3.5 && q.phi > -0.3 && q.phi < V.phiMax + 0.3) {
-        const f = 1 - smoothstep(V.hw - 1.2, V.hw + 1.4, q.d);
-        br += (0.46 + n2 * 0.05 - br) * f * 0.9; bg += (0.38 + n2 * 0.04 - bg) * f * 0.9; bb += (0.31 + n2 * 0.03 - bb) * f * 0.9;
+      if (q.d < V.hw + 4 && q.phi > -0.3 && q.phi < V.phiMax + 0.3) {
+        const f = 1 - smoothstep(V.hw - 1.5, V.hw + 1.6, q.d);
+        br += (0.46 + n2 * 0.04 - br) * f * 0.92; bg += (0.38 + n2 * 0.03 - bg) * f * 0.92; bb += (0.31 + n2 * 0.03 - bb) * f * 0.92;
+      }
+      const ln = volcanoLane(x, z);
+      if (ln.perp < 14 && ln.r > V.Re * 0.95 && ln.r < V.R + 3000) {
+        const f = 1 - smoothstep(10, 12.5, ln.perp), edge = smoothstep(8, 9.2, ln.perp) * (1 - smoothstep(9.8, 11.2, ln.perp));
+        br += (0.12 - br) * f; bg += (0.12 - bg) * f; bb += (0.13 - bb) * f;
+        br += (0.95 - br) * edge * 0.9; bg += (0.8 - bg) * edge * 0.9; bb += (0.2 - bb) * edge * 0.9;     // yellow edge lines
       }
       r += (br - r) * wv; g += (bg - g) * wv; b += (bb - b) * wv;
     }
@@ -457,8 +472,11 @@ export function buildTerrain(T) {
         vec4 t2 = texture2D(map, vMapUv * 0.173 + vec2(0.31, 0.77));
         vec4 t3 = texture2D(map, vMapUv * 0.031 + vec2(0.13, 0.41));
         vec4 sampledDiffuseColor = mix(mix(t1, t2, 0.45), t3, 0.25);
+        sampledDiffuseColor = mix(sampledDiffuseColor, vec4(1.0), cool * 0.85);      // snow / rock: no sand tint
         diffuseColor *= sampledDiffuseColor;
       #endif`);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool))'));
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);');
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
@@ -647,8 +665,8 @@ export function buildWater(T) {
   };
   const lake = mk(new THREE.CircleGeometry(LAKE.r * 1.02, 96).rotateX(-Math.PI / 2), 10);
   lake.m.position.set(LAKE.x, WATER_LEVEL, LAKE.z);
-  const sea = mk(new THREE.PlaneGeometry(900, 3000, 1, 1).rotateX(-Math.PI / 2), 120);
-  sea.m.position.set(-1250, WATER_LEVEL, 0);
+  const sea = mk(new THREE.PlaneGeometry(30000, 60000, 1, 1).rotateX(-Math.PI / 2), 4000);
+  sea.m.position.set(-16100, WATER_LEVEL, 0);
   sea.m.material.color.set(0x1f7f9c);
   group.add(lake.m, sea.m);
   group.userData.mats = [lake.m.material, sea.m.material];
@@ -1520,35 +1538,32 @@ export function buildTurntables() {
 // ------------------------------------------------------------------ volcano: lava, smoke, summit, altitude signs
 export function buildVolcano(T) {
   const V = VOLCANO, group = new THREE.Group();
-  const cy = terrainHeight(V.x, V.z);
-  // lava pool in the crater
+  const cy = V.H - V.depth;
   const lavaTex = canvasTex(256, 256, (ctx, w, h) => {
     const g = ctx.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w / 2);
     g.addColorStop(0, '#ffe27a'); g.addColorStop(0.35, '#ff8a1f'); g.addColorStop(0.75, '#d12a08'); g.addColorStop(1, '#4a0d05');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     const R = rng(5);
-    for (let i = 0; i < 260; i++) {                                  // dark crust plates
+    for (let i = 0; i < 260; i++) {
       ctx.fillStyle = `rgba(30,6,2,${0.15 + R() * 0.4})`;
       ctx.beginPath(); ctx.ellipse(R() * w, R() * h, 4 + R() * 16, 3 + R() * 9, R() * 3, 0, 7); ctx.fill();
     }
   }, { clamp: true });
-  const lava = new THREE.Mesh(new THREE.CircleGeometry(15, 48).rotateX(-Math.PI / 2),
+  const lava = new THREE.Mesh(new THREE.CircleGeometry(100, 64).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: lavaTex, toneMapped: false, color: new THREE.Color(1.6, 1.2, 1.0) }));
-  lava.position.set(V.x, cy + 0.45, V.z);
+  lava.position.set(V.x, cy + 1.2, V.z);
   group.add(lava);
-  const glow = new THREE.PointLight(0xff5a18, 2500, 190, 1.6);
-  glow.position.set(V.x, cy + 9, V.z);
+  const glow = new THREE.PointLight(0xff5a18, 40000, 2600, 1.15);
+  glow.position.set(V.x, cy + 60, V.z);
   group.add(glow);
-  // smoke plume
+  // smoke plume rising 1.5 km above the crater
   const puffs = [];
-  for (let i = 0; i < 44; i++) {
+  for (let i = 0; i < 60; i++) {
     const mat = new THREE.SpriteMaterial({ map: T.soft, color: 0x4a4440, transparent: true, depthWrite: false, opacity: 0.4 });
     const sp = new THREE.Sprite(mat);
     group.add(sp);
-    puffs.push({ sp, ph: i / 44, dx: (Math.random() - 0.5) * 14, dz: (Math.random() - 0.5) * 14, sz: 0.8 + Math.random() * 0.6 });
+    puffs.push({ sp, ph: i / 60, dx: (Math.random() - 0.5) * 140, dz: (Math.random() - 0.5) * 140, sz: 0.8 + Math.random() * 0.6 });
   }
-  // summit viewpoint
-  const e = volcanoPoint(V.phiMax - 0.02);
   const tang = (phi) => { const a = V.phi0 + phi; return [-V.b * Math.cos(a) - Math.sin(a), -V.b * Math.sin(a) + Math.cos(a)]; };
   const signTex = (lines, bg = '#1c2a3a') => canvasTex(512, 256, (ctx, w, h) => {
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
@@ -1557,48 +1572,60 @@ export function buildVolcano(T) {
     lines.forEach(([t, size, col], i) => { ctx.font = `800 ${size}px Rubik, Arial, sans-serif`; ctx.fillStyle = col || '#fff'; ctx.fillText(t, w / 2, 90 + i * (size * 1.1)); });
   }, { clamp: true });
   const board = (tex, w, h, x, y, z, yaw, postH = 3) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide }));
+    const mk = () => new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mk());
     m.position.set(x, y + postH + h / 2, z); m.rotation.y = yaw; m.castShadow = true;
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, postH + h * 0.2, 6), new THREE.MeshStandardMaterial({ color: 0x555a60, metalness: 0.6, roughness: 0.4 }));
+    const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(0.06);
+    const back = m.clone(); back.material = mk(); back.rotation.y = yaw + Math.PI; back.position.sub(f);
+    m.position.add(f);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * w / 3.4, 0.12 * w / 3.4, postH + h * 0.2, 6), new THREE.MeshStandardMaterial({ color: 0x555a60, metalness: 0.6, roughness: 0.4 }));
     post.position.set(x, y + (postH + h * 0.2) / 2, z); post.castShadow = true;
-    const back = m.clone(); back.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide }); back.rotation.y = yaw + Math.PI; back.position.add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-0.05));
-    m.position.add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(0.05));
-    group.add(m, post, back);
+    group.add(m, back, post);
     return m;
   };
-  // altitude markers along the road
-  for (const alt of [1500, 2000, 2500, 3000, 3500, 4000, 4500]) {
-    let lo = 0, hi = V.phiMax;
-    for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; (altitudeOf(volcanoPoint(mid).y) < alt ? (lo = mid) : (hi = mid)); }
-    const pt = volcanoPoint(lo), [tx, tz] = tang(lo), tl = Math.hypot(tx, tz);
-    const nx = -tz / tl, nz = tx / tl;                                    // left of travel: toward the slope side
-    const side = (Math.hypot(pt.x + nx * 9 - V.x, pt.z + nz * 9 - V.z) < pt.r) ? 1 : -1;     // pick the uphill (inner) side
-    const sx = pt.x + nx * side * (V.hw + 2.4), sz = pt.z + nz * side * (V.hw + 2.4);
-    board(signTex([[alt.toLocaleString('en-US') + ' m', 92, '#ffd23a'], ['ALTITUDE', 44, '#cfe3ff']]), 3.4, 1.7, sx, terrainHeight(sx, sz), sz, Math.atan2(-tx, -tz));
+  // altitude signs every 500 m, on the uphill side of the road
+  for (let alt = 500; alt <= 4500; alt += 500) {
+    const phi = phiAtAlt(alt), pt = volcanoPoint(phi), [tx, tz] = tang(phi), tl = Math.hypot(tx, tz);
+    const nx = -tz / tl, nz = tx / tl;
+    const side = (Math.hypot(pt.x + nx * 9 - V.x, pt.z + nz * 9 - V.z) < pt.r) ? 1 : -1;
+    const sx = pt.x + nx * side * (V.hw + 3), sz = pt.z + nz * side * (V.hw + 3);
+    const sy = Math.max(rawHeightAt(sx, sz), pt.y);
+    board(signTex([[alt.toLocaleString('en-US') + ' m', 92, '#ffd23a'], ['ALTITUDE', 44, '#cfe3ff']]), 4.4, 2.2, sx, sy, sz, Math.atan2(-tx, -tz), 3.2);
   }
-  // summit flag + big sign
-  const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 14, 8), new THREE.MeshStandardMaterial({ color: 0xe8e8e8, metalness: 0.7, roughness: 0.3 }));
-  fp.position.set(e.x + 7, e.y + 7, e.z + 7); fp.castShadow = true; group.add(fp);
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(5, 3, 12, 4), new THREE.MeshStandardMaterial({
+  // summit plaza: flag, sign, and the gate at the top of the giant descent lane
+  const e = volcanoPoint(V.phiMax - 0.02);
+  const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 34, 8), new THREE.MeshStandardMaterial({ color: 0xe8e8e8, metalness: 0.7, roughness: 0.3 }));
+  fp.position.set(e.x + 18, e.y + 17, e.z + 18); fp.castShadow = true; group.add(fp);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(14, 8.4, 16, 6), new THREE.MeshStandardMaterial({
     map: canvasTex(256, 160, (ctx, w, h) => { ctx.fillStyle = '#e02a1f'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(30, 130); ctx.lineTo(w / 2, 24); ctx.lineTo(w - 30, 130); ctx.closePath(); ctx.fill(); }, { clamp: true }),
     side: THREE.DoubleSide, roughness: 0.8 }));
-  flag.position.set(e.x + 9.6, e.y + 12.4, e.z + 7); group.add(flag);
+  flag.position.set(e.x + 25, e.y + 29, e.z + 18); group.add(flag);
   const [ex, ez] = tang(V.phiMax - 0.02);
-  board(signTex([['SUMMIT', 96, '#ffffff'], ['5,000 m', 110, '#ffd23a']], '#5a1010'), 7, 3.5, e.x - ez * 0.0 + 8, terrainHeight(e.x + 8, e.z - 8), e.z - 8, Math.atan2(-ex, -ez), 2.6);
+  board(signTex([['SUMMIT', 96, '#ffffff'], ['5,000 m', 110, '#ffd23a']], '#5a1010'), 16, 8, e.x - ez * 0 + 20, e.y, e.z - 20, Math.atan2(-ex, -ez), 4);
+  {
+    const lx = Math.cos(V.theta), lz = Math.sin(V.theta), lyaw = Math.atan2(lx, lz);
+    const gx = V.x + lx * (V.Re + 26), gz = V.z + lz * (V.Re + 26), gy = rawHeightAt(gx, gz);
+    const side = new THREE.Vector3(lz, 0, -lx);
+    const pm = new THREE.MeshStandardMaterial({ color: 0xd9262c, metalness: 0.3, roughness: 0.5 });
+    for (const sgn of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(2.4, 22, 2.4), pm);
+      p.position.set(gx + side.x * 14 * sgn, gy + 11, gz + side.z * 14 * sgn); p.castShadow = true; group.add(p);
+    }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(30, 3.4, 2.6), pm); beam.position.set(gx, gy + 22, gz); beam.rotation.y = lyaw + Math.PI / 2; beam.castShadow = true; group.add(beam);
+    board(signTex([['MEGA DESCENT', 66, '#ffffff'], ['9 KM · 5,000 M DROP', 40, '#ffd23a']], '#10151c'), 26, 7.2, gx, gy + 18, gz, lyaw + Math.PI, 0);
+  }
   group.userData.tick = (t) => {
-    flag.rotation.y = Math.sin(t * 2.2) * 0.12;
     const pa = flag.geometry.attributes.position;
-    for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 1.6 - t * 5) * 0.18 * (pa.getX(i) + 2.5) / 5);
+    for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 0.5 - t * 5) * 0.9 * (pa.getX(i) + 7) / 14);
     pa.needsUpdate = true;
-    glow.intensity = 2200 + Math.sin(t * 3.1) * 350 + Math.sin(t * 7.3) * 200;
+    glow.intensity = 36000 + Math.sin(t * 3.1) * 5000 + Math.sin(t * 7.3) * 3000;
     lava.material.color.setRGB(1.5 + Math.sin(t * 2) * 0.15, 1.1 + Math.sin(t * 3.3) * 0.12, 0.9);
     for (const p of puffs) {
-      const a = ((t * 0.03 + p.ph) % 1);
-      const h = a * 190;
-      p.sp.position.set(V.x + p.dx + a * 70 + Math.sin(a * 6 + p.ph * 9) * 8, cy + 6 + h, V.z + p.dz + a * 25);
-      const sz = (22 + a * 110) * p.sz; p.sp.scale.set(sz, sz, 1);
+      const a = ((t * 0.02 + p.ph) % 1);
+      p.sp.position.set(V.x + p.dx + a * 420 + Math.sin(a * 6 + p.ph * 9) * 40, cy + 40 + a * 1500, V.z + p.dz + a * 150);
+      const sz = (160 + a * 800) * p.sz; p.sp.scale.set(sz, sz, 1);
       p.sp.material.opacity = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
-      const c = 0.22 + a * 0.35; p.sp.material.color.setRGB(c, c * 0.95, c * 0.9);
+      const c = 0.2 + a * 0.35; p.sp.material.color.setRGB(c, c * 0.95, c * 0.9);
     }
   };
   return group;

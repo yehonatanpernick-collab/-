@@ -1,7 +1,7 @@
 // Arcade rigid-body vehicle: 4 raycast wheels with suspension, a friction-circle
 // tyre model tuned for drifting, air control, and impulse-based chassis contacts.
 import * as THREE from 'three';
-import { groundQuery, pointPenetration, waterAt, terrainHeight, HALF, surfaceAt, GRIP, floorVelocity } from './terrain.js';
+import { groundQuery, pointPenetration, waterAt, terrainHeight, BOUND, surfaceAt, GRIP, floorVelocity } from './terrain.js';
 
 export const GRAVITY = 13;
 const V = () => new THREE.Vector3();
@@ -79,7 +79,7 @@ export class Vehicle {
     }));
     this.grounded = 0;
     this.airTime = 0;
-    this.spec = { wheelR: 0.375, halfTrack: 0.70, halfBase: 1.14 };
+    this.spec = { wheelR: 0.375, halfTrack: 0.70, halfBase: 1.14 }; this.bike = false;
     this.impact = 0;          // strongest contact impulse this frame (m/s)
     this.wallHit = 0;
     this.inWater = 0;
@@ -99,7 +99,7 @@ export class Vehicle {
     for (const wh of this.wheels) {
       wh.anchor.x = Math.sign(wh.x) * sp.halfTrack; wh.anchor.z = Math.sign(wh.z) * sp.halfBase;
     }
-    this.pos.y += dH; this.spec = sp;
+    this.pos.y += dH; this.spec = sp; this.bike = !!sp.bike;
   }
   reset(x, z, yaw) {
     const h = terrainHeight(x, z);
@@ -237,6 +237,7 @@ export class Vehicle {
 
       // surface grip
       const surf = wh.surface === 'terrain' ? surfaceAt(wh.point.x, wh.point.z) : 'ramp';
+      if (surf === 'chute') this._chute = 0.25;                       // on the giant descent lane: a speed governor applies
       wh.surf = surf;
       const baseMu = wh.front ? CFG.muFront : M.muRear;
       let mu = baseMu * (GRIP[surf] ?? 1);
@@ -302,7 +303,7 @@ export class Vehicle {
       this._driveGround = Math.max(0.5, g);
     }
     // anti-roll bars
-    for (let a = 0; a < 4; a += 2) {
+    for (let a = 0; a < 4 && !this.bike; a += 2) {
       const L = this.wheels[a], R = this.wheels[a + 1];
       if (!L.contact && !R.contact) continue;
       const d = (L.comp - R.comp) * 11000;
@@ -313,6 +314,7 @@ export class Vehicle {
 
     // ---- aero, downforce
     F.addScaledVector(this.vel, -0.22 * speed - 4);
+    if (this._chute > 0) { this._chute -= dt; if (speed > 78) F.addScaledVector(this.vel, -(speed - 78) * m * 0.12); }
     if (grounded >= 3) F.addScaledVector(up, -speed * speed * 0.9);
 
     // ---- drift controller / stability on the ground
@@ -401,6 +403,17 @@ export class Vehicle {
         // side-slip damping when going straight (no crab-walking on side slopes)
         if (!sliding && Math.abs(input.steer) < 0.05 && hs > 3) F.addScaledVector(left, -hv.dot(left) * m * 1.5);
       }
+      // ---- motorcycle: lean into the corner (roll controller), upright when slow, falls over if it leans too far
+      if (this.bike) {
+        const roll = Math.asin(THREE.MathUtils.clamp(left.y, -1, 1));                  // + = leaning right
+        const wRoll = this.w.dot(fwd);
+        const vk = THREE.MathUtils.clamp(Math.abs(vF) / 9, 0, 1);
+        let tgt = Math.atan(-vF * wy / GRAVITY) * 1.1 * vk;
+        tgt = THREE.MathUtils.clamp(tgt, -0.95, 0.95);
+        // while sliding (handbrake) lean less, like a motorcycle drift: bike stays steady
+        const tq = CFG.inertia.z * (46 * (tgt - roll) - 12 * wRoll);
+        T.addScaledVector(fwd, THREE.MathUtils.clamp(tq, -9000, 9000));
+      }
       // ---- wheelie / stoppie: lean keys tilt the buggy on the ground
       if (lean !== 0) {
         const pitchUp = Math.asin(THREE.MathUtils.clamp(fwd.dot(gN), -1, 1));   // + nose up
@@ -458,7 +471,7 @@ export class Vehicle {
     this._collide(dt);
 
     // world bounds
-    const lim = HALF - 12;
+    const lim = BOUND - 12;
     if (Math.abs(this.pos.x) > lim) { this.pos.x = Math.sign(this.pos.x) * lim; this.vel.x *= -0.3; }
     if (Math.abs(this.pos.z) > lim) { this.pos.z = Math.sign(this.pos.z) * lim; this.vel.z *= -0.3; }
 

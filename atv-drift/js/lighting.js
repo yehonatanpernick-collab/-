@@ -4,19 +4,19 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 
 export const TIMES = [
   { id: 'dawn', name: 'זריחה', lightElev: 9, lightAz: -100, skyElev: 7, skyAz: -100, turbidity: 6.5, rayleigh: 2.3, mie: 0.012, mieG: 0.92,
-    sun: 0xffa868, sunI: 2.3, hemiSky: 0xf0b9a8, hemiGnd: 0x6a5040, hemiI: 0.36, fog: 0xe4b59a, fogNear: 220, fogFar: 2100, exposure: 0.82, env: 0.34, bloom: 0.28,
+    sun: 0xffa868, sunI: 2.3, hemiSky: 0xf0b9a8, hemiGnd: 0x6a5040, hemiI: 0.36, fog: 0xe4b59a, fogNear: 300, fogFar: 11000, exposure: 0.82, env: 0.34, bloom: 0.28,
     cloud: [1.0, 0.72, 0.6], night: 0, ground: 0x8a6a50 },
   { id: 'noon', name: 'צהריים', lightElev: 58, lightAz: -140, skyElev: 58, skyAz: -140, turbidity: 2.4, rayleigh: 1.0, mie: 0.003, mieG: 0.8,
-    sun: 0xfff3e0, sunI: 3.5, hemiSky: 0xbfd9ff, hemiGnd: 0xa08462, hemiI: 0.5, fog: 0xd7d8d2, fogNear: 340, fogFar: 2500, exposure: 0.8, env: 0.55, bloom: 0.2,
+    sun: 0xfff3e0, sunI: 3.5, hemiSky: 0xbfd9ff, hemiGnd: 0xa08462, hemiI: 0.5, fog: 0xd7d8d2, fogNear: 500, fogFar: 15000, exposure: 0.8, env: 0.55, bloom: 0.2,
     cloud: [1, 1, 1], night: 0, ground: 0x9a7a55 },
   { id: 'golden', name: 'אחר הצהריים', lightElev: 24, lightAz: -140, skyElev: 24, skyAz: -140, turbidity: 3.2, rayleigh: 1.25, mie: 0.004, mieG: 0.86,
-    sun: 0xffdcb4, sunI: 3.0, hemiSky: 0xc4d8ff, hemiGnd: 0x9a7650, hemiI: 0.42, fog: 0xcdc3b1, fogNear: 320, fogFar: 2300, exposure: 0.86, env: 0.45, bloom: 0.24,
+    sun: 0xffdcb4, sunI: 3.0, hemiSky: 0xc4d8ff, hemiGnd: 0x9a7650, hemiI: 0.42, fog: 0xcdc3b1, fogNear: 450, fogFar: 14000, exposure: 0.86, env: 0.45, bloom: 0.24,
     cloud: [1, 0.97, 0.92], night: 0, ground: 0x9a7a55 },
   { id: 'sunset', name: 'שקיעה', lightElev: 4, lightAz: -165, skyElev: 2.5, skyAz: -165, turbidity: 9, rayleigh: 3.2, mie: 0.022, mieG: 0.93,
-    sun: 0xff7a38, sunI: 2.4, hemiSky: 0xb98a80, hemiGnd: 0x4a3a38, hemiI: 0.32, fog: 0xd98a66, fogNear: 200, fogFar: 2000, exposure: 0.8, env: 0.3, bloom: 0.34,
+    sun: 0xff7a38, sunI: 2.4, hemiSky: 0xb98a80, hemiGnd: 0x4a3a38, hemiI: 0.32, fog: 0xd98a66, fogNear: 260, fogFar: 10000, exposure: 0.8, env: 0.3, bloom: 0.34,
     cloud: [1.0, 0.55, 0.42], night: 0, ground: 0x6a4a3a },
   { id: 'night', name: 'לילה', lightElev: 38, lightAz: 55, skyElev: -22, skyAz: -140, turbidity: 1.2, rayleigh: 0.25, mie: 0.002, mieG: 0.7,
-    sun: 0x8fb0ff, sunI: 1.5, hemiSky: 0x2a3d6e, hemiGnd: 0x141a2c, hemiI: 0.55, fog: 0x0d1630, fogNear: 110, fogFar: 1300, exposure: 1.55, env: 0.22, bloom: 0.5,
+    sun: 0x8fb0ff, sunI: 1.5, hemiSky: 0x2a3d6e, hemiGnd: 0x141a2c, hemiI: 0.55, fog: 0x0d1630, fogNear: 120, fogFar: 3500, exposure: 1.55, env: 0.22, bloom: 0.5,
     cloud: [0.1, 0.13, 0.22], night: 1, ground: 0x10141e },
 ];
 const NUM = ['lightElev', 'lightAz', 'skyElev', 'skyAz', 'turbidity', 'rayleigh', 'mie', 'mieG', 'sunI', 'hemiI', 'fogNear', 'fogFar', 'exposure', 'env', 'bloom', 'night'];
@@ -82,7 +82,7 @@ export function createLighting(o) {
     headlights: heads,
     set(i) { idx = (i + TIMES.length) % TIMES.length; pendingEnv = true; settle = 0; },
     next() { api.set(idx + 1); },
-    update(dt, camPos) {
+    update(dt, camPos, alt = 0) {
       const T = TIMES[idx], k = Math.min(1, dt * 1.7);
       let diff = 0;
       for (const n of NUM) { cur[n] += (T[n] - cur[n]) * k; diff += Math.abs(T[n] - cur[n]) / (Math.abs(T[n]) + 1); }
@@ -96,7 +96,8 @@ export function createLighting(o) {
       skyCtl.set();
       sun.color.copy(cur.sun); sun.intensity = cur.sunI;
       hemi.color.copy(cur.hemiSky); hemi.groundColor.copy(cur.hemiGnd); hemi.intensity = cur.hemiI;
-      scene.fog.color.copy(cur.fog); scene.fog.near = cur.fogNear; scene.fog.far = cur.fogFar;
+      scene.fog.color.copy(cur.fog); const clear = 1 + Math.max(0, alt) / 1300;            // the air gets clearer with altitude
+      scene.fog.near = cur.fogNear * clear; scene.fog.far = Math.min(40000, cur.fogFar * clear);
       renderer.toneMappingExposure = cur.exposure;
       scene.environmentIntensity = cur.env;
       setBloom?.(cur.bloom);

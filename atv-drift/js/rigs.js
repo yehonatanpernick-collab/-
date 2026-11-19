@@ -19,7 +19,8 @@ export const RIG_SPECS = {
     hide: /Machine_Gun/, paint: /^Body_Top$/, tune: { engine: 1.1, maxSpeed: 0.85 },
   },
   bike: {
-    url: 'assets/dirtbike.glb', scale: 1.0, yaw: 0, minTrack: 0.42, lean: 0.55,
+    url: 'assets/dirtbike.glb', scale: 1.0, yaw: 0, minTrack: 0.30, bike: true,
+    spinMats: /^(Tyres|Rims)$/, head: [0, 0.95, 0.40],
     split: { FL: { c: [0, 0.02, 0.78] }, RL: { c: [0, 0.02, -0.75] }, FR: { empty: true, c: [0, 0.02, 0.78] }, RR: { empty: true, c: [0, 0.02, -0.75] } },
     wheelRadius: 0.36, splitR: 0.37, tune: { engine: 0.95, maxSpeed: 1.0 },
   },
@@ -65,16 +66,29 @@ export async function loadRig(spec, onProgress) {
     info.forEach(i => i.c.y += lift);
     for (let i = 0; i < 4; i++) {
       const steer = new THREE.Group(); steer.position.copy(info[i].c); top.add(steer);
-      const spin = new THREE.Group(); steer.add(spin);
+      const fork = new THREE.Group(); steer.add(fork);                       // front: the whole steering assembly turns here
+      const spin = new THREE.Group(); fork.add(spin);
       const wrap = new THREE.Group(); wrap.scale.setScalar(spec.scale); wrap.rotation.y = spec.yaw || 0; spin.add(wrap);
-      wheels.push({ steer, spin, baseY: info[i].R, front: keys[i][0] === 'F', left: keys[i][1] === 'L' });
+      const fw = new THREE.Group(); fw.scale.setScalar(spec.scale); fw.rotation.y = spec.yaw || 0; fork.add(fw);
+      const wd = { steer, spin, baseY: info[i].R, front: keys[i][0] === 'F', left: keys[i][1] === 'L' };
+      if (i === 0 && spec.head) {
+        const hd = new THREE.Vector3(...spec.head).multiplyScalar(spec.scale).applyQuaternion(q); hd.y += lift;
+        wd.fork = fork; wd.axis = hd.sub(info[0].c).normalize();
+        const hp = new THREE.Vector3(...spec.head), c0 = new THREE.Vector3(...spec.split.FL.c);
+        const ax = hp.clone().sub(c0).normalize(); spec._plane = { ny: ax.z, nz: -ax.y, p0: hp };       // plane through the steering axis
+        wd.forkWrap = fw;
+      }
+      wheels.push(wd);
       wrapOf[keys[i]] = wrap;
     }
     for (const m of meshes) {
       const geo = m.geometry.clone(); geo.applyMatrix4(m.matrixWorld);
       const pos = geo.attributes.position, idx = geo.index ? geo.index.array : null;
       const nTri = (idx ? idx.length : pos.count) / 3;
-      const rest = [], per = { FL: [], RL: [] };
+      const rest = [], per = { FL: [], RL: [] }, frontEnd = [];
+      const matName = m.material?.name || '';
+      const spinOK = !spec.spinMats || spec.spinMats.test(matName);
+      const pl = spec._plane;
       for (let t = 0; t < nTri; t++) {
         const a = idx ? idx[t * 3] : t * 3, b = idx ? idx[t * 3 + 1] : t * 3 + 1, c = idx ? idx[t * 3 + 2] : t * 3 + 2;
         const cy = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
@@ -83,7 +97,9 @@ export async function loadRig(spec, onProgress) {
           const s = spec.split[k].c;
           if (Math.hypot(cy - s[1], cz - s[2]) < rs) { hit = k; break; }
         }
-        if (hit) per[hit].push(a, b, c); else rest.push(a, b, c);
+        if (hit && spinOK) per[hit].push(a, b, c);
+        else if (pl && cz > 0.2 && pl.ny * (cy - pl.p0.y) + pl.nz * (cz - pl.p0.z) > -0.06) frontEnd.push(a, b, c);
+        else rest.push(a, b, c);
       }
       const mk = (list, parent, off) => {
         if (!list.length) return;
@@ -98,6 +114,7 @@ export async function loadRig(spec, onProgress) {
       m.visible = false;
       const body = new THREE.Group(); holder.add(body); mk(rest, body, null);
       for (const k of ['FL', 'RL']) mk(per[k], wrapOf[k], spec.split[k].c);
+      if (frontEnd.length) mk(frontEnd, wheels[0].forkWrap, spec.split.FL.c);
     }
   } else {
     holder.add(model);
@@ -135,7 +152,7 @@ export async function loadRig(spec, onProgress) {
     wheelR: avg(i => i.R),
     halfTrack: Math.max(spec.minTrack, avg(i => Math.abs(i.c.x))),
     halfBase: avg(i => Math.abs(i.c.z)),
-    tune: spec.tune,
+    tune: spec.tune, bike: !!spec.bike,
   };
   void real;
 
@@ -151,7 +168,7 @@ export async function loadRig(spec, onProgress) {
   }
   return {
     root, wheels, paint: null, brakeLights: [], reverseLights: [], flames, spec: spec2, paintable: paintMats.size > 0,
-    lean: spec.lean ? { top, gain: spec.lean, cur: 0 } : null,
+    lean: null, bike: !!spec.bike,
     setPaint(hex) {
       for (const p of paintMats) { if (p.userData.m0 === undefined) p.userData.m0 = p.map || null; p.map = null; p.color.set(hex); p.needsUpdate = true; }
     },

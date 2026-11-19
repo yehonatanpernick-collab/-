@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import * as TR from './terrain.js';
 import { Vehicle, GRAVITY, CFG } from './physics.js';
 import * as W from './world.js';
@@ -11,6 +12,7 @@ import { loadCar, syncCar } from './car.js';
 import { loadMaverick } from './car3.js';
 import { loadRig, RIG_SPECS } from './rigs.js';
 import { createLighting, TIMES } from './lighting.js';
+import { FarTerrain } from './farterrain.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -36,7 +38,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('#game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.15, 3000);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.3, 45000);
 scene.fog = new THREE.Fog(0xcdc3b1, 320, 1900);
 
 const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 24), THREE.MathUtils.degToRad(-140));
@@ -54,12 +56,18 @@ scene.add(hemi);
 
 // colour grade: gentle filmic contrast, warm highlights, slight vignette (works in linear HDR)
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uTime: { value: 0 }, uBlur: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uVig; uniform float uTime; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uVig; uniform float uTime; uniform float uBlur; varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
+      if (uBlur > 0.01) {                                        // radial speed blur, strongest at the screen edges
+        vec2 dd = vUv - vec2(0.5, 0.46);
+        vec3 acc = c.rgb;
+        for (int i = 1; i < 7; i++) acc += texture2D(tDiffuse, vUv - dd * uBlur * 0.055 * float(i)).rgb;
+        c.rgb = acc / 7.0;
+      }
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb = pow(max(c.rgb, vec3(0.0)) / 0.18, vec3(1.07)) * 0.18;   // contrast around mid grey
       l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -72,7 +80,8 @@ const GradeShader = {
       gl_FragColor = c;
     }`,
 };
-let composer = null, bloom = null, gradePass = null;
+let composer = null, bloom = null, gradePass = null, aoPass = null;
+let aoOn = store.get('ao', true);
 let terrainMesh = null;
 function applyQuality() {
   const hi = quality === 'high';
@@ -89,6 +98,15 @@ function applyQuality() {
     composer.setPixelRatio(dpr);
     composer.setSize(innerWidth, innerHeight);
     composer.addPass(new RenderPass(scene, camera));
+    aoPass = null;
+    if (aoOn) {
+      aoPass = new GTAOPass(scene, camera, innerWidth * dpr, innerHeight * dpr);
+      aoPass.output = GTAOPass.OUTPUT.Default;
+      aoPass.blendIntensity = 0.85;
+      aoPass.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.5, scale: 1.0, samples: 12, distanceFallOff: 1.0, screenSpaceRadius: false });
+      aoPass.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, radiusExponent: 1, rings: 2, samples: 12 });
+      composer.addPass(aoPass);
+    }
     bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.6, 0.95);
     composer.addPass(bloom);
     gradePass = new ShaderPass(GradeShader);
@@ -112,6 +130,9 @@ TR.initWorld();
 const T = W.makeTextures();
 terrainMesh = W.buildTerrain(T);
 scene.add(terrainMesh);
+setLoad(0.12, 'בונים הרים עצומים…');
+const far = new FarTerrain(scene, terrainMesh.material, W.colorAt);
+await far.prebuild(TR.SPAWN.x, TR.SPAWN.z, (left) => setLoad(0.12 + 0.1 * Math.max(0, 1 - left / 60)));
 scene.add(W.buildArena(T));
 scene.add(W.buildRamps(T));
 scene.add(W.buildTracks(T));
@@ -350,14 +371,14 @@ function wheelFx(dt, inp) {
     const slide = Math.max(wh.slipLat, wh.slipLong, (!wh.front && inp.handbrake && Math.abs(wh.vLong) > 2) ? 0.8 : 0, veh.drifting && !wh.front ? 0.8 : 0);
     const spf = Math.min(1, Math.abs(wh.vLong) / 25);
     const wet = p.y < TR.waterAt(p.x, p.z) + 0.05;
-    let rate = 0, col, size = 0.9, life = 1.6, grow = 2.4, alpha = 0.45, up = 1.2;
+    let rate = 0, col, size = 0.5, life = 1.1, grow = 1.3, alpha = 0.32, up = 0.25;
     if (wet) {
       rate = sp > 2 ? 30 + sp * 3 : 0; col = [0.85, 0.93, 1.0]; size = 0.5; life = 0.9; grow = 1.2; alpha = 0.7; up = 3.5;
     } else if (surf === 'sand' || surf === 'dirt' || surf === 'salt' || surf === 'snow') {
-      rate = slide * 55 + spf * (wh.front ? 5 : 14);
+      rate = slide * 38 + spf * (wh.front ? 3 : 9);
       col = surf === 'sand' ? [0.86, 0.72, 0.53] : surf === 'salt' ? [0.93, 0.94, 0.95] : surf === 'snow' ? [0.95, 0.97, 1.0] : [0.72, 0.56, 0.4];
-    } else if (surf === 'asphalt' || surf === 'ramp') {
-      rate = slide > 0.2 ? slide * 50 : 0; col = [0.82, 0.82, 0.84]; size = 1.1; life = 2.4; grow = 3.2; alpha = 0.32; up = 0.8;
+    } else if (surf === 'asphalt' || surf === 'ramp' || surf === 'chute') {
+      rate = slide > 0.2 ? slide * 40 : 0; col = [0.82, 0.82, 0.84]; size = 0.7; life = 1.5; grow = 1.6; alpha = 0.22; up = 0.3;
     }
     emitAcc[i] += rate * dt;
     while (emitAcc[i] >= 1) {
@@ -865,6 +886,9 @@ const todLabel = () => { $('#tod-btn').textContent = tod.name; $('#tod-auto').te
 $('#tod-btn').addEventListener('click', () => { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); });
 $('#tod-auto').addEventListener('click', () => { tod.auto = !tod.auto; store.set('todAuto', tod.auto); todLabel(); });
 todLabel();
+const aoLabel = () => { $('#ao-btn').textContent = aoOn ? 'פועל' : 'כבוי'; };
+$('#ao-btn').addEventListener('click', () => { aoOn = !aoOn; store.set('ao', aoOn); aoLabel(); applyQuality(); });
+aoLabel();
 const muteLabel = () => { $('#mute-btn').textContent = audio.muted ? 'כבוי' : 'פועל'; };
 $('#mute-btn').addEventListener('click', () => { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); });
 muteLabel();
@@ -1083,9 +1107,11 @@ function frame() {
   updateCamera(dt);
   vegetation.userData.update(camera.position, t);
   clouds.userData.tick(t, camera.position);
-  tod.update(Math.min(dt, 0.1), camera.position);
+  tod.update(Math.min(dt, 0.1), camera.position, camera.position.y);
+  skyCtl.sky.position.copy(camera.position);
+  far.update(veh.pos.x, veh.pos.z, 5);
   volcano.userData.tick(t);
-  if (gradePass) gradePass.uniforms.uTime.value = t % 100;
+  if (gradePass) { gradePass.uniforms.uTime.value = t % 100; gradePass.uniforms.uBlur.value = G.state === 'play' ? Math.min(1, Math.max(0, (veh.speed - 32) / 40)) * 0.9 : 0; }
 
   // shadow camera follows the buggy (snapped to texels to avoid shimmering)
   const texel = 120 / sun.shadow.mapSize.x;
@@ -1099,7 +1125,7 @@ function frame() {
     rpm: veh.rpm, throttle: G.state === 'play' ? inp.throttle : 0, speed: veh.speed,
     screech: Math.max(...veh.wheels.map(w => w.contact ? Math.max(w.slipLat, w.slipLong * 0.6, veh.drifting && !w.front ? 0.7 : 0) : 0)),
     slide: veh.drifting ? 1 : 0,
-    asphalt: veh.wheels.some(w => w.contact && (w.surface !== 'terrain' || TR.surfaceAt(w.point.x, w.point.z) === 'asphalt')),
+    asphalt: veh.wheels.some(w => w.contact && (w.surface !== 'terrain' || ['asphalt', 'chute'].includes(TR.surfaceAt(w.point.x, w.point.z)))),
     grounded: veh.grounded > 0 ? 1 : 0, boost: veh.boostActive, paused: G.state !== 'play',
   });
 
@@ -1115,5 +1141,5 @@ renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { tod, volcano, selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
+window.__game = { far, tod, volcano, selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
 frame();
