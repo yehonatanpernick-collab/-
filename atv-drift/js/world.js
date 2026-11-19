@@ -522,11 +522,11 @@ export function buildTerrain(T) {
         vec4 t2 = texture2D(map, vMapUv * 0.173 + vec2(0.31, 0.77));
         vec4 t3 = texture2D(map, vMapUv * 0.031 + vec2(0.13, 0.41));
         vec4 sampledDiffuseColor = mix(mix(t1, t2, 0.45), t3, 0.25);
-        sampledDiffuseColor = mix(sampledDiffuseColor, t3, smoothstep(40.0, 220.0, -vViewPosition.z));   // far away: no fine detail (it would shimmer)
+        sampledDiffuseColor = mix(sampledDiffuseColor, t3, smoothstep(150.0, 700.0, -vViewPosition.z));   // far away: no fine detail (it would shimmer)
         sampledDiffuseColor = mix(sampledDiffuseColor, vec4(1.0), cool * 0.85);      // snow / rock: no sand tint
         diffuseColor *= sampledDiffuseColor;
       #endif`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - smoothstep(30.0, 160.0, -vViewPosition.z)))'));
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
     sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);');
   };
   const mesh = new THREE.Mesh(geo, mat);

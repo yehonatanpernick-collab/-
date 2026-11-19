@@ -4,16 +4,16 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 
 export const TIMES = [
   { id: 'dawn', name: 'זריחה', lightElev: 9, lightAz: -100, skyElev: 7, skyAz: -100, turbidity: 6.5, rayleigh: 2.3, mie: 0.012, mieG: 0.92,
-    sun: 0xffa868, sunI: 2.3, hemiSky: 0xf0b9a8, hemiGnd: 0x6a5040, hemiI: 0.36, fog: 0xe4b59a, fogNear: 300, fogFar: 11000, exposure: 0.82, env: 0.34, bloom: 0.28,
+    sun: 0xffa868, sunI: 2.3, hemiSky: 0xf0b9a8, hemiGnd: 0x6a5040, hemiI: 0.36, fog: 0xe4b59a, fogNear: 900, fogFar: 22000, exposure: 0.82, env: 0.34, bloom: 0.28,
     cloud: [1.0, 0.72, 0.6], night: 0, ground: 0x8a6a50 },
-  { id: 'noon', name: 'צהריים', lightElev: 58, lightAz: -140, skyElev: 58, skyAz: -140, turbidity: 2.4, rayleigh: 1.0, mie: 0.003, mieG: 0.8,
-    sun: 0xfff3e0, sunI: 3.5, hemiSky: 0xbfd9ff, hemiGnd: 0xa08462, hemiI: 0.5, fog: 0xd7d8d2, fogNear: 500, fogFar: 15000, exposure: 0.8, env: 0.55, bloom: 0.2,
+  { id: 'noon', name: 'צהריים', lightElev: 58, lightAz: -140, skyElev: 58, skyAz: -140, turbidity: 1.6, rayleigh: 0.9, mie: 0.002, mieG: 0.8,
+    sun: 0xfff3e0, sunI: 3.5, hemiSky: 0xbfd9ff, hemiGnd: 0xa08462, hemiI: 0.5, fog: 0xd7d8d2, fogNear: 1800, fogFar: 26000, exposure: 0.8, env: 0.55, bloom: 0.2,
     cloud: [1, 1, 1], night: 0, ground: 0x9a7a55 },
-  { id: 'golden', name: 'אחר הצהריים', lightElev: 24, lightAz: -140, skyElev: 24, skyAz: -140, turbidity: 3.2, rayleigh: 1.25, mie: 0.004, mieG: 0.86,
-    sun: 0xffdcb4, sunI: 3.0, hemiSky: 0xc4d8ff, hemiGnd: 0x9a7650, hemiI: 0.42, fog: 0xcdc3b1, fogNear: 450, fogFar: 14000, exposure: 0.86, env: 0.45, bloom: 0.24,
+  { id: 'golden', name: 'אחר הצהריים', lightElev: 24, lightAz: -140, skyElev: 24, skyAz: -140, turbidity: 2.2, rayleigh: 1.1, mie: 0.0025, mieG: 0.86,
+    sun: 0xffdcb4, sunI: 3.0, hemiSky: 0xc4d8ff, hemiGnd: 0x9a7650, hemiI: 0.42, fog: 0xcdc3b1, fogNear: 1500, fogFar: 24000, exposure: 0.86, env: 0.45, bloom: 0.24,
     cloud: [1, 0.97, 0.92], night: 0, ground: 0x9a7a55 },
   { id: 'sunset', name: 'שקיעה', lightElev: 4, lightAz: -165, skyElev: 2.5, skyAz: -165, turbidity: 9, rayleigh: 3.2, mie: 0.022, mieG: 0.93,
-    sun: 0xff7a38, sunI: 2.4, hemiSky: 0xb98a80, hemiGnd: 0x4a3a38, hemiI: 0.32, fog: 0xd98a66, fogNear: 260, fogFar: 10000, exposure: 0.8, env: 0.3, bloom: 0.34,
+    sun: 0xff7a38, sunI: 2.4, hemiSky: 0xb98a80, hemiGnd: 0x4a3a38, hemiI: 0.32, fog: 0xd98a66, fogNear: 800, fogFar: 20000, exposure: 0.8, env: 0.3, bloom: 0.34,
     cloud: [1.0, 0.55, 0.42], night: 0, ground: 0x6a4a3a },
   { id: 'night', name: 'לילה', lightElev: 38, lightAz: 55, skyElev: -22, skyAz: -140, turbidity: 1.2, rayleigh: 0.25, mie: 0.002, mieG: 0.7,
     sun: 0x8fb0ff, sunI: 1.5, hemiSky: 0x2a3d6e, hemiGnd: 0x141a2c, hemiI: 0.55, fog: 0x0d1630, fogNear: 120, fogFar: 3500, exposure: 1.55, env: 0.22, bloom: 0.5,
@@ -71,7 +71,7 @@ export function createLighting(o) {
     flare = new Lensflare();
     const g1 = glowTex('rgba(255,244,225,1)', 'rgba(255,200,140,0)', 256), g2 = glowTex('rgba(255,220,180,0.5)', 'rgba(255,160,90,0)'), rg = ringTex();
     const el = (t, s, d, c) => { const e = new LensflareElement(t, s, d, new THREE.Color(c)); flareEls.push({ e, base: new THREE.Color(c) }); flare.addElement(e); };
-    el(g1, 520, 0, 0xffffff); el(g2, 90, 0.35, 0xffd9a0); el(rg, 140, 0.55, 0xffc890); el(g2, 60, 0.72, 0xb0d0ff); el(g2, 160, 0.95, 0xffb070);
+    el(g1, 240, 0, 0xffffff); el(g2, 60, 0.35, 0xffd9a0); el(rg, 90, 0.55, 0xffc890); el(g2, 40, 0.72, 0xb0d0ff); el(g2, 100, 0.95, 0xffb070);
     sun.add(flare);
   }
 

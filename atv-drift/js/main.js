@@ -935,7 +935,8 @@ function perfTick(rawDt) {
   if (G.state === 'menu' || G.perfLock) return;
   const base = Math.min(devicePixelRatio, quality === 'high' ? 2.0 : 1.75);
   let next = perfScale;
-  if (fps < 40 && perfScale > 0.5) next = Math.max(0.5, perfScale - 0.15);
+  if (fps < 40 && perfScale > 0.85) next = Math.max(0.85, perfScale - 0.1);              // never go blurry: shed effects instead
+  else if (fps < 40 && aoOn && quality === 'high') { aoOn = false; applyQuality(); popup('כיביתי אפקט עומק', 'air', 'כדי לשמור על חדות וחלקות'); }
   else if (fps > 58 && perfScale < 1) next = Math.min(1, perfScale + 0.05);
   if (next !== perfScale) {
     perfScale = next;
@@ -944,7 +945,7 @@ function perfTick(rawDt) {
     composer?.setPixelRatio(base * perfScale); composer?.setSize(innerWidth, innerHeight);
   }
   // still slow at the lowest resolution: drop to the light graphics preset automatically
-  if (fps < 28 && perfScale <= 0.5 && quality === 'high') {
+  if (fps < 28 && perfScale <= 0.85 && quality === 'high') {
     perfLowSince++;
     if (perfLowSince >= 3) { quality = 'low'; store.set('quality', quality); applyQuality(); perfScale = 1; perfLowSince = 0; popup('עברתי לגרפיקה חסכונית', 'air', 'כדי לשמור על חלקות'); }
   } else perfLowSince = 0;
