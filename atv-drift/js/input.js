@@ -12,6 +12,7 @@ export const ACTIONS = [
   { id: 'rollRight', name: 'גלגול ימינה באוויר', keys: ['ArrowRight'] },
   { id: 'mode', name: 'החלפת מצב נהיגה', keys: ['KeyF'] },
   { id: 'time', name: 'החלפת שעה ביום', keys: ['KeyT'] },
+  { id: 'worldmap', name: 'מפת העולם / תצפית', keys: ['KeyN'] },
   { id: 'camera', name: 'מצלמה', keys: ['KeyC'] },
   { id: 'reset', name: 'איפוס הבאגי', keys: ['KeyR'] },
   { id: 'pause', name: 'השהיה / תפריט', keys: ['Escape'] },

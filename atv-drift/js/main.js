@@ -381,7 +381,7 @@ function wheelFx(dt, inp) {
     let rate = 0, col, size = 0.5, life = 1.1, grow = 1.3, alpha = 0.32, up = 0.25;
     if (wet) {
       rate = sp > 2 ? 30 + sp * 3 : 0; col = [0.85, 0.93, 1.0]; size = 0.5; life = 0.9; grow = 1.2; alpha = 0.7; up = 3.5;
-    } else if (surf === 'sand' || surf === 'dirt' || surf === 'salt' || surf === 'snow') {
+    } else if (surf === 'sand' || surf === 'dirt' || surf === 'trail' || surf === 'salt' || surf === 'snow') {
       rate = slide * 38 + spf * (wh.front ? 3 : 9);
       col = surf === 'sand' ? [0.86, 0.72, 0.53] : surf === 'salt' ? [0.93, 0.94, 0.95] : surf === 'snow' ? [0.95, 0.97, 1.0] : [0.72, 0.56, 0.4];
     } else if (surf === 'asphalt' || surf === 'ramp' || surf === 'chute') {
@@ -398,7 +398,7 @@ function wheelFx(dt, inp) {
     }
     // tracks
     if (wet) { skids.break(i); continue; }
-    if (surf === 'sand' || surf === 'dirt' || surf === 'salt' || surf === 'snow') {
+    if (surf === 'sand' || surf === 'dirt' || surf === 'trail' || surf === 'salt' || surf === 'snow') {
       skids.add(i, p, _side, 0.14, [0.42, 0.31, 0.2, 0.22 + slide * 0.3]);
     } else if (slide > 0.3) {
       skids.add(i, p, _side, 0.13, [0.03, 0.03, 0.03, Math.min(0.75, 0.25 + slide * 0.6)]);
@@ -888,6 +888,7 @@ $('#play-btn').addEventListener('click', startGame);
 $('#resume-btn').addEventListener('click', () => pause(false));
 $('#reset-btn').addEventListener('click', () => { resetCar(true); pause(false); });
 $('#pause-btn').addEventListener('click', () => pause(G.state !== 'pause'));
+{ const row = document.querySelector('#pause .btn-row'); if (row) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '🗺 מפת העולם'; b.addEventListener('click', () => { pause(false); showWorldMap(); }); row.appendChild(b); } }
 $('#q-btn').addEventListener('click', () => { quality = quality === 'high' ? 'low' : 'high'; store.set('quality', quality); applyQuality(); });
 const todLabel = () => { $('#tod-btn').textContent = tod.name; $('#tod-auto').textContent = tod.auto ? 'פועל' : 'כבוי'; };
 $('#tod-btn').addEventListener('click', () => { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); });
@@ -949,6 +950,93 @@ function perfTick(rawDt) {
   } else perfLowSince = 0;
 }
 
+// ---------------------------------------------------------------- world map (N) — the whole valley, every area, you and the lookout
+const WM = { x0: -2400, x1: 26000, z0: -12000, z1: 6800, W: 640, H: 424, base: null, done: 0, building: false, el: null, cv: null };
+function buildWorldMapBase() {
+  if (WM.base || WM.building) return;
+  WM.building = true;
+  const cv = document.createElement('canvas'); cv.width = WM.W; cv.height = WM.H;
+  const c = cv.getContext('2d'), img = c.createImageData(WM.W, WM.H), out = [0, 0, 0];
+  const sx = (WM.x1 - WM.x0) / WM.W, sz = (WM.z1 - WM.z0) / WM.H;
+  W.setColorCell(60);
+  let row = 0;
+  const step = () => {
+    const t0 = performance.now();
+    while (row < WM.H && performance.now() - t0 < 10) {
+      const z = WM.z0 + row * sz;
+      for (let i = 0; i < WM.W; i++) {
+        const x = WM.x0 + i * sx, h = TR.rawHeight(x, z), h2 = TR.rawHeight(x + sx, z + sz);
+        const sea = x < TR.shoreX(z) && h < TR.WATER_LEVEL;
+        let r, g, b;
+        if (sea) { const d = Math.min(1, -h / 12); r = 40 - 20 * d; g = 120 - 40 * d; b = 170 - 40 * d; }
+        else {
+          const nz = Math.max(-1, Math.min(1, (h - h2) * 0.02));
+          W.colorAt(x, z, h, 0.9, out);
+          r = Math.pow(out[0], 1 / 2.2) * 255; g = Math.pow(out[1], 1 / 2.2) * 255; b = Math.pow(out[2], 1 / 2.2) * 255;
+          const k = 1 + nz * 0.5; r *= k; g *= k; b *= k;
+        }
+        const o = (row * WM.W + i) * 4; img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+      }
+      row++;
+    }
+    WM.done = row / WM.H;
+    if (row < WM.H) setTimeout(step, 0);
+    else { W.setColorCell(4); c.putImageData(img, 0, 0); WM.base = cv; WM.building = false; if (WM.el && !WM.el.classList.contains('hidden')) drawWorldMap(); }
+    if (WM.el && !WM.el.classList.contains('hidden') && !WM.base) { const m = WM.el.querySelector('.wm-msg'); if (m) m.textContent = `בונים את המפה… ${Math.round(WM.done * 100)}%`; }
+  };
+  setTimeout(step, 0);
+}
+function drawWorldMap() {
+  if (!WM.el) return;
+  const cv = WM.cv, c = cv.getContext('2d'), sx = cv.width / (WM.x1 - WM.x0), sz = cv.height / (WM.z1 - WM.z0);
+  const P = (x, z) => [(x - WM.x0) * sx, (z - WM.z0) * sz];
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (WM.base) c.drawImage(WM.base, 0, 0, cv.width, cv.height);
+  else { c.fillStyle = '#1b2430'; c.fillRect(0, 0, cv.width, cv.height); }
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = 'rgba(30,30,34,0.9)'; c.lineWidth = Math.max(2, 14 * sx);
+  for (const hw of TR.HIGHWAYS) { c.beginPath(); hw.forEach((p, i) => i ? c.lineTo(...P(p[0], p[1])) : c.moveTo(...P(p[0], p[1]))); c.stroke(); }
+  // the volcano trail
+  c.strokeStyle = 'rgba(255,230,160,0.95)'; c.lineWidth = Math.max(1.5, 10 * sx);
+  c.beginPath(); for (let f = 0; f <= TR.VOLCANO.phiMax; f += 0.05) { const p = TR.volcanoPoint(f); f ? c.lineTo(...P(p.x, p.z)) : c.moveTo(...P(p.x, p.z)); } c.stroke();
+  c.font = '700 13px Rubik, Arial'; c.textAlign = 'center';
+  { const [ox, oy] = P(0, 0); c.font = '800 15px Rubik, Arial'; c.strokeStyle = '#000'; c.lineWidth = 4; c.strokeText('העולם המקורי', ox, oy - 22); c.fillStyle = '#ffd23a'; c.fillText('העולם המקורי', ox, oy - 22); c.font = '700 13px Rubik, Arial'; }
+  for (const z of TR.ZONES) {
+    if (!['salt', 'forest', 'coast', 'ice', 'mesa', 'moon', 'city'].includes(z.id)) continue;
+    const [px, py] = P(z.x, z.z);
+    c.fillStyle = '#ff7a2a'; c.beginPath(); c.arc(px, py, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; c.strokeText(z.name, px, py - 7); c.fillStyle = '#fff'; c.fillText(z.name, px, py - 7);
+  }
+  const mark = (x, z, label, col, r = 6) => { const [px, py] = P(x, z); c.fillStyle = col; c.beginPath(); c.arc(px, py, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 2; c.stroke(); c.font = '800 14px Rubik, Arial'; c.lineWidth = 4; c.strokeText(label, px, py - r - 5); c.fillStyle = '#fff'; c.fillText(label, px, py - r - 5); };
+  const V = TR.VOLCANO;
+  mark(V.x, V.z, '🌋 הר הגעש · 5,895 מ׳', '#d9262c', 7);
+  mark(TR.LOOKOUT.x, TR.LOOKOUT.z, '👁 תצפית', '#2bd46a', 8);
+  const e = TR.volcanoPoint(V.phiMax - 0.02); void e;
+  const lx = Math.cos(V.theta), lz = Math.sin(V.theta);
+  c.strokeStyle = '#ffd23a'; c.lineWidth = 3; c.setLineDash([6, 5]); c.beginPath(); c.moveTo(...P(V.x + lx * V.Re, V.z + lz * V.Re)); c.lineTo(...P(V.x + lx * (V.R + 500), V.z + lz * (V.R + 500))); c.stroke(); c.setLineDash([]);
+  c.font = '700 12px Rubik, Arial'; { const [px, py] = P(V.x + lx * V.R * 0.7, V.z + lz * V.R * 0.7); c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeText('מגלשת הענק', px, py); c.fillStyle = '#ffd23a'; c.fillText('מגלשת הענק', px, py); }
+  // you
+  { const [px, py] = P(veh.pos.x, veh.pos.z); c.save(); c.translate(px, py); c.rotate(Math.atan2(veh.fwd.x, -veh.fwd.z)); c.fillStyle = '#4de0ff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, -10); c.lineTo(7, 8); c.lineTo(0, 4); c.lineTo(-7, 8); c.closePath(); c.fill(); c.stroke(); c.restore(); }
+  const m = WM.el.querySelector('.wm-msg'); if (m) m.textContent = WM.base ? `גובה שלך: ${TR.altitudeOf(veh.pos.y).toLocaleString('en-US')} מ׳` : `בונים את המפה… ${Math.round(WM.done * 100)}%`;
+}
+function showWorldMap(fromLookout) {
+  if (!WM.el) {
+    WM.el = document.createElement('div'); WM.el.className = 'hidden';
+    WM.el.style.cssText = 'position:fixed;inset:0;z-index:46;display:grid;place-items:center;background:rgba(6,8,12,.82);backdrop-filter:blur(6px);direction:rtl';
+    WM.el.innerHTML = '<div style="width:min(96vw,1280px);color:#fff;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:22px">🗺 מפת העולם</b><span class="wm-msg" style="color:#ffd23a;font-weight:700"></span><button class="wm-x" style="background:#ffffff22;color:#fff;border:1px solid #ffffff44;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px">סגירה (N)</button></div><canvas style="width:100%;border-radius:14px;border:1px solid #ffffff33;background:#1b2430"></canvas><div style="margin-top:8px;font-size:13px;color:#ffffffaa">🔵 אתם · 🟢 תצפית על כל העמק · 🔴 הר הגעש · קווים כהים = כבישים מהירים בין האזורים · לטיסה לאזור: תפריט ההשהיה</div></div>';
+    WM.cv = WM.el.querySelector('canvas'); WM.cv.width = 1280; WM.cv.height = Math.round(1280 * (WM.z1 - WM.z0) / (WM.x1 - WM.x0));
+    WM.el.querySelector('.wm-x').onclick = () => toggleWorldMap(false);
+    document.body.appendChild(WM.el);
+  }
+  buildWorldMapBase();
+  WM.el.classList.remove('hidden'); drawWorldMap(); WM.timer = setInterval(drawWorldMap, 500);
+  if (fromLookout) popup('👁 כל העמק', 'bank', 'ככה נראה העולם מכאן');
+}
+function toggleWorldMap(force) {
+  const open = WM.el && !WM.el.classList.contains('hidden');
+  const want = force === undefined ? !open : force;
+  if (want) showWorldMap(); else if (WM.el) { WM.el.classList.add('hidden'); clearInterval(WM.timer); }
+}
 // ---------------------------------------------------------------- stunt pads: trampolines, banks, turntables, splashes
 let tailT = 0;
 function stuntPads(dt) {
@@ -988,6 +1076,14 @@ function stuntPads(dt) {
       resetCar();
     }
   } else { G.lavaT = 0; G.lavaWarn = false; }
+  // lookout deck: stop on it and the whole valley opens up as a map
+  {
+    const L = TR.LOOKOUT, dl = Math.hypot(veh.pos.x - L.x, veh.pos.z - L.z);
+    if (dl < L.r) {
+      if (!G.onLook) { G.onLook = true; popup('👁 תצפית', 'bank', 'עצרו כדי לראות את כל העמק · N למפה'); }
+      if (veh.speed < 5) { G.lookT = (G.lookT || 0) + dt; if (G.lookT > 1.5 && !G.lookShown) { G.lookShown = true; showWorldMap(true); } } else G.lookT = 0;
+    } else if (dl > L.r + 25) { G.onLook = false; G.lookT = 0; G.lookShown = false; }
+  }
   // banked surfaces: riding the slope earns points, steeper is worth more
   const tilt = veh.up.y;
   if (veh.grounded >= 2 && tilt < 0.9 && tilt > 0.3 && veh.speed > 10) {
@@ -1046,6 +1142,7 @@ function keys() {
   if (input.hit('reset')) resetCar();
   if (input.hit('camera')) G.camMode = (G.camMode + 1) % 3;
   if (input.hit('mode')) setMode(G.mode === 'drift' ? 'normal' : 'drift', true);
+  if (input.hit('worldmap')) toggleWorldMap();
   if (input.hit('time')) { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); popup('🕒 ' + tod.name, 'trial'); }
   if (input.pressed.has('KeyM')) { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); }
 }

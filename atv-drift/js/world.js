@@ -7,7 +7,7 @@ import {
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
   MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
-  rawHeight as rawHeightAt, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
+  rawHeight as rawHeightAt, LOOKOUT, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -466,6 +466,7 @@ export function colorAt(x, z, h, ny, out) {
       r += (0.9 - r) * edge * 0.9; g += (0.88 - g) * edge * 0.9; b += (0.8 - b) * edge * 0.9;
     }
     for (const pd of PADS) {                                           // landing pads: red and white target
+      if (pd.noPaint) continue;
       const d = Math.hypot(x - pd.x, z - pd.z);
       if (d < pd.r) {
         const ring = Math.floor(d / (pd.r / 5)) % 2;
@@ -1656,7 +1657,8 @@ export function buildVolcano(T) {
         const f = 3.4 - 2.2 * (i / n);
         col[k * 3] = f; col[k * 3 + 1] = f * (0.85 - 0.45 * i / n); col[k * 3 + 2] = f * (0.55 - 0.45 * i / n);
       }
-      if (i < n - 1) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+      const rq = volcanoRoad(x, z), onRoad = rq.d < V.hw + 10 && rq.phi > -0.3 && rq.phi < V.phiMax + 0.3;
+      if (i < n - 1 && !onRoad) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }      // gap where the trail crosses (a culvert)
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -1684,7 +1686,7 @@ export function buildVolcano(T) {
     return m;
   };
   // altitude signs every 500 m, on the uphill side of the road
-  for (let alt = 1000; alt <= 8000; alt += 1000) {
+  for (let alt = 500; alt <= 5500; alt += 500) {
     const phi = phiAtAlt(alt), pt = volcanoPoint(phi), [tx, tz] = tang(phi), tl = Math.hypot(tx, tz);
     const nx = -tz / tl, nz = tx / tl;
     const side = (Math.hypot(pt.x + nx * 9 - V.x, pt.z + nz * 9 - V.z) < pt.r) ? 1 : -1;
@@ -1701,7 +1703,7 @@ export function buildVolcano(T) {
     side: THREE.DoubleSide, roughness: 0.8 }));
   flag.position.set(e.x + 25, e.y + 29, e.z + 18); group.add(flag);
   const [ex, ez] = tang(V.phiMax - 0.02);
-  board(signTex([['SUMMIT', 96, '#ffffff'], ['8,848 m', 110, '#ffd23a']], '#5a1010'), 16, 8, e.x - ez * 0 + 20, e.y, e.z - 20, Math.atan2(-ex, -ez), 4);
+  board(signTex([['SUMMIT', 96, '#ffffff'], ['5,895 m', 110, '#ffd23a']], '#5a1010'), 16, 8, e.x - ez * 0 + 20, e.y, e.z - 20, Math.atan2(-ex, -ez), 4);
   {
     const lx = Math.cos(V.theta), lz = Math.sin(V.theta), lyaw = Math.atan2(lx, lz);
     const gx = V.x + lx * (V.Re + 26), gz = V.z + lz * (V.Re + 26), gy = rawHeightAt(gx, gz);
@@ -1712,7 +1714,36 @@ export function buildVolcano(T) {
       p.position.set(gx + side.x * 14 * sgn, gy + 11, gz + side.z * 14 * sgn); p.castShadow = true; group.add(p);
     }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(30, 3.4, 2.6), pm); beam.position.set(gx, gy + 22, gz); beam.rotation.y = lyaw + Math.PI / 2; beam.castShadow = true; group.add(beam);
-    board(signTex([['MEGA DESCENT', 66, '#ffffff'], ['16 KM · 8,848 M DROP', 40, '#ffd23a']], '#10151c'), 26, 7.2, gx, gy + 18, gz, lyaw + Math.PI, 0);
+    board(signTex([['MEGA DESCENT', 66, '#ffffff'], ['11 KM · 5,895 M DROP', 40, '#ffd23a']], '#10151c'), 26, 7.2, gx, gy + 18, gz, lyaw + Math.PI, 0);
+  }
+  // ---- the lookout deck: round viewing platform, rail, telescopes, sign and a tall beacon beam you can see from the whole valley
+  {
+    const L = LOOKOUT, y = L.y + 0.35, dark = new THREE.MeshStandardMaterial({ color: 0x2b3038, metalness: 0.5, roughness: 0.5 });
+    const deck = new THREE.Mesh(new THREE.CylinderGeometry(L.r, L.r, 0.7, 40), new THREE.MeshStandardMaterial({ color: 0x59606b, roughness: 0.6, metalness: 0.2 }));
+    deck.position.set(L.x, y - 0.25, L.z); deck.receiveShadow = true; deck.castShadow = true; group.add(deck);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(L.r - 0.3, 0.14, 8, 64).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0xffa010, emissiveIntensity: 0.6 }));
+    ring.position.set(L.x, y + 0.2, L.z); group.add(ring);
+    const railM = new THREE.MeshStandardMaterial({ color: 0xdadde2, metalness: 0.7, roughness: 0.3 });
+    const rail = new THREE.Mesh(new THREE.TorusGeometry(L.r - 0.5, 0.08, 8, 64).rotateX(Math.PI / 2), railM); rail.position.set(L.x, y + 1.15, L.z); group.add(rail);
+    for (let k = 0; k < 32; k++) {                                      // posts, with a gap on the road side for the entrance
+      const a = k / 32 * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a);
+      const toRoad = Math.atan2(L.roadZ - L.z, L.roadX - L.x);
+      if (Math.abs(Math.atan2(Math.sin(a - toRoad), Math.cos(a - toRoad))) < 0.28) continue;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.2, 6), railM); post.position.set(L.x + dx * (L.r - 0.5), y + 0.6, L.z + dz * (L.r - 0.5)); group.add(post);
+    }
+    const fx = Math.sin(L.yaw), fz = Math.cos(L.yaw);
+    for (const off of [-6, 0, 6]) {                                     // telescopes pointing out over the valley
+      const px = L.x + fx * (L.r - 5) + fz * off, pz = L.z + fz * (L.r - 5) - fx * off;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 1.3, 6), dark); leg.position.set(px, y + 0.65, pz); group.add(leg);
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.1, 10).rotateX(Math.PI / 2 - 0.25), dark); tube.position.set(px + fx * 0.2, y + 1.45, pz + fz * 0.2); tube.rotation.y = L.yaw; group.add(tube);
+    }
+    const bx = L.x - fx * (L.r - 3), bz = L.z - fz * (L.r - 3);          // beacon tower on the road side
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 40, 8), new THREE.MeshStandardMaterial({ color: 0xd9262c, metalness: 0.3, roughness: 0.5 })); tower.position.set(bx, y + 20, bz); tower.castShadow = true; group.add(tower);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 1.6, 0.3), toneMapped: false, fog: false })); orb.position.set(bx, y + 42, bz); group.add(orb);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(7, 14, 1400, 16, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.8, 0.15), transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false }));
+    beam.position.set(bx, y + 700, bz); group.add(beam);
+    board(signTex([['LOOKOUT', 92, '#ffffff'], ['VIEW OF THE WHOLE VALLEY · PRESS N', 28, '#ffd23a']], '#1c3a2a'), 8, 4, L.x - fx * (L.r + 4), L.y, L.z - fz * (L.r + 4), Math.atan2(L.roadX - L.x, L.roadZ - L.z), 2.5);
+    group.userData.beam = beam;
   }
   group.userData.tick = (t) => {
     const pa = flag.geometry.attributes.position;
@@ -1720,6 +1751,7 @@ export function buildVolcano(T) {
     pa.needsUpdate = true;
     glow.intensity = 80000 + Math.sin(t * 3.1) * 10000 + Math.sin(t * 7.3) * 6000;
     flowTex.offset.y = -t * 0.05;
+    if (group.userData.beam) group.userData.beam.material.opacity = 0.12 + Math.sin(t * 1.7) * 0.03;
     lava.material.color.setRGB(1.5 + Math.sin(t * 2) * 0.15, 1.1 + Math.sin(t * 3.3) * 0.12, 0.9);
     for (const p of puffs) {
       const a = ((t * 0.02 + p.ph) % 1);
