@@ -952,7 +952,7 @@ function perfTick(rawDt) {
 }
 
 // ---------------------------------------------------------------- world map (N) — the whole valley, every area, you and the lookout
-const WM = { x0: -2400, x1: 26000, z0: -12000, z1: 6800, W: 640, H: 424, base: null, done: 0, building: false, el: null, cv: null };
+const WM = { x0: -1800, x1: 26000, z0: -11500, z1: 11500, W: 640, H: 529, base: null, done: 0, building: false, el: null, cv: null };
 function buildWorldMapBase() {
   if (WM.base || WM.building) return;
   WM.building = true;
@@ -1003,7 +1003,7 @@ function drawWorldMap() {
   c.font = '700 13px Rubik, Arial'; c.textAlign = 'center';
   { const [ox, oy] = P(0, 0); c.font = '800 15px Rubik, Arial'; c.strokeStyle = '#000'; c.lineWidth = 4; c.strokeText('העולם המקורי', ox, oy - 22); c.fillStyle = '#ffd23a'; c.fillText('העולם המקורי', ox, oy - 22); c.font = '700 13px Rubik, Arial'; }
   for (const z of TR.ZONES) {
-    if (!['salt', 'forest', 'coast', 'ice', 'mesa', 'moon', 'city'].includes(z.id)) continue;
+    if (true) continue;
     const [px, py] = P(z.x, z.z);
     c.fillStyle = '#ff7a2a'; c.beginPath(); c.arc(px, py, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 3; c.strokeText(z.name, px, py - 7); c.fillStyle = '#fff'; c.fillText(z.name, px, py - 7);
