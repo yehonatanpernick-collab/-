@@ -10,6 +10,7 @@ import * as W from './world.js';
 import { loadCar, syncCar } from './car.js';
 import { loadMaverick } from './car3.js';
 import { loadRig, RIG_SPECS } from './rigs.js';
+import { createLighting, TIMES } from './lighting.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -39,34 +40,39 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.15, 3
 scene.fog = new THREE.Fog(0xcdc3b1, 320, 1900);
 
 const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 24), THREE.MathUtils.degToRad(-140));
-W.buildSky(scene, renderer, sunDir);
+const skyCtl = W.buildSky(scene, renderer, sunDir);
 scene.environmentIntensity = 0.45;
 const sun = new THREE.DirectionalLight(0xffdcb4, 2.9);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 const sc = sun.shadow.camera;
 sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60; sc.near = 1; sc.far = 320;
-sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.05; sun.shadow.radius = 2;
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xc4d8ff, 0x9a7650, 0.42));
+const hemi = new THREE.HemisphereLight(0xc4d8ff, 0x9a7650, 0.42);
+scene.add(hemi);
 
 // colour grade: gentle filmic contrast, warm highlights, slight vignette (works in linear HDR)
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uVig; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uVig; uniform float uTime; varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      c.rgb = mix(vec3(l), c.rgb, 1.1);                    // saturation
+      c.rgb = pow(max(c.rgb, vec3(0.0)) / 0.18, vec3(1.07)) * 0.18;   // contrast around mid grey
+      l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      c.rgb = mix(vec3(l), c.rgb, 1.12);                   // saturation
       c.rgb *= mix(vec3(0.97, 0.99, 1.04), vec3(1.05, 1.0, 0.94), smoothstep(0.05, 0.8, l)); // cool shadows, warm lights
       vec2 d = vUv - 0.5;
       c.rgb *= 1.0 - uVig * smoothstep(0.25, 0.85, dot(d, d) * 2.2);
+      float gr = fract(sin(dot(vUv * vec2(1731.0, 947.0) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
+      c.rgb += (gr - 0.5) * 0.010;                          // fine film grain
       gl_FragColor = c;
     }`,
 };
-let composer = null, bloom = null;
+let composer = null, bloom = null, gradePass = null;
 let terrainMesh = null;
 function applyQuality() {
   const hi = quality === 'high';
@@ -85,7 +91,8 @@ function applyQuality() {
     composer.addPass(new RenderPass(scene, camera));
     bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.6, 0.95);
     composer.addPass(bloom);
-    composer.addPass(new ShaderPass(GradeShader));
+    gradePass = new ShaderPass(GradeShader);
+    composer.addPass(gradePass);
     composer.addPass(new OutputPass());
   } else composer = null;
   const qb = $('#q-btn'); if (qb) qb.textContent = hi ? 'גבוהה' : 'חסכונית';
@@ -112,6 +119,7 @@ scene.add(W.buildDriftLot());
 const water = W.buildWater(T); scene.add(water);
 const sceneryGroup = W.buildScenery(); scene.add(sceneryGroup);
 const vegetation = W.buildVegetation(T); scene.add(vegetation);
+const volcano = W.buildVolcano(T); scene.add(volcano);
 const trampGroup = W.buildTrampolines(); scene.add(trampGroup);
 const turnGroup = W.buildTurntables(); scene.add(turnGroup);
 const clouds = W.buildClouds(sunDir); scene.add(clouds);
@@ -123,6 +131,8 @@ particles.mat.uniforms.fogColor.value.copy(scene.fog.color);
 particles.mat.uniforms.fogNear.value = scene.fog.near;
 particles.mat.uniforms.fogFar.value = scene.fog.far;
 const skids = new Skids(scene, 7000);
+const tod = createLighting({ scene, sun, hemi, skyCtl, clouds, sunDir, renderer, particles, camera, flare: quality === 'high',
+  setBloom: (v) => { if (bloom) bloom.strength = v; }, start: store.get('tod', 'golden'), auto: store.get('todAuto', false) });
 
 // ---------------------------------------------------------------- car
 let car;
@@ -165,6 +175,7 @@ async function selectCar(id) {
   const t = def.tune || car.spec.tune || { engine: 1, maxSpeed: 1 };
   Object.assign(CFG, { engine: BASE.engine * (t.engine || 1), maxSpeed: BASE.maxSpeed * (t.maxSpeed || 1), boostSpeed: BASE.boostSpeed * (t.maxSpeed || 1) });
   if (veh) veh.applySpec(car.spec);
+  for (const h of tod.headlights) car.root.add(h, h.target);
   const pc = store.get('paint_' + id, null); if (pc && car.paintable) car.setPaint(pc);
   markCars(); if (markPaint) markPaint();
 }
@@ -342,9 +353,9 @@ function wheelFx(dt, inp) {
     let rate = 0, col, size = 0.9, life = 1.6, grow = 2.4, alpha = 0.45, up = 1.2;
     if (wet) {
       rate = sp > 2 ? 30 + sp * 3 : 0; col = [0.85, 0.93, 1.0]; size = 0.5; life = 0.9; grow = 1.2; alpha = 0.7; up = 3.5;
-    } else if (surf === 'sand' || surf === 'dirt') {
+    } else if (surf === 'sand' || surf === 'dirt' || surf === 'salt' || surf === 'snow') {
       rate = slide * 55 + spf * (wh.front ? 5 : 14);
-      col = surf === 'sand' ? [0.86, 0.72, 0.53] : [0.72, 0.56, 0.4];
+      col = surf === 'sand' ? [0.86, 0.72, 0.53] : surf === 'salt' ? [0.93, 0.94, 0.95] : surf === 'snow' ? [0.95, 0.97, 1.0] : [0.72, 0.56, 0.4];
     } else if (surf === 'asphalt' || surf === 'ramp') {
       rate = slide > 0.2 ? slide * 50 : 0; col = [0.82, 0.82, 0.84]; size = 1.1; life = 2.4; grow = 3.2; alpha = 0.32; up = 0.8;
     }
@@ -359,7 +370,7 @@ function wheelFx(dt, inp) {
     }
     // tracks
     if (wet) { skids.break(i); continue; }
-    if (surf === 'sand' || surf === 'dirt') {
+    if (surf === 'sand' || surf === 'dirt' || surf === 'salt' || surf === 'snow') {
       skids.add(i, p, _side, 0.14, [0.42, 0.31, 0.2, 0.22 + slide * 0.3]);
     } else if (slide > 0.3) {
       skids.add(i, p, _side, 0.13, [0.03, 0.03, 0.03, Math.min(0.75, 0.25 + slide * 0.6)]);
@@ -597,12 +608,13 @@ function sizeCanvases() {
   }
   drawMapBg();
 }
-const MB = 1024 / TR.WORLD;          // minimap background: px per metre
+const MAPPX = 2048;
+const MB = MAPPX / TR.WORLD;          // minimap background: px per metre
 let mapBgDone = false;
 function drawMapBg() {
   if (mapBgDone) return;
   mapBgDone = true;
-  const w = 1024, h = 1024;
+  const w = MAPPX, h = MAPPX;
   mapBg.width = w; mapBg.height = h;
   const c = mapBg.getContext('2d');
   const S = MB;
@@ -615,7 +627,11 @@ function drawMapBg() {
     const sh = Math.max(-1, Math.min(1, hx * 0.35));
     let r = 196, g = 160, b = 112;
     if (hh > 14) { r = 150; g = 112; b = 82; }
-    if (hh < TR.WATER_LEVEL && Math.hypot(x - TR.LAKE.x, z - TR.LAKE.z) < TR.LAKE.r) { r = 50; g = 140; b = 160; }
+    if (hh < TR.WATER_LEVEL && (Math.hypot(x - TR.LAKE.x, z - TR.LAKE.z) < TR.LAKE.r || x < -1000)) { r = 50; g = 140; b = 160; }
+    else if (x < TR.shoreX(z) + 120) { r = 232; g = 214; b = 168; }
+    else if (x > TR.SALT.x0 - 20 && x < TR.SALT.x1 + 20 && z > TR.SALT.z0 - 20 && z < TR.SALT.z1 + 20) { r = 236; g = 238; b = 240; }
+    else if (Math.hypot(x - TR.FOREST.x, z - TR.FOREST.z) < TR.FOREST.r) { r = 86; g = 112; b = 64; }
+    if (Math.hypot(x - TR.VOLCANO.x, z - TR.VOLCANO.z) < TR.VOLCANO.R) { r = 92; g = 80; b = 74; if (hh > TR.VOLCANO.H * 0.58) { r = 240; g = 244; b = 250; } }
     const k = (i + j * w) * 4;
     img.data[k] = r + sh * 40; img.data[k + 1] = g + sh * 36; img.data[k + 2] = b + sh * 30; img.data[k + 3] = 255;
   }
@@ -733,6 +749,7 @@ const hud = {
   hint: $('#hint'), speedfx: $('#speedfx'), chainLbl: $('#chain .lbl'), mode: $('#mode-badge'),
 };
 function updateHud(t) {
+  { const a = TR.altitudeOf(veh.pos.y); if (a !== hud._alt) { hud._alt = a; $('#alt-v').textContent = a.toLocaleString('en-US'); $('#alt').classList.toggle('high', a > 3200); } }
   hud.score.textContent = fmt(G.score);
   hud.best.textContent = fmt(G.best);
   const lp = G.lap;
@@ -844,6 +861,10 @@ $('#resume-btn').addEventListener('click', () => pause(false));
 $('#reset-btn').addEventListener('click', () => { resetCar(true); pause(false); });
 $('#pause-btn').addEventListener('click', () => pause(G.state !== 'pause'));
 $('#q-btn').addEventListener('click', () => { quality = quality === 'high' ? 'low' : 'high'; store.set('quality', quality); applyQuality(); });
+const todLabel = () => { $('#tod-btn').textContent = tod.name; $('#tod-auto').textContent = tod.auto ? 'פועל' : 'כבוי'; };
+$('#tod-btn').addEventListener('click', () => { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); });
+$('#tod-auto').addEventListener('click', () => { tod.auto = !tod.auto; store.set('todAuto', tod.auto); todLabel(); });
+todLabel();
 const muteLabel = () => { $('#mute-btn').textContent = audio.muted ? 'כבוי' : 'פועל'; };
 $('#mute-btn').addEventListener('click', () => { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); });
 muteLabel();
@@ -971,6 +992,7 @@ function keys() {
   if (input.hit('reset')) resetCar();
   if (input.hit('camera')) G.camMode = (G.camMode + 1) % 3;
   if (input.hit('mode')) setMode(G.mode === 'drift' ? 'normal' : 'drift', true);
+  if (input.hit('time')) { tod.next(); store.set('tod', TIMES[tod.index].id); todLabel(); popup('🕒 ' + tod.name, 'trial'); }
   if (input.pressed.has('KeyM')) { audio.setMuted(!audio.muted); store.set('muted', audio.muted); muteLabel(); }
 }
 
@@ -1061,6 +1083,9 @@ function frame() {
   updateCamera(dt);
   vegetation.userData.update(camera.position, t);
   clouds.userData.tick(t, camera.position);
+  tod.update(Math.min(dt, 0.1), camera.position);
+  volcano.userData.tick(t);
+  if (gradePass) gradePass.uniforms.uTime.value = t % 100;
 
   // shadow camera follows the buggy (snapped to texels to avoid shimmering)
   const texel = 120 / sun.shadow.mapSize.x;
@@ -1090,5 +1115,5 @@ renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
+window.__game = { tod, volcano, selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
 frame();

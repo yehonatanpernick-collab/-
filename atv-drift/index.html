@@ -90,6 +90,11 @@
   #trial.on { transform: translate(-50%, 0); }
   #trial-t { font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; direction: ltr; }
   #trial-sub { font-size: 12px; color: var(--muted); }
+  #alt { position: absolute; right: 22px; bottom: max(206px, calc(env(safe-area-inset-bottom) + 206px)); padding: 6px 12px; font-size: 13px; display: flex; gap: 6px; align-items: baseline; direction: rtl; }
+  #alt b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  #alt .lbl, #alt .u { color: var(--muted); font-size: 11px; }
+  #alt.high b { color: #bfe3ff; text-shadow: 0 0 12px rgba(150,210,255,.6); }
+  body.touch #alt { display: none; }
   #gauge { position: absolute; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); width: 200px; height: 200px; }
   #minimap { position: absolute; left: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 170px; height: 170px; border-radius: 50%;
     box-shadow: 0 8px 30px rgba(0,0,0,.35); }
@@ -274,6 +279,7 @@
     <div class="bar-track"><div id="chain-bar"></div></div>
   </div>
   <canvas id="minimap"></canvas>
+  <div id="alt" class="panel"><span class="lbl">גובה</span> <b id="alt-v">1,000</b> <span class="u">מ׳</span></div>
   <canvas id="gauge"></canvas>
   <div class="keys-help"></div>
 </div>
@@ -315,6 +321,8 @@
   <div class="pause-card">
     <div class="settings-head"><h2>הגדרות</h2><button class="btn primary" id="settings-close">סגירה</button></div>
     <div class="set-row"><span>גרפיקה</span><button class="btn" id="q-btn">גבוהה</button></div>
+    <div class="set-row"><span>שעה ביום</span><button class="btn" id="tod-btn">—</button></div>
+    <div class="set-row"><span>מחזור יום ולילה אוטומטי</span><button class="btn" id="tod-auto">כבוי</button></div>
     <div class="set-row"><span>צליל</span><button class="btn" id="mute-btn">פועל</button></div>
     <div class="section-title">בחירת רכב</div>
     <div class="car-grid"></div>
