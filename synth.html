@@ -159,6 +159,13 @@ button{cursor:pointer}
   .knob{width:56px}
   .strip{width:28px}
 }
+[hidden]{display:none!important}
+.algo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px}
+.algo .op{border:1px solid var(--line);border-radius:6px;padding:5px 9px;background:var(--btn);display:inline-flex;gap:6px;align-items:baseline}
+.algo .op b{font-family:var(--f-mono);font-weight:500;color:var(--accent);direction:ltr}
+.algo .op.car{border-color:var(--accent)}
+.algo .op.out{color:var(--muted)}
+.algo .arr{color:var(--muted);font-family:var(--f-mono)}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
 
@@ -166,7 +173,7 @@ button{cursor:pointer}
   <header class="top">
     <div class="brand">
       <span class="logo">ערבה<b>-12</b></span>
-      <span class="sub">סינתיסייזר אנלוגי-וירטואלי · 12 קולות</span>
+      <span class="sub">סינתיסייזר אנלוגי-וירטואלי ו-FM · 12 קולות</span>
     </div>
     <div class="screen" aria-label="צג">
       <canvas id="scope"></canvas>
@@ -183,6 +190,7 @@ button{cursor:pointer}
         <button class="sq" id="nextP" aria-label="תוכנית הבאה">‹</button>
       </div>
       <div class="patch-tools">
+        <div class="seg" data-p="engine"></div>
         <button class="pill" id="panic">עצור את כל הצלילים</button>
         <span class="chip" id="midiChip" hidden>MIDI מחובר</span>
       </div>
@@ -191,7 +199,7 @@ button{cursor:pointer}
   </header>
 
   <main class="rack">
-    <section class="mod">
+    <section class="mod" id="modVA">
       <h2><span class="tag">VCO</span>מתנדים</h2>
       <div class="sub-h">מתנד 1</div>
       <div class="split"><div class="seg" data-p="o1wave"></div>
@@ -201,6 +209,19 @@ button{cursor:pointer}
       <div class="row"><div class="knob" data-p="o2oct"></div><div class="knob" data-p="o2det"></div><div class="knob" data-p="o2lvl"></div></div>
       <div class="sub-h">מקורות נוספים</div>
       <div class="row"><div class="knob" data-p="noise"></div><div class="knob" data-p="glide"></div></div>
+    </section>
+
+    <section class="mod" id="modFM" hidden>
+      <h2><span class="tag">FM</span>סינתזת FM</h2>
+      <div class="algo" aria-label="מבנה האפנון"><span class="op">מאפנן <b id="algM">×1</b></span><span class="arr">←</span><span class="op car">נושא <b id="algC">×1</b></span><span class="arr">←</span><span class="op out">מסנן ומגבר</span></div>
+      <div class="sub-h">מאפנן</div>
+      <div class="seg" data-p="fmWave"></div>
+      <div class="row"><div class="knob" data-p="fmMod"></div><div class="knob" data-p="fmDet"></div><div class="knob" data-p="fmIdx"></div></div>
+      <div class="sub-h">מעטפת אפנון · הבהירות לאורך התו</div>
+      <svg class="env" id="envM" viewBox="0 0 240 46" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="row"><div class="knob" data-p="fmA"></div><div class="knob" data-p="fmD"></div><div class="knob" data-p="fmS"></div></div>
+      <div class="sub-h">נושא</div>
+      <div class="row"><div class="knob" data-p="fmCar"></div><div class="knob" data-p="fmVel"></div></div>
     </section>
 
     <section class="mod">
@@ -295,6 +316,16 @@ const ICON = {
 
 const SPEC = {
   vol:{label:'עוצמה ראשית', min:0, max:1, fmt:pct, def:.75},
+  engine:{t:'seg', opts:[['va','אנלוגי'],['fm','FM']], label:'מנוע צליל'},
+  fmWave:{t:'seg', opts:[['sine','סינוס'],['triangle','משולש'],['square','ריבוע'],['sawtooth','מסור']], icon:true, label:'צורת גל · מאפנן'},
+  fmCar:{label:'יחס נושא', min:.5, max:4, step:.5, fmt:v => '×' + v},
+  fmMod:{label:'יחס מאפנן', min:.5, max:12, step:.5, fmt:v => '×' + v},
+  fmDet:{label:'סטייה', min:-100, max:100, fmt:cents},
+  fmIdx:{label:'אינדקס', min:0, max:12, curve:2, fmt:v => v.toFixed(2)},
+  fmA:{label:'התקפה', min:.001, max:3, curve:3, fmt:sec},
+  fmD:{label:'דעיכה', min:.01, max:6, curve:3, fmt:sec},
+  fmS:{label:'החזקה', min:0, max:1, fmt:pct},
+  fmVel:{label:'רגישות למגע', min:0, max:1, fmt:pct},
   o1wave:{t:'seg', opts:WAVES, icon:true, label:'צורת גל · מתנד 1'},
   o1oct:{label:'אוקטבה', min:-2, max:2, step:1, fmt:sgn},
   o1lvl:{label:'עוצמה', min:0, max:1, fmt:pct},
@@ -336,12 +367,14 @@ const SPEC = {
 };
 
 const BASE = {
+  engine:'va', fmWave:'sine', fmCar:1, fmMod:2, fmDet:0, fmIdx:3, fmA:.001, fmD:.8, fmS:.2, fmVel:.6,
   vol:.75, o1wave:'sawtooth', o1oct:0, o1lvl:.7, o2wave:'sawtooth', o2oct:0, o2det:7, o2lvl:.5, noise:0, glide:0,
   ftype:'lowpass', cutoff:2200, res:3, fenv:.35, fA:.01, fD:.35, fS:.3, fR:.4,
   aA:.005, aD:.3, aS:.7, aR:.35, lfoWave:'sine', lfoTgt:'pitch', lfoRate:5, lfoDepth:0,
   drive:.1, dTime:.32, dFb:.35, dMix:.18, rSize:2.5, rMix:.22,
   arpOn:false, hold:false, arpMode:'up', arpDiv:'4', bpm:120, arpOct:1, gate:.55
 };
+const FMB = {engine:'fm', cutoff:16000, res:.7, fenv:0, drive:0};
 const PRESETS = [
   {name:'פד ערב', p:{o2det:12, cutoff:1300, res:2, fenv:.22, fA:1.2, fD:1.6, fS:.6, fR:2, aA:1.1, aD:1, aS:.85, aR:2.4,
     lfoTgt:'filter', lfoRate:.3, lfoDepth:.28, dTime:.42, dMix:.2, rSize:4.5, rMix:.45, drive:.05}},
@@ -360,6 +393,19 @@ const PRESETS = [
     lfoTgt:'filter', lfoRate:.12, lfoDepth:.35, arpOn:true, arpMode:'updown', arpDiv:'4', bpm:118, arpOct:2, gate:.45}},
   {name:'רוח מדבר', p:{o1lvl:0, o2lvl:0, noise:.9, ftype:'bandpass', cutoff:900, res:9, fenv:0, aA:1.5, aD:1, aS:1, aR:3,
     lfoTgt:'filter', lfoWave:'triangle', lfoRate:.18, lfoDepth:.7, rSize:6, rMix:.5, dMix:.15}},
+  {name:'פסנתר חשמלי', p:{...FMB, fmCar:1, fmMod:1, fmIdx:3.2, fmD:1.1, fmS:.12, fmVel:.8, aA:.001, aD:2.2, aS:.25, aR:.5,
+    lfoTgt:'amp', lfoRate:4.5, lfoDepth:.12, dMix:.12, rMix:.25}},
+  {name:'פעמוני FM', p:{...FMB, fmCar:1, fmMod:3.5, fmDet:9, fmIdx:5, fmD:2.4, fmS:0, aA:.001, aD:3.5, aS:0, aR:3,
+    rSize:5, rMix:.45, dTime:.5, dMix:.22}},
+  {name:'בס FM', p:{...FMB, fmCar:1, fmMod:1, fmIdx:4.5, fmD:.22, fmS:.25, fmVel:.7, aA:.002, aD:.5, aS:.7, aR:.12, glide:.03,
+    cutoff:5000, drive:.25, rMix:.05, dMix:0}},
+  {name:'מרימבה', p:{...FMB, fmCar:1, fmMod:4, fmIdx:2.2, fmD:.09, fmS:0, fmVel:.8, aA:.001, aD:.55, aS:0, aR:.5, rMix:.3, dMix:.1}},
+  {name:'גונג מתכתי', p:{...FMB, fmCar:1, fmMod:1.5, fmDet:45, fmIdx:8, fmA:.01, fmD:4, fmS:.1, aA:.005, aD:5, aS:0, aR:4,
+    rSize:6.5, rMix:.55, dMix:.1}},
+  {name:'פד FM', p:{...FMB, fmCar:1, fmMod:2, fmDet:6, fmIdx:1.6, fmA:1.5, fmD:2, fmS:.6, aA:1.2, aD:1, aS:.9, aR:2.5,
+    cutoff:6000, lfoTgt:'pitch', lfoDepth:.08, lfoRate:4.8, rSize:4.5, rMix:.45, dMix:.2}},
+  {name:'ארפג׳ FM', p:{...FMB, fmCar:1, fmMod:3, fmIdx:4, fmD:.15, fmS:.05, fmVel:.5, aA:.001, aD:.35, aS:.1, aR:.3,
+    arpOn:true, arpMode:'up', arpDiv:'4', arpOct:2, bpm:128, gate:.4, dTime:.35, dFb:.45, dMix:.3, rMix:.25}},
 ];
 
 const P = {...BASE};
@@ -436,10 +482,30 @@ function startVoice(m, vel, when){
   v.filt.connect(v.vca); v.vca.connect(bus);
   lfoFilt.connect(v.filt.detune);
   const g0 = P.glide > .005 && lastFreq ? lastFreq : null;
-  v.o1 = mkOsc(P.o1wave, f, P.o1oct, 0, P.o1lvl, g0, t, v.filt);
-  v.o2 = mkOsc(P.o2wave, f, P.o2oct, P.o2det, P.o2lvl, g0, t, v.filt);
+  v.eng = P.engine; v.vel = vel;
+  if (v.eng === 'fm'){
+    // 2-operator FM: modulator -> (index gain, in Hz) -> carrier.frequency
+    const car = mkOsc('sine', f, Math.log2(P.fmCar), 0, .9, g0, t, v.filt);
+    const mod = ac.createOscillator(); mod.type = P.fmWave;
+    const mf = f * P.fmMod;
+    if (g0){ mod.frequency.setValueAtTime(g0 * P.fmMod, t); mod.frequency.exponentialRampToValueAtTime(mf, t + P.glide); }
+    else mod.frequency.setValueAtTime(mf, t);
+    mod.detune.value = P.fmDet;
+    lfoPitch.connect(mod.detune); if (bend) bend.connect(mod.detune);
+    const idx = ac.createGain(); idx.gain.value = 0;
+    mod.connect(idx); idx.connect(car.o.frequency); mod.start(t);
+    v.fmPeak = P.fmIdx * mf * (1 - P.fmVel + P.fmVel * vel);
+    const ia = Math.max(.002, P.fmA);
+    idx.gain.setValueAtTime(P.fmA < .005 ? v.fmPeak : 0, t);
+    idx.gain.linearRampToValueAtTime(v.fmPeak, t + ia);
+    idx.gain.setTargetAtTime(v.fmPeak * P.fmS, t + ia, Math.max(.005, P.fmD / 3));
+    v.o1 = car; v.o2 = {o:mod, g:idx};
+  } else {
+    v.o1 = mkOsc(P.o1wave, f, P.o1oct, 0, P.o1lvl, g0, t, v.filt);
+    v.o2 = mkOsc(P.o2wave, f, P.o2oct, P.o2det, P.o2lvl, g0, t, v.filt);
+  }
   v.ns = ac.createBufferSource(); v.ns.buffer = noiseBuf; v.ns.loop = true;
-  v.ng = ac.createGain(); v.ng.gain.value = P.noise * .6; v.ns.connect(v.ng); v.ng.connect(v.filt); v.ns.start(t, Math.random() * 1.5);
+  v.ng = ac.createGain(); v.ng.gain.value = v.eng === 'va' ? P.noise * .6 : 0; v.ns.connect(v.ng); v.ng.connect(v.filt); v.ns.start(t, Math.random() * 1.5);
   const base = filtBase(m), fq = v.filt.frequency, fa = Math.max(.003, P.fA);
   fq.setValueAtTime(base, t); fq.exponentialRampToValueAtTime(fEnvF(base, 1), t + fa); fq.setTargetAtTime(fEnvF(base, P.fS), t + fa, Math.max(.005, P.fD / 3));
   const g = v.vca.gain, pk = vel * .9, aa = Math.max(.003, P.aA);
@@ -452,6 +518,7 @@ function releaseVoice(v, when, fast){
   const t = Math.max(when || 0, ac.currentTime), r = fast || Math.max(.01, P.aR);
   holdParam(v.vca.gain, t); v.vca.gain.setTargetAtTime(0, t, r / 4);
   holdParam(v.filt.frequency, t); v.filt.frequency.setTargetAtTime(filtBase(v.m), t, Math.max(.01, P.fR) / 4);
+  if (v.eng === 'fm'){ holdParam(v.o2.g.gain, t); v.o2.g.gain.setTargetAtTime(0, t, r / 3); }
   const end = t + r * 1.8 + .05;
   [v.o1.o, v.o2.o, v.ns].forEach(s => { try { s.stop(end); } catch (e) {} });
   v.o1.o.onended = () => {
@@ -467,8 +534,10 @@ function updateLfo(){
   lfoAmp.gain.setTargetAtTime(P.lfoTgt === 'amp' ? d * .5 : 0, t, .02);
 }
 function apply(id){
+  if (id === 'engine') syncEngine();
   if (!ac) return;
-  const t = ac.currentTime, live = voices.filter(v => !v.rel);
+  const t = ac.currentTime, all = voices.filter(v => !v.rel);
+  const live = all.filter(v => v.eng === 'va'), fmv = all.filter(v => v.eng === 'fm');
   switch (id){
     case 'vol': case 'drive':
       master.gain.setTargetAtTime(P.vol / (1 + P.drive * 1.6), t, .02);
@@ -489,10 +558,17 @@ function apply(id){
     case 'o2oct': live.forEach(v => v.o2.o.frequency.setTargetAtTime(mtof(v.m) * Math.pow(2, P.o2oct), t, .01)); break;
     case 'o2det': live.forEach(v => v.o2.o.detune.setTargetAtTime(P.o2det, t, .02)); break;
     case 'noise': live.forEach(v => v.ng.gain.setTargetAtTime(P.noise * .6, t, .02)); break;
-    case 'ftype': live.forEach(v => v.filt.type = P.ftype); break;
-    case 'res': live.forEach(v => v.filt.Q.setTargetAtTime(P.res, t, .02)); break;
+    case 'fmWave': fmv.forEach(v => v.o2.o.type = P.fmWave); break;
+    case 'fmCar': fmv.forEach(v => v.o1.o.frequency.setTargetAtTime(mtof(v.m) * P.fmCar, t, .01)); break;
+    case 'fmMod': fmv.forEach(v => v.o2.o.frequency.setTargetAtTime(mtof(v.m) * P.fmMod, t, .01)); /* falls through */
+    case 'fmIdx': case 'fmS': case 'fmVel':
+      fmv.forEach(v => { v.fmPeak = P.fmIdx * mtof(v.m) * P.fmMod * (1 - P.fmVel + P.fmVel * v.vel);
+        holdParam(v.o2.g.gain, t); v.o2.g.gain.setTargetAtTime(v.fmPeak * P.fmS, t, .03); }); break;
+    case 'fmDet': fmv.forEach(v => v.o2.o.detune.setTargetAtTime(P.fmDet, t, .02)); break;
+    case 'ftype': all.forEach(v => v.filt.type = P.ftype); break;
+    case 'res': all.forEach(v => v.filt.Q.setTargetAtTime(P.res, t, .02)); break;
     case 'cutoff': case 'fenv': case 'fS':
-      live.forEach(v => { holdParam(v.filt.frequency, t); v.filt.frequency.setTargetAtTime(fEnvF(filtBase(v.m), P.fS), t, .03); }); break;
+      all.forEach(v => { holdParam(v.filt.frequency, t); v.filt.frequency.setTargetAtTime(fEnvF(filtBase(v.m), P.fS), t, .03); }); break;
     case 'arpOn': arpToggle(); break;
     case 'hold': if (!P.hold){ arp.notes.forEach(n => { if (!arp.down.has(n)) arp.notes.delete(n); }); } break;
   }
@@ -692,19 +768,28 @@ function drawEnv(svgId, a, d, s, r){
   const ln = `M2 ${bot} L${xa} ${top} L${xd} ${ys} L${xs} ${ys} L${xr} ${bot}`;
   $('#' + svgId).innerHTML = `<line x1="0" y1="${bot}" x2="${W}" y2="${bot}"/><path class="fill" d="${ln} Z"/><path class="ln" d="${ln}"/>`;
 }
-function refreshEnvs(){ drawEnv('envF', P.fA, P.fD, P.fS, P.fR); drawEnv('envA', P.aA, P.aD, P.aS, P.aR); }
-function onParam(id){ if (/^[fa][ADSR]$/.test(id)) refreshEnvs(); }
+function refreshEnvs(){
+  drawEnv('envF', P.fA, P.fD, P.fS, P.fR); drawEnv('envA', P.aA, P.aD, P.aS, P.aR); drawEnv('envM', P.fmA, P.fmD, P.fmS, P.aR);
+  $('#algM').textContent = '×' + P.fmMod + (Math.round(P.fmDet) ? ' ' + cents(P.fmDet) : ''); $('#algC').textContent = '×' + P.fmCar;
+}
+function onParam(id){ if (/^(f|a|fm)[ADSR]$/.test(id) || /^fm(Mod|Car|Det)$/.test(id)) refreshEnvs(); }
+function syncEngine(){
+  $('#modVA').hidden = P.engine !== 'va'; $('#modFM').hidden = P.engine !== 'fm';
+  if (typeof showPatch === 'function' && sel.options.length) showPatch();
+}
 
 /* ---------- presets & persistence ---------- */
 const sel = $('#preset');
-sel.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${String(i + 1).padStart(2, '0')} · ${p.name}</option>`).join('');
-function showPatch(){ $('#lcdPatch').textContent = String(presetIdx + 1).padStart(2, '0') + ' ' + PRESETS[presetIdx].name + (dirty ? ' *' : ''); }
+const opt = (p, i) => `<option value="${i}">${String(i + 1).padStart(2, '0')} · ${p.name}</option>`;
+sel.innerHTML = `<optgroup label="אנלוגי">${PRESETS.map((p, i) => p.p.engine === 'fm' ? '' : opt(p, i)).join('')}</optgroup>` +
+  `<optgroup label="FM">${PRESETS.map((p, i) => p.p.engine === 'fm' ? opt(p, i) : '').join('')}</optgroup>`;
+function showPatch(){ $('#lcdPatch').textContent = String(presetIdx + 1).padStart(2, '0') + ' ' + PRESETS[presetIdx].name + (P.engine === 'fm' ? ' · FM' : '') + (dirty ? ' *' : ''); }
 function loadPreset(i, vals){
   presetIdx = (i + PRESETS.length) % PRESETS.length; sel.value = presetIdx;
   const next = vals || {...BASE, ...PRESETS[presetIdx].p, vol:P.vol};
   const wasArp = P.arpOn;
   Object.keys(SPEC).forEach(id => { if (next[id] !== undefined) ctrls[id].set(next[id]); });
-  dirty = !!vals && vals.__dirty; showPatch(); refreshEnvs();
+  dirty = !!vals && vals.__dirty; syncEngine(); showPatch(); refreshEnvs();
   if (ac){
     Object.keys(SPEC).forEach(id => { if (id !== 'arpOn' && id !== 'hold') apply(id); });
     if (wasArp !== P.arpOn) apply('arpOn');
