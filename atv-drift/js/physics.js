@@ -21,7 +21,7 @@ export const CFG = {
   maxSpeed: 44,
   boostSpeed: 58,
   reverseSpeed: 11,
-  brake: 9500,
+  brake: 8200,
   muFront: 1.24,
   muRear: 1.4,
 };

@@ -329,6 +329,7 @@ function airTrack(dt) {
     const height = Math.max(0, A.maxY - Math.max(A.y0, veh.pos.y));
     if (impactV > 5) {
       audio.thump(Math.min(1.2, impactV / 14));
+      try { if (impactV > 6) navigator.vibrate?.(Math.min(70, 15 + impactV * 3)); } catch (e) { /* no haptics */ }
       G.shake = Math.max(G.shake, Math.min(0.8, impactV / 22));
       burst(veh.pos.x, veh.pos.y - 0.4, veh.pos.z, 28, [0.85, 0.72, 0.55]);
     }
@@ -622,6 +623,8 @@ function updateCamera(dt) {
     cam.look.copy(veh.pos).addScaledVector(cam.dir, 2.5);
     cam.look.y += C.l;
     camera.lookAt(cam.look);
+    cam.roll = (cam.roll || 0) + ((veh.grounded ? Math.max(-0.07, Math.min(0.07, veh.w.y * 0.03)) * Math.min(1, sp / 20) : 0) - (cam.roll || 0)) * Math.min(1, dt * 6);
+    camera.rotateZ(cam.roll);                      // bank into the corner
   }
   G.shake = Math.max(0, G.shake - dt * 2.2);
   const fovT = 62 + Math.min(sp * 3.6, 170) * 0.1 + (veh.boostActive ? 9 : 0);
@@ -1232,6 +1235,7 @@ function frame() {
       if (veh.wallHit > 7.5) {
         loseChain('בום!');
         audio.crash(Math.min(1.2, veh.wallHit / 14));
+        try { navigator.vibrate?.(Math.min(120, 30 + veh.wallHit * 4)); } catch (e) { /* no haptics */ }
         G.shake = Math.max(G.shake, Math.min(1, veh.wallHit / 14));
         burst(veh.pos.x, veh.pos.y, veh.pos.z, 20, [0.8, 0.7, 0.55], 5);
       } else if (veh.impact > 9 && veh.grounded === 0) {

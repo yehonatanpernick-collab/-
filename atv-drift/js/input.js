@@ -141,6 +141,11 @@ export class Input {
     if (t.boost) boost = true;
     if (t.lean) lean = t.lean;
 
+    // pedals ease in/out (a key or a touch is on/off): no sudden wheelspin spike, smoother weight transfer
+    this._thr = (this._thr ?? 0) + (throttle - (this._thr ?? 0)) * Math.min(1, dt * (throttle > (this._thr ?? 0) ? 9 : 16));
+    this._brk = (this._brk ?? 0) + (brake - (this._brk ?? 0)) * Math.min(1, dt * (brake > (this._brk ?? 0) ? 12 : 18));
+    throttle = this._thr < 0.02 ? 0 : this._thr; brake = this._brk < 0.02 ? 0 : this._brk;
+    steer = Math.sign(steer) * Math.pow(Math.min(1, Math.abs(steer)), 1.35);       // fine control near the centre, full lock at the end
     Object.assign(this.state, { throttle, brake, steer, handbrake, boost, roll, lean });
     return this.state;
   }
