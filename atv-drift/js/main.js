@@ -950,6 +950,17 @@ function stuntPads(dt) {
   for (const p of TR.trampolines) {
     p.cool = Math.max(0, (p.cool || 0) - dt);
     const d = Math.hypot(veh.pos.x - p.x, veh.pos.z - p.z);
+    if (p.aim && d < p.r && p.cool === 0 && veh.grounded >= 1) {              // giant launcher: throws the buggy along a fixed arc
+      veh.vel.set(p.aim.vx, p.aim.vy, p.aim.vz);
+      veh.q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(p.aim.vx, p.aim.vz));
+      veh.w.set(0, 0, 0);
+      p.cool = 3; p.squash = 1;
+      audio.boing(1.6); audio.boostSfx();
+      G.shake = Math.max(G.shake, 1.0);
+      for (let k = 0; k < 30; k++) particles.emit(p.x + (Math.random() - 0.5) * p.r, veh.pos.y - 0.5, p.z + (Math.random() - 0.5) * p.r, (Math.random() - 0.5) * 8, 2 + Math.random() * 6, (Math.random() - 0.5) * 8, 1, 0.85, 0.3, 0.7, 1.0, { grow: 0.6, grav: -6, alpha: 0.9, drag: 1 });
+      popup('🚀 ' + (p.label || 'מקפצת ענק'), 'boost', `${Math.round(Math.hypot(p.aim.vx, p.aim.vy, p.aim.vz) * 3.6)} קמ"ש`);
+      continue;
+    }
     if (d < p.r && p.cool === 0 && veh.grounded >= 2 && veh.vel.y < p.power * 0.6) {
       veh.vel.y = p.power + Math.min(4, veh.speed * 0.08);
       p.cool = 0.6; p.squash = 1;
@@ -959,6 +970,18 @@ function stuntPads(dt) {
       popup('מקפצה!', 'boost', `${Math.round(p.power * p.power / 26)} מ' גובה`);
     }
   }
+  // lava: viscous, hot, and it burns the buggy off the mountain after a couple of seconds
+  if (TR.lavaAt(veh.pos.x, veh.pos.z) && veh.pos.y < TR.terrainHeight(veh.pos.x, veh.pos.z) + 2.5) {
+    G.lavaT = (G.lavaT || 0) + dt;
+    veh.vel.multiplyScalar(Math.exp(-2.6 * dt));
+    if (Math.random() < 0.7) particles.emit(veh.pos.x + (Math.random() - 0.5) * 2, veh.pos.y + 0.3, veh.pos.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 3, 2 + Math.random() * 4, (Math.random() - 0.5) * 3, 1, 0.45 + Math.random() * 0.3, 0.08, 0.6, 0.9, { grow: 1, grav: -1, alpha: 0.9, drag: 1 });
+    if (G.lavaT > 0.2 && !G.lavaWarn) { G.lavaWarn = true; popup('🔥 לבה!', 'boost', 'צאו מהר'); }
+    if (G.lavaT > 2.4) { G.lavaT = 0; G.lavaWarn = false; popup('🔥 נשרפת!', 'boost', 'חוזרים לדרך');
+      const q = TR.volcanoRoad(veh.pos.x, veh.pos.z), phi = Math.min(TR.VOLCANO.phiMax - 0.05, Math.max(0, q.d < 1e8 ? q.phi : 0)), pt = TR.volcanoPoint(phi);
+      veh.pos.set(pt.x, pt.y + 2, pt.z); veh.q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), TR.volcanoYaw(phi)); veh.vel.set(0, 0, 0); veh.w.set(0, 0, 0); veh.updateAxes();
+      resetCar();
+    }
+  } else { G.lavaT = 0; G.lavaWarn = false; }
   // banked surfaces: riding the slope earns points, steeper is worth more
   const tilt = veh.up.y;
   if (veh.grounded >= 2 && tilt < 0.9 && tilt > 0.3 && veh.speed > 10) {
@@ -1047,6 +1070,7 @@ function frame() {
     veh.boostFuel = G.nitro;
     acc += Math.min(0.25, rawDt);          // physics keeps real-time speed even at ~5 fps
     let steps = 0;
+    veh.gravity = TR.gravityAt(veh.pos.x, veh.pos.z);
     while (acc >= DT && steps < 32) {
       veh.step(DT, pin);
       updateProps(DT);

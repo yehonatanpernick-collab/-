@@ -7,7 +7,7 @@ import {
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
   MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
-  rawHeight as rawHeightAt, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
+  rawHeight as rawHeightAt, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -382,9 +382,9 @@ export function colorAt(x, z, h, ny, out) {
     const V = VOLCANO, vr = Math.hypot(x - V.x, z - V.z);
     const wv = 1 - smoothstep(V.R * 0.96, V.R * 1.04, vr);
     if (wv > 0) {                                               // forest belt, basalt gullies, lava rivers, snow cap
-      const hh = Math.max(0, h), th = Math.atan2(z - V.z, x - V.x);
-      const nv = fbm(x * 0.0012 + 3, z * 0.0012 - 7, 4), nv2 = fbm(x * 0.007 + 1, z * 0.007 + 5, 3);
-      const gul = Math.sin(th * 61 + fbm(x * 0.0012, z * 0.0012, 3) * 11);          // same phase as the gullies in the height field
+      const kk = V.H / 5000, hh = Math.max(0, h) / kk, th = Math.atan2(z - V.z, x - V.x);
+      const nv = fbm(x * 0.0007 + 3, z * 0.0007 - 7, 4), nv2 = fbm(x * 0.004 + 1, z * 0.004 + 5, 3);
+      const gul = Math.sin(th * 61 + fbm(x * 0.0007, z * 0.0007, 3) * 11);          // same phase as the gullies in the height field
       let br = 0.27 + nv2 * 0.1, bg = 0.235 + nv2 * 0.08, bb = 0.215 + nv2 * 0.07;
       const rid = 0.5 + 0.5 * gul;
       br += rid * 0.09; bg += rid * 0.075; bb += rid * 0.06;                               // ridges lighter, gullies darker
@@ -423,6 +423,52 @@ export function colorAt(x, z, h, ny, out) {
       r *= 1 - 0.28 * wet; g *= 1 - 0.24 * wet; b *= 1 - 0.18 * wet;
       const sea = smoothstep(-2.5, -6, h);
       r += (0.36 - r) * sea; g += (0.52 - g) * sea; b += (0.55 - b) * sea;
+    }
+  }
+  // ---------------- wild areas + highways + landing pads
+  {
+    const di = Math.hypot(x - ICE.x, z - ICE.z);
+    if (di < ICE.r + 1800) {
+      const ice = 1 - smoothstep(ICE.r - 40, ICE.r + 40, di), cr = Math.abs(fbm(x * 0.012 + 8, z * 0.012 - 3, 3) - 0.5);
+      const c = 0.8 + n2 * 0.06 - (1 - smoothstep(0, 0.014, cr)) * 0.16;
+      r += (c * 0.82 - r) * ice; g += (c * 0.93 - g) * ice; b += (c * 1.04 - b) * ice;       // pale blue ice with cracks
+      const snow = (1 - ice) * (1 - smoothstep(ICE.r + 1500, ICE.r + 1800, di)) * smoothstep(ICE.r + 80, ICE.r + 300, di);
+      r += (0.95 - r) * snow; g += (0.96 - g) * snow; b += (0.99 - b) * snow;                 // snowy hills around it
+    }
+    const dm = Math.hypot(x - MESA.x, z - MESA.z);
+    if (dm < MESA.r + 600) {
+      const f = 1 - smoothstep(MESA.r * 0.8, MESA.r + 500, dm), band = 0.5 + 0.5 * Math.sin(h * 0.45 + n * 5), top = smoothstep(18, 60, h) * smoothstep(0.6, 0.9, ny);
+      const rr = 0.62 + band * 0.16, gg = 0.34 + band * 0.08, bb = 0.22 + band * 0.05;
+      const flat = 0.7 + n2 * 0.1;
+      r += ((top > 0.5 ? flat : rr) - r) * f; g += ((top > 0.5 ? flat * 0.62 : gg) - g) * f; b += ((top > 0.5 ? flat * 0.42 : bb) - b) * f;
+    }
+    const dmo = Math.hypot(x - MOON.x, z - MOON.z);
+    if (dmo < MOON.r + 400) {
+      const f = 1 - smoothstep(MOON.r - 100, MOON.r + 350, dmo), c = 0.5 + n2 * 0.18 + (1 - ny) * -0.25;
+      r += (c - r) * f; g += (c * 0.98 - g) * f; b += (c * 1.04 - b) * f;                    // grey regolith
+    }
+    const ddx = Math.max(Math.abs(x - CITY.x) - CITY.h, 0), ddz = Math.max(Math.abs(z - CITY.z) - CITY.h, 0);
+    if (ddx < 120 && ddz < 120) {
+      const f = 1 - smoothstep(0, 70, Math.hypot(ddx, ddz));
+      const gx = ((x - CITY.x) % 110 + 110) % 110, gz = ((z - CITY.z) % 110 + 110) % 110;
+      const street = Math.min(gx, gz) < 27 || Math.max(gx, gz) > 83 ? 1 : 0;
+      const dash = (street && Math.abs(gx - 0) < 1.5 || street && Math.abs(gz - 0) < 1.5) ? 1 : 0;
+      const c = street ? 0.1 : 0.16;
+      r += (c + dash * 0.5 - r) * f; g += (c + dash * 0.45 - g) * f; b += (c * 1.1 + dash * 0.2 - b) * f;
+    }
+    const hd = highwayDist(x, z);
+    if (hd < 11) {
+      const f = 1 - smoothstep(6.6, 8.2, hd), edge = smoothstep(6.0, 6.4, hd) * (1 - smoothstep(7.2, 7.8, hd));
+      r += (0.1 - r) * f; g += (0.1 - g) * f; b += (0.11 - b) * f;
+      r += (0.9 - r) * edge * 0.9; g += (0.88 - g) * edge * 0.9; b += (0.8 - b) * edge * 0.9;
+    }
+    for (const pd of PADS) {                                           // landing pads: red and white target
+      const d = Math.hypot(x - pd.x, z - pd.z);
+      if (d < pd.r) {
+        const ring = Math.floor(d / (pd.r / 5)) % 2;
+        const c = ring ? 0.95 : 0.75;
+        r += ((ring ? 0.95 : 0.8) - r) * 0.9; g += ((ring ? 0.95 : 0.12) - g) * 0.9; b += ((ring ? 0.95 : 0.1) - b) * 0.9; void c;
+      }
     }
   }
   out[0] = Math.pow(Math.max(0, r), 2.2); out[1] = Math.pow(Math.max(0, g), 2.2); out[2] = Math.pow(Math.max(0, b), 2.2);
@@ -1496,6 +1542,14 @@ export function buildTrampolines() {
       leg.position.set(Math.cos(a) * t.r * 0.96, 0.25, Math.sin(a) * t.r * 0.96); g.add(leg);
     }
     g.add(rim, disc);
+    if (t.aim) {                                                       // giant launcher: arrow showing where it throws you
+      const ang = Math.atan2(t.aim.vx, t.aim.vz);
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(t.r * 0.35, t.r * 0.9, 4).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      arrow.position.set(Math.sin(ang) * t.r * 0.35, 0.75, Math.cos(ang) * t.r * 0.35); arrow.rotation.y = ang; arrow.scale.y = 0.2;
+      g.add(arrow);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 18, 8), new THREE.MeshStandardMaterial({ color: 0xd9262c }));
+      pole.position.set(t.r * 1.15, 9, 0); g.add(pole);
+    }
     g.position.set(t.x, y, t.z);
     group.add(g);
     items.push({ t, disc, rim, g });
@@ -1549,12 +1603,12 @@ export function buildVolcano(T) {
       ctx.beginPath(); ctx.ellipse(R() * w, R() * h, 4 + R() * 16, 3 + R() * 9, R() * 3, 0, 7); ctx.fill();
     }
   }, { clamp: true });
-  const lava = new THREE.Mesh(new THREE.CircleGeometry(100, 64).rotateX(-Math.PI / 2),
+  const lava = new THREE.Mesh(new THREE.CircleGeometry(190, 64).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: lavaTex, toneMapped: false, color: new THREE.Color(1.6, 1.2, 1.0) }));
   lava.position.set(V.x, cy + 1.2, V.z);
   group.add(lava);
-  const glow = new THREE.PointLight(0xff5a18, 40000, 2600, 1.15);
-  glow.position.set(V.x, cy + 60, V.z);
+  const glow = new THREE.PointLight(0xff5a18, 90000, 5200, 1.15);
+  glow.position.set(V.x, cy + 90, V.z);
   group.add(glow);
   // smoke plume rising 1.5 km above the crater
   const puffGeo = new THREE.PlaneGeometry(1, 1);
@@ -1584,31 +1638,18 @@ export function buildVolcano(T) {
   });
   flowTex.wrapS = THREE.ClampToEdgeWrapping;
   const flowMat = new THREE.MeshBasicMaterial({ map: flowTex, vertexColors: true, transparent: true, toneMapped: false, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-  const flowPath = (th0, steps = 170) => {
-    let x = V.x + Math.cos(th0) * V.rr, z = V.z + Math.sin(th0) * V.rr, dx = Math.cos(th0), dz = Math.sin(th0);
-    const pts = [];
-    for (let i = 0; i < steps; i++) {
-      pts.push([x, z]);
-      const e = 7, gx = (rawHeightAt(x + e, z) - rawHeightAt(x - e, z)) / (2 * e), gz = (rawHeightAt(x, z + e) - rawHeightAt(x, z - e)) / (2 * e);
-      let nx = -gx, nz = -gz; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
-      dx = dx * 0.78 + nx * 0.22; dz = dz * 0.78 + nz * 0.22;
-      const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
-      x += dx * 8; z += dz * 8;
-    }
-    return pts;
-  };
-  for (const off of [0.9, 2.15, 3.5, 5.2]) {
-    const th0 = V.theta + off, pts = flowPath(th0), n = pts.length;
+  for (const fl of LAVA) {
+    const pts = fl.pts, n = pts.length;
     const pos = new Float32Array(n * 2 * 3), uv = new Float32Array(n * 2 * 2), col = new Float32Array(n * 2 * 3), idx = [];
     for (let i = 0; i < n; i++) {
       const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
       let tx = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
-      const w = (i < 14 ? 7 + i * 1.3 : 25 - (i / n) * 15) * 0.5, [x, z] = pts[i];
+      const w = fl.hw[i], [x, z] = pts[i];
       for (let sd = 0; sd < 2; sd++) {
         const px = x + (-tz) * w * (sd ? 1 : -1), pz = z + tx * w * (sd ? 1 : -1), k = i * 2 + sd;
-        pos[k * 3] = px; pos[k * 3 + 1] = rawHeightAt(px, pz) + 1.1; pos[k * 3 + 2] = pz;
-        uv[k * 2] = sd; uv[k * 2 + 1] = i * 8 / 36;
-        const f = 3.4 - 2.2 * (i / n);                                         // hot at the crater, cooling downslope
+        pos[k * 3] = px; pos[k * 3 + 1] = rawHeightAt(px, pz) + 1.4; pos[k * 3 + 2] = pz;
+        uv[k * 2] = sd; uv[k * 2 + 1] = i * 14 / 60;
+        const f = 3.4 - 2.2 * (i / n);
         col[k * 3] = f; col[k * 3 + 1] = f * (0.85 - 0.45 * i / n); col[k * 3 + 2] = f * (0.55 - 0.45 * i / n);
       }
       if (i < n - 1) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
@@ -1639,7 +1680,7 @@ export function buildVolcano(T) {
     return m;
   };
   // altitude signs every 500 m, on the uphill side of the road
-  for (let alt = 500; alt <= 4500; alt += 500) {
+  for (let alt = 1000; alt <= 8000; alt += 1000) {
     const phi = phiAtAlt(alt), pt = volcanoPoint(phi), [tx, tz] = tang(phi), tl = Math.hypot(tx, tz);
     const nx = -tz / tl, nz = tx / tl;
     const side = (Math.hypot(pt.x + nx * 9 - V.x, pt.z + nz * 9 - V.z) < pt.r) ? 1 : -1;
@@ -1656,7 +1697,7 @@ export function buildVolcano(T) {
     side: THREE.DoubleSide, roughness: 0.8 }));
   flag.position.set(e.x + 25, e.y + 29, e.z + 18); group.add(flag);
   const [ex, ez] = tang(V.phiMax - 0.02);
-  board(signTex([['SUMMIT', 96, '#ffffff'], ['5,000 m', 110, '#ffd23a']], '#5a1010'), 16, 8, e.x - ez * 0 + 20, e.y, e.z - 20, Math.atan2(-ex, -ez), 4);
+  board(signTex([['SUMMIT', 96, '#ffffff'], ['8,848 m', 110, '#ffd23a']], '#5a1010'), 16, 8, e.x - ez * 0 + 20, e.y, e.z - 20, Math.atan2(-ex, -ez), 4);
   {
     const lx = Math.cos(V.theta), lz = Math.sin(V.theta), lyaw = Math.atan2(lx, lz);
     const gx = V.x + lx * (V.Re + 26), gz = V.z + lz * (V.Re + 26), gy = rawHeightAt(gx, gz);
@@ -1667,19 +1708,19 @@ export function buildVolcano(T) {
       p.position.set(gx + side.x * 14 * sgn, gy + 11, gz + side.z * 14 * sgn); p.castShadow = true; group.add(p);
     }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(30, 3.4, 2.6), pm); beam.position.set(gx, gy + 22, gz); beam.rotation.y = lyaw + Math.PI / 2; beam.castShadow = true; group.add(beam);
-    board(signTex([['MEGA DESCENT', 66, '#ffffff'], ['9 KM · 5,000 M DROP', 40, '#ffd23a']], '#10151c'), 26, 7.2, gx, gy + 18, gz, lyaw + Math.PI, 0);
+    board(signTex([['MEGA DESCENT', 66, '#ffffff'], ['16 KM · 8,848 M DROP', 40, '#ffd23a']], '#10151c'), 26, 7.2, gx, gy + 18, gz, lyaw + Math.PI, 0);
   }
   group.userData.tick = (t) => {
     const pa = flag.geometry.attributes.position;
     for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 0.5 - t * 5) * 0.9 * (pa.getX(i) + 7) / 14);
     pa.needsUpdate = true;
-    glow.intensity = 36000 + Math.sin(t * 3.1) * 5000 + Math.sin(t * 7.3) * 3000;
+    glow.intensity = 80000 + Math.sin(t * 3.1) * 10000 + Math.sin(t * 7.3) * 6000;
     flowTex.offset.y = -t * 0.05;
     lava.material.color.setRGB(1.5 + Math.sin(t * 2) * 0.15, 1.1 + Math.sin(t * 3.3) * 0.12, 0.9);
     for (const p of puffs) {
       const a = ((t * 0.02 + p.ph) % 1);
-      p.sp.position.set(V.x + p.dx + a * 420 + Math.sin(a * 6 + p.ph * 9) * 40, cy + 40 + a * 1500, V.z + p.dz + a * 150);
-      p.mat.uniforms.uSize.value = (160 + a * 800) * p.sz;
+      p.sp.position.set(V.x + p.dx + a * 800 + Math.sin(a * 6 + p.ph * 9) * 40, cy + 60 + a * 3200, V.z + p.dz + a * 300);
+      p.mat.uniforms.uSize.value = (300 + a * 1600) * p.sz;
       p.mat.uniforms.uOp.value = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
       const c = 0.2 + a * 0.35; p.mat.uniforms.uCol.value.setRGB(c, c * 0.95, c * 0.9);
     }

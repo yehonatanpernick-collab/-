@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 import { rawHeight, HALF } from './terrain.js';
 
-const S0 = 256, LEVELS = 8;
-const RES = [64, 64, 32, 32, 32, 32, 32, 32];
+const S0 = 256, LEVELS = 9;
+const RES = [64, 64, 32, 32, 32, 32, 32, 32, 32];
 
 export class FarTerrain {
   constructor(scene, baseMat, colorAt) {

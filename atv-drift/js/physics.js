@@ -135,7 +135,8 @@ export class Vehicle {
   step(dt, input) {
     this.updateAxes();
     const m = CFG.mass;
-    const F = this._f.set(0, -m * GRAVITY, 0);
+    const GR = this.gravity ?? GRAVITY;                       // lower on the moon
+    const F = this._f.set(0, -m * GR, 0);
     const T = this._t.set(0, 0, 0);
     const up = this.up, fwd = this.fwd, left = this.left;
 
@@ -387,7 +388,7 @@ export class Vehicle {
       } else if (grounded >= 2) {
         // ---- stability control: yaw follows the steering, no wandering
         let wantYaw = vF * Math.tan(steerAngle) / 2.28;      // bicycle model (about up)
-        const yawCap = CFG.muFront * GRAVITY * 1.15 / Math.max(Math.abs(vF), 3);   // what grip can deliver
+        const yawCap = CFG.muFront * GR * 1.15 / Math.max(Math.abs(vF), 3);   // what grip can deliver
         if (Math.abs(wantYaw) > yawCap) wantYaw = Math.sign(wantYaw) * yawCap;
         // only ever removes rotation beyond what the steering asks for (never adds yaw)
         const errYaw = wy - wantYaw;
@@ -408,7 +409,7 @@ export class Vehicle {
         const roll = Math.asin(THREE.MathUtils.clamp(left.y, -1, 1));                  // + = leaning right
         const wRoll = this.w.dot(fwd);
         const vk = THREE.MathUtils.clamp(Math.abs(vF) / 9, 0, 1);
-        let tgt = Math.atan(-vF * wy / GRAVITY) * 1.1 * vk;
+        let tgt = Math.atan(-vF * wy / GR) * 1.1 * vk;
         tgt = THREE.MathUtils.clamp(tgt, -0.95, 0.95);
         // while sliding (handbrake) lean less, like a motorcycle drift: bike stays steady
         const tq = CFG.inertia.z * (46 * (tgt - roll) - 12 * wRoll);
@@ -420,7 +421,7 @@ export class Vehicle {
         const noseUpRate = -this.w.dot(left);
         const target = lean < 0 ? 0.5 * -lean : -0.38 * lean;
         const arm = lean < 0 ? 1.14 : 1.14;
-        const ff = m * GRAVITY * arm * Math.cos(pitchUp) * (lean < 0 ? 1 : -1) * Math.min(1, Math.abs(lean));
+        const ff = m * GR * arm * Math.cos(pitchUp) * (lean < 0 ? 1 : -1) * Math.min(1, Math.abs(lean));
         let tq = CFG.inertia.x * (32 * (target - pitchUp) - 8 * noseUpRate) + ff;
         tq = THREE.MathUtils.clamp(tq, -22000, 22000);
         T.addScaledVector(left, -tq);
@@ -452,7 +453,7 @@ export class Vehicle {
       const depth = wl + 0.3 - this.pos.y;
       this.inWater = Math.min(1, depth / 0.8);
       F.addScaledVector(this.vel, -this.inWater * 900);
-      F.y += this.inWater * m * GRAVITY * 0.35;
+      F.y += this.inWater * m * GR * 0.35;
     }
 
     // ---- integrate

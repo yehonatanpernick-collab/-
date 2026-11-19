@@ -32,11 +32,11 @@ export const CANYON = { cz: -585, hw: 17, depth: 16, x0: -10, x1: 240 };
 export const SPECIAL = { x0: -650, x1: -415, z0: -170, z1: 230 };
 
 // ---- far areas (outer ring of the big world)
-// Volcano: a 5000 m cone (real metres, altitude = world height) climbed by a 23 km logarithmic-spiral dirt road.
+// Volcano: an 8,848 m cone (real metres, altitude = world height) climbed by a 43 km logarithmic-spiral dirt road.
 // It sits far east of the main world; the world itself is unbounded (analytic terrain outside the grid).
-export const BOUND = 28000;
+export const BOUND = 60000;
 const LANE_KICK = 500;
-export const VOLCANO = { x: 11000, z: 0, R: 8200, rr: 420, H: 5000, depth: 170, hw: 7.5, Rs: 8100, Re: 560, phiMax: 8.0, p: 1.15 };
+export const VOLCANO = { x: 17500, z: 0, R: 13500, rr: 700, H: 8848, depth: 260, hw: 8.5, Rs: 13300, Re: 850, phiMax: 9.0, p: 1.15 };
 VOLCANO.b = Math.log(VOLCANO.Rs / VOLCANO.Re) / VOLCANO.phiMax;
 VOLCANO.phi0 = Math.PI;                                     // the road starts on the west side, facing the old world
 VOLCANO.theta = VOLCANO.phi0 + VOLCANO.phiMax;              // angle of the summit plaza = the giant descent lane
@@ -44,7 +44,44 @@ export const ALT0 = 0, ALT_PER_M = 1;
 export const altitudeOf = (y) => Math.round(ALT0 + y * ALT_PER_M);
 export const SALT = { x0: 800, x1: 1400, z0: -430, z1: 250 };       // white salt flats: speed + jumps
 export const FOREST = { x: 1010, z: -920, r: 380 };                  // pine hills with a rally loop
-export const COAST = { x: -1125 };                                   // shoreline (sea to the west)
+export const COAST = { x: -1125 };
+// far wild areas, each on its own highway
+export const ICE = { x: 300, z: 4800, r: 1250 };                       // frozen lake: ice is slippery
+export const MESA = { x: 200, z: -5000, r: 1700 };                      // badlands of giant mesas
+export const MOON = { x: 2600, z: -9200, r: 1900 };                     // low-gravity craters
+export const CITY = { x: 3200, z: 3600, h: 520 };                       // neon city with rooftop jumps
+const MESAS = [[0, 0, 230, 120], [520, -330, 180, 96], [-460, 280, 200, 140], [760, 380, 150, 82], [-860, -360, 170, 110], [220, 760, 210, 100], [-120, -880, 190, 72]];
+const CRATERS = (() => { const R = rng(99), out = []; for (let i = 0; i < 46; i++) { const a = R() * 6.283, d = Math.sqrt(R()) * 1500; out.push({ x: MOON.x + Math.cos(a) * d, z: MOON.z + Math.sin(a) * d, r: 40 + R() * R() * 230, d: 6 + R() * 40 }); } return out; })();
+const MOON_FLATS = [[-1250, -300, -170, -30], [-1000, -450, 130, 640], [20, 380, 380, 720]];      // runways / pads, relative to the crater field centre
+export const gravityAt = (x, z) => {
+  const d = Math.hypot(x - MOON.x, z - MOON.z);
+  return d > MOON.r ? 13 : 13 - 9.6 * (1 - smoothstep(MOON.r * 0.8, MOON.r, d));
+};
+export const LAVA = [];                                                    // lava rivers {pts:[[x,z]], hw:[half widths]}
+export function lavaAt(x, z) {
+  const V = VOLCANO;
+  if (Math.hypot(x - V.x, z - V.z) > V.rr + 6500) return false;
+  for (const f of LAVA) {
+    for (let i = 0; i < f.pts.length - 1; i++) {
+      const a = f.pts[i], b = f.pts[i + 1];
+      if (distToSeg(x, z, a[0], a[1], b[0], b[1]) < f.hw[i] * 0.8) return true;
+    }
+  }
+  return false;
+}
+export const PADS = [];                                                   // landing pads {x,z,r,y}
+export const HIGHWAYS = [
+  [[1400, 0], [2600, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                    // east: to the volcano
+  [[150, 700], [250, 2500], [300, 3500]],                                 // south: ice lake
+  [[100, -690], [150, -2800], [200, -3500]],                              // north: mesas
+  [[1300, -1100], [2000, -3500], [2400, -5600], [2500, -7500]],            // north-east: moon
+  [[1400, 250], [2200, 1800], [2900, 3000]],                              // south-east: neon city
+];
+export function highwayDist(x, z) {
+  let d = 1e9;
+  for (const h of HIGHWAYS) for (let i = 0; i < h.length - 1; i++) d = Math.min(d, distToSeg(x, z, h[i][0], h[i][1], h[i + 1][0], h[i + 1][1]));
+  return d;
+}                                   // shoreline (sea to the west)
 export const shoreX = (z) => COAST.x + Math.sin(z * 0.006) * 45 + Math.sin(z * 0.017 + 2) * 18;
 
 export function coneH(r) {
@@ -165,7 +202,6 @@ export const ROADS = [
   [[120, 180], [300, 260], [450, 225]],
   // far areas
   [[398, 20], [560, 10], [800, -10], [1000, 0]],                              // salt flats
-  [[1000, 0], [1500, 0], [2200, 0], [2900, 0]],                              // autobahn to the volcano
   [[400, -300], [560, -450], [780, -700], [900, -820]],                       // pine forest
   [[-610, -380], [-820, -330], [-1000, -300], [-1090, -255]],            // coast
 ];
@@ -419,10 +455,60 @@ export function rawHeight(x, z, noTracks = false) {
       h = hb;
     }
   }
-  // ---- autobahn: from the salt flats east to the foot of the volcano
-  if (x > 1300 && x < 3000) {
-    const f = 1 - smoothstep(12, 50, Math.abs(z));
-    if (f > 0) h = lerp(h, 0.4 + (x > 2500 ? (x - 2500) / 400 * 30 * smoothstep(2500, 2900, x) : 0), f);
+  // ---- wild areas
+  {
+    const d = Math.hypot(x - ICE.x, z - ICE.z);
+    if (d < 3000) {
+      h = lerp(h, 0.25 + (fbm(x * 0.01, z * 0.01, 2) - 0.5) * 0.3, 1 - smoothstep(ICE.r, ICE.r + 260, d));
+      const rim = smoothstep(ICE.r + 150, ICE.r + 450, d) * (1 - smoothstep(ICE.r + 900, ICE.r + 1500, d));
+      h += rim * (40 + 55 * fbm(x * 0.004, z * 0.004, 3));
+    }
+  }
+  {
+    const dx = x - MESA.x, dz = z - MESA.z, d0 = Math.hypot(dx, dz);
+    if (d0 < MESA.r + 500) {
+      h = lerp(h, 0.6, 1 - smoothstep(MESA.r * 0.6, MESA.r + 300, d0));
+      for (let k = 0; k < MESAS.length; k++) {
+        const m = MESAS[k], d = Math.hypot(dx - m[0], dz - m[1]) + (fbm(x * 0.02, z * 0.02, 2) - 0.5) * 26;
+        const f = 1 - smoothstep(m[2] - 10, m[2] + 10, d);
+        if (f > 0) h = Math.max(h, 0.6 + m[3] * Math.pow(f, 0.8) + (fbm(x * 0.05, z * 0.05, 2) - 0.5) * 2 * f);
+      }
+    }
+  }
+  {
+    const dm = Math.hypot(x - MOON.x, z - MOON.z);
+    if (dm < MOON.r + 400) {
+      let hm = 2 + (fbm(x * 0.004, z * 0.004, 4) - 0.5) * 14;
+      for (let k = 0; k < CRATERS.length; k++) {
+        const c = CRATERS[k], dd = Math.hypot(x - c.x, z - c.z);
+        if (dd > c.r * 1.6) continue;
+        const t = dd / c.r;
+        hm -= c.d * (1 - smoothstep(0, 1, t));
+        hm += c.d * 0.38 * Math.exp(-Math.pow((t - 1.08) * 5, 2));
+      }
+      for (let k = 0; k < MOON_FLATS.length; k++) {
+        const f = MOON_FLATS[k], ddx = Math.max(MOON.x + f[0] - x, 0, x - (MOON.x + f[1])), ddz = Math.max(MOON.z + f[2] - z, 0, z - (MOON.z + f[3]));
+        hm = lerp(hm, 2, 1 - smoothstep(0, 70, Math.hypot(ddx, ddz)));
+      }
+      h = lerp(h, hm, 1 - smoothstep(MOON.r, MOON.r + 350, dm));
+    }
+  }
+  {
+    const dx = Math.max(Math.abs(x - CITY.x) - CITY.h, 0), dz = Math.max(Math.abs(z - CITY.z) - CITY.h, 0);
+    if (dx < 200 && dz < 200) h = lerp(h, 0.3, 1 - smoothstep(0, 140, Math.hypot(dx, dz)));
+  }
+  for (const pd of PADS) {                                                          // landing pads of the big trampolines
+    const d = Math.hypot(x - pd.x, z - pd.z);
+    if (d < pd.r + 40) h = lerp(h, pd.y, 1 - smoothstep(pd.r * 0.8, pd.r + 38, d));
+  }
+  // ---- highways: flat roads between the areas (the east one ramps up to the volcano foot)
+  {
+    const hd = highwayDist(x, z);
+    if (hd < 62) {
+      const V0 = VOLCANO, ex = V0.x - V0.Rs;
+      const yh = x > ex - 800 ? 0.4 + (coneH(V0.Rs) - 0.4) * smoothstep(ex - 800, ex, x) : 0.4;
+      h = lerp(h, yh, 1 - smoothstep(12, 62, hd));
+    }
   }
   {
     const V = VOLCANO, dx = x - V.x, dz = z - V.z, r = Math.hypot(dx, dz);
@@ -438,11 +524,11 @@ export function rawHeight(x, z, noTracks = false) {
         const atten = smoothstep(V.hw + 20, 900, dEdge);               // relief fades out next to the road and the lane
         const s4 = 4 * t * (1 - t);
         const flat = smoothstep(V.rr * 0.3, V.rr * 0.8, r);            // crater floor stays level
-        const noise = ((fbm(x * 0.0007 + 9, z * 0.0007 + 3, 4) - 0.5) * 2 * 380 + (fbm(x * 0.0045, z * 0.0045, 4) - 0.5) * 2 * 90) * s4
-          + Math.sin(th * 61 + fbm(x * 0.0012, z * 0.0012, 3) * 11) * 45 * s4 * s4
-          + (fbm(x * 0.012 + 4, z * 0.012 - 2, 4) - 0.5) * 2 * 40 * s4                       // ribs and buttresses
-          + Math.sin(th * 173 + fbm(x * 0.004, z * 0.004, 3) * 14) * 9 * s4                   // fine gullies
-          + (fbm(x * 0.05 + 7, z * 0.05, 3) - 0.5) * 2 * 6 * s4;                              // boulder-scale roughness
+        const noise = ((fbm(x * 0.0004 + 9, z * 0.0004 + 3, 4) - 0.5) * 2 * 700 + (fbm(x * 0.0026, z * 0.0026, 4) - 0.5) * 2 * 160) * s4
+          + Math.sin(th * 61 + fbm(x * 0.0007, z * 0.0007, 3) * 11) * 80 * s4 * s4
+          + (fbm(x * 0.008 + 4, z * 0.008 - 2, 4) - 0.5) * 2 * 70 * s4                       // ribs and buttresses
+          + Math.sin(th * 173 + fbm(x * 0.0025, z * 0.0025, 3) * 14) * 14 * s4                // fine gullies
+          + (fbm(x * 0.04 + 7, z * 0.04, 3) - 0.5) * 2 * 9 * s4;                              // boulder-scale roughness
         h = h * (1 - 0.92 * w) + hc + noise * atten * flat;
       }
       // the descent lane: smooth, straight, from the plaza all the way out over the plain (a runway at the foot)
@@ -643,7 +729,7 @@ export const grandstands = [];
 export const PI = Math.PI;
 
 // ------------------------------------------------------------------ moving floors and bounce pads
-export const trampolines = [];     // {x,z,r,power}: launches the buggy straight up
+export const trampolines = [];     // {x,z,r,power}: launches the buggy straight up; with `aim` {vx,vy,vz} it launches along that velocity
 export const turntables = [];      // {x,z,r,w,angle}: a rotating floor, w in rad/s (+ = counter-clockwise from above)
 const _fv = { x: 0, z: 0 };
 // velocity of the floor under (x,z), so tyres grip the moving surface rather than the world
@@ -825,10 +911,114 @@ function buildSpecial(line) {
   turntables.push({ x: -600, z: 208, r: 18, w: 0.9, angle: 0 }, { x: -548, z: 208, r: 16, w: -1.05, angle: 0 });
 }
 
+// ---------------------------------------------------------------- lava rivers from the crater
+function buildLava() {
+  LAVA.length = 0;
+  const V = VOLCANO;
+  for (const off of [0.9, 1.7, 2.5, 3.3, 4.1, 5.2]) {
+    const th0 = V.theta + off, pts = [], hw = [], step = 14;
+    let x = V.x + Math.cos(th0) * V.rr, z = V.z + Math.sin(th0) * V.rr, dx = Math.cos(th0), dz = Math.sin(th0);
+    for (let i = 0; i < 240; i++) {
+      pts.push([x, z]); hw.push((i < 14 ? 12 + i * 2 : 40 - (i / 240) * 22) * 0.5);
+      const e = 10, gx = (rawHeight(x + e, z) - rawHeight(x - e, z)) / (2 * e), gz = (rawHeight(x, z + e) - rawHeight(x, z - e)) / (2 * e);
+      let nx = -gx, nz = -gz; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      dx = dx * 0.78 + nx * 0.22; dz = dz * 0.78 + nz * 0.22;
+      const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
+      x += dx * step; z += dz * step;
+    }
+    LAVA.push({ pts, hw });
+  }
+}
+// launch velocity to fly from A to B in T seconds under gravity g
+const aimVel = (ax, ay, az, bx, by, bz, T, g = 13) => ({ vx: (bx - ax) / T, vz: (bz - az) / T, vy: (by - ay + 0.5 * g * T * T) / T });
+function buildBigTrampolines() {
+  const V = VOLCANO;
+  // 1) ground -> mountain: a giant trampoline at the end of the highway shoots you onto the first stretch of the road
+  const p0 = volcanoPoint(0.03);
+  const g1 = { x: V.x - V.Rs - 90, z: 20, y: 0.4 };
+  PADS.push({ x: p0.x, z: p0.z, r: 38, y: p0.y });
+  PADS.push({ x: g1.x, z: g1.z, r: 20, y: 0.4 });
+  const a1 = aimVel(g1.x, 4, g1.z, p0.x, p0.y + 3, p0.z, 7);
+  trampolines.push({ x: g1.x, z: g1.z, r: 15, power: 40, aim: a1, big: true, label: 'מהאדמה אל ההר' });
+  // 2) mountain -> ground: from the road a little higher up, back to a landing pad on the plain
+  const p1 = volcanoPoint(0.05), land = { x: V.x - V.Rs - 330, z: p1.z + 220, y: 0.4 };
+  PADS.push({ x: land.x, z: land.z, r: 55, y: 0.4 });
+  const a2 = aimVel(p1.x, p1.y + 4, p1.z, land.x, 4, land.z, 8.5);
+  trampolines.push({ x: p1.x, z: p1.z, r: 15, power: 40, aim: a2, big: true, label: 'מההר אל האדמה' });
+}
+// ---------------------------------------------------------------- wild areas (north mesas, south ice, north-east moon, south-east city)
+function buildWild(line) {
+  const E = PI / 2, Wd = -PI / 2, S = 0, N = PI;
+  // ---- ICE LAKE: long jump lanes across the frozen lake, icebergs to weave through, one gigantic ramp
+  {
+    const cx = ICE.x, cz = ICE.z;
+    line('ice rhythm', cx - 700, cz - 300, E, 'named', [cx - 900, cz - 300]);
+    jumpPair(cx - 700, cz - 300, E, { W: 14, Lk: 26, Hk: 6, gap: 60, Lw: 40, Hw: 5 });
+    jumpPair(cx - 450, cz - 300, E, { W: 16, Lk: 34, Hk: 11, gap: 90, Lw: 52, Hw: 9 });
+    line('ice mega', cx - 800, cz + 100, E, 'named', [cx - 1000, cz + 100]);
+    jumpPair(cx - 800, cz + 100, E, { W: 18, Lk: 80, Hk: 26, p: 1.7, gap: 190, Lw: 140, Hw: 20, Ww: 34 });
+    for (let k = 0; k < 40; k++) { const a = k * 2.399, d = 150 + (k * 37) % 650, bx = cx + Math.cos(a) * d + 150, bz = cz + 300 + Math.sin(a) * d * 0.6; if ((Math.abs(bz - (cz - 300)) < 70 || Math.abs(bz - (cz + 100)) < 90) && bx < cx + 120) continue; boxG(bx, bz, a, 14 + (k % 5) * 5, 20 + (k % 4) * 8, 6 + (k % 6) * 3, { style: 'box', cy: 0.25 }); }
+    kickerG(cx + 500, cz + 450, Wd, 40, 24, 18, 2.7, 10, { style: 'qp', cy: 0.25 }); kickerG(cx + 600, cz + 450, E, 40, 24, 18, 2.7, 10, { style: 'qp', cy: 0.25 });
+  }
+  // ---- MESAS: climb a long ramp to the top, then fly off the cliff to the badlands floor
+  {
+    const mx = MESA.x, mz = MESA.z;
+    [[0, 120, 0], [2, 140, 1], [4, 110, 2]].forEach(([ix, H, k]) => {
+      const m = MESAS[ix], cx = mx + m[0], cz = mz + m[1], r = m[2], top = 0.6 + H;
+      const L = H * 4.2;
+      const yaw = k % 2 ? E : Wd;                                     // ramp up on one side
+      const dirx = Math.sin(yaw), dirz = Math.cos(yaw);
+      // access wedge: starts 12 m before the cliff
+      wedgeG(cx - dirx * (r + L / 2 - 4), cz - dirz * (r + L / 2 - 4), yaw, 20, L, H + 1, { cy: 0.6 });
+      // fly off the cliff edge; a curved landing slope hugging the cliff catches you
+      const ex = cx + dirx * (r - 10), ez = cz + dirz * (r - 10);
+      line('mesa jump ' + k, ex, ez, yaw, 'manual', [cx - dirx * (r - 70), cz - dirz * (r - 70)]);
+      const prof = [];
+      const U = 300;
+      for (let u = 15; u <= U; u += 10) prof.push([u, Math.max(0.1, top * Math.pow(1 - u / U, 2) - 1)]);
+      addRamp(ex, ez, yaw, 44, prof, { cy: 0, base: -1.5, style: 'ramp' });
+    });
+  }
+  // ---- MOON: ramps built for low gravity (flights are four times longer)
+  {
+    const cx = MOON.x, cz = MOON.z;
+    line('moon giga', cx - 900, cz - 100, E, 'manual', [cx - 1100, cz - 100]);
+    kickerG(cx - 900, cz - 100, E, 20, 80, 22, 1.6, 12, { cy: 2 });
+    wedgeG(cx - 900 + 40 + 250, cz - 100, Wd, 40, 300, 7, { cy: 2 });
+    for (let k = 0; k < 6; k++) { kickerG(cx - 700, cz + 200 + k * 60, E, 14, 20 + k * 6, 4 + k * 2.5, 1.7, 8, { cy: 2 }); }
+    kickerG(cx + 200, cz + 500, N, 44, 26, 20, 2.7, 10, { style: 'qp', cy: 2 }); kickerG(cx + 200, cz + 600, S, 44, 26, 20, 2.7, 10, { style: 'qp', cy: 2 });
+  }
+  // ---- NEON CITY: a grid of towers, rooftop-to-rooftop jumps and street ramps
+  {
+    const cx = CITY.x, cz = CITY.z, R = rng(2024);
+    const towers = [];
+    for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) {
+      if (Math.abs(i) <= 0 && Math.abs(j) <= 0) continue;
+      if (R() < 0.22) continue;
+      const x = cx + i * 110, z = cz + j * 110, H = 18 + Math.floor(R() * 60), k = (i + j + 9) % 3;
+      boxG(x, z, 0, 54 + R() * 14, 54 + R() * 14, H, { style: 'bldg' + k, cy: 0.3, base: -3.5 });
+      towers.push({ x, z, H });
+    }
+    // street jumps (the streets run between the towers, 42 m wide) + an elevated deck jump
+    const sx = cx + 55;
+    line('city street 1', sx, cz - 280, S, 'manual', [sx, cz - 500]);
+    jumpPair(sx, cz - 280, S, { W: 14, Lk: 30, Hk: 9, gap: 70, Lw: 44, Hw: 7, cy: 0.3 });
+    const z0 = cz + 400;
+    line('city deck', sx, z0 + 100, N, 'manual', [sx, z0 + 190]);
+    wedgeG(sx, z0, N, 20, 130, 26, { cy: 0.3 });
+    boxG(sx, z0 - 110, N, 20, 90, 26, { cy: 0.3, base: -3.5 });
+    kickerG(sx, z0 - 167, N, 16, 24, 5, 1.6, 8, { cy: 26.3 });
+    wedgeG(sx, z0 - 179 - 60 - 25, S, 24, 50, 20, { cy: 0.3 });
+  }
+}
+
 // ---------------------------------------------------------------- far areas: salt flats, volcano, coast
 function buildFar() {
   const line = (name, x, z, yaw, kind = 'named', start = null) => stuntLines.push({ name, x, z, yaw, kind, start });
   const E = PI / 2, Wd = -PI / 2, S = 0, Nn = PI;
+  buildLava();
+  buildBigTrampolines();
+  buildWild(line);
   // ---- salt flats (x 800..1400, z -430..250): long lanes heading east
   line('salt rhythm', 880, -360, E, 'named', [820, -360]); line('salt GIGA', 960, -260, E, 'named', [806, -260]);
   line('salt tables', 880, -160, E, 'named', [815, -160]);
@@ -1338,14 +1528,16 @@ export function surfaceAt(x, z) {
         return terrainHeight(x, z) > 2300 ? 'snow' : 'dirt';
       }
     }
-    if (Math.abs(z) < 12 && x < 3000) return 'asphalt';
   }
+  if (highwayDist(x, z) < 10) return 'asphalt';
+  if (Math.hypot(x - ICE.x, z - ICE.z) < ICE.r) return 'ice';
+  if (Math.abs(x - CITY.x) < CITY.h + 40 && Math.abs(z - CITY.z) < CITY.h + 40) return 'asphalt';
   if (Math.hypot(x - FOREST.x, z - FOREST.z) < FOREST.r * 0.9) return 'dirt';
   if (x < shoreX(z) + 180) return 'sand';
   return 'sand';
 }
 // lateral grip per surface (drive / braking are not limited by surface)
-export const GRIP = { asphalt: 1.0, concrete: 1.0, ramp: 1.0, chute: 1.0, dirt: 0.94, sand: 0.9, salt: 0.78, snow: 0.7 };
+export const GRIP = { asphalt: 1.0, concrete: 1.0, ramp: 1.0, chute: 1.0, dirt: 0.94, sand: 0.9, salt: 0.78, snow: 0.7, ice: 0.45 };
 // areas where drifting scores double
 export function driftZone(x, z) {
   return Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 4 ||
@@ -1359,10 +1551,15 @@ function buildZones() {
   const inRect = (R, m = 0) => (x, z) => x > R.x0 - m && x < R.x1 + m && z > R.z0 - m && z < R.z1 + m;
   ZONES.length = 0;
   ZONES.push(
-    { id: 'summit', name: 'פסגת הר הגעש · 5,000 מ׳', sub: 'מעל העננים · מגלשת הענק · קפיצה למכתש', ...(() => { const e = volcanoPoint(VOLCANO.phiMax - 0.12); return { x: e.x, z: e.z, yaw: volcanoYaw(VOLCANO.phiMax - 0.12) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.Re + 160 && terrainHeight(x, z) > VOLCANO.H * 0.9 },
-    { id: 'volcano4', name: 'הר הגעש · 4,000 מ׳', sub: 'מעל העננים · שלג', ...(() => { const f = phiAtAlt(4000), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 3500 },
+    { id: 'summit', name: 'פסגת הר הגעש · 8,848 מ׳', sub: 'מעל העננים · מגלשת הענק · קפיצה למכתש', ...(() => { const e = volcanoPoint(VOLCANO.phiMax - 0.12); return { x: e.x, z: e.z, yaw: volcanoYaw(VOLCANO.phiMax - 0.12) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.Re + 160 && terrainHeight(x, z) > VOLCANO.H * 0.9 },
+    { id: 'volcano6', name: 'הר הגעש · 6,000 מ׳', sub: 'מעל העננים · שלג', ...(() => { const f = phiAtAlt(6000), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 5000 },
+    { id: 'volcano4', name: 'הר הגעש · 4,000 מ׳', sub: 'קרח ושלג', ...(() => { const f = phiAtAlt(4000), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 3000 },
     { id: 'volcano2', name: 'הר הגעש · 2,000 מ׳', sub: 'סלעי געש · שביל מתפתל', ...(() => { const f = phiAtAlt(2000), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 1000 },
-    { id: 'volcano', name: 'למרגלות הר הגעש', sub: 'תחילת הדרך ל-5,000 מטר', ...(() => { const e = volcanoPoint(0.05); return { x: e.x, z: e.z, yaw: volcanoYaw(0.05) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R * 1.04 },
+    { id: 'volcano', name: 'למרגלות הר הגעש', sub: 'תחילת הדרך ל-8,848 מטר · מקפצות לתוך ההר', ...(() => { const e = volcanoPoint(0.05); return { x: e.x, z: e.z, yaw: volcanoYaw(0.05) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R * 1.04 },
+    { id: 'ice', name: 'אגם הקרח', sub: 'קרח חלק מאוד · קפיצות ענק', x: ICE.x, z: ICE.z - 1000, yaw: 0, inside: (x, z) => Math.hypot(x - ICE.x, z - ICE.z) < ICE.r + 300 },
+    { id: 'mesa', name: 'ארץ המסות', sub: 'עלייה למעלה וקפיצה מהצוק', x: MESA.x + 60, z: MESA.z + 1100, yaw: PI, inside: (x, z) => Math.hypot(x - MESA.x, z - MESA.z) < MESA.r },
+    { id: 'moon', name: 'עמק הירח', sub: 'כבידה נמוכה · מכתשים · קפיצות של קילומטר', x: MOON.x - 1300, z: MOON.z, yaw: PI / 2, inside: (x, z) => Math.hypot(x - MOON.x, z - MOON.z) < MOON.r },
+    { id: 'city', name: 'עיר הניאון', sub: 'מגדלים · קפיצות בין גגות', x: CITY.x - 760, z: CITY.z + 440, yaw: PI / 2, inside: (x, z) => Math.abs(x - CITY.x) < CITY.h + 100 && Math.abs(z - CITY.z) < CITY.h + 100 },
     { id: 'salt', name: 'מישורי המלח', sub: 'מהירות · קפיצות ענק · פיפות', x: 825, z: -150, yaw: PI / 2, inside: inRect(SALT, 10) },
     { id: 'forest', name: 'יער האורנים', sub: 'ראלי עפר בין העצים · מדידת הקפה', ...tStart(TRACKS[2]), inside: (x, z) => Math.hypot(x - FOREST.x, z - FOREST.z) < FOREST.r },
     { id: 'coast', name: 'חוף הים', sub: 'חול לבן · קפיצות לתוך המים', x: -1040, z: 0, yaw: -PI / 2, inside: (x, z) => x < shoreX(z) + 200 },
