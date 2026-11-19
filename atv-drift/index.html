@@ -157,6 +157,10 @@
   .btn.travel span { font-size: 11px; color: var(--muted); font-weight: 400; }
   .btn.travel:hover, .btn:focus-visible { border-color: var(--gold); outline: none; }
 
+  .car-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .car-card.loading { opacity: .55; }
+  .car-card.loading b::after { content: ' · טוען…'; font-weight: 400; color: var(--gold); }
+  @media (max-width: 700px) { .car-grid { grid-template-columns: 1fr 1fr; } }
   .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .mode-card { text-align: right; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: #fff;
     display: flex; flex-direction: column; gap: 3px; transition: border-color .15s, background .15s; }
@@ -240,10 +244,7 @@
       <button class="btn ghost open-settings">הגדרות ומקשים</button>
     </div>
     <div class="section-title">בחירת רכב</div>
-    <div class="modes" id="car-cards">
-      <button class="mode-card" data-car="rzr"><b>Polaris RZR</b><span>הבאגי הקלאסי: יציב ומאוזן</span></button>
-      <button class="mode-card" data-car="maverick"><b>Can-Am Maverick R</b><span>חדש! חזק ורחב יותר, מהיר יותר</span></button>
-    </div>
+    <div class="car-grid"></div>
     <div class="section-title">צבע הבאגי</div>
     <div id="swatches"></div>
     <div class="section-title">שליטה</div>
@@ -254,7 +255,7 @@
 <div class="credit">Polaris RZR model: “2016 Polaris RZR XP 1000 EPS High Lifter” by
   <a href="https://sketchfab.com/ddiaz-design" target="_blank" rel="noopener">Ddiaz Design</a>,
   <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> ·
-  Can-Am Maverick: “CAN AM maverick” by <a href="https://sketchfab.com/AGRO3DMODEL" target="_blank" rel="noopener">AGRO3DMODEL</a>, <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></div>
+  Can-Am Maverick: “CAN AM maverick” by <a href="https://sketchfab.com/AGRO3DMODEL" target="_blank" rel="noopener">AGRO3DMODEL</a> · Jeep Rubicon: “Jeep Rubicon” by <a href="https://sketchfab.com/Armawiz" target="_blank" rel="noopener">Armawiz</a> · Dirt bike: “KTM 450 EXC” by <a href="https://sketchfab.com/mx-3d" target="_blank" rel="noopener">mx-3d</a> · Quad: “Quad Bike 3d” by <a href="https://sketchfab.com/Deepu.Dra" target="_blank" rel="noopener">Deepu.Dra</a> · Monster truck: “Terradyne Gurkha Monster Truck Game Model” by <a href="https://sketchfab.com/hebsoto" target="_blank" rel="noopener">hebsoto</a> · all <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (via Sketchfab)</div>
 
 <div id="hud" class="hidden">
   <div id="speedfx"></div>
@@ -303,6 +304,8 @@
       <button class="mode-card" data-mode="normal"><b>נסיעה רגילה</b><span>אחיזה ויציבות</span></button>
       <button class="mode-card" data-mode="drift"><b>מצב דריפט</b><span>החלקות ארוכות וכיפיות</span></button>
     </div>
+    <div class="section-title">בחירת רכב</div>
+    <div class="car-grid"></div>
     <div class="section-title">קפיצה לאזור בעולם</div>
     <div id="travel"></div>
   </div>
@@ -313,6 +316,8 @@
     <div class="settings-head"><h2>הגדרות</h2><button class="btn primary" id="settings-close">סגירה</button></div>
     <div class="set-row"><span>גרפיקה</span><button class="btn" id="q-btn">גבוהה</button></div>
     <div class="set-row"><span>צליל</span><button class="btn" id="mute-btn">פועל</button></div>
+    <div class="section-title">בחירת רכב</div>
+    <div class="car-grid"></div>
     <div class="section-title">מקשים · לחץ על מקש כדי לשנות אותו</div>
     <div id="keys"></div>
     <div class="btn-row"><button class="btn" id="keys-reset">החזרת ברירת המחדל</button></div>

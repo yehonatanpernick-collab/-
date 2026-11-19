@@ -8,8 +8,8 @@ import * as TR from './terrain.js';
 import { Vehicle, GRAVITY, CFG } from './physics.js';
 import * as W from './world.js';
 import { loadCar, syncCar } from './car.js';
-import { buildMaverick } from './car2.js';
 import { loadMaverick } from './car3.js';
+import { loadRig, RIG_SPECS } from './rigs.js';
 import { Particles, Skids } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Input, ACTIONS, keyLabel } from './input.js';
@@ -132,35 +132,66 @@ try {
   $('#load-msg').textContent = 'שגיאה בטעינת הדגם: ' + e.message;
   throw e;
 }
-const cars = { rzr: car, maverick: buildMaverick() };
-scene.add(cars.maverick.root);
-const CAR_TUNE = { rzr: { engine: CFG.engine, maxSpeed: CFG.maxSpeed, boostSpeed: CFG.boostSpeed }, maverick: { engine: CFG.engine * 1.12, maxSpeed: CFG.maxSpeed * 1.07, boostSpeed: CFG.boostSpeed * 1.05 } };
-const CAR_PAINT = { rzr: null, maverick: null };
-let carId = store.get('car', 'rzr');
-if (!cars[carId]) carId = 'rzr';
-function selectCar(id) {
-  carId = id; car = cars[id]; store.set('car', id);
-  for (const k in cars) cars[k].root.visible = k === id;
-  Object.assign(CFG, CAR_TUNE[id]);
-  const pc = store.get('paint_' + id, null); if (pc) car.setPaint(pc);
-  document.querySelectorAll('[data-car]').forEach(b => b.classList.toggle('sel', b.dataset.car === id));
-  if (typeof markPaint === 'function') markPaint();
-}
+const CARS = [
+  { id: 'rzr', name: 'Polaris RZR', sub: 'הבאגי הקלאסי: יציב ומאוזן', tune: { engine: 1, maxSpeed: 1 } },
+  { id: 'maverick', name: 'Can-Am Maverick', sub: 'חזק, רחב ומהיר', tune: { engine: 1.12, maxSpeed: 1.07 }, load: () => loadMaverick(window.DUNE_MAV_URL || 'assets/maverick.glb') },
+  { id: 'jeep', name: "ג'יפ רוביקון", sub: 'שטח קלאסי, אחיזה מצוינת', load: () => loadRig({ ...RIG_SPECS.jeep, url: window.DUNE_JEEP_URL || RIG_SPECS.jeep.url }) },
+  { id: 'bike', name: 'אופנוע שטח', sub: 'קל, זריז ונוטה בסיבובים', load: () => loadRig({ ...RIG_SPECS.bike, url: window.DUNE_BIKE_URL || RIG_SPECS.bike.url }) },
+  { id: 'quad', name: 'טרקטורון קטן', sub: 'קטן וחמוד, כיף בדריפטים', load: () => loadRig({ ...RIG_SPECS.quad, url: window.DUNE_QUAD_URL || RIG_SPECS.quad.url }) },
+  { id: 'monster', name: 'מונסטר טראק', sub: 'גלגלי ענק, עובר על הכל', load: () => loadRig({ ...RIG_SPECS.monster, url: window.DUNE_MONSTER_URL || RIG_SPECS.monster.url }) },
+];
+const cars = { rzr: car };
+car.spec = { wheelR: 0.375, halfTrack: 0.70, halfBase: 1.14 }; car.paintable = true;
+const BASE = { engine: CFG.engine, maxSpeed: CFG.maxSpeed, boostSpeed: CFG.boostSpeed };
+let carId = 'rzr', wantCar = 'rzr';
 scene.add(car.root);
+let veh;                                   // created below
+async function selectCar(id) {
+  const def = CARS.find(c => c.id === id); if (!def) return;
+  wantCar = id; store.set('car', id);
+  markCars();
+  if (!cars[id]) {
+    markCars(id);
+    try {
+      const c = await def.load();
+      if (!c.spec) c.spec = { wheelR: 0.375, halfTrack: 0.70, halfBase: 1.14 };
+      if (c.paintable === undefined) c.paintable = true;
+      cars[id] = c; scene.add(c.root);
+    } catch (e) { console.warn('car load failed', id, e); wantCar = carId; markCars(); return; }
+  }
+  if (wantCar !== id) return;                       // user picked another one meanwhile
+  carId = id; car = cars[id];
+  for (const k in cars) cars[k].root.visible = k === id;
+  const t = def.tune || car.spec.tune || { engine: 1, maxSpeed: 1 };
+  Object.assign(CFG, { engine: BASE.engine * (t.engine || 1), maxSpeed: BASE.maxSpeed * (t.maxSpeed || 1), boostSpeed: BASE.boostSpeed * (t.maxSpeed || 1) });
+  if (veh) veh.applySpec(car.spec);
+  const pc = store.get('paint_' + id, null); if (pc && car.paintable) car.setPaint(pc);
+  markCars(); if (markPaint) markPaint();
+}
+function markCars(loading) {
+  document.querySelectorAll('[data-car]').forEach(b => {
+    b.classList.toggle('sel', b.dataset.car === wantCar);
+    b.classList.toggle('loading', b.dataset.car === loading);
+  });
+}
+function buildCarCards() {
+  const html = CARS.map(c => `<button class="mode-card car-card" data-car="${c.id}"><b>${c.name}</b><span>${c.sub}</span></button>`).join('');
+  document.querySelectorAll('.car-grid').forEach(g => {
+    g.innerHTML = html;
+    g.addEventListener('click', (e) => { const b = e.target.closest('[data-car]'); if (b) selectCar(b.dataset.car); });
+  });
+}
 const PAINTS = [
   { c: '#c8102e', n: 'אדום' }, { c: '#f2a900', n: 'צהוב' }, { c: '#1e6fd9', n: 'כחול' },
   { c: '#2a2a2e', n: 'שחור' }, { c: '#f2f2f2', n: 'לבן' }, { c: '#2bb34a', n: 'ירוק' },
 ];
 let paint = null;
 let markPaint = null;
-selectCar(carId);
-loadMaverick(window.DUNE_MAV_URL || 'assets/maverick.glb').then(real => {   // swap in the real model when it arrives
-  const old = cars.maverick; scene.remove(old.root);
-  cars.maverick = real; scene.add(real.root); selectCar(carId);
-}).catch(e => console.warn('Maverick model failed, using fallback', e));
-const veh = new Vehicle();
+veh = new Vehicle();
 veh.reset(TR.SPAWN.x, TR.SPAWN.z, TR.SPAWN.yaw);
+buildCarCards();
 setLoad(1, 'מוכן!');
+selectCar(store.get('car', 'rzr'));
 
 const audio = new GameAudio();
 audio.muted = store.get('muted', false);
@@ -782,14 +813,12 @@ $('#settings-close').addEventListener('click', () => openSettings(false));
 function buildMenu() {
   const sw = $('#swatches');
   sw.innerHTML = PAINTS.map(p => `<button class="sw" style="--c:${p.c}" data-c="${p.c}" aria-label="${p.n}" title="${p.n}"></button>`).join('');
-  const mark = markPaint = () => { paint = store.get('paint_' + carId, null); sw.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === paint)); };
+  const mark = markPaint = () => { sw.hidden = sw.previousElementSibling.hidden = !car.paintable; paint = store.get('paint_' + carId, null); sw.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === paint)); };
   sw.addEventListener('click', (e) => {
     const b = e.target.closest('.sw'); if (!b) return;
     car.setPaint(b.dataset.c); store.set('paint_' + carId, b.dataset.c); mark();
   });
   mark();
-  document.querySelectorAll('[data-car]').forEach(b => b.addEventListener('click', () => selectCar(b.dataset.car)));
-  selectCar(carId);
   if (G.best > 0) $('#menu-best').textContent = `שיא ניקוד: ${fmt(G.best)}`;
 }
 function startGame() {
@@ -1061,5 +1090,5 @@ renderHelp();
 $('#loading').classList.remove('show');
 $('#menu').classList.remove('hidden');
 addEventListener('resize', () => { if (G.state !== 'menu') sizeCanvases(); });
-window.__game = { veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
+window.__game = { selectCar, get car() { return car; }, get carId() { return carId; }, veh, G, camera, scene, renderer, startGame, TR, lapCheck, input, setMode, THREE };
 frame();

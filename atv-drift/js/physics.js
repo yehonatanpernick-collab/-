@@ -79,6 +79,7 @@ export class Vehicle {
     }));
     this.grounded = 0;
     this.airTime = 0;
+    this.spec = { wheelR: 0.375, halfTrack: 0.70, halfBase: 1.14 };
     this.impact = 0;          // strongest contact impulse this frame (m/s)
     this.wallHit = 0;
     this.inWater = 0;
@@ -92,6 +93,14 @@ export class Vehicle {
     this.reset(0, 0, 0);
   }
 
+  applySpec(sp) {                         // per-vehicle wheel size / track / wheelbase
+    const dH = sp.wheelR - CFG.wheelR;
+    CFG.wheelR = sp.wheelR; CFG.comHeight += dH;
+    for (const wh of this.wheels) {
+      wh.anchor.x = Math.sign(wh.x) * sp.halfTrack; wh.anchor.z = Math.sign(wh.z) * sp.halfBase;
+    }
+    this.pos.y += dH; this.spec = sp;
+  }
   reset(x, z, yaw) {
     const h = terrainHeight(x, z);
     const gq = { n: { x: 0, y: 1, z: 0 } };

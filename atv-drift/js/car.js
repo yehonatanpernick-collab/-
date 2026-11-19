@@ -121,7 +121,7 @@ export function syncCar(car, veh, t) {
   _p.set(0, -CFG.comHeight, 0).applyQuaternion(veh.q).add(veh.pos);
   car.root.position.copy(_p);
   car.root.quaternion.copy(veh.q);
-  const staticY = 0.374 - CFG.comHeight;
+  const staticY = CFG.wheelR - CFG.comHeight;
   for (let i = 0; i < 4; i++) {
     const w = car.wheels[i];
     // physics wheels: 0 FL(+x), 1 FR, 2 RL, 3 RR
@@ -130,6 +130,11 @@ export function syncCar(car, veh, t) {
     w.steer.position.y = w.baseY + (centerY - staticY);
     w.steer.rotation.y = pw.steerAngle;
     w.spin.rotation.x = pw.spin;
+  }
+  if (car.lean) {
+    const fa = -veh.wheels[0].steerAngle * Math.min(1, veh.speed / 10) * car.lean.gain * 1.6;
+    car.lean.cur += (fa - car.lean.cur) * 0.12;
+    car.lean.top.rotation.z = Math.max(-0.7, Math.min(0.7, car.lean.cur));
   }
   for (const m of car.brakeLights) m.visible = veh.braking;
   for (const m of car.reverseLights) m.visible = veh.reversing;
