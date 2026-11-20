@@ -9,7 +9,6 @@ export const WATER_LEVEL = -0.75;
 // water surface height at (x,z): only the oasis lake has water
 export function waterAt(x, z) {
   if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r * 1.02) return WATER_LEVEL;
-  if (x < -1000 && terrainHeight(x, z) < WATER_LEVEL) return WATER_LEVEL;        // the sea
   return -1e9;
 }
 
@@ -40,6 +39,10 @@ export const VOLCANO = { x: 12500, z: 0, R: 10500, rr: 600, H: 5895, depth: 200,
 VOLCANO.b = Math.log(VOLCANO.Rs / VOLCANO.Re) / VOLCANO.phiMax;
 VOLCANO.phi0 = Math.PI;                                     // the road starts on the west side, facing the old world
 VOLCANO.theta = VOLCANO.phi0 + VOLCANO.phiMax;              // angle of the summit plaza = the giant descent lane
+// the tropical volcano: a green, jungle-covered cone far to the west, with its own spiral trail
+export const TROPIC = { x: -9000, z: 0, R: 3400, rr: 240, H: 2100, depth: 70, hw: 9, Rs: 3300, Re: 300, phiMax: 7.0, p: 1.25 };
+TROPIC.b = Math.log(TROPIC.Rs / TROPIC.Re) / TROPIC.phiMax;
+TROPIC.phi0 = 0;                                            // the road starts on the east side, facing the old world
 export const ALT0 = 0, ALT_PER_M = 1;
 export const altitudeOf = (y) => Math.round(ALT0 + y * ALT_PER_M);
 export const SALT = { x0: 1e9, x1: 1e9 + 1, z0: 1e9, z1: 1e9 + 1 };            // removed: only the original map and the volcano remain       // white salt flats: speed + jumps
@@ -75,6 +78,7 @@ export const LOOKOUT = { x: 0, z: 0, y: 0, yaw: 0, r: 26, phi: 6.2 };           
 export const PADS = [];                                                   // landing pads {x,z,r,y}
 export const HIGHWAYS = [
   [[760, 0], [2600, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                     // east: from the original map to the volcano
+  [[-760, 0], [-2600, 0], [TROPIC.x + TROPIC.Rs, 0]],                     // west: to the tropical volcano
 ];
 export function highwayDist(x, z) {
   let d = 1e9;
@@ -83,16 +87,15 @@ export function highwayDist(x, z) {
 }                                   // shoreline (sea to the west)
 export const shoreX = (z) => COAST.x + Math.sin(z * 0.006) * 45 + Math.sin(z * 0.017 + 2) * 18;
 
-export function coneH(r) {
-  const V = VOLCANO;
+export function coneH(r, V = VOLCANO) {
   if (r >= V.R) return 0;
   if (r >= V.rr) return V.H * Math.pow(1 - (r - V.rr) / (V.R - V.rr), V.p);
   return V.H - V.depth * smoothstep(V.rr, V.rr * 0.3, r);
 }
 // where the spiral road passes: {d: distance from centre line, y: road height, phi: angle along the road}
 const _vr = { d: 1e9, y: 0, phi: -1, rp: 0 };
-export function volcanoRoad(x, z) {
-  const V = VOLCANO, dx = x - V.x, dz = z - V.z, r = Math.hypot(dx, dz);
+export function volcanoRoad(x, z, V = VOLCANO) {
+  const dx = x - V.x, dz = z - V.z, r = Math.hypot(dx, dz);
   _vr.d = 1e9;
   if (r > V.Rs + 60 || r < V.Re - 60) return _vr;
   const th = Math.atan2(dz, dx);
@@ -100,15 +103,15 @@ export function volcanoRoad(x, z) {
   const n = Math.round(psi / (2 * Math.PI)), rho = psi - 2 * Math.PI * n;
   const phi = (th - V.phi0) + 2 * Math.PI * n;
   const rp = r * Math.exp(V.b * rho);
-  _vr.d = Math.abs(rp - r); _vr.phi = phi; _vr.rp = rp; _vr.y = coneH(rp);
+  _vr.d = Math.abs(rp - r); _vr.phi = phi; _vr.rp = rp; _vr.y = coneH(rp, V);
   return _vr;
 }
-export const volcanoPoint = (phi) => {                 // centre-line point at path angle phi
-  const V = VOLCANO, r = V.Rs * Math.exp(-V.b * phi), a = V.phi0 + phi;
-  return { x: V.x + Math.cos(a) * r, z: V.z + Math.sin(a) * r, y: coneH(r), r };
+export const volcanoPoint = (phi, V = VOLCANO) => {                 // centre-line point at path angle phi
+  const r = V.Rs * Math.exp(-V.b * phi), a = V.phi0 + phi;
+  return { x: V.x + Math.cos(a) * r, z: V.z + Math.sin(a) * r, y: coneH(r, V), r };
 };
-export const volcanoYaw = (phi) => {                    // driving direction along the road at phi
-  const V = VOLCANO, a = V.phi0 + phi;
+export const volcanoYaw = (phi, V = VOLCANO) => {                    // driving direction along the road at phi
+  const a = V.phi0 + phi;
   return Math.atan2(-V.b * Math.cos(a) - Math.sin(a), -V.b * Math.sin(a) + Math.cos(a));
 };
 // the giant descent lane runs straight down the fall line from the summit plaza to the plain
@@ -119,7 +122,7 @@ export function volcanoLane(x, z) {
   _ln.r = r; _ln.along = r * Math.cos(d); _ln.perp = _ln.along > 0 ? r * Math.abs(Math.sin(d)) : 1e9;
   return _ln;
 }
-export const phiAtAlt = (alt) => { let lo = 0, hi = VOLCANO.phiMax; for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; (volcanoPoint(m).y < alt ? (lo = m) : (hi = m)); } return lo; };
+export const phiAtAlt = (alt, V = VOLCANO) => { let lo = 0, hi = V.phiMax; for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; (volcanoPoint(m, V).y < alt ? (lo = m) : (hi = m)); } return lo; };
 
 export const SPAWN = { x: 0, z: 90, yaw: Math.PI };
 
@@ -499,7 +502,9 @@ export function rawHeight(x, z, noTracks = false) {
     const hd = highwayDist(x, z);
     if (hd < 62) {
       const V0 = VOLCANO, ex = V0.x - V0.Rs;
-      const yh = x > ex - 800 ? 0.4 + (coneH(V0.Rs) - 0.4) * smoothstep(ex - 800, ex, x) : 0.4;
+      const wx = TROPIC.x + TROPIC.Rs;
+      const yh = x > ex - 800 ? 0.4 + (coneH(V0.Rs) - 0.4) * smoothstep(ex - 800, ex, x)
+        : x < wx + 800 ? 0.4 + (coneH(TROPIC.Rs, TROPIC) - 0.4) * smoothstep(wx + 800, wx, x) : 0.4;
       h = lerp(h, yh, 1 - smoothstep(12, 62, hd));
     }
   }
@@ -543,6 +548,31 @@ export function rawHeight(x, z, noTracks = false) {
       }
     }
   }
+  {
+    const T = TROPIC, dx = x - T.x, dz = z - T.z, r = Math.hypot(dx, dz);
+    if (r < T.R * 1.04) {
+      const w = 1 - smoothstep(T.R * 0.9, T.R * 1.04, r);
+      const hc = coneH(r, T);
+      const t = Math.min(1, Math.max(0, hc / T.H)), th = Math.atan2(dz, dx);
+      const q = volcanoRoad(x, z, T);
+      const atten = smoothstep(T.hw + 14, 500, q.d < 1e8 ? q.d : 1e9);
+      const s4 = 4 * t * (1 - t), flat = smoothstep(T.rr * 0.3, T.rr * 0.8, r);
+      const noise = ((fbm(x * 0.0012 + 19, z * 0.0012 + 13, 4) - 0.5) * 2 * 150 + (fbm(x * 0.006, z * 0.006, 4) - 0.5) * 2 * 42) * s4
+        + Math.sin(th * 41 + fbm(x * 0.002, z * 0.002, 3) * 9) * 30 * s4 * s4              // jungle ridges and ravines
+        + (fbm(x * 0.02 + 4, z * 0.02 - 2, 4) - 0.5) * 2 * 14 * s4
+        + (fbm(x * 0.06 + 7, z * 0.06, 3) - 0.5) * 2 * 3.5 * s4;
+      h = h * (1 - w) + hc * w + noise * atten * flat * w;
+      if (q.d < 1e8) {
+        const vf = smoothstep(-0.25, 0.1, q.phi) * (1 - smoothstep(T.phiMax - 0.1, T.phiMax + 0.12, q.phi));
+        const fb = (1 - smoothstep(T.hw + 1, T.hw + 26, q.d)) * vf;
+        if (fb > 0) h = lerp(h, q.y, fb);
+      }
+      const e = volcanoPoint(T.phiMax - 0.02, T), de = Math.hypot(x - e.x, z - e.z);
+      if (de < 50) h = lerp(h, e.y, 1 - smoothstep(22, 46, de));
+      const st = volcanoPoint(0, T), ds = Math.hypot(x - st.x, z - st.z);
+      if (ds < 80) h = lerp(h, st.y, 1 - smoothstep(26, 75, ds));
+    }
+  }
   // tracks: flatten across the width to the smoothed centre line
   if (!noTracks) {
     const q = trackNearest(x, z);
@@ -559,7 +589,7 @@ export function rawHeight(x, z, noTracks = false) {
     if (mb > 0) h += mb * mb * 1400;
     if (m > 0) {
       const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4) * 2 - 1);
-      const gap = x > 0 ? smoothstep(260, 520, Math.abs(z)) : 1;                 // a pass leads east to the volcano
+      const gap = smoothstep(260, 520, Math.abs(z));                 // passes lead east and west to the volcanoes
       h += m * m * gap * (22 + 55 * ridge + 18 * fbm(x * 0.04, z * 0.04, 3));
     }
   }
@@ -1400,6 +1430,21 @@ export function buildLayout() {
     scenery.palms.push({ x, z, y, s, rot: R() * PI * 2, lean: (R() - 0.5) * 0.4 });
     addCylinder({ x, z, r: 0.4, y0: y - 1, h: 9 * s });
   }
+  // the tropical volcano: a palm jungle on its lower and middle slopes
+  {
+    const T = TROPIC, RT = rng(777), nn = { x: 0, y: 1, z: 0 };
+    let placed = 0;
+    for (let k = 0; k < 12000 && placed < 1400; k++) {
+      const a = RT() * PI * 2, r = T.rr * 3 + Math.sqrt(RT()) * (T.R - T.rr * 3);
+      const x = T.x + Math.cos(a) * r, z = T.z + Math.sin(a) * r;
+      const y = terrainHeight(x, z, nn);
+      if (nn.y < 0.66 || y > T.H * 0.74 || y < 1) continue;
+      if (volcanoRoad(x, z, T).d < T.hw + 8 || highwayDist(x, z) < 20) continue;
+      const q = volcanoPoint(0, T); if (Math.hypot(x - q.x, z - q.z) < 90) continue;
+      scenery.palms.push({ x, z, y, s: 0.9 + RT() * 1.1, rot: RT() * PI * 2, lean: (RT() - 0.5) * 0.5 });
+      placed++;
+    }
+  }
 }
 export const scenery = { rocks: [], cacti: [], palms: [], pines: [], bigRocks: [] };
 
@@ -1509,6 +1554,14 @@ export function surfaceAt(x, z) {
       }
     }
   }
+  if (x < -3000) {
+    const T = TROPIC, r = Math.hypot(x - T.x, z - T.z);
+    if (r < T.R) {
+      const q = volcanoRoad(x, z, T);
+      if (q.d < T.hw + 2 && q.phi > -0.2 && q.phi < T.phiMax + 0.2) return 'trail';
+      return 'dirt';
+    }
+  }
   if (highwayDist(x, z) < 10) return 'asphalt';
   if (Math.hypot(x - ICE.x, z - ICE.z) < ICE.r) return 'ice';
   if (Math.abs(x - CITY.x) < CITY.h + 40 && Math.abs(z - CITY.z) < CITY.h + 40) return 'asphalt';
@@ -1538,6 +1591,9 @@ function buildZones() {
     { id: 'volcano30', name: 'הר הגעש · 3,000 מ׳', sub: 'סלעי געש · קרח', ...(() => { const f = phiAtAlt(3000), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 2000 },
     { id: 'volcano15', name: 'הר הגעש · 1,500 מ׳', sub: 'שביל מתפתל · יער', ...(() => { const f = phiAtAlt(1500), e = volcanoPoint(f); return { x: e.x, z: e.z, yaw: volcanoYaw(f) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R && terrainHeight(x, z) > 500 },
     { id: 'volcano', name: 'למרגלות הר הגעש · טרמפולינות ענק', sub: 'תחילת הדרך ל-5,895 מטר · מקפצות לתוך ההר', ...(() => { const e = volcanoPoint(0.05); return { x: e.x, z: e.z, yaw: volcanoYaw(0.05) }; })(), inside: (x, z) => Math.hypot(x - VOLCANO.x, z - VOLCANO.z) < VOLCANO.R * 1.04 },
+    { id: 'tropicTop', name: 'פסגת הר הגעש הטרופי · 2,100 מ׳', sub: 'מעל הג׳ונגל · הענן נמוך מתחתיך', ...(() => { const f = TROPIC.phiMax - 0.12, e = volcanoPoint(f, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(f, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.Re + 140 && terrainHeight(x, z) > TROPIC.H * 0.9 },
+    { id: 'tropic1', name: 'הר הגעש הטרופי · 1,000 מ׳', sub: 'יער גשם · שביל מתפתל', ...(() => { const f = phiAtAlt(1000, TROPIC), e = volcanoPoint(f, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(f, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.R && terrainHeight(x, z) > 600 },
+    { id: 'tropic', name: 'הר הגעש הטרופי', sub: 'ג׳ונגל · דקלים · שביל לפסגה', ...(() => { const e = volcanoPoint(0.05, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(0.05, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.R * 1.04 },
     { id: 'mega', name: 'מגה רמפות', sub: 'קפיצת ענק · מגדל ספירלה · מכולות', x: -195, z: 545, yaw: PI / 2, inside: inRect(MEGA, 6) },
     { id: 'canyon', name: 'קניון הפעלולים', sub: 'קפיצות מעל תהום · מכולות · כוכב · מדרגות', x: 105, z: -350, yaw: PI, inside: inRect(NSTUNT, 6) },
     { id: 'special', name: 'פארק הפעלולים המיוחדים', sub: 'מקפצות · קרוסלה · גגות העיר · מסלולים מוטים · קפיצה מעל מכוניות', x: -625, z: -150, yaw: 0, inside: inRect(SPECIAL, 6) },

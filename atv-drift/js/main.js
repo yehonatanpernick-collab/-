@@ -155,6 +155,7 @@ const water = W.buildWater(T); scene.add(water);
 const sceneryGroup = W.buildScenery(); scene.add(sceneryGroup);
 const vegetation = W.buildVegetation(T); scene.add(vegetation);
 const volcano = W.buildVolcano(T); scene.add(volcano);
+const tropic = W.buildTropic(); scene.add(tropic);
 const trampGroup = W.buildTrampolines(); scene.add(trampGroup);
 const turnGroup = W.buildTurntables(); scene.add(turnGroup);
 const clouds = W.buildClouds(sunDir); scene.add(clouds);
@@ -671,6 +672,7 @@ function drawMapBg() {
     else if (x > TR.SALT.x0 - 20 && x < TR.SALT.x1 + 20 && z > TR.SALT.z0 - 20 && z < TR.SALT.z1 + 20) { r = 236; g = 238; b = 240; }
     else if (Math.hypot(x - TR.FOREST.x, z - TR.FOREST.z) < TR.FOREST.r) { r = 86; g = 112; b = 64; }
     if (Math.hypot(x - TR.VOLCANO.x, z - TR.VOLCANO.z) < TR.VOLCANO.R) { r = 92; g = 80; b = 74; if (hh > TR.VOLCANO.H * 0.58) { r = 240; g = 244; b = 250; } }
+    if (Math.hypot(x - TR.TROPIC.x, z - TR.TROPIC.z) < TR.TROPIC.R) { r = 52; g = 120; b = 60; }
     const k = (i + j * w) * 4;
     img.data[k] = r + sh * 40; img.data[k + 1] = g + sh * 36; img.data[k + 2] = b + sh * 30; img.data[k + 3] = 255;
   }
@@ -962,7 +964,7 @@ function perfTick(rawDt) {
 }
 
 // ---------------------------------------------------------------- world map (N) — the whole valley, every area, you and the lookout
-const WM = { x0: -1800, x1: 24500, z0: -11500, z1: 11500, W: 640, H: 560, base: null, done: 0, building: false, el: null, cv: null };
+const WM = { x0: -12800, x1: 24500, z0: -11500, z1: 11500, W: 760, H: 470, base: null, done: 0, building: false, el: null, cv: null };
 function buildWorldMapBase() {
   if (WM.base || WM.building) return;
   WM.building = true;
@@ -1010,6 +1012,8 @@ function drawWorldMap() {
   // the volcano trail
   c.strokeStyle = 'rgba(255,230,160,0.95)'; c.lineWidth = Math.max(1.5, 10 * sx);
   c.beginPath(); for (let f = 0; f <= TR.VOLCANO.phiMax; f += 0.05) { const p = TR.volcanoPoint(f); f ? c.lineTo(...P(p.x, p.z)) : c.moveTo(...P(p.x, p.z)); } c.stroke();
+  c.strokeStyle = 'rgba(255,200,140,0.95)'; c.lineWidth = Math.max(1.5, 10 * sx);
+  c.beginPath(); for (let f = 0; f <= TR.TROPIC.phiMax; f += 0.05) { const p = TR.volcanoPoint(f, TR.TROPIC); f ? c.lineTo(...P(p.x, p.z)) : c.moveTo(...P(p.x, p.z)); } c.stroke();
   c.font = '700 13px Rubik, Arial'; c.textAlign = 'center';
   { const [ox, oy] = P(0, 0); c.font = '800 15px Rubik, Arial'; c.strokeStyle = '#000'; c.lineWidth = 4; c.strokeText('העולם המקורי', ox, oy - 22); c.fillStyle = '#ffd23a'; c.fillText('העולם המקורי', ox, oy - 22); c.font = '700 13px Rubik, Arial'; }
   for (const z of TR.ZONES) {
@@ -1021,6 +1025,7 @@ function drawWorldMap() {
   const mark = (x, z, label, col, r = 6) => { const [px, py] = P(x, z); c.fillStyle = col; c.beginPath(); c.arc(px, py, r, 0, 7); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 2; c.stroke(); c.font = '800 14px Rubik, Arial'; c.lineWidth = 4; c.strokeText(label, px, py - r - 5); c.fillStyle = '#fff'; c.fillText(label, px, py - r - 5); };
   const V = TR.VOLCANO;
   mark(V.x, V.z, '🌋 הר הגעש · 5,895 מ׳', '#d9262c', 7);
+  mark(TR.TROPIC.x, TR.TROPIC.z, '🌴 הר געש טרופי · 2,100 מ׳', '#1fae5b', 7);
   mark(TR.LOOKOUT.x, TR.LOOKOUT.z, '👁 תצפית', '#2bd46a', 8);
   const e = TR.volcanoPoint(V.phiMax - 0.02); void e;
   const lx = Math.cos(V.theta), lz = Math.sin(V.theta);
@@ -1045,15 +1050,19 @@ function showWorldMap(fromLookout) {
       const near = (px, pz, pr) => Math.hypot(px - x, pz - z) < pr * mPer;
       let snapped = false;
       for (const zn of TR.ZONES) {                                           // snap to an area's proper start spot
-        if (zn.id === 'summit' || zn.id === 'slide' || zn.id.startsWith('volcano')) continue;
+        if (zn.id === 'summit' || zn.id === 'slide' || zn.id.startsWith('volcano') || zn.id.startsWith('tropic')) continue;
         if (near(zn.x, zn.z, 18)) { x = zn.x; z = zn.z; yaw = zn.yaw; label = zn.name; snapped = true; break; }
       }
       if (!snapped && near(TR.LOOKOUT.x, TR.LOOKOUT.z, 20)) { const zl = TR.ZONES.find(q => q.id === 'lookout'); x = zl.x; z = zl.z; yaw = zl.yaw; label = '👁 תצפית'; snapped = true; }
       if (!snapped) {                                                        // on the volcano trail: land on the road, facing uphill
         let best = null, bd = 1e9;
-        for (let f = 0; f <= TR.VOLCANO.phiMax; f += 0.02) { const p = TR.volcanoPoint(f), d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = f; } }
-        if (best !== null && bd < 22 * mPer) { const p = TR.volcanoPoint(best); x = p.x; z = p.z; yaw = TR.volcanoYaw(best); label = `הר הגעש · ${TR.altitudeOf(p.y).toLocaleString('en-US')} מ׳`; snapped = true; }
+        for (const VV of [TR.VOLCANO, TR.TROPIC]) {
+          best = null; bd = 1e9;
+          for (let f = 0; f <= VV.phiMax; f += 0.02) { const p = TR.volcanoPoint(f, VV), d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = f; } }
+          if (best !== null && bd < 22 * mPer) { const p = TR.volcanoPoint(best, VV); x = p.x; z = p.z; yaw = TR.volcanoYaw(best, VV); label = `${VV === TR.TROPIC ? 'הר געש טרופי' : 'הר הגעש'} · ${TR.altitudeOf(p.y).toLocaleString('en-US')} מ׳`; snapped = true; break; }
+        }
       }
+      if (!snapped && near(TR.TROPIC.x, TR.TROPIC.z, 18)) { const zs = TR.ZONES.find(q => q.id === 'tropicTop'); x = zs.x; z = zs.z; yaw = zs.yaw; label = '🌴 פסגת ההר הטרופי'; snapped = true; }
       if (!snapped && near(TR.VOLCANO.x, TR.VOLCANO.z, 18)) { const zs = TR.ZONES.find(q => q.id === 'summit'); x = zs.x; z = zs.z; yaw = zs.yaw; label = '🌋 פסגת הר הגעש'; snapped = true; }
       if (x < TR.shoreX(z) + 30) { x = TR.shoreX(z) + 80; label = 'חוף הים'; }
       veh.reset(x, z, yaw); veh.updateAxes(); resetCar();
@@ -1284,7 +1293,7 @@ function frame() {
   skyCtl.sky.position.copy(camera.position);
   multi.update(dt, t);
   far.update(veh.pos.x, veh.pos.z, 5, veh.vel.x, veh.vel.z);
-  volcano.userData.tick(t);
+  volcano.userData.tick(t); tropic.userData.tick(t);
   if (gradePass) { gradePass.uniforms.uTime.value = t % 100; gradePass.uniforms.uBlur.value = G.state === 'play' ? Math.min(1, Math.max(0, (veh.speed - 32) / 40)) * 0.9 : 0; }
 
   // shadow camera follows the buggy (snapped to texels to avoid shimmering)

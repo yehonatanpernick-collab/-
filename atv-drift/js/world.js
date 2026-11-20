@@ -7,7 +7,7 @@ import {
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
   MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
-  rawHeight as rawHeightAt, LOOKOUT, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
+  rawHeight as rawHeightAt, LOOKOUT, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, TROPIC, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -419,6 +419,33 @@ export function colorAt(x, z, h, ny, out) {
       }
       r += (br - r) * wv; g += (bg - g) * wv; b += (bb - b) * wv;
     }
+    {
+      const T = TROPIC, tr = Math.hypot(x - T.x, z - T.z), wt = 1 - smoothstep(T.R * 0.96, T.R * 1.04, tr);
+      if (wt > 0) {                                             // jungle: lowland grass, dense rainforest, mossy cloud forest, bare crater rim
+        const hh = Math.max(0, h), th = Math.atan2(z - T.z, x - T.x);
+        const nv = fbm(x * 0.0012 + 5, z * 0.0012 - 9, 4), nv2 = fbm(x * 0.006 + 2, z * 0.006 + 7, 3), nv3 = fbm(x * 0.03 + 1, z * 0.03 - 4, 3);
+        const gul = 0.5 + 0.5 * Math.sin(th * 41 + fbm(x * 0.002, z * 0.002, 3) * 9);
+        let jr = 0.09 + nv2 * 0.08 + nv3 * 0.03, jg = 0.34 + nv2 * 0.14 + nv3 * 0.06 - gul * 0.04, jb = 0.07 + nv2 * 0.03;
+        const dense = smoothstep(80, 320, hh) * (1 - smoothstep(1300, 1750, hh));
+        jr -= dense * 0.03; jg -= dense * 0.08; jb -= dense * 0.015;            // darker, denser canopy
+        const moss = smoothstep(1000, 1600, hh);
+        jr += moss * 0.05; jg += moss * 0.0; jb += moss * 0.04;
+        const clear = smoothstep(0.55, 0.8, nv + nv3 * 0.3) * (1 - smoothstep(600, 1100, hh));   // bright grassy clearings
+        jr += (0.30 - jr) * clear * 0.5; jg += (0.45 - jg) * clear * 0.5; jb += (0.12 - jb) * clear * 0.5;
+        const rock = smoothstep(0.24, 0.4, slope) * 0.7;                                       // steep ravines: wet dark rock
+        jr += (0.17 + nv3 * 0.06 - jr) * rock; jg += (0.15 + nv3 * 0.05 - jg) * rock; jb += (0.14 - jb) * rock;
+        const rim = smoothstep(T.H * 0.86, T.H * 0.96, hh);                                       // bare ash near the crater
+        jr += (0.2 + nv3 * 0.06 - jr) * rim; jg += (0.17 + nv3 * 0.05 - jg) * rim; jb += (0.15 - jb) * rim;
+        const low = 1 - smoothstep(0, 140, hh);                                                    // foothills blend into the sand
+        jr += (r - jr) * low * 0.7; jg += (g - jg) * low * 0.7; jb += (b - jb) * low * 0.7;
+        const q = volcanoRoad(x, z, T);
+        if (q.d < T.hw + 4 && q.phi > -0.3 && q.phi < T.phiMax + 0.3) {
+          const f = 1 - smoothstep(T.hw - 1.5, T.hw + 1.6, q.d);
+          jr += (0.5 + n2 * 0.04 - jr) * f * 0.92; jg += (0.31 + n2 * 0.03 - jg) * f * 0.92; jb += (0.2 + n2 * 0.03 - jb) * f * 0.92;   // red laterite trail
+        }
+        r += (jr - r) * wt; g += (jg - g) * wt; b += (jb - b) * wt;
+      }
+    }
     const dd = x - shoreX(z);
     if (dd < 280) {                                             // beach, wet sand, sea floor
       const beach = 1 - smoothstep(70, 260, dd);
@@ -518,9 +545,10 @@ export function buildTerrain(T) {
   // sample the detail texture at two scales so the tiling never shows
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uVolc = { value: new THREE.Vector3(VOLCANO.x, VOLCANO.z, VOLCANO.R) };
+    sh.uniforms.uTrop = { value: new THREE.Vector3(TROPIC.x, TROPIC.z, TROPIC.R) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vWPos; uniform vec3 uVolc;
+      varying vec3 vWPos; uniform vec3 uVolc; uniform vec3 uTrop;
       float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vnz(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }`);
@@ -542,7 +570,7 @@ export function buildTerrain(T) {
         diffuseColor *= sampledDiffuseColor;
       #endif`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - 0.85 * volc) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = 1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy));');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = max(1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy)), 1.0 - smoothstep(uTrop.z * 0.97, uTrop.z * 1.03, length(vWPos.xz - uTrop.xy)));');
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
@@ -734,7 +762,7 @@ export function buildWater(T) {
   const sea = mk(new THREE.PlaneGeometry(30000, 60000, 1, 1).rotateX(-Math.PI / 2), 4000);
   sea.m.position.set(-16100, WATER_LEVEL, 0);
   sea.m.material.color.set(0x1f7f9c);
-  group.add(lake.m, sea.m);
+  group.add(lake.m);                                  // (no sea any more: the world west of the map is the tropical volcano)
   group.userData.mats = [lake.m.material, sea.m.material];
   group.userData.tick = (t) => {
     lake.nm.offset.set(t * 0.012, t * 0.008);
@@ -1774,6 +1802,67 @@ export function buildVolcano(T) {
       p.mat.uniforms.uSize.value = (260 + a * 900) * p.sz;
       p.mat.uniforms.uOp.value = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.42;
       const c = 0.2 + a * 0.35; p.mat.uniforms.uCol.value.setRGB(c, c * 0.95, c * 0.9);
+    }
+  };
+  return group;
+}
+
+// ------------------------------------------------------------------ tropical volcano: signs, summit flag, steam plume, crater lake
+export function buildTropic() {
+  const T = TROPIC, group = new THREE.Group();
+  const tang = (phi) => { const a = T.phi0 + phi; return [-T.b * Math.cos(a) - Math.sin(a), -T.b * Math.sin(a) + Math.cos(a)]; };
+  const signTex = (lines, bg = '#0f3a2a') => canvasTex(512, 256, (ctx, w, h) => {
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 8; ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.textAlign = 'center'; ctx.direction = 'ltr';
+    lines.forEach(([t, size, col], i) => { ctx.font = `800 ${size}px Rubik, Arial, sans-serif`; ctx.fillStyle = col || '#fff'; ctx.fillText(t, w / 2, 90 + i * (size * 1.1)); });
+  }, { clamp: true });
+  const board = (tex, w, h, x, y, z, yaw, postH = 3) => {
+    const mk = () => new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mk());
+    m.position.set(x, y + postH + h / 2, z); m.rotation.y = yaw; m.castShadow = true;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * w / 3.4, 0.12 * w / 3.4, postH + h * 0.2, 6), new THREE.MeshStandardMaterial({ color: 0x555a60, metalness: 0.6, roughness: 0.4 }));
+    post.position.set(x, y + (postH + h * 0.2) / 2, z); post.castShadow = true;
+    group.add(m, post);
+  };
+  for (let alt = 250; alt <= 2000; alt += 250) {                       // altitude signs on the uphill shoulder
+    const phi = phiAtAlt(alt, T), pt = volcanoPoint(phi, T), [tx, tz] = tang(phi), tl = Math.hypot(tx, tz);
+    const nx = -tz / tl, nz = tx / tl;
+    const side = (Math.hypot(pt.x + nx * 9 - T.x, pt.z + nz * 9 - T.z) < pt.r) ? 1 : -1;
+    const sx = pt.x + nx * side * (T.hw + 3), sz = pt.z + nz * side * (T.hw + 3);
+    board(signTex([[alt.toLocaleString('en-US') + ' m', 92, '#ffd23a'], ['TROPIC VOLCANO', 38, '#bff5d0']]), 4.4, 2.2, sx, Math.max(rawHeightAt(sx, sz), pt.y), sz, Math.atan2(-tx, -tz), 3.2);
+  }
+  const e = volcanoPoint(T.phiMax - 0.02, T), [ex, ez] = tang(T.phiMax - 0.02);
+  const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 26, 8), new THREE.MeshStandardMaterial({ color: 0xe8e8e8, metalness: 0.7, roughness: 0.3 }));
+  fp.position.set(e.x + 14, e.y + 13, e.z + 14); fp.castShadow = true; group.add(fp);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(11, 6.6, 16, 6), new THREE.MeshStandardMaterial({
+    map: canvasTex(256, 160, (ctx, w, h) => { ctx.fillStyle = '#12a05a'; ctx.fillRect(0, 0, w, h); ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(w / 2, h / 2, 38, 0, 7); ctx.fill(); }, { clamp: true }),
+    side: THREE.DoubleSide, roughness: 0.8 }));
+  flag.position.set(e.x + 19.5, e.y + 22.5, e.z + 14); group.add(flag);
+  board(signTex([['SUMMIT', 96, '#ffffff'], ['2,100 m', 110, '#ffd23a']]), 14, 7, e.x + 16, e.y, e.z - 16, Math.atan2(-ex, -ez), 4);
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(T.rr * 0.9, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x1f9ea0, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.88 }));
+  lake.position.set(T.x, T.H - T.depth + 4, T.z); group.add(lake);
+  const puffGeo = new THREE.PlaneGeometry(1, 1), puffs = [];
+  for (let i = 0; i < 34; i++) {                                       // white steam rising from the crater
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uCol: { value: new THREE.Color(0xf2f4f6) }, uOp: { value: 0.3 }, uSize: { value: 100 } },
+      vertexShader: 'varying vec2 vUv; varying float vD; uniform float uSize; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0.0,0.0,0.0,1.0); vD = length(c.xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); }',
+      fragmentShader: 'varying vec2 vUv; varying float vD; uniform vec3 uCol; uniform float uOp; void main(){ float d = length(vUv - 0.5) * 2.0; float a = pow(clamp(1.0 - d, 0.0, 1.0), 1.6) * uOp * smoothstep(300.0, 1800.0, vD); if (a < 0.003) discard; gl_FragColor = vec4(uCol, a);\n#include <colorspace_fragment>\n}',
+      transparent: true, depthWrite: false, fog: false,
+    });
+    const sp = new THREE.Mesh(puffGeo, mat); sp.frustumCulled = false; sp.renderOrder = 4; group.add(sp);
+    puffs.push({ sp, mat, ph: i / 34, dx: (Math.random() - 0.5) * 70, dz: (Math.random() - 0.5) * 70, sz: 0.8 + Math.random() * 0.6 });
+  }
+  group.userData.tick = (t) => {
+    const pa = flag.geometry.attributes.position;
+    for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 0.5 - t * 5) * 0.8 * (pa.getX(i) + 5.5) / 11);
+    pa.needsUpdate = true;
+    for (const p of puffs) {
+      const a = ((t * 0.03 + p.ph) % 1);
+      p.sp.position.set(T.x + p.dx + a * 300 + Math.sin(a * 6 + p.ph * 9) * 20, T.H + 10 + a * 900, T.z + p.dz + a * 120);
+      p.mat.uniforms.uSize.value = (90 + a * 380) * p.sz;
+      p.mat.uniforms.uOp.value = Math.sin(Math.PI * Math.min(1, a * 1.15)) * 0.4;
     }
   };
   return group;
