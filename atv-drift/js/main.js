@@ -964,7 +964,7 @@ function perfTick(rawDt) {
 }
 
 // ---------------------------------------------------------------- world map (N) — the whole valley, every area, you and the lookout
-const WM = { x0: -12800, x1: 24500, z0: -11500, z1: 11500, W: 760, H: 470, base: null, done: 0, building: false, el: null, cv: null };
+const WM = { x0: -9800, x1: 17800, z0: -8200, z1: 8200, W: 780, H: 463, base: null, done: 0, building: false, el: null, cv: null };
 function buildWorldMapBase() {
   if (WM.base || WM.building) return;
   WM.building = true;

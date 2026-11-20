@@ -35,12 +35,12 @@ export const SPECIAL = { x0: -650, x1: -415, z0: -170, z1: 230 };
 // It sits far east of the main world; the world itself is unbounded (analytic terrain outside the grid).
 export const BOUND = 60000;
 const LANE_KICK = 500;
-export const VOLCANO = { x: 12500, z: 0, R: 10500, rr: 600, H: 5895, depth: 200, hw: 10, Rs: 10300, Re: 720, phiMax: 7.6, p: 1.15 };
+export const VOLCANO = { x: 9400, z: 0, R: 8000, rr: 600, H: 5895, depth: 200, hw: 10, Rs: 7800, Re: 720, phiMax: 9.6, p: 1.15 };
 VOLCANO.b = Math.log(VOLCANO.Rs / VOLCANO.Re) / VOLCANO.phiMax;
 VOLCANO.phi0 = Math.PI;                                     // the road starts on the west side, facing the old world
 VOLCANO.theta = VOLCANO.phi0 + VOLCANO.phiMax;              // angle of the summit plaza = the giant descent lane
 // the tropical volcano: a green, jungle-covered cone far to the west, with its own spiral trail
-export const TROPIC = { x: -9000, z: 0, R: 3400, rr: 240, H: 2100, depth: 70, hw: 9, Rs: 3300, Re: 300, phiMax: 7.0, p: 1.25 };
+export const TROPIC = { x: -6200, z: 0, R: 3400, rr: 240, H: 2100, depth: 70, hw: 9, Rs: 3300, Re: 300, phiMax: 7.0, p: 1.25 };
 TROPIC.b = Math.log(TROPIC.Rs / TROPIC.Re) / TROPIC.phiMax;
 TROPIC.phi0 = 0;                                            // the road starts on the east side, facing the old world
 export const ALT0 = 0, ALT_PER_M = 1;
@@ -77,8 +77,8 @@ export function lavaAt(x, z) {
 export const LOOKOUT = { x: 0, z: 0, y: 0, yaw: 0, r: 26, phi: 6.2 };           // the viewing deck on the volcano road
 export const PADS = [];                                                   // landing pads {x,z,r,y}
 export const HIGHWAYS = [
-  [[760, 0], [2600, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                     // east: from the original map to the volcano
-  [[-760, 0], [-2600, 0], [TROPIC.x + TROPIC.Rs, 0]],                     // west: to the tropical volcano
+  [[760, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                     // east: from the original map to the volcano
+  [[-760, 0], [TROPIC.x + TROPIC.Rs, 0]],                     // west: to the tropical volcano
 ];
 export function highwayDist(x, z) {
   let d = 1e9;
@@ -537,7 +537,7 @@ export function rawHeight(x, z, noTracks = false) {
       if (r < V.R * 1.04) {
         const q = volcanoRoad(x, z);
         if (q.d < 1e8) {                                               // road bench
-          const vf = smoothstep(-0.25, 0.1, q.phi) * (1 - smoothstep(V.phiMax - 0.1, V.phiMax + 0.12, q.phi));
+          const vf = smoothstep(-0.25, -0.01, q.phi) * (1 - smoothstep(V.phiMax - 0.1, V.phiMax + 0.12, q.phi));
           const fb = (1 - smoothstep(V.hw + 1, V.hw + 34, q.d)) * vf;
           if (fb > 0) h = lerp(h, q.y, fb);
         }
@@ -587,10 +587,11 @@ export function rawHeight(x, z, noTracks = false) {
     const m = smoothstep(1395, 1475, r) * (1 - smoothstep(1900, 2700, r));
     const mb = smoothstep(BOUND - 2200, BOUND, Math.max(Math.abs(x), Math.abs(z)));
     if (mb > 0) h += mb * mb * 1400;
-    if (m > 0) {
+    const noRing = smoothstep(VOLCANO.R * 1.0, VOLCANO.R * 1.08, Math.hypot(x - VOLCANO.x, z - VOLCANO.z)) * smoothstep(TROPIC.R * 1.0, TROPIC.R * 1.08, Math.hypot(x - TROPIC.x, z - TROPIC.z));
+    if (m > 0 && noRing > 0) {
       const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4) * 2 - 1);
       const gap = smoothstep(260, 520, Math.abs(z));                 // passes lead east and west to the volcanoes
-      h += m * m * gap * (22 + 55 * ridge + 18 * fbm(x * 0.04, z * 0.04, 3));
+      h += noRing * m * m * gap * (22 + 55 * ridge + 18 * fbm(x * 0.04, z * 0.04, 3));
     }
   }
   return h;
