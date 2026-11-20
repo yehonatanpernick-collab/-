@@ -43,6 +43,27 @@ VOLCANO.theta = VOLCANO.phi0 + VOLCANO.phiMax;              // angle of the summ
 export const TROPIC = { x: -6200, z: 0, R: 3400, rr: 240, H: 2100, depth: 70, hw: 9, Rs: 3300, Re: 300, phiMax: 7.0, p: 1.25 };
 TROPIC.b = Math.log(TROPIC.Rs / TROPIC.Re) / TROPIC.phiMax;
 TROPIC.phi0 = 0;                                            // the road starts on the east side, facing the old world
+// a colossal mountain range to the south: Himalayan giants in the east fading into the sharper, greener Caucasus in the west
+export const RANGE = { x0: -15000, x1: 14000, zc: 15500, W: 6500, vx: 0, vz0: 9000, vz1: 14600, vTop: 1500 };
+const RPEAKS = [[7500, 15300, 2900, 1150], [3300, 15900, 2000, 950], [11200, 14600, 1700, 1000], [-1200, 15200, 1300, 1100], [-9500, 15600, 1500, 1500], [-12800, 15000, 900, 1300], [5200, 13800, 1100, 800]];
+const rangeHm = (x) => smoothstep(-7000, 3500, x);                         // 0 = Caucasus, 1 = Himalaya
+export function rangeEnv(x, z) {                                           // 0..1 footprint of the range
+  const R = RANGE;
+  if (z < R.zc - R.W - 400 || z > R.zc + R.W + 400 || x < R.x0 - 400 || x > R.x1 + 400) return 0;
+  const u = (x - R.x0) / (R.x1 - R.x0), at = smoothstep(0, 0.14, u) * (1 - smoothstep(0.86, 1, u));
+  const v = (z - R.zc) / R.W + (fbm(x * 0.00018 + 3, z * 0.00018 - 5, 3) - 0.5) * 0.5;
+  return at * Math.pow(Math.max(0, 1 - Math.abs(v)), 1.35);
+}
+export function rangeH(x, z) {
+  const env = rangeEnv(x, z);
+  if (env <= 0) return 0;
+  const hm = rangeHm(x), S = 5200 + 3000 * hm;
+  const rg = 1 - Math.abs(2 * fbm(x * 0.00032 + 7, z * 0.00032 - 3, 5) - 1), jag = 1 - Math.abs(2 * fbm(x * 0.0021 + 2, z * 0.0021 + 9, 4) - 1);
+  let h = S * env * (0.4 + 0.6 * rg * rg) + env * (jag * jag * (260 + 280 * (1 - hm)) + (fbm(x * 0.011, z * 0.011, 3) - 0.5) * 120);
+  for (const [px, pz, ph, pr] of RPEAKS) { const d2 = ((x - px) ** 2 + (z - pz) ** 2) / (2 * pr * pr); if (d2 < 9) h += ph * Math.exp(-d2) * Math.min(1, env * 3); }
+  return Math.min(h, 9400);
+}
+const rangeValley = (z) => { const tz = Math.min(1, Math.max(0, (z - RANGE.vz0) / (RANGE.vz1 - RANGE.vz0))); return { x: RANGE.vx + 700 * Math.sin((z - RANGE.vz0) * 0.0021) * Math.min(1, tz * 6), y: 0.4 + RANGE.vTop * Math.pow(tz, 1.3), in: z > RANGE.vz0 - 300 && z < RANGE.vz1 + 200 }; };
 export const ALT0 = 0, ALT_PER_M = 1;
 export const altitudeOf = (y) => Math.round(ALT0 + y * ALT_PER_M);
 export const SALT = { x0: 1e9, x1: 1e9 + 1, z0: 1e9, z1: 1e9 + 1 };            // removed: only the original map and the volcano remain       // white salt flats: speed + jumps
@@ -78,7 +99,9 @@ export const LOOKOUT = { x: 0, z: 0, y: 0, yaw: 0, r: 26, phi: 6.2 };           
 export const PADS = [];                                                   // landing pads {x,z,r,y}
 export const HIGHWAYS = [
   [[760, 0], [VOLCANO.x - VOLCANO.Rs, 0]],                     // east: from the original map to the volcano
-  [[-760, 0], [TROPIC.x + TROPIC.Rs, 0]],                     // west: to the tropical volcano
+  [[-760, 0], [TROPIC.x + TROPIC.Rs, 0]],
+  [[0, 760], [0, RANGE.vz0]],                                             // south: to the great range
+                     // west: to the tropical volcano
 ];
 export function highwayDist(x, z) {
   let d = 1e9;
@@ -581,6 +604,14 @@ export function rawHeight(x, z, noTracks = false) {
       if (f > 0) h = lerp(h, q.y, f);
     }
   }
+  {                                                                        // the great range + its winding valley road
+    const rh = rangeH(x, z);
+    if (rh > 0) h = Math.max(h, rh);
+    if (z > RANGE.vz0 - 150 && z < RANGE.vz1 + 200 && Math.abs(x - RANGE.vx) < 1100) {
+      const vy = rangeValley(z), dxv = Math.abs(x - vy.x), w = 1 - smoothstep(10, 220, dxv);
+      if (w > 0) h = lerp(h, vy.y, w);
+    }
+  }
   // boundary mountains
   {
     const r = mountainR(x, z);
@@ -590,7 +621,7 @@ export function rawHeight(x, z, noTracks = false) {
     const noRing = smoothstep(VOLCANO.R * 1.0, VOLCANO.R * 1.08, Math.hypot(x - VOLCANO.x, z - VOLCANO.z)) * smoothstep(TROPIC.R * 1.0, TROPIC.R * 1.08, Math.hypot(x - TROPIC.x, z - TROPIC.z));
     if (m > 0 && noRing > 0) {
       const ridge = 1 - Math.abs(fbm(x * 0.012, z * 0.012, 4) * 2 - 1);
-      const gap = smoothstep(260, 520, Math.abs(z));                 // passes lead east and west to the volcanoes
+      const gap = smoothstep(260, 520, Math.abs(z)) * smoothstep(260, 520, Math.abs(x));                 // passes lead east and west to the volcanoes
       h += noRing * m * m * gap * (22 + 55 * ridge + 18 * fbm(x * 0.04, z * 0.04, 3));
     }
   }
@@ -1446,6 +1477,20 @@ export function buildLayout() {
       placed++;
     }
   }
+  // conifers in the great range's foothills and valleys
+  {
+    const R2 = rng(909), nn = { x: 0, y: 1, z: 0 };
+    let placed = 0;
+    for (let k = 0; k < 14000 && placed < 1500; k++) {
+      const x = RANGE.x0 + R2() * (RANGE.x1 - RANGE.x0), z = RANGE.zc - RANGE.W + R2() * RANGE.W * 1.1;
+      if (rangeEnv(x, z) < 0.01) continue;
+      const y = terrainHeight(x, z, nn);
+      if (nn.y < 0.72 || y < 120 || y > 2500) continue;
+      if (highwayDist(x, z) < 20 || (z > RANGE.vz0 - 100 && Math.abs(x - rangeValley(z).x) < 24)) continue;
+      scenery.pines.push({ x, z, y, s: 1.2 + R2() * 1.6, rot: R2() * PI * 2 });
+      placed++;
+    }
+  }
 }
 export const scenery = { rocks: [], cacti: [], palms: [], pines: [], bigRocks: [] };
 
@@ -1555,6 +1600,10 @@ export function surfaceAt(x, z) {
       }
     }
   }
+  if (z > RANGE.vz0 - 200 && z < RANGE.vz1 + 100 && Math.abs(x - RANGE.vx) < 1200) {
+    const vy = rangeValley(z);
+    if (Math.abs(x - vy.x) < 8.5 && z > RANGE.vz0) return 'trail';
+  }
   if (x < -3000) {
     const T = TROPIC, r = Math.hypot(x - T.x, z - T.z);
     if (r < T.R) {
@@ -1595,6 +1644,8 @@ function buildZones() {
     { id: 'tropicTop', name: 'פסגת הר הגעש הטרופי · 2,100 מ׳', sub: 'מעל הג׳ונגל · הענן נמוך מתחתיך', ...(() => { const f = TROPIC.phiMax - 0.12, e = volcanoPoint(f, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(f, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.Re + 140 && terrainHeight(x, z) > TROPIC.H * 0.9 },
     { id: 'tropic1', name: 'הר הגעש הטרופי · 1,000 מ׳', sub: 'יער גשם · שביל מתפתל', ...(() => { const f = phiAtAlt(1000, TROPIC), e = volcanoPoint(f, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(f, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.R && terrainHeight(x, z) > 600 },
     { id: 'tropic', name: 'הר הגעש הטרופי', sub: 'ג׳ונגל · דקלים · שביל לפסגה', ...(() => { const e = volcanoPoint(0.05, TROPIC); return { x: e.x, z: e.z, yaw: volcanoYaw(0.05, TROPIC) }; })(), inside: (x, z) => Math.hypot(x - TROPIC.x, z - TROPIC.z) < TROPIC.R * 1.04 },
+    { id: 'range', name: 'רכס ההרים הענק', sub: 'הימלאיה וקווקז · פסגות של 8,800 מטר', x: 0, z: RANGE.vz0 + 40, yaw: 0, inside: (x, z) => z > RANGE.zc - RANGE.W - 400 && x > RANGE.x0 && x < RANGE.x1 },
+    { id: 'rangeTop', name: 'מחנה הבסיס · 1,800 מ׳', sub: 'בין ענקים של 8,000 מטר', ...(() => { const y = RANGE.vz1 - 80, v = rangeValley(y); return { x: v.x, z: y, yaw: 0 }; })(), inside: (x, z) => false },
     { id: 'mega', name: 'מגה רמפות', sub: 'קפיצת ענק · מגדל ספירלה · מכולות', x: -195, z: 545, yaw: PI / 2, inside: inRect(MEGA, 6) },
     { id: 'canyon', name: 'קניון הפעלולים', sub: 'קפיצות מעל תהום · מכולות · כוכב · מדרגות', x: 105, z: -350, yaw: PI, inside: inRect(NSTUNT, 6) },
     { id: 'special', name: 'פארק הפעלולים המיוחדים', sub: 'מקפצות · קרוסלה · גגות העיר · מסלולים מוטים · קפיצה מעל מכוניות', x: -625, z: -150, yaw: 0, inside: inRect(SPECIAL, 6) },

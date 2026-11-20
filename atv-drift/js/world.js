@@ -7,7 +7,7 @@ import {
   rampDefs, boostPads, scenery, fbm, smoothstep, roadDistance, terrainHeight, groundQuery, rng,
   TRACKS, DRIFTLOT, STUNT, HALFPIPE, HILLS, tireStacks, grandstands, trackNearest, waterAt, surfaceAt as TR_surface,
   MEGA, NSTUNT, CANYON, SPECIAL, stuntProps, trampolines, turntables,
-  rawHeight as rawHeightAt, LOOKOUT, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, TROPIC, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
+  rawHeight as rawHeightAt, LOOKOUT, LAVA, PADS, ICE, MESA, MOON, CITY, highwayDist, VOLCANO, TROPIC, RANGE, rangeEnv, SALT, FOREST, shoreX, volcanoRoad, volcanoPoint, volcanoLane, coneH, altitudeOf, phiAtAlt, volcanoYaw,
 } from './terrain.js';
 
 // ------------------------------------------------------------------ textures
@@ -446,6 +446,35 @@ export function colorAt(x, z, h, ny, out) {
         r += (jr - r) * wt; g += (jg - g) * wt; b += (jb - b) * wt;
       }
     }
+    {
+      const re = rangeEnv(x, z);
+      if (re > 0.004) {                                         // the great range: steppe + conifer foothills, alpine meadows, scree, rock, glaciers and snow
+        const wr = smoothstep(0.004, 0.05, re), hm = smoothstep(-7000, 3500, x);
+        const hh = Math.max(0, h), nv = fbm(x * 0.0015 + 2, z * 0.0015 - 6, 4), nv2 = fbm(x * 0.008 + 5, z * 0.008 + 1, 3), nv3 = fbm(x * 0.04 + 9, z * 0.04 - 2, 3);
+        let kr = 0.36 + nv2 * 0.1, kg = 0.33 + nv2 * 0.1, kb = 0.2 + nv2 * 0.04;                 // dry steppe
+        const con = smoothstep(500, 1100, hh) * (1 - smoothstep(2300, 3000, hh)) * smoothstep(0.35, 0.55, nv + (1 - slope) * 0.2) * (0.55 + 0.45 * (1 - hm));
+        kr += (0.07 + nv3 * 0.04 - kr) * con; kg += (0.17 + nv3 * 0.06 - kg) * con; kb += (0.08 - kb) * con;
+        const mead = smoothstep(2300, 2900, hh) * (1 - smoothstep(3500, 4200, hh)) * (0.5 + 0.5 * (1 - hm));
+        kr += (0.3 - kr) * mead * 0.7; kg += (0.38 - kg) * mead * 0.7; kb += (0.18 - kb) * mead * 0.7;
+        const scree = smoothstep(2800, 3600, hh);
+        kr += (0.4 + nv3 * 0.08 - kr) * scree; kg += (0.37 + nv3 * 0.07 - kg) * scree; kb += (0.35 + nv3 * 0.06 - kb) * scree;
+        const rockM = smoothstep(0.2, 0.36, slope);
+        const snowLine = 4100 + 900 * hm + (nv - 0.5) * 800;
+        const snowA = smoothstep(snowLine, snowLine + 500, hh) * (1 - rockM * 0.75);
+        const glac = smoothstep(3300, 4300, hh) * (1 - smoothstep(0.1, 0.2, slope)) * (1 - smoothstep(5600, 6800, hh));   // blue glacier tongues on the gentle ground
+        kr += (0.78 - kr) * glac * 0.55; kg += (0.88 - kg) * glac * 0.55; kb += (0.96 - kb) * glac * 0.55;
+        const dark = rockM * smoothstep(1500, 3600, hh);                                         // bare dark crags
+        kr += (0.24 + nv3 * 0.06 - kr) * dark * 0.7; kg += (0.22 + nv3 * 0.05 - kg) * dark * 0.7; kb += (0.21 - kb) * dark * 0.7;
+        const sn = 0.95 + nv2 * 0.05;
+        kr += (sn - kr) * snowA; kg += (sn - kg) * snowA; kb += (sn * 1.03 - kb) * snowA;
+        if (z > RANGE.vz0 - 100 && z < RANGE.vz1 + 100) {                                          // valley road
+          const vt = Math.min(1, Math.max(0, (z - RANGE.vz0) / (RANGE.vz1 - RANGE.vz0))), vxc = RANGE.vx + 700 * Math.sin((z - RANGE.vz0) * 0.0021) * Math.min(1, vt * 6);
+          const f = 1 - smoothstep(6.5, 8.6, Math.abs(x - vxc));
+          kr += (0.48 + n2 * 0.04 - kr) * f * 0.9; kg += (0.4 + n2 * 0.03 - kg) * f * 0.9; kb += (0.33 - kb) * f * 0.9;
+        }
+        r += (kr - r) * wr; g += (kg - g) * wr; b += (kb - b) * wr;
+      }
+    }
     const dd = x - shoreX(z);
     if (dd < 280) {                                             // beach, wet sand, sea floor
       const beach = 1 - smoothstep(70, 260, dd);
@@ -545,10 +574,11 @@ export function buildTerrain(T) {
   // sample the detail texture at two scales so the tiling never shows
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uVolc = { value: new THREE.Vector3(VOLCANO.x, VOLCANO.z, VOLCANO.R) };
+    sh.uniforms.uRng = { value: new THREE.Vector4(RANGE.x0, RANGE.x1, RANGE.zc - RANGE.W, RANGE.zc + RANGE.W) };
     sh.uniforms.uTrop = { value: new THREE.Vector3(TROPIC.x, TROPIC.z, TROPIC.R) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vWPos; uniform vec3 uVolc; uniform vec3 uTrop;
+      varying vec3 vWPos; uniform vec3 uVolc; uniform vec3 uTrop; uniform vec4 uRng;
       float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vnz(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }`);
@@ -570,7 +600,8 @@ export function buildTerrain(T) {
         diffuseColor *= sampledDiffuseColor;
       #endif`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - 0.85 * volc) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = max(1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy)), 1.0 - smoothstep(uTrop.z * 0.97, uTrop.z * 1.03, length(vWPos.xz - uTrop.xy)));');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = max(1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy)), 1.0 - smoothstep(uTrop.z * 0.97, uTrop.z * 1.03, length(vWPos.xz - uTrop.xy)));
+  volc = max(volc, smoothstep(uRng.x, uRng.x + 600.0, vWPos.x) * (1.0 - smoothstep(uRng.y - 600.0, uRng.y, vWPos.x)) * smoothstep(uRng.z, uRng.z + 600.0, vWPos.z) * (1.0 - smoothstep(uRng.w - 600.0, uRng.w, vWPos.z)));');
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
