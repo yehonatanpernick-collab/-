@@ -600,8 +600,7 @@ export function buildTerrain(T) {
         diffuseColor *= sampledDiffuseColor;
       #endif`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps.replace(/normalScale/g, '(normalScale * (1.0 - 0.9 * cool) * (1.0 - 0.85 * volc) * (1.0 - smoothstep(90.0, 450.0, -vViewPosition.z)))'));
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = max(1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy)), 1.0 - smoothstep(uTrop.z * 0.97, uTrop.z * 1.03, length(vWPos.xz - uTrop.xy)));
-  volc = max(volc, smoothstep(uRng.x, uRng.x + 600.0, vWPos.x) * (1.0 - smoothstep(uRng.y - 600.0, uRng.y, vWPos.x)) * smoothstep(uRng.z, uRng.z + 600.0, vWPos.z) * (1.0 - smoothstep(uRng.w - 600.0, uRng.w, vWPos.z)));');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'void main() {\n  float cool = smoothstep(-0.02, 0.04, vColor.b - vColor.r) * smoothstep(0.1, 0.3, vColor.b);\n  float volc = max(1.0 - smoothstep(uVolc.z * 0.97, uVolc.z * 1.03, length(vWPos.xz - uVolc.xy)), 1.0 - smoothstep(uTrop.z * 0.97, uTrop.z * 1.03, length(vWPos.xz - uTrop.xy)));\n  volc = max(volc, smoothstep(uRng.x, uRng.x + 600.0, vWPos.x) * (1.0 - smoothstep(uRng.y - 600.0, uRng.y, vWPos.x)) * smoothstep(uRng.z, uRng.z + 600.0, vWPos.z) * (1.0 - smoothstep(uRng.w - 600.0, uRng.w, vWPos.z)));');
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
