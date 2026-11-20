@@ -608,7 +608,7 @@ export function rawHeight(x, z, noTracks = false) {
     const rh = rangeH(x, z);
     if (rh > 0) h = Math.max(h, rh);
     if (z > RANGE.vz0 - 150 && z < RANGE.vz1 + 200 && Math.abs(x - RANGE.vx) < 1100) {
-      const vy = rangeValley(z), dxv = Math.abs(x - vy.x), w = 1 - smoothstep(10, 220, dxv);
+      const vy = rangeValley(z), dxv = Math.abs(x - vy.x), w = 1 - smoothstep(10, 340, dxv);
       if (w > 0) h = lerp(h, vy.y, w);
     }
   }

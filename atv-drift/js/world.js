@@ -459,8 +459,8 @@ export function colorAt(x, z, h, ny, out) {
         const scree = smoothstep(2800, 3600, hh);
         kr += (0.4 + nv3 * 0.08 - kr) * scree; kg += (0.37 + nv3 * 0.07 - kg) * scree; kb += (0.35 + nv3 * 0.06 - kb) * scree;
         const rockM = smoothstep(0.2, 0.36, slope);
-        const snowLine = 4100 + 900 * hm + (nv - 0.5) * 800;
-        const snowA = smoothstep(snowLine, snowLine + 500, hh) * (1 - rockM * 0.75);
+        const snowLine = 3000 + 700 * hm + (nv - 0.5) * 700;
+        const snowA = smoothstep(snowLine, snowLine + 400, hh) * (1 - rockM * 0.4);
         const glac = smoothstep(3300, 4300, hh) * (1 - smoothstep(0.1, 0.2, slope)) * (1 - smoothstep(5600, 6800, hh));   // blue glacier tongues on the gentle ground
         kr += (0.78 - kr) * glac * 0.55; kg += (0.88 - kg) * glac * 0.55; kb += (0.96 - kb) * glac * 0.55;
         const dark = rockM * smoothstep(1500, 3600, hh);                                         // bare dark crags
