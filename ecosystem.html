@@ -151,6 +151,12 @@ h4{margin:14px 0 6px;font-size:12px;letter-spacing:.8px;color:var(--muted);font-
   #chip{top:calc(92px + env(safe-area-inset-top,0px))}
   #bottom input[type=range]{width:70px}
 }
+#mhud{position:fixed;z-index:16;top:calc(98px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));padding:6px 10px;font-size:12.5px;max-width:270px;line-height:1.5}
+.busy #mhud{opacity:.08;pointer-events:none}.nohud #mhud{display:none!important}
+.mi{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;background:rgba(255,255,255,.04)}.mi b{font-size:14px}.mi .stars{color:#ffd166}
+.goal{display:flex;gap:6px;align-items:center;font-size:12.5px;margin:3px 0}.goal i{font-style:normal}
+@media (max-width:760px){#mhud{top:calc(130px + env(safe-area-inset-top,0px))}}
+@media (max-width:1250px){#tabs .tl{display:none}#tabs button{padding:6px 11px;font-size:16px}}
 </style>
 </head>
 <body>
@@ -169,10 +175,12 @@ h4{margin:14px 0 6px;font-size:12px;letter-spacing:.8px;color:var(--muted);font-
     <button id="btnSound" title="צלילי טבע">🔇</button>
     <button id="btnQ" title="איכות גרפיקה">⚙️</button>
     <button id="btnHelp" title="עזרה ובקרות">❓</button>
+    <button id="btnCred" title="קרדיטים ורישיונות של המודלים">©</button>
     <button id="btnHide" title="הסתר ממשק (H)">👁</button>
   </div>
 </div>
 <button id="chip" class="glass" title="מדדי המערכת (לחצו לפתיחה)"><canvas id="chipRing" width="56" height="56"></canvas><span><b id="chipYear">שנה 0</b><small id="chipSub"></small></span></button>
+<div id="mhud" class="glass" hidden></div>
 <button id="showHud" class="glass" title="הצג ממשק (H)">👁</button>
 
 <aside id="tools" class="glass"></aside>
@@ -240,6 +248,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* =====================================================================
    1. UTILITIES
@@ -310,21 +320,25 @@ const ANIMALS=[
  {id:'bee',name:'דבורי בר',icon:'🐝',type:'poll',diet:{flowers:1,shrub:.4,acacia:.3,cactus:.3,oak:.1,palm:.2},T:[17,12],dens:15,r:1,value:0,perAgent:1e9,max:0,size:.1,col:0xe7b52a,speed:4,model:'none',graze:0,group:40},
  {id:'songbird',name:'ציפורי שיר',icon:'🐦',type:'herb',diet:{shrub:.8,oak:.5,birch:.5,spruce:.5,flowers:.4,grass:.2,kapok:.5,acacia:.4},T:[12,16],dens:300,r:.8,value:.004,perAgent:300,max:40,size:.3,col:0xc0603a,speed:6,model:'bird',fly:1,graze:0,group:200},
  {id:'fish',name:'פורל',icon:'🐟',type:'fish',diet:{},T:[9,9],dens:3000,r:.9,value:.02,perAgent:150,max:50,size:.45,col:0x8b9a8a,speed:1.6,model:'fish',water:1,group:300},
- {id:'wolf',name:'זאב אפור',icon:'🐺',type:'pred',prey:{deer:1,reindeer:1,bison:.4,zebra:.3,beaver:.5,rabbit:.3},need:18,a:5,b:.6,m:.35,dens:.15,T:[4,16],perAgent:1,max:30,size:.95,col:0x6e6a64,speed:4.2,model:'wolf',group:6},
+ {id:'wolf',name:'זאב אפור',icon:'🐺',type:'pred',prey:{deer:1,reindeer:1,moose:.5,goat:.35,bison:.4,zebra:.3,beaver:.5,rabbit:.3},need:18,a:5,b:.6,m:.35,dens:.15,T:[4,16],perAgent:1,max:30,size:.95,col:0x6e6a64,speed:4.2,model:'wolf',group:6},
  {id:'fox',name:'שועל',icon:'🦊',type:'pred',prey:{rabbit:1,songbird:.5,fish:.1},need:1.8,a:1.6,b:.9,m:.5,dens:1.5,T:[8,17],perAgent:3,max:30,size:.6,col:0xc8642a,speed:3.8,model:'wolf',group:8},
  {id:'lynx',name:'שונר',icon:'🐈',type:'pred',prey:{rabbit:1,deer:.3,reindeer:.4},need:4,a:3,b:.55,m:.35,dens:.12,T:[0,12],perAgent:1,max:20,size:.7,col:0xa88a62,speed:3.6,model:'wolf',group:4},
  {id:'bear',name:'דוב חום',icon:'🐻',type:'pred',prey:{fish:1,deer:.25,reindeer:.25,bison:.05,rabbit:.1},plants:{shrub:1,oak:.6,grass:.1},need:6,a:2.5,b:.35,m:.22,dens:.1,T:[5,14],perAgent:1,max:20,size:1.6,col:0x4b3020,speed:2.6,model:'bear',group:3},
  {id:'eagle',name:'עיט זהוב',icon:'🦅',type:'pred',prey:{rabbit:1,fish:.8,songbird:.4,monkey:.3},need:1,a:1,b:.5,m:.3,dens:.08,T:[5,18],perAgent:1,max:15,size:1.6,col:0x5b4128,speed:9,model:'bird',fly:1,group:2},
- {id:'lion',name:'אריה',icon:'🦁',type:'pred',prey:{zebra:1,bison:.3,deer:.3,monkey:.1},need:15,a:2.5,b:.5,m:.3,dens:.12,T:[25,7],perAgent:1,max:20,size:1.4,col:0xc29a5a,speed:4,model:'bear',group:5},
+ {id:'lion',name:'אריה',icon:'🦁',type:'pred',prey:{zebra:1,wildebeest:1,bison:.3,deer:.3,monkey:.1},need:15,a:2.5,b:.5,m:.3,dens:.12,T:[25,7],perAgent:1,max:20,size:1.4,col:0xc29a5a,speed:4,model:'bear',group:5},
+ {id:'moose',name:'אייל ענק (מוס)',icon:'🦌',type:'herb',diet:{willow:1,birch:.8,shrub:.6,grass:.3,spruce:.2},T:[3,9],dens:5,r:.3,value:2.5,perAgent:4,max:25,size:1.6,col:0x4a3a2a,speed:3,model:'deer',group:10},
+ {id:'wildebeest',name:'גנו',icon:'🐃',type:'herb',diet:{grass:1,flowers:.2},T:[24,7],dens:45,r:.35,value:2.2,perAgent:12,max:40,size:1.2,col:0x4f4a45,speed:3.4,model:'bison',group:35},
+ {id:'hyena',name:'צבוע',icon:'🐕',type:'pred',prey:{wildebeest:1,zebra:.35,rabbit:.5},need:6,a:1.8,b:.55,m:.3,dens:.14,T:[25,8],perAgent:1,max:25,size:1,col:0x8a7a5a,speed:4,model:'wolf',group:6},
+ {id:'goat',name:'יעל הרים',icon:'🐐',type:'herb',diet:{grass:.6,moss:.6,shrub:.5,flowers:.4},T:[3,8],dens:18,r:.35,value:.8,perAgent:8,max:35,size:.9,col:0xdcd6c6,speed:3,model:'deer',group:20,cliff:1},
 ];
 const NA=ANIMALS.length; const AI_={};ANIMALS.forEach((a,i)=>AI_[a.id]=i);
 ANIMALS.forEach(a=>{a.dmax=a.dens*REG_KM2;});
 
 const BIOMES=[
- {id:'temperate',name:'יער ממוזג',e:'🌳',terrain:'hills',desc:'גבעות מיוערות, נחל מתפתל ואגם. אלונים, ליבנה וערבות. חסר טורף-על — מה יקרה לצבאים?',clim:{T:9,P:950,amp:11,lat:46},plants:{grass:.35,flowers:.12,shrub:.12,oak:.3,spruce:.12,birch:.12,willow:.3,fungi:.3,moss:.03},animals:{rabbit:2500,deer:900,beaver:30,bee:500,songbird:9000,fish:4000,fox:40,eagle:3,bear:3}},
- {id:'alpine',name:'רכס אלפיני',e:'🏔️',terrain:'alpine',desc:'פסגות של 2,400 מ׳, קרחונים, מפלים ועמק ירוק. קו העצים נקבע לפי טמפרטורת הקיץ.',clim:{T:11,P:1400,amp:10,lat:46},plants:{grass:.4,flowers:.2,moss:.3,shrub:.15,spruce:.35,birch:.12,willow:.15,fungi:.2},animals:{rabbit:1500,deer:400,bee:300,songbird:5000,fish:2500,fox:25,eagle:4,lynx:3}},
+ {id:'temperate',name:'יער ממוזג',e:'🌳',terrain:'hills',desc:'גבעות מיוערות, נחל מתפתל ואגם. אלונים, ליבנה וערבות. חסר טורף-על — מה יקרה לצבאים?',clim:{T:9,P:950,amp:11,lat:46},plants:{grass:.35,flowers:.12,shrub:.12,oak:.3,spruce:.12,birch:.12,willow:.3,fungi:.3,moss:.03},animals:{rabbit:2500,deer:900,moose:60,beaver:30,bee:500,songbird:9000,fish:4000,fox:40,eagle:3,bear:3}},
+ {id:'alpine',name:'רכס אלפיני',e:'🏔️',terrain:'alpine',desc:'פסגות של 2,400 מ׳, קרחונים, מפלים ועמק ירוק. קו העצים נקבע לפי טמפרטורת הקיץ.',clim:{T:8.5,P:1400,amp:10,lat:46},plants:{grass:.4,flowers:.2,moss:.3,shrub:.15,spruce:.35,birch:.12,willow:.15,fungi:.2},animals:{rabbit:1500,deer:400,goat:300,bee:300,songbird:5000,fish:2500,fox:25,eagle:4,lynx:3}},
  {id:'tundra',name:'טונדרה ארקטית',e:'❄️',terrain:'tundra',desc:'מישור קפוא מלא אגמונים, אזוב וחזזיות. לילות קוטב וימי שמש של חצות.',clim:{T:-7,P:320,amp:16,lat:68},plants:{moss:.55,grass:.25,shrub:.1,flowers:.05,birch:.03,fungi:.1},animals:{reindeer:600,rabbit:900,fox:25,wolf:8,fish:2500,songbird:2000,eagle:2}},
- {id:'savanna',name:'סוואנה',e:'🦓',terrain:'savanna',desc:'מרחבי עשב עם עצי שיטה וגבעות סלע. עונה יבשה ושריפות.',clim:{T:25,P:650,amp:4,lat:3},plants:{grass:.6,acacia:.15,shrub:.06,flowers:.06,cactus:.02,fungi:.06},animals:{zebra:700,rabbit:1500,lion:6,bee:300,songbird:5000,fish:1500,eagle:3}},
+ {id:'savanna',name:'סוואנה',e:'🦓',terrain:'savanna',desc:'מרחבי עשב עם עצי שיטה וגבעות סלע. עונה יבשה ושריפות.',clim:{T:25,P:650,amp:4,lat:3},plants:{grass:.6,acacia:.15,shrub:.06,flowers:.06,cactus:.02,fungi:.06},animals:{zebra:700,wildebeest:900,rabbit:1500,lion:8,hyena:5,bee:300,songbird:5000,fish:1500,eagle:3}},
  {id:'rainforest',name:'יער גשם טרופי',e:'🌴',terrain:'rainforest',desc:'גבעות תלולות, גשם עז ונהר רחב. ענקי יער, קופים ופטריות.',clim:{T:26,P:2600,amp:2,lat:2},plants:{kapok:.55,palm:.12,shrub:.2,grass:.1,flowers:.15,fungi:.5},animals:{monkey:1800,bee:600,songbird:12000,fish:5000,eagle:4}},
  {id:'desert',name:'מדבר',e:'🏜️',terrain:'desert',desc:'דיונות ומסות. כמעט אין מים — האם תצליחו ליצור נווה מדבר?',clim:{T:27,P:130,amp:10,lat:26},plants:{cactus:.15,grass:.03,shrub:.03,palm:.05},animals:{rabbit:250,fox:6,eagle:2,bee:40}},
  {id:'blank',name:'קנבס ריק',e:'🧪',terrain:'flat',desc:'מישור חשוף בלי חיים. בנו הכל בעצמכם: הרים, נהרות, מינים ואקלים.',clim:{T:12,P:800,amp:10,lat:40},plants:{},animals:{}},
@@ -533,7 +547,7 @@ function animalStep(dt){
       else{let food=0;for(const k in A.diet){const s=PI[k];food+=A.diet[k]*cov[s*E2+r]*(PLANTS[s].layer===1?.8:PLANTS[s].prod+.2)}
         let wf=.6+.4*Math.min(1,(R.water[r]+R.river[r])*6+R.M[r]*.5);
         if(A.river)wf=Math.min(1,(R.river[r]+R.water[r])*8);
-        h=Math.min(food,1.2)*tS*wf*(1-R.ice[r]);}
+        h=Math.min(food,1.2)*tS*wf*(1-R.ice[r])*(A.cliff?clamp(.35+R.slope[r]*1.5,0,1.4):1);}
       hab[o+r]=h;sum+=h}
     K[a]=sum*A.dmax;}
   // 2. predator distribution
@@ -680,7 +694,7 @@ function ecoYear(dt,opts={}){
     soilWaterStep(sd);
   }
   if(!opts.noGeo){glacierStep(dt);erosionStep(dt);hydroDirty=true}
-  S.year+=dt;
+  adaptStep(dt);S.year+=dt;
 }
 function ecoMonth(){
   const month=Math.floor(S.day/30.42)%12;const st=seasonT(S.day);
@@ -1076,7 +1090,7 @@ function writeInst(V,x,y,z,s,rot,r,g,b){if(V.n>=V.max)return;const e=V.mesh.inst
   e[o]=c;e[o+1]=0;e[o+2]=-sn;e[o+3]=0;e[o+4]=0;e[o+5]=s;e[o+6]=0;e[o+7]=0;e[o+8]=sn;e[o+9]=0;e[o+10]=c;e[o+11]=0;e[o+12]=x;e[o+13]=y;e[o+14]=z;e[o+15]=1;
   const ca=V.mesh.instanceColor.array;ca[V.n*3]=r;ca[V.n*3+1]=g;ca[V.n*3+2]=b;V.n++}
 function placeVegetation(){
-  for(const k in VEG)VEG[k].n=0;
+  for(const k in VEG)VEG[k].n=0;TR.n=0;
   const trees=PLANTS.map((p,s)=>p.layer===1?s:-1).filter(s=>s>=0);
   const csum=s=>{let t=0;for(let r=0;r<E2;r++)t+=S.cover[s*E2+r];return t*RN*RN};
   const DS={};
@@ -1095,12 +1109,14 @@ function placeVegetation(){
       if(waterAt(x,z)>.05)continue;
       const sc=(.65+.7*hash3(ix,iy,k*11+5))*MODELS[kind].scale*(1.1+.3*clamp(tc[sp]*1.5,0,1))*(1+(1-DS[kind])*.35);
       const v=.82+.3*hash3(ix,iy,k*11+6);let r=v,g=v,b=v;if(snowy>.3&&p.id==='spruce'){r=g=b=1+snowy*1.8}
-      writeInst(VEG[kind],x,groundAt(x,z)-.15,z,sc,hash3(ix,iy,k*11+7)*6.28,r,g,b)}
+      writeInst(VEG[kind],x,groundAt(x,z)-.15,z,sc,hash3(ix,iy,k*11+7)*6.28,r,g,b);addTree(kind,x,groundAt(x,z)-.15,z,sc,hash3(ix,iy,k*11+7)*6.28)}
     const shc=rSample(S.cover,PI.shrub*E2,ix,iy),cac=rSample(S.cover,PI.cactus*E2,ix,iy);
-    for(let k=0;k<2;k++){if(hash3(ix,iy,k+70)<shc*.9*DS.shrub){const x=-W/2+(ix+hash3(ix,iy,k+71)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+72)-.5)*CS;const sc=1+hash3(ix,iy,k+73)*1.2;const v=.8+.35*hash3(ix,iy,k+74);writeInst(VEG.shrub,x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28,v+snowy,v+snowy,v+snowy)}}
-    if(hash3(ix,iy,80)<cac*.6*DS.cactus){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1)}
+    for(let k=0;k<2;k++){if(hash3(ix,iy,k+70)<shc*.9*DS.shrub){const x=-W/2+(ix+hash3(ix,iy,k+71)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+72)-.5)*CS;const sc=1+hash3(ix,iy,k+73)*1.2;const v=.8+.35*hash3(ix,iy,k+74);writeInst(VEG.shrub,x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28,v+snowy,v+snowy,v+snowy);addTree('shrub',x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28)}}
+    if(hash3(ix,iy,80)<cac*.6*DS.cactus){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1);addTree('cactus',x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28)}
+    if(can>.25&&H.moist[i]>.35&&hash3(ix,iy,60)<.4*Math.min(1,can)){const x=-W/2+(ix+hash3(ix,iy,61)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,62)-.5)*CS;if(waterAt(x,z)<.05)addTree('fern',x,groundAt(x,z)-.05,z,.7+hash3(ix,iy,63)*.7,hash3(ix,iy,64)*6.28)}
   }
   for(const k in VEG){if(k==='rock')continue;const V=VEG[k];V.mesh.count=V.n;V.mesh.instanceMatrix.needsUpdate=true;V.mesh.instanceColor.needsUpdate=true}
+  afterPlace();
 }
 function placeRocks(){
   const V=VEG.rock;V.n=0;
@@ -1218,9 +1234,10 @@ function updateAgents(dt){
           const th=Math.atan2(-dz,dx);let dh=th-g.h;while(dh>Math.PI)dh-=6.283;while(dh<-Math.PI)dh+=6.283;g.h+=dh*Math.min(1,dt*6);g.ph+=dt*sp*2}}
       if(Math.abs(g.x)>W/2){const p=regionPoint(a,!!A.water);if(p){g.x=g.tx=p[0];g.z=g.tz=p[1]}else g.x=0}
       let y=groundAt(g.x,g.z);if(A.water)y=H.wsurf[cellAt(g.x,g.z)]-.4;else if(A.fly)y=Math.max(y,H.wsurf[cellAt(g.x,g.z)])+g.alt+Math.sin(g.ph*.3)*2;else y+=Math.abs(Math.sin(g.ph))*.06*A.size;
-      const s=A.size*EX*.5;tmpE.set(A.fly?Math.sin(g.ph*2)*.3:0,g.h,0,'YXZ');tmpQ.setFromEuler(tmpE);tmpV.set(g.x,y,g.z);tmpS.set(s,A.fly?s*(1+.3*Math.sin(g.ph*6)):s,s);tmpM.compose(tmpV,tmpQ,tmpS);tmpM.toArray(mesh.instanceMatrix.array,k*16);
+      g.ly=y;const s=A.size*EX*.5;tmpE.set(A.fly?Math.sin(g.ph*2)*.3:0,g.h,0,'YXZ');tmpQ.setFromEuler(tmpE);tmpV.set(g.x,y,g.z);tmpS.set(s,A.fly?s*(1+.3*Math.sin(g.ph*6)):s,s);tmpM.compose(tmpV,tmpQ,tmpS);tmpM.toArray(mesh.instanceMatrix.array,k*16);g.idx=k;
       pa[k*3]=g.x;pa[k*3+1]=y+(A.fly?2:A.size*EX*.6+3);pa[k*3+2]=g.z;}
     mesh.count=list.length;mesh.instanceMatrix.needsUpdate=true;M.pts.geometry.setDrawRange(0,iconsOn?Math.min(list.length,camD>500?5:12):0);M.pts.geometry.attributes.position.needsUpdate=true;});
+  realAnimalsPass(dt);
 }
 
 /* ---------- Particles: rain, snow, waterfall mist, fire, bees ---------- */
@@ -1350,7 +1367,7 @@ el.addEventListener('pointerdown',e=>{
   if(tool==='spring'){const i=cellAt(p.x,p.z);S.springs.push({i,q:60*brushS+10});computeHydro();computeEnv();updateTerrainMesh();updateTerrainAttributes();note('info',`💧 מעיין חדש נובע בגובה ${Math.round(surf(i)*M_PER_UNIT)} מ׳. המים יזרמו במורד וייצרו נחל${H.lakes?' ואולי ימלאו אגמים בדרך':''}.`);scheduleForecast('מעיין חדש');return}
   if(tool==='animal'){releaseAnimal(selAnimal,p);return}
   if(tool==='fire'){const r=regOf(clamp(Math.round((p.x+W/2)/CS),0,N-1),clamp(Math.round((p.z+W/2)/CS),0,N-1));const n=igniteFire(r,true);dirtyVeg=dirtyAttr=true;note('bad',`🔥 הצתת שריפה. נשרפו ${(n*REG_KM2).toFixed(1)} קמ״ר. אחרי שריפה מגיעה סוקצסיה: עשבים ← שיחים ← ליבנה ← עצי צל. האפר מעשיר את הקרקע, אבל המדרונות החשופים נסחפים.`);scheduleForecast('אחרי שריפה');return}
-  painting=true;undoBuf={h:S.h.slice(),ice:S.ice.slice(),sand:S.sand.slice(),rockP:S.rockP.slice(),cover:S.cover.slice(),soil:S.soil.slice(),springs:S.springs.slice()};
+  if(!spend(strokeCost(),'פיסול'))return;painting=true;undoBuf={h:S.h.slice(),ice:S.ice.slice(),sand:S.sand.slice(),rockP:S.rockP.slice(),cover:S.cover.slice(),soil:S.soil.slice(),springs:S.springs.slice()};
   flattenH=S.h[cellAt(p.x,p.z)];strokeInfo={lakes:H.lakes,falls:H.falls.length};el.setPointerCapture(e.pointerId);
 });
 el.addEventListener('pointermove',e=>{
@@ -1373,7 +1390,7 @@ function finishStroke(){
 }
 function describeSite(){const i=cellAt(brushPos.x,brushPos.z);return `${H.tAnn[i].toFixed(0)}°C, לחות ${Math.round(H.moist[i]*100)}%`}
 function releaseAnimal(a,p){
-  const A=ANIMALS[a];const n=A.group*(.6+brushS*.8);S.pops[a]+=n;
+  const A=ANIMALS[a];if(!spend(animalCost(a),'שחרור '+A.name))return;const n=A.group*(.6+brushS*.8);S.pops[a]+=n;
   const r=regOf(clamp(Math.round((p.x+W/2)/CS),0,N-1),clamp(Math.round((p.z+W/2)/CS),0,N-1));
   if(AMESH[a]){for(let k=0;k<Math.min(6,A.max);k++)AGENTS[a].push(newAgent(A,p.x+(Math.random()-.5)*15,p.z+(Math.random()-.5)*15))}
   animalStep(.001);
@@ -1412,7 +1429,7 @@ function advanceDays(d){
   if(Math.floor(S.day)!==weather.dayRolled){weather.dayRolled=Math.floor(S.day);rollWeather()}
 }
 function yearTick(){
-  S.year+=1;glacierStep(1);if(S.geo)erosionStep(1);
+  missionYear(1);S.year+=1;glacierStep(1);if(S.geo)erosionStep(1);
   const iceSum=S.ice.reduce((a,b)=>a+b,0);if(iceSum>0||S.geo){computeHydro();computeEnv();updateTerrainMesh();placeRocks()}
   recordHistory();syncAgents();
   if(S.year%5===0)scheduleForecast('בדיקה תקופתית');
@@ -1426,7 +1443,7 @@ async function jump(years){
   const t0=performance.now();
   while(done<years){
     const tc=performance.now();
-    while(done<years&&performance.now()-tc<30){const dt=Math.min(step,years-done);ecoYear(dt);done+=dt;
+    while(done<years&&performance.now()-tc<30){const dt=Math.min(step,years-done);ecoYear(dt);done+=dt;missionYear(dt);
       if(hydroDirty&&(done-lastH>=(years>2000?40:years>200?10:5))){computeHydro();computeEnv();lastH=done;hydroDirty=false}
       if(Math.floor(S.year)%Math.max(1,Math.floor(years/300))===0)recordHistory()}
     $('jumpYear').textContent=`שנה ${Math.floor(S.year).toLocaleString()}`;$('prog').firstElementChild.style.width=(done/years*100)+'%';
@@ -1434,7 +1451,7 @@ async function jump(years){
   }
   computeHydro();computeEnv();
   for(let m=0;m<12;m++)snowMonth((m+.5)*30.42);S.snow.fill(0);for(let d=0;d<Math.floor(S.day/30.42)+1;d++)snowMonth(d*30.42+15);
-  updateTerrainMesh();updateTerrainAttributes();placeRocks();placeVegetation();syncAgents();recordHistory();
+  updateTerrainMesh();updateTerrainAttributes();placeRocks();placeVegetation();syncAgents();recordHistory();loadNeeded();
   jumpReport(before,years);
   $('jumpClose').hidden=false;jumping=false;drawChart();updateDash();
 }
@@ -1461,10 +1478,10 @@ function jumpReport(b,years){
 /* =====================================================================
    15. UI
    ===================================================================== */
-const TABS=[['terrain','⛰️ שטח'],['design','🎨 עיצוב'],['plants','🌳 צמחייה'],['animals','🦌 חיות'],['climate','☀️ אקלים'],['time','⏳ זמן']];
+const TABS=[['missions','🎯 משימות'],['terrain','⛰️ שטח'],['design','🎨 עיצוב'],['plants','🌳 צמחייה'],['animals','🦌 חיות'],['climate','☀️ אקלים'],['time','⏳ זמן']];
 let tab=null;
-$('tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
-$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(tab===b.dataset.t){tab=null;renderTools();return}tab=b.dataset.t;if(innerWidth<760)$('dash').classList.remove('open');const first=Object.keys(TOOLS).find(k=>TOOLS[k].tab===tab);if(['climate','time'].includes(tab))setTool('view');else if(first&&TOOLS[tool].tab!==tab&&tool!=='view'&&tool!=='inspect')setTool(first);renderTools()};
+$('tabs').innerHTML=TABS.map(t=>{const i=t[1].indexOf(' ');return `<button data-t="${t[0]}" title="${t[1].slice(i+1)}"><span class="ti">${t[1].slice(0,i)}</span><span class="tl"> ${t[1].slice(i+1)}</span></button>`}).join('')
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(tab===b.dataset.t){tab=null;renderTools();return}tab=b.dataset.t;if(innerWidth<760)$('dash').classList.remove('open');const first=Object.keys(TOOLS).find(k=>TOOLS[k].tab===tab);if(['climate','time','missions'].includes(tab))setTool('view');else if(first&&TOOLS[tool].tab!==tab&&tool!=='view'&&tool!=='inspect')setTool(first);renderTools()};
 function toolBtn(k){const t=TOOLS[k];return `<button class="tool ${tool===k?'on':''}" data-tool="${k}"><span class="ic">${t.icon}</span>${t.name}</button>`}
 function slider(id,label,min,max,step,val,fmtf){return `<div class="row"><label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><output id="${id}_o">${fmtf(val)}</output></div>`}
 const brushUI=()=>slider('bR','גודל מברשת',8,160,1,brushR,v=>Math.round(v*M_PER_UNIT)+' מ׳')+slider('bS','עוצמה',.05,1,.01,brushS,v=>Math.round(v*100)+'%');
@@ -1496,6 +1513,7 @@ function renderTools(){
     <div id="jumpBtns">${[1,10,50,100,500,1000,2000,5000,10000].map(y=>`<button class="btn" data-jump="${y}">+${y.toLocaleString()}</button>`).join('')}</div>
     <h4>גיאולוגיה</h4><div class="row"><label for="geo">שחיקה ובליה</label><input type="checkbox" id="geo" ${S.geo?'checked':''}></div>${slider('geoS','מהירות גיאולוגית',.2,5,.1,S.geoSpeed,v=>'×'+(+v).toFixed(1))}
     <h4>יומן אירועים</h4><div class="info" style="max-height:260px;overflow:auto">${S.events.slice(-40).reverse().map(e=>`<div><span class="hint">שנה ${Math.floor(e.y)}</span> ${e.icon} ${e.txt}</div>`).join('')||'<span class="hint">עדיין שקט.</span>'}</div>`}
+  if(tab==='missions')h=missionsHTML();
   $('tools').innerHTML=h;bindTools();if(tab==='climate')climSummary();
 }
 function animalCard(a){const A=ANIMALS[a];let t=`${A.icon} <b>${A.name}</b> — `;
@@ -1537,7 +1555,7 @@ function bindTools(){
   if($('clrSpr'))$('clrSpr').onclick=()=>{S.springs=[];computeHydro();computeEnv();updateTerrainMesh();renderTools()};
   if($('cull'))$('cull').onclick=()=>{const A=ANIMALS[selAnimal];S.pops[selAnimal]*=.5;syncAgents();note('warn',`🎯 צדת מחצית מה${A.name} (נותרו ${fmt(S.pops[selAnimal])}).`);scheduleForecast('ציד '+A.name);renderTools()};
 }
-function climateEvent(k){const c=S.climate;
+function climateEvent(k){const c=S.climate;if(!spend(20,'אירוע אקלים'))return;
   if(k==='iceage'){c.target=-10;note('info','🥶 עידן קרח: הטמפרטורה תרד בהדרגה ב-10°C לאורך כמה מאות שנים. הקרחונים יתקדמו מהפסגות אל העמקים. קפצו 500+ שנה.');}
   if(k==='hothouse'){c.target=8;note('warn','🔥 עולם חממה: התחממות של 8°C לאורך מאות שנים. הקרחונים יימסו, מינים יטפסו במעלה ההרים או ייכחדו.');}
   if(k==='drought')addAnom({name:'בצורת',pM:.35,left:3});
@@ -1625,7 +1643,7 @@ function audioTick(dt){if(!audio||!audio.on)return;const ctx=audio.ctx;audio.g.g
    ===================================================================== */
 function rebuildAll(){computeHydro();computeEnv();updateTerrainMesh();updateTerrainAttributes();placeRocks();placeVegetation();placeGrassPatch(true);dirtyVeg=false}
 function newWorld(bid){
-  const B=BIOMES.find(b=>b.id===bid);S.biome=bid;S.seed=(Math.random()*1e9)|0;RND=mulberry32(S.seed);
+  const B=BIOMES.find(b=>b.id===bid);S.biome=bid;S.mission=null;S.ep=0;S.seed=(Math.random()*1e9)|0;RND=mulberry32(S.seed);
   Object.assign(S.climate,{T:B.clim.T,P:B.clim.P,amp:B.clim.amp,lat:B.clim.lat,sun:1,co2:280,trend:0,offset:0,target:0,vary:1});S.anom=[];
   genTerrain(B.terrain,S.seed);
   if(bid==='alpine'){S.springs.push({i:Math.floor(N*.5)*N+Math.floor(N*.9),q:20})}
@@ -1644,7 +1662,7 @@ function newWorld(bid){
   S.events.length=ev;S.year=0;S.anom=[];
   for(let d=0;d<6;d++)snowMonth(d*30.42+15);
   for(const A of AGENTS)A.length=0;
-  rebuildAll();syncAgents();recordHistory();
+  rebuildAll();syncAgents();recordHistory();loadNeeded();
   feed.length=0;note('info',`🌍 נוצרה מערכת <b>${B.name}</b>. ${B.desc}<br>טיפ: לחצו על 🔍 ואז על הנוף כדי לבדוק כל נקודה. בלשונית ⏳ אפשר לקפוץ עד 10,000 שנה קדימה.`);
   scheduleForecast('מצב התחלתי');
   $('startModal').hidden=true;
@@ -1675,6 +1693,7 @@ function frame(now){
   const temperate=Tmid-S.climate.amp<4;let leaf=1,tint=new THREE.Color(1,1,1);
   if(temperate){const doy=d%365;if(doy<80||doy>330){leaf=.18}else if(doy<120){leaf=lerp(.18,1,(doy-80)/40);tint.setRGB(1.25,1.35,.9)}else if(doy>255){const k=clamp((doy-255)/55,0,1);tint.setRGB(lerp(1,2.6,k),lerp(1,1.3,k),lerp(1,.35,k));if(doy>310)leaf=lerp(1,.18,(doy-310)/20)}}
   for(const k of ['broad','birch','willow']){VEG[k].mesh.material.userData.u.uLeaf.value=leaf;VEG[k].mesh.material.userData.u.uFolTint.value.copy(tint)}
+  seasonReal(leaf,temperate&&(d%365)>255?clamp(((d%365)-255)/55,0,1):0,temperate);refreshTreeLOD(false);
   // agents
   updateAgents(dt);
   // weather particles
@@ -1698,7 +1717,7 @@ function frame(now){
     const tt=U.time.value*3+i;beePos[i*3]=beeHome[i*3]+Math.sin(tt*1.3)*.5;beePos[i*3+1]=beeHome[i*3+1]+Math.sin(tt*2.1)*.15;beePos[i*3+2]=beeHome[i*3+2]+Math.cos(tt*1.7)*.5}beeGeo.attributes.position.needsUpdate=true}
   WU.uRain.value=weather.rain;
   audioTick(dt);
-  dashT+=dt;if(dashT>1){dashT=0;const dashOpen=$('dash').classList.contains('open');updateDash();updateClock();if(dashOpen){drawChart();drawWeb()}if(layer!=='none'&&(++heatTick%3===0))updateHeat();if((tab==='animals'||tab==='plants')&&!painting&&!$('tools').matches(':hover')&&!$('tools').contains(document.activeElement)){const sc=$('tools').scrollTop;renderTools();$('tools').scrollTop=sc}}
+  dashT+=dt;if(dashT>1){dashT=0;const dashOpen=$('dash').classList.contains('open');updateDash();updateClock();updateMissionHud();if(S.mission&&!S.mission.done&&tab==='missions'&&!$('tools').matches(':hover'))renderTools();if(dashOpen){drawChart();drawWeb()}if(layer!=='none'&&(++heatTick%3===0))updateHeat();if((tab==='animals'||tab==='plants')&&!painting&&!$('tools').matches(':hover')&&!$('tools').contains(document.activeElement)){const sc=$('tools').scrollTop;renderTools();$('tools').scrollTop=sc}}
   moveCamera(dt);controls.update();clampCamera();
   renderer.render(scene,camera);
 }
@@ -1788,6 +1807,7 @@ function glInfo(){let pk=0,pi=0,n=0;for(let i=0;i<NN;i++){if(S.h[i]>pk){pk=S.h[i
 function glCool(){const{pk}=glInfo(),T0=effT();for(let d=0;d<=40;d+=.5){if(glBal(T0-d,pk*.9)>.05)return d}return 40}
 function glacierBlock(){const g=glInfo();return `<h4>🧊 קרחונים</h4><div class="hint">פסגה <b>${Math.round(g.pk*M_PER_UNIT)} מ׳</b> · קו שיווי משקל (ELA) <b>${g.ela<0?'—':Math.round(g.ela*M_PER_UNIT)+' מ׳'}</b><br>${g.ok?'<span class="tr-up">✔ האקלים מאפשר קרחון</span>':'<span class="tr-dn">✖ חם מדי — קרחון חדש יימס</span>'} · קרח כעת ${g.iceKm.toFixed(1)} קמ״ר</div><div class="btns"><button class="btn primary" id="glAdd">➕ הוסף קרחון</button><button class="btn" id="glAddC">➕ + קרר אקלים</button><button class="btn danger" id="glClr">הסר</button></div>${slider('glS','גודל קרחון',.2,1,.05,glSize,v=>Math.round(v*100)+'%')}`}
 function addGlacier(cool){
+  if(!spend(14,'קרחון'))return;
   const g=glInfo();let coolTxt='';
   if(cool&&!g.ok){const d=glCool();S.climate.T-=d;coolTxt=` קוררתי את האקלים ב-${d.toFixed(1)}°C כדי שהקרחון ישרוד.`}
   let i=g.pi;const path=[i];
@@ -1833,13 +1853,209 @@ function drawWeb(){
   for(const a of pred)node(pos[a].x,pos[a].y,12+4*Math.log10(1+S.pops[a]),ANIMALS[a].icon,fmt(S.pops[a]));
 }
 
+/* =====================================================================
+   19. REAL 3D ASSETS (GLB): animals with animations, botanical tree models, impostors
+   ===================================================================== */
+const ASSET_BASE='models/';
+const gltfLoader=new GLTFLoader();
+const REAL={veg:{},animOn:false,vegReady:false,bright:1,pending:0,total:0,kindOK:{}};
+const VEGMODELS={
+ broad:[{f:'oak0',h:20,w:1}],conifer:[{f:'spruce0',h:30,w:1}],birch:[{f:'birch0',h:18,w:1}],willow:[{f:'willow0',h:14,w:1}],
+ acacia:[{f:'acacia0',h:9,w:3},{f:'baobab0',h:20,w:1}],tropical:[{f:'ceiba0',h:45,w:2},{f:'jacaranda0',h:13,w:1}],
+ palm:[{f:'date_palm0',h:20,w:1},{f:'bamboo_palm0',h:7,w:2}],shrub:[{f:'lupine0',h:1.4,w:1}],
+ cactus:[{f:'saguaro0',h:7,w:2},{f:'barrel0',h:.9,w:1},{f:'joshua0',h:8,w:1},{f:'yucca0',h:3,w:1}],fern:[{f:'fern0',h:.9,w:1}]};
+const FILEKIND={};for(const k in VEGMODELS)for(const m of VEGMODELS[k])FILEKIND[m.f]=k;
+const FILE_CFG={oak0:{decid:1,hs:1.25,ha:0,sway:.5},birch0:{decid:1,hs:0,ha:-.9,sway:.7,tone:.62},willow0:{decid:1,hs:0,ha:-.8,sway:.9},spruce0:{sway:.25},acacia0:{sway:.3},baobab0:{sway:.3},ceiba0:{sway:.2},jacaranda0:{sway:.5},date_palm0:{sway:.6},bamboo_palm0:{sway:.8},lupine0:{sway:.8},saguaro0:{sway:0},barrel0:{sway:0},joshua0:{sway:.2},yucca0:{sway:.3},fern0:{sway:.6}};
+const EXV={broad:1.7,conifer:1.6,birch:1.7,willow:1.8,acacia:1.8,tropical:1.1,palm:1.6,shrub:4,cactus:2.6,fern:5};
+const NEARCAP={low:{n:250,r:140},med:{n:500,r:220},high:{n:900,r:300}};
+const ANIMCAP={low:{n:14,r:200},med:{n:28,r:320},high:{n:44,r:450}};
+const normSc=k=>k==='shrub'?1.5:k==='cactus'?1.2:k==='fern'?1:(MODELS[k]?MODELS[k].scale*1.25:1);
+const TRMAX=60000;
+const TR={n:0,x:new Float32Array(TRMAX),y:new Float32Array(TRMAX),z:new Float32Array(TRMAX),s:new Float32Array(TRMAX),r:new Float32Array(TRMAX),f:new Array(TRMAX),d:new Float32Array(TRMAX),near:new Uint8Array(TRMAX)};
+function pickFile(kind,x,z){const L=VEGMODELS[kind];if(L.length===1)return L[0];let tot=0;for(const m of L)tot+=m.w;let p=hash3(Math.floor(x*2.7),Math.floor(z*2.7),9)*tot;for(const m of L){p-=m.w;if(p<=0)return m}return L[0]}
+function addTree(kind,x,y,z,sc,rot){if(TR.n>=TRMAX||!VEGMODELS[kind])return;const m=pickFile(kind,x,z),i=TR.n++;TR.x[i]=x;TR.y[i]=y;TR.z[i]=z;TR.s[i]=(m.h/8)*EXV[kind]*(sc/normSc(kind));TR.r[i]=rot;TR.f[i]=m.f}
+const GLSL_HUE='vec3 hueRot(vec3 c,float a){vec3 k=vec3(.57735);float ca=cos(a),sa=sin(a);return c*ca+cross(k,c)*sa+k*dot(k,c)*(1.-ca);}';
+function foliagePatch(mat,uni,leafy,decid,soft){
+  mat.customProgramCacheKey=()=>'fol'+(leafy?1:0)+(decid?1:0)+(soft?1:0);
+  mat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,uni);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime,uWind,uSway,uH;')
+     .replace('#include <begin_vertex>',`#include <begin_vertex>
+#ifdef USE_INSTANCING
+{vec3 ip=vec3(instanceMatrix[3][0],instanceMatrix[3][1],instanceMatrix[3][2]);float hy=clamp(position.y/uH,0.,1.);
+float sw=(sin(uTime*1.2+ip.x*.11+ip.z*.07)+.4*sin(uTime*2.7+ip.z*.3+position.x*.5))*uWind*uSway*hy*hy*uH*.012;transformed.x+=sw;transformed.z+=sw*.6;}
+#endif`);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uHue,uLeaf,uBright,uDecid,uTone;\n'+GLSL_HUE)
+     .replace('#include <map_fragment>',`#include <map_fragment>
+#ifdef USE_MAP
+${leafy?'diffuseColor.rgb=hueRot(diffuseColor.rgb,uHue)*uTone;':'diffuseColor.rgb*=.8;'}diffuseColor.rgb*=uBright;
+${leafy&&decid?'{float lh=fract(sin(dot(floor(vMapUv*52.),vec2(12.9898,78.233)))*43758.5453);if(uDecid>.5&&lh>uLeaf)discard;}':''}
+#endif`);
+    if(soft)sh.fragmentShader=sh.fragmentShader.replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\nnormal=normalize(mix(normal,normalize((viewMatrix*vec4(0.,1.,0.,0.)).xyz),.5));');
+  }}
+let loadedCount=0;
+function loadStatus(){if(REAL.pending>0)toast(`טוען מודלים תלת-ממדיים ${REAL.total-REAL.pending}/${REAL.total}…`)}
+const vegLoading={};
+function loadVegFile(f){if(vegLoading[f])return vegLoading[f];REAL.pending++;REAL.total++;
+  return vegLoading[f]=new Promise(res=>{gltfLoader.load(ASSET_BASE+f+'.glb',gl=>{let F=null;try{F=buildVeg(f,gl.scene)}catch(e){console.error('veg',f,e)}REAL.pending--;loadStatus();res(F)},undefined,()=>{REAL.pending--;console.warn('missing model',f);res(null)})})}
+function buildVeg(f,scene){
+  scene.updateMatrixWorld(true);const parts=[],box=new THREE.Box3();
+  scene.traverse(o=>{if(o.isMesh&&!o.isSkinnedMesh){const g=o.geometry.clone();g.applyMatrix4(o.matrixWorld);parts.push({g,m:o.material})}});
+  for(const p of parts){p.g.computeBoundingBox();box.union(p.g.boundingBox)}
+  const size=box.getSize(new THREE.Vector3()),cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2,cfg=FILE_CFG[f]||{};
+  const uni={uTime:U.time,uWind:U.wind,uSway:{value:cfg.sway??.4},uH:{value:size.y},uHue:{value:cfg.hs||0},uLeaf:{value:1},uBright:{value:1},uTone:{value:cfg.tone||.78},uDecid:{value:cfg.decid?1:0}};
+  const F={f,size,uni,cfg,near:[],cnt:0,fcnt:0,ready:true,capNear:0,capFar:0};
+  for(const p of parts){p.g.translate(-cx,-box.min.y,-cz);if(!p.g.attributes.normal)p.g.computeVertexNormals();
+    const mat=p.m.clone();mat.side=THREE.DoubleSide;if(mat.transparent){mat.transparent=false;mat.alphaTest=Math.max(mat.alphaTest,.5);mat.depthWrite=true}
+    const leafy=mat.alphaTest>0;mat.roughness=Math.max(mat.roughness??.8,.7);mat.metalness=0;foliagePatch(mat,uni,leafy,!!cfg.decid,leafy);F.near.push({g:p.g,mat,leafy})}
+  bakeImpostor(F,size);return F}
+function bakeImpostor(F,size){
+  const W=Math.max(size.x,size.z)*1.04,Hh=size.y*1.04,RS=256;
+  const rt=new THREE.WebGLRenderTarget(RS*2,RS,{samples:4});rt.texture.colorSpace=THREE.SRGBColorSpace;rt.texture.generateMipmaps=true;rt.texture.minFilter=THREE.LinearMipmapLinearFilter;
+  const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x556644,1.6));const dl=new THREE.DirectionalLight(0xffffff,2.4);dl.position.set(.5,1,.7);sc.add(dl);
+  for(const p of F.near)sc.add(new THREE.Mesh(p.g,p.mat));
+  const cam=new THREE.OrthographicCamera(-W/2,W/2,Hh/2,-Hh/2,.1,(size.y+W)*8);
+  const prevT=renderer.getRenderTarget(),prevAuto=renderer.autoClear,prevC=new THREE.Color();renderer.getClearColor(prevC);const prevA=renderer.getClearAlpha();
+  renderer.setRenderTarget(rt);renderer.setClearColor(0x3f5a2e,0);renderer.autoClear=false;renderer.clear();rt.scissorTest=true;
+  const D=(size.y+W)*3;
+  rt.viewport.set(0,0,RS,RS);rt.scissor.set(0,0,RS,RS);cam.position.set(0,Hh/2,D);cam.lookAt(0,Hh/2,0);renderer.render(sc,cam);
+  rt.viewport.set(RS,0,RS,RS);rt.scissor.set(RS,0,RS,RS);cam.position.set(D,Hh/2,0);cam.lookAt(0,Hh/2,0);renderer.render(sc,cam);
+  rt.scissorTest=false;renderer.setRenderTarget(prevT);renderer.autoClear=prevAuto;renderer.setClearColor(prevC,prevA);
+  const g1=new THREE.PlaneGeometry(W,Hh);g1.translate(0,Hh/2,0);const g2=g1.clone().rotateY(Math.PI/2);
+  const u1=g1.attributes.uv,u2=g2.attributes.uv;for(let i=0;i<u1.count;i++){u1.setX(i,u1.getX(i)*.5);u2.setX(i,.5+u2.getX(i)*.5)}
+  const geo=mergeGeometries([g1,g2]);
+  const uni={uTime:U.time,uWind:U.wind,uSway:F.uni.uSway,uH:{value:Hh},uHue:{value:0},uLeaf:F.uni.uLeaf,uBright:{value:1},uTone:{value:1},uDecid:F.uni.uDecid};
+  const mat=new THREE.MeshBasicMaterial({map:rt.texture,alphaTest:.5,side:THREE.DoubleSide});foliagePatch(mat,uni,true,!!F.cfg.decid,false);
+  F.imp={geo,mat,uni,H:Hh}}
+function ensureInst(F){
+  if(F.meshes)return;const qc=NEARCAP[Q];F.capNear=qc.n;F.capFar=14000;F.meshes=[];
+  for(const p of F.near){const m=new THREE.InstancedMesh(p.g,p.mat,F.capNear);m.frustumCulled=false;m.castShadow=true;m.receiveShadow=true;m.count=0;scene.add(m);F.meshes.push(m)}
+  const im=new THREE.InstancedMesh(F.imp.geo,F.imp.mat,F.capFar);im.frustumCulled=false;im.count=0;scene.add(im);F.impMesh=im}
+function setMat(arr,i,x,y,z,s,rot){const o=i*16,c=Math.cos(rot)*s,sn=Math.sin(rot)*s;arr[o]=c;arr[o+1]=0;arr[o+2]=-sn;arr[o+3]=0;arr[o+4]=0;arr[o+5]=s;arr[o+6]=0;arr[o+7]=0;arr[o+8]=sn;arr[o+9]=0;arr[o+10]=c;arr[o+11]=0;arr[o+12]=x;arr[o+13]=y;arr[o+14]=z;arr[o+15]=1}
+function afterPlace(){
+  const kinds=new Set();for(let i=0;i<TR.n;i++)kinds.add(FILEKIND[TR.f[i]]);
+  const need=[];for(const k of kinds)if(!REAL.kindOK[k])need.push(k);
+  if(need.length){Promise.all(need.map(async k=>{const Fs=await Promise.all(VEGMODELS[k].map(m=>loadVegFile(m.f)));if(Fs.every(x=>x)){for(const F of Fs)REAL.veg[F.f]=F;REAL.kindOK[k]=true}})).then(()=>{updateVisibility();REAL.vegReady=Object.keys(REAL.veg).length>0;refreshTreeLOD(true)})}
+  updateVisibility();refreshTreeLOD(true)}
+function updateVisibility(){for(const k in VEGMODELS)if(VEG[k])VEG[k].mesh.visible=!REAL.kindOK[k]}
+const lodCam=new THREE.Vector3(1e9,0,0);let lodT=0;
+function refreshTreeLOD(force){
+  if(!REAL.vegReady)return;const now=performance.now(),cp=camera.position;
+  if(!force&&cp.distanceTo(lodCam)<20&&now-lodT<1500)return;lodCam.copy(cp);lodT=now;
+  const qc=NEARCAP[Q],R2=qc.r*qc.r;let cand=[];
+  for(let i=0;i<TR.n;i++){const dx=TR.x[i]-cp.x,dy=TR.y[i]-cp.y,dz=TR.z[i]-cp.z,d2=dx*dx+dy*dy+dz*dz;TR.d[i]=d2;TR.near[i]=0;if(d2<R2)cand.push(i)}
+  if(cand.length>qc.n){cand.sort((a,b)=>TR.d[a]-TR.d[b]);cand=cand.slice(0,qc.n)}
+  for(const i of cand)TR.near[i]=1;
+  for(const f in REAL.veg){const F=REAL.veg[f];ensureInst(F);F.cnt=0;F.fcnt=0}
+  for(let i=0;i<TR.n;i++){const F=REAL.veg[TR.f[i]];if(!F||!REAL.kindOK[FILEKIND[F.f]])continue;const sc=TR.s[i]/F.size.y;
+    if(TR.near[i]){if(F.cnt<F.capNear){for(const m of F.meshes)setMat(m.instanceMatrix.array,F.cnt,TR.x[i],TR.y[i],TR.z[i],sc,TR.r[i]);F.cnt++}}
+    else if(F.fcnt<F.capFar){setMat(F.impMesh.instanceMatrix.array,F.fcnt,TR.x[i],TR.y[i],TR.z[i],TR.s[i]/F.imp.H,TR.r[i]);F.fcnt++}}
+  for(const f in REAL.veg){const F=REAL.veg[f];for(const m of F.meshes){m.count=F.cnt;m.instanceMatrix.needsUpdate=true}F.impMesh.count=F.fcnt;F.impMesh.instanceMatrix.needsUpdate=true}}
+function seasonReal(leaf,autumn,temperate){
+  const day=smooth(-.05,.25,sunVec.y);REAL.bright=lerp(.1,1,day)*(1-weather.cloud*.25);
+  for(const f in REAL.veg){const F=REAL.veg[f],c=F.cfg;
+    F.imp.uni.uBright.value=REAL.bright;
+    if(c.decid){const hue=(c.hs||0)+((c.ha||0)-(c.hs||0))*autumn;F.uni.uHue.value=hue;F.imp.uni.uHue.value=hue-(c.hs||0);F.uni.uDecid.value=temperate?1:0;F.uni.uLeaf.value=leaf}}}
+
+/* ---- animals ---- */
+const ANIMSPEC={rabbit:{f:'rabbit',vis:.9},deer:{f:'elk',vis:2.0},bison:{f:'buffalo',vis:2.2},reindeer:{f:'deer',vis:1.8},zebra:{f:'zebra',vis:2.0},monkey:{f:'gorilla',vis:1.1},bee:{f:'bee',vis:.45},songbird:{f:'sparrow',vis:.7},fish:{f:'trout',vis:1.1},wolf:{f:'wolf',vis:1.5},fox:{f:'fox',vis:1.1},lynx:{f:'lioness',vis:1.0},bear:{f:'bear2',vis:2.1},eagle:{f:'hawk',vis:2.2},lion:{f:'lioness',vis:1.8},moose:{f:'moose',vis:2.4},wildebeest:{f:'wildebeest',vis:2.0},hyena:{f:'hyena',vis:1.5},goat:{f:'goat',vis:1.3}};
+const AREAL={},animLoading={},aPool={};
+function loadAnimal(id){const sp=ANIMSPEC[id];if(!sp)return Promise.resolve(null);if(animLoading[id])return animLoading[id];REAL.pending++;REAL.total++;
+  return animLoading[id]=new Promise(res=>{gltfLoader.load(ASSET_BASE+sp.f+'.glb',gl=>{let R_=null;try{R_=buildAnimal(id,sp,gl)}catch(e){console.error('anim',id,e)}REAL.pending--;loadStatus();res(R_)},undefined,()=>{REAL.pending--;console.warn('missing model',sp.f);res(null)})})}
+function buildAnimal(id,sp,gl){
+  const root=gl.scene;root.updateMatrixWorld(true);const sk=[];root.traverse(o=>{if(o.isSkinnedMesh)sk.push(o)});
+  if(id==='fish'&&sk.length>1){sk.forEach(m=>{m.geometry.computeBoundingBox();m._v=m.geometry.boundingBox.getSize(new THREE.Vector3()).length()});sk.sort((a,b)=>b._v-a._v);for(let i=1;i<sk.length;i++)sk[i].parent.remove(sk[i])}
+  const box=new THREE.Box3().setFromObject(root,true),size=box.getSize(new THREE.Vector3());
+  let yaw=0,len=size.z;if(size.x>size.z*1.25&&id!=='eagle'){yaw=Math.PI/2;len=size.x}
+  const k=sp.vis*1.5/Math.max(len,1e-4);const clips={};for(const c of gl.animations)clips[c.name]=c;
+  const R_={id,base:root,k,yBase:-box.min.y*k,yaw,len:sp.vis*1.5,clips,tint:sp.tint};AREAL[id]=R_;return R_}
+function acquire(R_){let p=aPool[R_.id]||(aPool[R_.id]=[]);let c=p.find(x=>!x.agent);
+  if(!c){const obj=SkeletonUtils.clone(R_.base);obj.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false}});
+    const holder=new THREE.Group(),inner=new THREE.Group();inner.add(obj);holder.add(inner);inner.rotation.y=R_.yaw;obj.scale.setScalar(R_.k);obj.position.y=R_.yBase;
+    const mixer=new THREE.AnimationMixer(obj),acts={};for(const n in R_.clips)acts[n]=mixer.clipAction(R_.clips[n]);scene.add(holder);c={holder,mixer,acts,cur:null,agent:null,head:0};p.push(c)}
+  return c}
+function angLerp(a,b,t){let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return a+d*t}
+function setClip(c,name,ts){const a=c.acts[name];if(!a)return;if(c.cur!==name){const prev=c.acts[c.cur];if(prev)prev.fadeOut(.35);a.reset().setEffectiveWeight(1).fadeIn(.35).play();c.cur=name;a.time=Math.random()*a.getClip().duration}a.timeScale=ts}
+function realAnimalsPass(dt){
+  if(!REAL.animOn)return;const cp=camera.position,qa=ANIMCAP[Q],R2=qa.r*qa.r,cand=[];
+  ANIMALS.forEach((A,a)=>{const R_=AREAL[A.id];if(!R_)return;const list=AGENTS[a];for(let k=0;k<list.length;k++){const g=list[k];if(g.ly===undefined)continue;const dx=g.x-cp.x,dz=g.z-cp.z,dy=g.ly-cp.y,d2=dx*dx+dz*dz+dy*dy;if(d2<R2)cand.push([d2,a,g])}});
+  cand.sort((x,y)=>x[0]-y[0]);const chosen=new Set(),perSp={};const pick=[];
+  for(const c of cand){if(pick.length>=qa.n)break;const n=perSp[c[1]]||0;if(n>=12)continue;perSp[c[1]]=n+1;pick.push(c);chosen.add(c[2])}
+  for(const id in aPool)for(const c of aPool[id])if(c.agent&&!chosen.has(c.agent)){c.agent.c=null;c.agent=null;c.holder.visible=false}
+  const T=U.time.value;
+  for(const [d2,a,g] of pick){const A=ANIMALS[a],R_=AREAL[A.id];let c=g.c;
+    if(!c){c=acquire(R_);c.agent=g;g.c=c;c.holder.visible=true;c.cur=null;g.px=g.x;g.pz=g.z;c.head=g.h||0}
+    const mv=Math.hypot(g.x-g.px,g.z-g.pz);const spd=mv<25?mv/Math.max(dt,1e-3):0;
+    if(mv>.003&&mv<25)c.head=angLerp(c.head,Math.atan2(g.x-g.px,g.z-g.pz),Math.min(1,dt*6));g.px=g.x;g.pz=g.z;
+    const run=!!g.chase||g.flee>0,moving=spd>.35,ck=R_.clips;let want,ts=1;
+    if(A.fly)want=ck.fly?'fly':'walk';else if(A.water)want=ck.swim?'swim':'run';
+    else if(run&&ck.run){want='run';ts=clamp(spd/(A.speed*1.3),.7,1.8)}else if(moving){want='walk';ts=clamp(spd/(A.speed*.6),.5,2.2)}
+    else{const eat=ck.eat&&A.type==='herb'&&(Math.floor(T/7+(g.ph||0)*3)%3===0);want=eat?'eat':ck.idle?'idle':'walk';if(want==='walk')ts=0}
+    if(!ck[want])want=Object.keys(ck)[0];setClip(c,want,ts);
+    let pitch=0;const y=g.ly;
+    if(!A.fly&&!A.water){const Lh=R_.len*.45,sx=Math.sin(c.head)*Lh,sz=Math.cos(c.head)*Lh;pitch=clamp(-Math.atan2(groundAt(g.x+sx,g.z+sz)-groundAt(g.x-sx,g.z-sz),2*Lh),-.5,.5)}
+    c.holder.position.set(g.x,y,g.z);c.holder.rotation.set(pitch,c.head,0,'YXZ');c.mixer.update(dt);
+    const M=AMESH[a];if(M&&g.idx!==undefined){M.mesh.instanceMatrix.array.fill(0,g.idx*16,g.idx*16+16);M.mesh.instanceMatrix.needsUpdate=true}}}
+function loadNeeded(){ANIMALS.forEach((A,a)=>{if(S.pops[a]>0&&ANIMSPEC[A.id]&&!animLoading[A.id])loadAnimal(A.id).then(r=>{if(r)REAL.animOn=true})})}
+// adaptation: species slowly shift their temperature optimum toward the climate they actually live in
+function adaptStep(dt){if(forecasting)return;for(let a=0;a<NA;a++){const A=ANIMALS[a];if(S.pops[a]<=0)continue;if(A.T0===undefined)A.T0=A.T[0];let w=0,t=0;for(let r=0;r<E2;r++){const d=S.dist[a*E2+r];w+=d;t+=d*R.T[r]}if(w<=0)continue;t/=w;const rate=.0012*Math.min(1,S.pops[a]/(A.dmax*20+1));A.T[0]=clamp(A.T[0]+clamp(t-A.T[0],-3,3)*rate*dt,A.T0-6,A.T0+6)}}
+
+/* =====================================================================
+   20. GAME LAYER: missions, eco-points economy, credits
+   ===================================================================== */
+S.ep=0;S.mission=null;
+const pop=id=>S.pops[AI_[id]]||0,cov=id=>sumCover(PI[id])/E2*100;
+const MISSIONS=[
+ {id:'wolves',name:'החזרת הזאבים',e:'🐺',biome:'temperate',years:100,hold:20,budget:150,trend:0,desc:'ביער הממוזג אין טורף-על והצבאים רועים יתר על המידה. החזירו זאבים ושקמו את הנהר והביצות.',setup(){S.pops[AI_.wolf]=0},
+  goals:[{t:'זאבים ≥ 5',f:()=>pop('wolf')>=5,v:()=>Math.round(pop('wolf'))+' / 5'},{t:'בונים ≥ 12',f:()=>pop('beaver')>=12,v:()=>Math.round(pop('beaver'))+' / 12'},{t:'איכות מים ≥ 65%',f:()=>S.wq>=.65,v:()=>Math.round(S.wq*100)+'%'},{t:'בריאות המערכת ≥ 75',f:()=>indicators().health>=75,v:()=>Math.round(indicators().health)}]},
+ {id:'tundra',name:'הצלת הטונדרה',e:'❄️',biome:'tundra',years:150,hold:25,budget:140,trend:1.5,desc:'האקלים מתחמם בכ-1.5°C למאה. שמרו על איילי הצפון ועל שטיח האזוב: קררו, נטעו, ובנו מקלט.',setup(){},
+  goals:[{t:'איילי צפון ≥ 70',f:()=>pop('reindeer')>=70,v:()=>Math.round(pop('reindeer'))+' / 70'},{t:'אזוב וחזזיות ≥ 20%',f:()=>cov('moss')>=20,v:()=>cov('moss').toFixed(0)+'%'},{t:'מגוון ביולוגי ≥ 45',f:()=>indicators().bio>=45,v:()=>Math.round(indicators().bio)}]},
+ {id:'glacier',name:'שימור הקרחון האלפיני',e:'🏔️',biome:'alpine',years:120,hold:20,budget:120,trend:2,desc:'התחממות של 2°C למאה מאיימת על הקרחונים. שמרו על שטח קרח ועל יעלי ההרים.',setup(){S.climate.T-=4.5;for(let y=0;y<50;y++)glacierStep(5);computeHydro();computeEnv();updateTerrainMesh();updateTerrainAttributes();placeRocks();dirtyVeg=true},
+  goals:[{t:'שטח קרחונים ≥ 3 קמ״ר',f:()=>indicators().ice>=3,v:()=>indicators().ice.toFixed(1)+' קמ״ר'},{t:'יעלים ≥ 25',f:()=>pop('goat')>=25,v:()=>Math.round(pop('goat'))+' / 25'},{t:'בריאות ≥ 60',f:()=>indicators().health>=60,v:()=>Math.round(indicators().health)}]},
+ {id:'oasis',name:'נווה מדבר',e:'🏜️',biome:'desert',years:100,hold:20,budget:180,trend:0,desc:'מדבר צחיח. צרו מקור מים, נטעו דקלים והביאו חיים עד שהמערכת תתייצב.',setup(){},
+  goals:[{t:'אגם או נחל פעיל',f:()=>H.lakes>=1||H.riverLen>1,v:()=>H.lakes+' אגמים'},{t:'כיסוי צמחי ≥ 12%',f:()=>indicators().veg>=12,v:()=>indicators().veg.toFixed(0)+'%'},{t:'מגוון ביולוגי ≥ 55',f:()=>indicators().bio>=55,v:()=>Math.round(indicators().bio)}]},
+ {id:'savanna',name:'סוואנה מאוזנת',e:'🦁',biome:'savanna',years:120,hold:20,budget:130,trend:0,desc:'שמרו על כל הרשת: לביאות וצבועים מעל, זברות וגנו באמצע, ועשב מתחת. בצורות ושריפות יבחנו אתכם.',setup(){},
+  goals:[{t:'לביאות ≥ 5',f:()=>pop('lion')>=5,v:()=>Math.round(pop('lion'))+' / 5'},{t:'צבועים ≥ 5',f:()=>pop('hyena')>=5,v:()=>Math.round(pop('hyena'))+' / 5'},{t:'זברות ≥ 70',f:()=>pop('zebra')>=70,v:()=>Math.round(pop('zebra'))+' / 70'},{t:'גנו ≥ 110',f:()=>pop('wildebeest')>=110,v:()=>Math.round(pop('wildebeest'))+' / 110'}]},
+];
+let bestStars={};try{bestStars=JSON.parse(localStorage.getItem('eco_stars')||'{}')}catch(e){}
+function spend(c,why){if(!S.mission||S.mission.done)return true;if(S.ep<c){toast(`אין מספיק נקודות אקולוגיות (${Math.round(S.ep)} מתוך ${c} נדרשות)`);return false}S.ep-=c;S.mission.spent+=c;return true}
+const animalCost=a=>{const A=ANIMALS[a];return Math.round(8+(A.type==='pred'?30:(A.type==='fish'||A.type==='poll')?6:A.size*10))};
+const strokeCost=()=>tool==='plant'?4:2;
+function startMission(id){const M=MISSIONS.find(m=>m.id===id);if(!M)return;
+  $('loading').style.display='flex';setTimeout(()=>{newWorld(M.biome);M.setup();S.climate.trend=M.trend||0;S.ep=M.budget;S.mission={id,start:S.year,streak:0,acc:0,done:false,spent:0,stars:0,budget:M.budget};
+    $('loading').style.display='none';tab='missions';renderTools();$('dash').classList.add('open');note('info',`🎯 <b>${M.name}</b>: ${M.desc}<br>תקציב: ${M.budget} נקודות אקולוגיות. כל פעולה עולה נקודות, ומגוון ביולוגי גבוה מרוויח נקודות כל שנה.`)},30)}
+function goalStates(M){return M.goals.map(g=>({t:g.t,ok:!!g.f(),v:g.v()}))}
+function missionYear(dt){
+  if(!S.mission||S.mission.done||forecasting)return;const m=S.mission;m.acc+=dt;if(m.acc<2)return;const step=m.acc;m.acc=0;
+  const M=MISSIONS.find(x=>x.id===m.id),I=indicators();S.ep+=step*I.bio/45;
+  const all=M.goals.every(g=>g.f());m.streak=all?m.streak+step:0;
+  if(m.streak>=M.hold)finishMission(true);else if(S.year-m.start>=M.years)finishMission(all)}
+function finishMission(win){const m=S.mission,M=MISSIONS.find(x=>x.id===m.id),I=indicators();m.done=true;let st=0;if(win){st=1;if(I.health>=70)st++;if(m.spent<=m.budget*.6)st++}m.stars=st;
+  if(st>(bestStars[m.id]||0)){bestStars[m.id]=st;try{localStorage.setItem('eco_stars',JSON.stringify(bestStars))}catch(e){}}
+  $('infoBody').innerHTML=`<h3 style="font-family:var(--f-display);font-weight:400;font-size:22px;margin:0 0 6px">${win?'המשימה הושלמה!':'המשימה נכשלה'} ${M.e}</h3><div style="font-size:28px" class="stars">${'★'.repeat(st)+'☆'.repeat(3-st)}</div>
+  <div class="info">${M.name} · ${Math.round(S.year-m.start)} שנה · הוצאתם ${Math.round(m.spent)} מתוך ${m.budget} נקודות · בריאות סופית ${Math.round(I.health)}<br><br>${goalStates(M).map(g=>`${g.ok?'✅':'❌'} ${g.t} (${g.v})`).join('<br>')}<br><br>כוכב 1: עמידה בכל היעדים · כוכב 2: בריאות 70+ · כוכב 3: הוצאה של עד 60% מהתקציב.</div>`;
+  $('infoModal').hidden=false;renderTools()}
+function missionsHTML(){
+  const m=S.mission;
+  if(m&&!m.done){const M=MISSIONS.find(x=>x.id===m.id),gs=goalStates(M);
+    return `<h3>${M.e} ${M.name}</h3><div class="hint">שנים: <b>${Math.round(S.year-m.start)}/${M.years}</b> · נקודות אקולוגיות: <b>${Math.round(S.ep)}</b> · יש להחזיק את כל היעדים ${M.hold} שנה (כעת ${Math.round(m.streak)})</div>
+    ${gs.map(g=>`<div class="goal"><i>${g.ok?'✅':'⬜'}</i><span>${g.t}</span><span class="hint" style="margin:0 auto 0 0">${g.v}</span></div>`).join('')}
+    <div class="btns" style="margin-top:8px"><button class="btn primary" data-mjump="10">⏩ +10 שנים</button><button class="btn" data-mjump="50">+50</button><button class="btn danger" data-mquit="1">ביטול משימה</button></div>
+    <div class="hint" style="margin-top:8px">עלויות: שחרור חיה 8–40, נטיעה 4, פיסול 2, קרחון 14, אירוע אקלים 20.</div>`}
+  return `<h3>🎯 משימות</h3><div class="hint">כל משימה מתחילה בעולם מוכן עם יעדים, תקציב ושעון. אפשר להמשיך לשחק חופשי בלשוניות האחרות (ללא עלות).</div>`+
+   MISSIONS.map(M=>`<div class="mi"><b>${M.e} ${M.name}</b> <span class="stars">${'★'.repeat(bestStars[M.id]||0)+'☆'.repeat(3-(bestStars[M.id]||0))}</span><div class="hint">${M.desc}</div><div class="hint">${M.years} שנה · תקציב ${M.budget}</div><button class="btn primary" data-mission="${M.id}">התחל</button></div>`).join('')}
+$('tools').addEventListener('click',e=>{const b=e.target.closest('[data-mission]');if(b)return startMission(b.dataset.mission);const j=e.target.closest('[data-mjump]');if(j)return jump(+j.dataset.mjump);if(e.target.closest('[data-mquit]')){S.mission=null;renderTools();$('mhud').hidden=true}});
+function updateMissionHud(){const el=$('mhud');const m=S.mission;if(!m||m.done){el.hidden=true;return}const M=MISSIONS.find(x=>x.id===m.id),gs=goalStates(M);
+  el.hidden=false;el.innerHTML=`<b>${M.e} ${M.name}</b><br>שנה ${Math.round(S.year-m.start)}/${M.years} · 💠 ${Math.round(S.ep)}<br>${gs.map(g=>(g.ok?'✅':'⬜')+' '+g.t).join('<br>')}`}
+const CREDITS=[{"n": "Realistic Animated Elk 3D Model", "a": "WildMesh 3D", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-animated-elk-3d-model-787834f9caa2474d9f1814b807c072d7"}, {"n": "DEER - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/deer-realistic-3d-model-demo-free-3997d669818c4e0d8c8bcafb0a1ae2ee"}, {"n": "WOLF - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/wolf-realistic-3d-model-demo-free-8840b859a566485c874a27b1731e1db8"}, {"n": "FOX - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/fox-realistic-3d-model-demo-free-83b1b144712c43d282d90c2fb15ba450"}, {"n": "Realistic Animated Bear 3D Model", "a": "WildMesh 3D", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-animated-bear-3d-model-bffc3c87d2d148ff8533e1cc8a11c9f1"}, {"n": "BUFFALO - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/buffalo-realistic-3d-model-demo-free-dc33860c95ff40b99107336746705984"}, {"n": "LIONESS - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/lioness-realistic-3d-model-demo-free-51e60bf5fe37445e91093b4b00a5b0aa"}, {"n": "RABBIT - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/rabbit-realistic-3d-model-demo-free-d70284ea0d7644988bdcd327c3ffb59a"}, {"n": "MOOSE - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/moose-realistic-3d-model-demo-free-0ee3d3f1e02746c89d6a5754dfd2ee67"}, {"n": "Zebra - Rigged", "a": "Noa Seller", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/zebra-rigged-5d6ff2749afc438b9989f91ecb242574"}, {"n": "WILDEBEEST - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/wildebeest-realistic-3d-model-demo-free-8fef096a02af4937865e0b5aa7401aa0"}, {"n": "HYENA - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/hyena-realistic-3d-model-demo-free-bbca6b48877d42bcaf39a0edbf3dc972"}, {"n": "MOUNTAINGOAT - Realistic 3D Model", "a": "WildMesh 3D", "l": "CC Attribution-NonCommercial", "u": "https://sketchfab.com/3d-models/mountaingoat-realistic-3d-model-demo-free-2c90be8416c740b1a26e9b698b6491e8"}, {"n": "Red-tailed Hawk - in Flight", "a": "osuecampus", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/red-tailed-hawk-in-flight-4abcab5af9044a939fb5a55bff9e5000"}, {"n": "Rainbow Trout - Redband", "a": "eb78", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/rainbow-trout-redband-442ab10476d0486e8eb689941bc4ad6e"}, {"n": "Sparrow - Quirky Series", "a": "Omabuarts Studio", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/sparrow-quirky-series-289e7db66cfa45fbbe7624b8f48f6c8c"}, {"n": "Bee", "a": "Jakob Henerey", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/bee-d4683f98637745f1a989bb013215c8de"}, {"n": "Gorilla", "a": "planeta-elefante", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/gorilla-e69585d870ce4ae382fd071e87ae3b0e"}, {"n": "Realistic HD Northern red oak (51/138)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-northern-red-oak-51138-5c633c67d2d94acab37f1215e72bf7da"}, {"n": "Realistic HD Norway spruce (27/43)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-norway-spruce-2743-b3d33a96f2e44755957a78ddb2bc6553"}, {"n": "Birch tree", "a": "evolveduk", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/birch-tree-aa842dffd9654d33b8b91170ce83c172"}, {"n": "Realistic HD Rosemary willow (91/99)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-rosemary-willow-9199-01455c5f4cec45078b80eb5d307cab72"}, {"n": "Acacia ( From \"Tree It\")", "a": "Paul (Sketchfab)", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/acacia-from-tree-it-350e77196b424ebc8d28b8e7fc7b509e"}, {"n": "Realistic HD African continental baobab (1/20)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-african-continental-baobab-120-7080f454eb404886b0974e962507b769"}, {"n": "Ceiba Pentandra Tree", "a": "Valery.Li", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/ceiba-pentandra-tree-9142b8f06e384f1c9554c9b10da79d2a"}, {"n": "Realistic HD Blue jacaranda (21/40)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-blue-jacaranda-2140-be7c522d859a4ba4b28b64dc2715b976"}, {"n": "Realistic HD Date palm (17/78)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-date-palm-1778-9a6e53a3c4a94c3c8144492709fca607"}, {"n": "Realistic HD Bamboo palm (26/30)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-bamboo-palm-2630-395858acaf8b40d5ad72f07e645fe7ef"}, {"n": "Realistic HD Yellow bush lupine (16/25)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-yellow-bush-lupine-1625-466464f0f7654784971ada541bd3912d"}, {"n": "Realistic HD Saguaro cactus (27/30)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-saguaro-cactus-2730-124202937a8c45e091f3af365446a087"}, {"n": "Realistic HD Golden barrel cactus (11/30)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-golden-barrel-cactus-1130-8c2d03c990b2479c9daf477d43897af2"}, {"n": "Realistic HD Joshua tree (11/30)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-joshua-tree-1130-610be73b60fb4477bffdd1bed5b4950f"}, {"n": "Realistic HD Spineless yucca (22/30)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-spineless-yucca-2230-3e5d7027fb6a43839889173dae7ec97f"}, {"n": "Realistic HD Common polypody fern (48/55)", "a": "PlantCatalog", "l": "CC Attribution", "u": "https://sketchfab.com/3d-models/realistic-hd-common-polypody-fern-4855-40f9c5d5828945cc89912ebe358a3ab9"}];
+$('btnCred').onclick=()=>{$('infoBody').innerHTML=`<h3 style="font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 6px">מודלים תלת-ממדיים — קרדיטים</h3><div class="hint">כל המודלים מ-Sketchfab ברישיון Creative Commons. מודלים המסומנים NonCommercial מותרים לשימוש אישי בלבד, ולא למוצר מסחרי.</div><div style="max-height:50vh;overflow:auto;font-size:12.5px;line-height:1.6">${CREDITS.map(c=>`• <a href="${c.u}" target="_blank" rel="noopener" style="color:var(--accent2)">${c.n}</a> — ${c.a} (${c.l.replace('CC Attribution','CC BY').replace('-NonCommercial',' NC')})`).join('<br>')}</div>`;$('infoModal').hidden=false};
+
 // boot
 $('loading').style.display='none';
 renderTools();
 newWorld('temperate');
 $('startModal').hidden=false;
 requestAnimationFrame(frame);
-window.__eco={weather,glacierStep,computeHydro,rebuildAll,S,H,R,K,PLANTS,ANIMALS,jump,newWorld,indicators,setTool,camera,controls,sumCover,animalStep,plantStep};
+window.__eco={MISSIONS,goalStates,missionYear,AGENTS,REAL,AREAL,TR,aPool,startMission,loadNeeded,flyTo,weather,glacierStep,computeHydro,rebuildAll,S,H,R,K,PLANTS,ANIMALS,jump,newWorld,indicators,setTool,camera,controls,sumCover,animalStep,plantStep};
 </script>
 </body>
 </html>
