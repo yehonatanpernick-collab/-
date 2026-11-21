@@ -241,18 +241,18 @@ const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יונ
    3. SPECIES DATABASE
    ===================================================================== */
 const PLANTS=[
- {id:'grass',name:'דשא ועשבים',icon:'🌾',layer:0,T:[14,14],M:[.45,.32],r:1.4,shade:.3,prod:1,carbon:6,desc:'יצרן ראשוני מהיר. בסיס התזונה של אוכלי העשב, מגן על הקרקע מסחיפה.'},
- {id:'flowers',name:'פרחי בר',icon:'🌸',layer:0,T:[14,11],M:[.5,.3],r:.9,shade:.35,prod:.6,carbon:3,pollin:1,desc:'תלויים במאביקים. מזון לדבורים ולציפורים. פורחים באביב-קיץ.'},
- {id:'moss',name:'אזוב וחזזיות',icon:'🍀',layer:0,T:[-5,9],M:[.55,.45],r:.3,shade:.7,prod:.3,carbon:4,rockOK:1,desc:'שורדים בקור קיצוני ועל סלע. מזון חורף לאיילי הצפון.'},
+ {id:'grass',name:'דשא ועשבים',icon:'🌾',layer:0,T:[17,17],M:[.38,.36],r:1.4,shade:.3,prod:1,carbon:6,desc:'יצרן ראשוני מהיר. בסיס התזונה של אוכלי העשב, מגן על הקרקע מסחיפה.'},
+ {id:'flowers',name:'פרחי בר',icon:'🌸',layer:0,T:[14,11],M:[.5,.3],r:.9,shade:.35,prod:.6,carbon:3,pollin:1,cs:.7,desc:'תלויים במאביקים. מזון לדבורים ולציפורים. פורחים באביב-קיץ.'},
+ {id:'moss',name:'אזוב וחזזיות',icon:'🍀',layer:0,T:[-5,9],M:[.55,.45],r:.3,shade:.7,prod:.3,carbon:4,rockOK:1,cs:.35,desc:'שורדים בקור קיצוני ועל סלע. מזון חורף לאיילי הצפון.'},
  {id:'shrub',name:'שיחי פירות יער',icon:'🫐',layer:0,T:[9,12],M:[.5,.3],r:.5,shade:.5,prod:.7,carbon:15,pollin:.5,desc:'אוכמניות ופטל. מזון לדובים, צבאים וציפורים.'},
- {id:'cactus',name:'קקטוסים',icon:'🌵',layer:0,T:[25,9],M:[.08,.12],r:.18,shade:.1,prod:.15,carbon:3,sandOK:1,frost:1,desc:'אוגרים מים. שורדים במדבר, לא בקור.'},
+ {id:'cactus',name:'קקטוסים',icon:'🌵',layer:0,T:[29,9],M:[.08,.12],r:.18,shade:.1,prod:.15,carbon:3,sandOK:1,frost:1,cs:.6,desc:'אוגרים מים. שורדים במדבר, לא בקור.'},
  {id:'oak',name:'אלון',icon:'🌳',layer:1,T:[13,7],M:[.55,.22],r:.1,shade:.55,prod:.4,carbon:150,decid:1,model:'broad',desc:'עץ נשיר ארוך-חיים. בלוטים מזינים דובים, צבאים וציפורים.'},
  {id:'spruce',name:'אשוח',icon:'🌲',layer:1,T:[2,7],M:[.5,.3],r:.1,shade:.8,prod:.15,carbon:170,model:'conifer',desc:'מחטני של אזורים קרים. סובל צל — מנצח בטווח הארוך (סוקצסיה).'},
  {id:'birch',name:'ליבנה',icon:'🌿',layer:1,T:[5,9],M:[.55,.3],r:.28,shade:.2,prod:.3,carbon:90,decid:1,model:'birch',desc:'עץ חלוץ: הראשון לצמוח אחרי שריפה, ומפנה מקום לעצי צל.'},
  {id:'willow',name:'ערבה',icon:'🌳',layer:1,T:[11,11],M:[.85,.2],r:.3,shade:.3,prod:.5,carbon:80,decid:1,riparian:1,model:'willow',desc:'גדלה לאורך נחלים. מייצבת גדות ומשפרת איכות מים. מזון לבונים.'},
- {id:'acacia',name:'שיטה',icon:'🌳',layer:1,T:[25,7],M:[.28,.18],r:.12,shade:.3,prod:.35,carbon:60,frost:1,model:'acacia',desc:'עץ סוואנה עמיד לבצורת ולשריפות.'},
- {id:'kapok',name:'עץ יער גשם',icon:'🌴',layer:1,T:[26,4],M:[.66,.2],r:.12,shade:.6,prod:.6,carbon:250,frost:1,model:'tropical',desc:'ענקי יער הגשם. אוגרי פחמן אדירים, רגישים לכל קרה.'},
- {id:'palm',name:'דקל',icon:'🌴',layer:1,T:[24,7],M:[.65,.3],r:.12,shade:.4,prod:.5,carbon:70,frost:1,sandOK:1,model:'palm',desc:'צומח בנאות מדבר ובאזורים חמים ולחים.'},
+ {id:'acacia',name:'שיטה',icon:'🌳',layer:1,T:[25,7],M:[.3,.15],r:.1,shade:.25,prod:.35,carbon:60,frost:1,model:'acacia',desc:'עץ סוואנה עמיד לבצורת ולשריפות.'},
+ {id:'kapok',name:'עץ יער גשם',icon:'🌴',layer:1,T:[25,6],M:[.66,.22],r:.12,shade:.6,prod:.6,carbon:250,frost:1,model:'tropical',desc:'ענקי יער הגשם. אוגרי פחמן אדירים, רגישים לכל קרה.'},
+ {id:'palm',name:'דקל',icon:'🌴',layer:1,T:[24,7],M:[.65,.3],r:.12,shade:.4,prod:.5,carbon:70,frost:1,sandOK:1,riparian:1,model:'palm',desc:'צומח בנאות מדבר ובאזורים חמים ולחים.'},
  {id:'fungi',name:'פטריות ומפרקים',icon:'🍄',layer:2,T:[10,14],M:[.65,.3],r:.6,shade:1,prod:0,carbon:0,desc:'מפרקים חומר אורגני ובונים את הקרקע. בלעדיהם המערכת נחנקת.'},
 ];
 const NP=PLANTS.length; const PI={};PLANTS.forEach((p,i)=>PI[p.id]=i);
@@ -431,7 +431,7 @@ function computeEnv(){
 function updateRegionTemps(){const Te=effT();for(let r=0;r<E2;r++)R.T[r]=Te-6.5*R.elev[r]/1000;for(let i=0;i<NN;i++)H.tAnn[i]=Te-6.5*surf(i)*M_PER_UNIT/1000;computeSuit()}
 function plantSuit(p,r){
   const T=R.T[r],M=R.M[r],amp=S.climate.amp,Ts=T+amp,Tw=T-amp;
-  let s=gauss(T,p.T[0],p.T[1])*gauss(M,p.M[0],p.M[1]);
+  let s=gauss(p.layer===0?T+amp*.5:T,p.T[0],p.T[1])*gauss(M,p.M[0],p.M[1]);
   if(p.layer===1)s*=smooth(7,12.5,Ts);
   if(p.frost&&Tw<2)s*=clamp(1+(Tw-2)/6,0,1);
   if(!p.rockOK&&!p.sandOK&&p.layer!==2)s*=.35+.65*S.soil[r];
@@ -454,8 +454,8 @@ function plantStep(dt,seasonMul=1){
   const poll=clamp(S.pops[AI_.bee]/(flowersTot*ANIMALS[AI_.bee].dmax*.35+1),0,1);
   const disp=1+1.5*clamp(S.pops[AI_.songbird]/(E2*ANIMALS[AI_.songbird].dmax*.15),0,1);
   const present=PLANTS.map((p,s)=>sumCover(s)>1e-4);
-  const canopy=new Float32Array(E2),ground=new Float32Array(E2);
-  for(let r=0;r<E2;r++){for(let s=0;s<NP;s++){const p=PLANTS[s];if(p.layer===1)canopy[r]+=cov[s*E2+r];else if(p.layer===0)ground[r]+=cov[s*E2+r]}}
+  const canopy=new Float32Array(E2),ground=new Float32Array(E2),groundW=new Float32Array(E2);
+  for(let r=0;r<E2;r++){for(let s=0;s<NP;s++){const p=PLANTS[s];if(p.layer===1)canopy[r]+=cov[s*E2+r];else if(p.layer===0){ground[r]+=cov[s*E2+r];groundW[r]+=cov[s*E2+r]*(p.cs||1)}}}
   for(let s=0;s<NP;s++){
     if(!present[s])continue;const p=PLANTS[s],o=s*E2;
     for(let r=0;r<E2;r++){const x=r%E,y=(r/E)|0;nbBuf[r]=((x>0?cov[o+r-1]:0)+(x<E-1?cov[o+r+1]:0)+(y>0?cov[o+r-E]:0)+(y<E-1?cov[o+r+E]:0))*.25}
@@ -463,9 +463,9 @@ function plantStep(dt,seasonMul=1){
       const cv=cov[o+r],L=R.L[r];let suit=R.suit[o+r]*gm;
       if(p.pollin)suit*=1-p.pollin*.6*(1-poll);
       let g,cap,occ;
-      if(p.layer===1){let comp=0;for(let j=0;j<NP;j++){const q=PLANTS[j];if(q.layer!==1)continue;comp+=clamp(1+.7*(q.shade-p.shade),.4,1.7)*cov[j*E2+r]}
+      if(p.layer===1){let comp=0;for(let j=0;j<NP;j++){const q=PLANTS[j];if(q.layer!==1)continue;comp+=(j===s?1:.62*clamp(1+.8*(q.shade-p.shade),.4,1.7))*cov[j*E2+r]}
         cap=L;occ=comp;g=p.r*(suit-comp/Math.max(L,.02))-.03*(1-suit)}
-      else if(p.layer===0){cap=L*(1-canopy[r]*(1-p.shade));occ=ground[r];g=p.r*(suit-occ/Math.max(cap,.02))-.03*(1-suit)}
+      else if(p.layer===0){cap=L*(1-canopy[r]*(1-p.shade)*.85);occ=cv+.55*(groundW[r]-cv*(p.cs||1));g=p.r*(suit-occ/Math.max(cap,.02))-.03*(1-suit)}
       else{const target=suit*(.25+.75*canopy[r]+.3*ground[r]);g=p.r*(target-cv)/Math.max(target,.05);cap=1;occ=cv}
       let nv=cv*Math.exp(clamp(dt*g,-4,2.5));
       const free=Math.max(0,cap-occ);
@@ -553,7 +553,7 @@ function fireStep(dt,monthly){
   const amp=S.climate.amp;const drought=S.anom.some(a=>a.pM&&a.pM<.7)?3:1;
   for(let r=0;r<E2;r++){
     if(R.L[r]<.1)continue;
-    const dry=clamp(1-R.M[r]*1.7,0,1);if(dry<=0)continue;
+    const dry=clamp(1-R.M[r]*2.1,0,1);if(dry<=0)continue;
     let fuel=0;for(let s=0;s<NP;s++)if(PLANTS[s].layer!==2)fuel+=S.cover[s*E2+r]*(PLANTS[s].layer===1?.8:.6);
     const heat=smooth(8,32,R.T[r]+amp);
     const p=.0035*dry*fuel*heat*drought*dt*(monthly?monthly:1);
@@ -1046,7 +1046,7 @@ function placeVegetation(){
     // shrubs & cactus
     const shc=rSample(S.cover,PI.shrub*E2,ix,iy),cac=rSample(S.cover,PI.cactus*E2,ix,iy);
     for(let k=0;k<2;k++){if(hash3(ix,iy,k+70)<shc*.9*dens){const x=-W/2+(ix+hash3(ix,iy,k+71)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+72)-.5)*CS;const sc=1+hash3(ix,iy,k+73)*1.2;const v=.8+.35*hash3(ix,iy,k+74);writeInst(VEG.shrub,x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28,v+snowy,v+snowy,v+snowy)}}
-    if(hash3(ix,iy,80)<cac*1.4){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1)}
+    if(hash3(ix,iy,80)<cac*.6){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1)}
   }
   for(const k in VEG){if(k==='rock')continue;const V=VEG[k];V.mesh.count=V.n;V.mesh.instanceMatrix.needsUpdate=true;V.mesh.instanceColor.needsUpdate=true}
 }
@@ -1054,8 +1054,8 @@ function placeRocks(){
   const V=VEG.rock;V.n=0;
   for(let iy=1;iy<N-1;iy++)for(let ix=1;ix<N-1;ix++){const i=iy*N+ix;if(H.wdep[i]>.3||S.ice[i]>.5)continue;
     const p=clamp((H.slope[i]-.45)*1.4,0,1)*.7+S.rockP[i]*1.5+(H.river[i]>0?.25:0)+.015;
-    for(let k=0;k<2;k++){if(hash3(ix,iy,k+90)>p*.6)continue;const x=-W/2+(ix+hash3(ix,iy,k+91)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+92)-.5)*CS;
-      const s=.25+Math.pow(hash3(ix,iy,k+93),3)*2.2;const v=.75+.4*hash3(ix,iy,k+94);writeInst(V,x,groundAt(x,z)-s*.25,z,s,hash3(ix,iy,k+95)*6.28,v,v*.97,v*.92)}}
+    for(let k=0;k<2;k++){if(hash3(ix,iy,k+90)>p*.35)continue;const x=-W/2+(ix+hash3(ix,iy,k+91)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+92)-.5)*CS;
+      const s=.12+Math.pow(hash3(ix,iy,k+93),4)*1.3;const v=.75+.4*hash3(ix,iy,k+94);writeInst(V,x,groundAt(x,z)-s*.25,z,s,hash3(ix,iy,k+95)*6.28,v,v*.97,v*.92)}}
   V.mesh.count=V.n;V.mesh.instanceMatrix.needsUpdate=true;V.mesh.instanceColor.needsUpdate=true;
 }
 
