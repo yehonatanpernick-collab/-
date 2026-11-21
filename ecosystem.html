@@ -1856,7 +1856,7 @@ function drawWeb(){
 /* =====================================================================
    19. REAL 3D ASSETS (GLB): animals with animations, botanical tree models, impostors
    ===================================================================== */
-const ASSET_BASE='models/';
+const ASSET_BASE='models/',ASSET_EXT='.glb';
 const gltfLoader=new GLTFLoader();
 const REAL={veg:{},animOn:false,vegReady:false,bright:1,pending:0,total:0,kindOK:{}};
 const VEGMODELS={
@@ -1896,7 +1896,7 @@ let loadedCount=0;
 function loadStatus(){if(REAL.pending>0)toast(`טוען מודלים תלת-ממדיים ${REAL.total-REAL.pending}/${REAL.total}…`)}
 const vegLoading={};
 function loadVegFile(f){if(vegLoading[f])return vegLoading[f];REAL.pending++;REAL.total++;
-  return vegLoading[f]=new Promise(res=>{gltfLoader.load(ASSET_BASE+f+'.glb',gl=>{let F=null;try{F=buildVeg(f,gl.scene)}catch(e){console.error('veg',f,e)}REAL.pending--;loadStatus();res(F)},undefined,()=>{REAL.pending--;console.warn('missing model',f);res(null)})})}
+  return vegLoading[f]=new Promise(res=>{gltfLoader.load(ASSET_BASE+f+ASSET_EXT,gl=>{let F=null;try{F=buildVeg(f,gl.scene)}catch(e){console.error('veg',f,e)}REAL.pending--;loadStatus();res(F)},undefined,()=>{REAL.pending--;console.warn('missing model',f);res(null)})})}
 function buildVeg(f,scene){
   scene.updateMatrixWorld(true);const parts=[],box=new THREE.Box3();
   scene.traverse(o=>{if(o.isMesh&&!o.isSkinnedMesh){const g=o.geometry.clone();g.applyMatrix4(o.matrixWorld);parts.push({g,m:o.material})}});
@@ -1960,7 +1960,7 @@ function seasonReal(leaf,autumn,temperate){
 const ANIMSPEC={rabbit:{f:'rabbit',vis:.9},deer:{f:'elk',vis:2.0},bison:{f:'buffalo',vis:2.2},reindeer:{f:'deer',vis:1.8},zebra:{f:'zebra',vis:2.0},monkey:{f:'gorilla',vis:1.1},bee:{f:'bee',vis:.45},songbird:{f:'sparrow',vis:.7},fish:{f:'trout',vis:1.1},wolf:{f:'wolf',vis:1.5},fox:{f:'fox',vis:1.1},lynx:{f:'lioness',vis:1.0},bear:{f:'bear2',vis:2.1},eagle:{f:'hawk',vis:2.2},lion:{f:'lioness',vis:1.8},moose:{f:'moose',vis:2.4},wildebeest:{f:'wildebeest',vis:2.0},hyena:{f:'hyena',vis:1.5},goat:{f:'goat',vis:1.3}};
 const AREAL={},animLoading={},aPool={};
 function loadAnimal(id){const sp=ANIMSPEC[id];if(!sp)return Promise.resolve(null);if(animLoading[id])return animLoading[id];REAL.pending++;REAL.total++;
-  return animLoading[id]=new Promise(res=>{gltfLoader.load(ASSET_BASE+sp.f+'.glb',gl=>{let R_=null;try{R_=buildAnimal(id,sp,gl)}catch(e){console.error('anim',id,e)}REAL.pending--;loadStatus();res(R_)},undefined,()=>{REAL.pending--;console.warn('missing model',sp.f);res(null)})})}
+  return animLoading[id]=new Promise(res=>{gltfLoader.load(ASSET_BASE+sp.f+ASSET_EXT,gl=>{let R_=null;try{R_=buildAnimal(id,sp,gl)}catch(e){console.error('anim',id,e)}REAL.pending--;loadStatus();res(R_)},undefined,()=>{REAL.pending--;console.warn('missing model',sp.f);res(null)})})}
 function buildAnimal(id,sp,gl){
   const root=gl.scene;root.updateMatrixWorld(true);const sk=[];root.traverse(o=>{if(o.isSkinnedMesh)sk.push(o)});
   if(id==='fish'&&sk.length>1){sk.forEach(m=>{m.geometry.computeBoundingBox();m._v=m.geometry.boundingBox.getSize(new THREE.Vector3()).length()});sk.sort((a,b)=>b._v-a._v);for(let i=1;i<sk.length;i++)sk[i].parent.remove(sk[i])}
