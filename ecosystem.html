@@ -106,19 +106,51 @@ h4{margin:14px 0 6px;font-size:12px;letter-spacing:.8px;color:var(--muted);font-
 #jumpBtns button{padding:10px 4px;font-size:14px}
 .info{font-size:13px;line-height:1.6}
 .info b{color:var(--accent)}
-@media (max-width:900px){
-  #dash{display:none;width:auto;right:max(12px,env(safe-area-inset-right,0px));top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));max-height:45%}
-  #dash.open{display:block}
-  #tools{width:auto;left:max(12px,env(safe-area-inset-left,0px));top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));max-height:42%}
-  #tools.min{display:none}
-  .collapse{display:inline-block}
-  .brand small{display:none}
-  #top{flex-wrap:wrap}
-  #clock{order:3;margin-inline-start:0}
-}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:var(--bg);font-family:var(--f-display);font-size:22px;flex-direction:column;gap:10px}
 #loading small{font-family:var(--f-body);color:var(--muted);font-size:13px}
+
+/* ===== v2 layout: world first, UI collapses ===== */
+.glass{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#top{padding-top:6px;padding-bottom:6px}
+.brand{font-size:17px;padding:5px 12px}
+#tabs button{padding:6px 10px;font-size:13px}
+#clock{padding:5px 10px;font-size:13px;gap:8px}
+#clock b{font-size:14px}
+.topbtns{align-items:center}
+#layer{background:rgba(255,255,255,.08);color:var(--ink);border:0;border-radius:8px;padding:5px 6px;font-family:inherit;font-size:12.5px;max-width:118px;cursor:pointer}
+#layer option,#layer optgroup{background:#16221d;color:var(--ink)}
+#tools{display:none;top:calc(52px + env(safe-area-inset-top,0px));width:278px;max-height:calc(100% - 120px);padding:12px}
+#tools.open{display:block}
+#dash{display:none;top:calc(112px + env(safe-area-inset-top,0px));width:322px;max-height:calc(100% - 184px);padding:12px}
+#dash.open{display:block}
+#chip{position:fixed;z-index:16;top:calc(52px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));display:flex;gap:8px;align-items:center;padding:3px 12px 3px 8px;cursor:pointer;border:1px solid var(--line);color:var(--ink);font-family:inherit;text-align:right}
+#chip canvas{width:34px;height:34px}
+#chip b{display:block;font-size:13px;font-weight:600}
+#chip small{color:var(--muted);font-size:11px}
+#fw{width:100%;height:auto;display:block;background:rgba(0,0,0,.18);border-radius:8px}
+#bottom{padding:5px 8px;gap:4px;font-size:12.5px}
+#bottom button{padding:5px 8px}
+#bottom input[type=range]{width:90px}
+.qtool{font-size:12.5px;color:var(--accent);padding:0 6px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#legend{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:15;padding:8px 10px;width:190px;font-size:12px}
+#legend .gr{height:8px;border-radius:4px;background:linear-gradient(90deg,#1a2699,#1a99e6,#33cc4d,#f2d926,#e6261a);margin:5px 0 3px}
+#legend .lr{display:flex;justify-content:space-between;color:var(--muted)}
+#top,#tools,#dash,#bottom,#chip,#legend{transition:opacity .22s}
+.busy #top,.busy #tools,.busy #dash,.busy #bottom,.busy #chip,.busy #legend{opacity:.08;pointer-events:none}
+.nohud #top,.nohud #tools,.nohud #dash,.nohud #bottom,.nohud #chip,.nohud #legend{display:none!important}
+#showHud{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;z-index:30;display:none;padding:6px 9px;cursor:pointer;border:1px solid var(--line);color:var(--ink)}
+.nohud #showHud{display:block}
+.note .btns .btn{padding:4px 8px;font-size:12.5px}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:0 6px;font-size:12px;background:rgba(255,255,255,.06);margin:1px}
+@media (max-width:760px){
+  #top{flex-wrap:wrap}#clock{order:3}
+  .brand small{display:none}
+  #tools{left:8px;right:8px;top:auto;bottom:calc(58px + env(safe-area-inset-bottom,0px));width:auto;max-height:44%}
+  #dash{left:8px;right:8px;top:auto;bottom:calc(58px + env(safe-area-inset-bottom,0px));width:auto;max-height:50%}
+  #chip{top:calc(92px + env(safe-area-inset-top,0px))}
+  #bottom input[type=range]{width:70px}
+}
 </style>
 </head>
 <body>
@@ -126,19 +158,22 @@ h4{margin:14px 0 6px;font-size:12px;letter-spacing:.8px;color:var(--muted);font-
 <div id="loading">אקוספרה<small>טוען את העולם…</small></div>
 
 <div id="top">
-  <div class="brand glass">אקוספרה<small>סימולטור מערכות אקולוגיות</small></div>
+  <div class="brand glass">אקוספרה</div>
   <nav id="tabs" class="glass"></nav>
   <div id="clock" class="glass"><span id="clkSeason">אביב</span><b id="clkYear">שנה 0</b><span id="clkTemp" style="color:var(--muted)"></span></div>
   <div class="topbtns glass">
-    <button class="collapse" id="btnTools" title="כלים">🧰</button>
-    <button class="collapse" id="btnDash" title="מדדים">📊</button>
+    <select id="layer" aria-label="שכבת מפה"></select>
     <button id="btnNew" title="מערכת אקולוגית חדשה">🌍</button>
     <button id="btnSave" title="שמירה">💾</button>
     <button id="btnLoad" title="טעינה">📂</button>
     <button id="btnSound" title="צלילי טבע">🔇</button>
     <button id="btnQ" title="איכות גרפיקה">⚙️</button>
+    <button id="btnHelp" title="עזרה ובקרות">❓</button>
+    <button id="btnHide" title="הסתר ממשק (H)">👁</button>
   </div>
 </div>
+<button id="chip" class="glass" title="מדדי המערכת (לחצו לפתיחה)"><canvas id="chipRing" width="56" height="56"></canvas><span><b id="chipYear">שנה 0</b><small id="chipSub"></small></span></button>
+<button id="showHud" class="glass" title="הצג ממשק (H)">👁</button>
 
 <aside id="tools" class="glass"></aside>
 
@@ -147,20 +182,28 @@ h4{margin:14px 0 6px;font-size:12px;letter-spacing:.8px;color:var(--muted);font-
     <canvas id="healthRing" width="116" height="116"></canvas>
     <div><div style="font-family:var(--f-display);font-size:17px">בריאות המערכת</div><div id="healthTxt" class="hint" style="margin:0"></div></div>
   </div>
+  <h4>🧠 אקולוג AI — ניתוח, תחזית והמלצות</h4>
+  <div class="feed" id="feed"></div>
+  <h4>מדדים</h4>
   <div class="kpis" id="kpis"></div>
   <h4>מגמות</h4>
   <div class="chips" id="chartChips"></div>
-  <canvas id="chart" width="600" height="300"></canvas>
-  <h4>🧠 אקולוג AI — ניתוח ותחזית</h4>
-  <div class="feed" id="feed"></div>
+  <canvas id="chart" width="600" height="300" style="width:100%;height:150px;display:block;background:rgba(0,0,0,.18);border-radius:8px"></canvas>
+  <h4>🕸️ רשת מזון חיה (עובי חץ = כמות טריפה)</h4>
+  <canvas id="fw" width="600" height="330"></canvas>
 </aside>
 
+<div id="legend" class="glass" hidden><b></b><div class="gr"></div><div class="lr"><span id="lgLo"></span><span id="lgHi"></span></div></div>
+
 <div id="bottom" class="glass">
+  <div class="seg"><button id="qView" title="ניווט (V)">🖐️</button><button id="qInsp" title="בדיקת אתר (I)">🔍</button></div>
+  <span id="qTool" class="qtool"></span>
+  <div class="sep"></div>
   <div class="seg" id="speeds"></div>
   <div class="sep"></div>
   <div class="seg"><span title="שעה ביום">☀️</span><input type="range" id="tod" min="0" max="24" step="0.05" value="10" aria-label="שעה ביום"><button id="btnDay" title="מחזור יום-לילה">🔄</button></div>
   <div class="sep"></div>
-  <div class="seg"><button id="btnOrbit" title="סיבוב מצלמה אוטומטי">🎥</button><button id="btnIcons" title="סמלי בעלי חיים" class="on">🐾</button></div>
+  <div class="seg"><button id="btnTop" title="מבט על (T)">🗺️</button><button id="btnReset" title="איפוס מצלמה (C)">🧭</button><button id="btnOrbit" title="סיבוב אוטומטי">🎥</button><button id="btnIcons" title="סמלי בעלי חיים" class="on">🐾</button></div>
 </div>
 
 <div id="hover"></div>
@@ -232,7 +275,7 @@ const $=id=>document.getElementById(id);
 /* =====================================================================
    2. WORLD CONSTANTS  — 1 unit = 8 m, map 8×8 km, real scale
    ===================================================================== */
-const N=160, NN=N*N, W=1000, CS=W/(N-1), E=32, E2=E*E, RN=N/E, M_PER_UNIT=8;
+const N=192, NN=N*N, W=1000, CS=W/(N-1), E=32, E2=E*E, RN=N/E, M_PER_UNIT=8;
 const AREA_KM2=64, REG_KM2=AREA_KM2/E2;
 const DX8=[1,-1,0,0,1,1,-1,-1], DY8=[0,0,1,-1,1,-1,1,-1], DD8=[1,1,1,1,1.414,1.414,1.414,1.414];
 const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -305,7 +348,7 @@ const H={F:new Float32Array(NN),down:new Int32Array(NN),order:new Int32Array(NN)
   fall:new Float32Array(NN),wet:new Float32Array(NN),moist:new Float32Array(NN),tAnn:new Float32Array(NN),slope:new Float32Array(NN),falls:[],lakes:0,lakeArea:0,riverLen:0};
 const R={T:new Float32Array(E2),M:new Float32Array(E2),L:new Float32Array(E2),water:new Float32Array(E2),river:new Float32Array(E2),ice:new Float32Array(E2),
   slope:new Float32Array(E2),elev:new Float32Array(E2),sand:new Float32Array(E2),suit:new Float32Array(E2*NP),hab:new Float32Array(NA*E2)};
-const K=new Float64Array(NA);
+const K=new Float64Array(NA);const KM=new Float64Array(NA*NA);
 
 function effT(){const c=S.climate;let a=0;for(const x of S.anom)a+=x.dT||0;return c.T+c.offset+3*Math.log2(c.co2/280)+(c.sun-1)*8+a}
 function effP(){const c=S.climate;let m=1;for(const x of S.anom)m*=x.pM||1;return c.P*m}
@@ -383,9 +426,9 @@ function computeHydro(){
   for(const L of lakes){const net=L.outlet>=0?acc[L.outlet]:0;const f=net>=0?1:clamp((net+L.evap)/L.evap,0,1);
     const level=L.minS+(L.spill-L.minS)*Math.sqrt(f);let wetc=0;
     for(const c of L.cells){const d=level-surf(c);if(d>0){H.wdep[c]=d;H.wsurf[c]=level;wetc++}}
-    if(wetc>=10)H.lakes++;lakeArea+=wetc}
+    if(wetc>=Math.round(10*(N/160)*(N/160)))H.lakes++;lakeArea+=wetc}
   // rivers
-  const qmin=26;let rl=0;
+  const qmin=26*(N/160)*(N/160);let rl=0;
   for(let i=0;i<NN;i++){if(isLake[i]&&H.wdep[i]>0)continue;const qv=Math.max(acc[i],0);if(qv<=qmin)continue;
     const bw=1+S.wetB[regOf(i%N,(i/N)|0)]*1.5;
     const rd=clamp(.33*(Math.sqrt(qv)-Math.sqrt(qmin)),0,3.2)*bw;if(rd<.05)continue;
@@ -508,13 +551,13 @@ function animalStep(dt){
     for(let r=0;r<E2;r++){const rel=presence>0?predW[r]/(presence/E2):0;const w=hab[o+r]/(1+.6*pf*rel);S.dist[o+r]=w;sum+=w}
     for(let r=0;r<E2;r++)S.dist[o+r]=sum>0?S.dist[o+r]/sum:1/E2;}
   // 4. predation (Holling type II, multi-prey) + predator dynamics
-  const kills=new Float64Array(NA);
+  const kills=new Float64Array(NA);KM.fill(0);
   for(let p=0;p<NA;p++){const B=ANIMALS[p];if(B.type!=='pred'||P[p]<=0)continue;
     const hT=1/(1.6*B.need);let den=1,num=0;const parts=[];
     for(const k in B.prey){const i=AI_[k];if(P[i]<=0)continue;let area=0;const o=i*E2;for(let r=0;r<E2;r++)area+=Math.min(1,hab[o+r]*4);area=area*REG_KM2+.5;
       const D=Math.max(0,P[i]-.06*K[i])/area;const ad=B.a*B.prey[k]*D;parts.push([i,ad]);den+=ad*hT*ANIMALS[i].value;num+=ad*ANIMALS[i].value}
     let intake=num/den;
-    for(const [i,ad] of parts)kills[i]+=P[p]*ad/den;
+    for(const [i,ad] of parts){const kk=P[p]*ad/den;kills[i]+=kk;KM[p*NA+i]=kk}
     if(B.plants){let pf=0;for(const k in B.plants){const s=PI[k];let c=0;for(let r=0;r<E2;r++)c+=cov[s*E2+r]*S.dist[p*E2+r];pf+=B.plants[k]*c}intake+=B.need*.55*clamp(pf*3,0,1)}
     const ratio=intake/B.need;let g=B.b*Math.min(ratio,1.4)-B.m;if(g>0)g*=Math.max(0,1-P[p]/Math.max(K[p],.5));
     if(R.T.length&&avgT()<B.T[0]-B.T[1]*1.2)g-=.3;
@@ -600,7 +643,7 @@ function glacierStep(dt){
   const sub=Math.max(1,Math.min(6,Math.ceil(dt*2)));
   for(let k=0;k<sub;k++){tmpA.set(ice);
     for(let i=0;i<NN;i++){const hi=ice[i];if(hi<=.01)continue;const ix=i%N,iy=(i/N)|0,si=surf(i);let out=0;const fl=[];
-      for(let d=0;d<4;d++){const x=ix+DX8[d],y=iy+DY8[d];if(x<0||y<0||x>=N||y>=N){continue}const j=y*N+x;const ds=si-surf(j);if(ds>0){const q=Math.min(hi*.22,.06*ds*Math.min(hi,12)*dt/sub);fl.push(j,q);out+=q}}
+      for(let d=0;d<4;d++){const x=ix+DX8[d],y=iy+DY8[d];if(x<0||y<0||x>=N||y>=N){continue}const j=y*N+x;const ds=si-surf(j);if(ds>0){const q=Math.min(hi*.22,.06*(N/160)*ds*Math.min(hi,12)*dt/sub);fl.push(j,q);out+=q}}
       if(out>hi*.8){const f=hi*.8/out;for(let m=1;m<fl.length;m+=2)fl[m]*=f;out=hi*.8}
       tmpA[i]-=out;for(let m=0;m<fl.length;m+=2)tmpA[fl[m]]+=fl[m+1];
       if(S.geo)S.h[i]=Math.max(0,S.h[i]-out*.004*S.geoSpeed);}
@@ -681,30 +724,33 @@ function recordHistory(){
    10. AI ECOLOGIST  — expert rules + predictive shadow simulation
    ===================================================================== */
 const feed=[];
-function note(kind,txt){feed.unshift({kind,txt,y:S.year});if(feed.length>30)feed.pop();renderFeed()}
-function renderFeed(){$('feed').innerHTML=feed.slice(0,14).map(n=>`<div class="note ${n.kind}"><div class="t">שנה ${Math.floor(n.y)}</div>${n.txt}</div>`).join('')}
-function snapshot(){return{cover:S.cover.slice(),soil:S.soil.slice(),burn:S.burn.slice(),wetB:S.wetB.slice(),pops:S.pops.slice(),dist:S.dist.slice(),wq:S.wq,c:{...S.climate},anom:S.anom.map(a=>({...a})),year:S.year,ev:S.events.length,rnd:RND}}
-function restore(s){S.cover.set(s.cover);S.soil.set(s.soil);S.burn.set(s.burn);S.wetB.set(s.wetB);S.pops.set(s.pops);S.dist.set(s.dist);S.wq=s.wq;Object.assign(S.climate,s.c);S.anom=s.anom;S.year=s.year;S.events.length=s.ev;RND=s.rnd;updateRegionTemps()}
+function note(kind,txt,acts){feed.unshift({kind,txt,y:S.year,acts:acts||null});if(feed.length>30)feed.pop();renderFeed()}
+function renderFeed(){$('feed').innerHTML=feed.slice(0,12).map((n,fi)=>`<div class="note ${n.kind}"><div class="t">שנה ${Math.floor(n.y)}</div>${n.txt}${n.acts?`<div class="btns" style="margin-top:6px">${n.acts.map((a,ai)=>`<button class="btn" data-fi="${fi}" data-ai="${ai}">${a.l}</button>`).join('')}</div>`:''}</div>`).join('')}
+$('feed').onclick=e=>{const b=e.target.closest('[data-fi]');if(!b)return;const a=feed[+b.dataset.fi]?.acts?.[+b.dataset.ai];if(a)a.f()};
+function snapshot(){return{cover:S.cover.slice(),soil:S.soil.slice(),burn:S.burn.slice(),burning:S.burning.slice(),wetB:S.wetB.slice(),pops:S.pops.slice(),dist:S.dist.slice(),wq:S.wq,c:{...S.climate},anom:S.anom.map(a=>({...a})),year:S.year,ev:S.events.length,rnd:RND}}
+function restore(s){S.cover.set(s.cover);S.soil.set(s.soil);S.burn.set(s.burn);S.burning.set(s.burning);S.wetB.set(s.wetB);S.pops.set(s.pops);S.dist.set(s.dist);S.wq=s.wq;Object.assign(S.climate,s.c);S.anom=s.anom;S.year=s.year;S.events.length=s.ev;RND=s.rnd;updateRegionTemps();animalStep(1e-6)}
 let fcTimer=null;
 function scheduleForecast(reason){clearTimeout(fcTimer);fcTimer=setTimeout(()=>runForecast(reason),900)}
+let forecasting=false;
 function runForecast(reason){
-  if(jumping)return;
+  if(jumping||forecasting)return;forecasting=true;
   const snap=snapshot();const p0=Array.from(S.pops),c0=PLANTS.map((p,s)=>sumCover(s));const I0=indicators();
-  RND=mulberry32(99);const quietLog=S.events.length;
-  const Y=30;for(let y=0;y<Y;y++)ecoYear(1,{noRandom:true,noGeo:true});
-  const p1=Array.from(S.pops),c1=PLANTS.map((p,s)=>sumCover(s));const I1=indicators();
-  restore(snap);S.events.length=quietLog;
+  const Y=25,RUNS=4,runs=[];
+  try{for(let k=0;k<RUNS;k++){RND=mulberry32(4242+k*911);for(let y=0;y<Y;y++)ecoYear(1,{noGeo:true,noRandom:k===0});const I=indicators();runs.push({p:Array.from(S.pops),c:PLANTS.map((p,s)=>sumCover(s)),h:I.health,carbon:I.carbon});restore(snap)}}
+  finally{restore(snap);forecasting=false}
+  const med=a=>{const b=a.slice().sort((x,y)=>x-y);return (b[1]+b[2])/2};
   const msgs=[];
   for(let a=0;a<NA;a++){const A=ANIMALS[a];if(p0[a]<=0)continue;
-    if(p1[a]<=0)msgs.push(['bad',`<b>${A.icon} ${A.name}</b> צפוי/ה להיכחד בתוך ${Y} שנה. ${extinctionReason(a)}`]);
-    else{const ch=(p1[a]-p0[a])/p0[a];if(ch>.6)msgs.push(['good',`<b>${A.icon} ${A.name}</b>: צמיחה צפויה של ${Math.round(ch*100)}% (מ-${fmt(p0[a])} ל-${fmt(p1[a])}).`]);else if(ch<-.45)msgs.push(['warn',`<b>${A.icon} ${A.name}</b>: ירידה צפויה של ${Math.round(-ch*100)}%. ${declineReason(a)}`])}}
-  for(let s=0;s<NP;s++){const p=PLANTS[s];if(c0[s]<.5&&c1[s]<.5)continue;const ch=(c1[s]-c0[s])/Math.max(c0[s],.5);
-    if(c0[s]>.5&&c1[s]<.05)msgs.push(['bad',`<b>${p.icon} ${p.name}</b> צפוי/ה להיעלם. ${plantReason(s)}`]);
-    else if(ch>.8&&c1[s]>3)msgs.push(['good',`<b>${p.icon} ${p.name}</b> יתפשט/תתפשט משמעותית (×${(c1[s]/Math.max(c0[s],.1)).toFixed(1)}).`]);
+    const ext=runs.filter(r=>r.p[a]<=0).length/RUNS,m=med(runs.map(r=>r.p[a]));
+    if(ext>=.5)msgs.push(['bad',`<b>${A.icon} ${A.name}</b>: סיכוי הכחדה ${Math.round(ext*100)}% תוך ${Y} שנה. ${extinctionReason(a)}`]);
+    else{const ch=(m-p0[a])/p0[a];if(ch>.6)msgs.push(['good',`<b>${A.icon} ${A.name}</b>: צמיחה צפויה של כ-${Math.round(ch*100)}% (מ-${fmt(p0[a])} ל-${fmt(m)}).`]);else if(ch<-.45)msgs.push(['warn',`<b>${A.icon} ${A.name}</b>: ירידה צפויה של כ-${Math.round(-ch*100)}%${ext>0?` (סיכוי הכחדה ${Math.round(ext*100)}%)`:''}. ${declineReason(a)}`])}}
+  for(let s=0;s<NP;s++){const p=PLANTS[s];const m=med(runs.map(r=>r.c[s]));if(c0[s]<.5&&m<.5)continue;const ch=(m-c0[s])/Math.max(c0[s],.5);
+    if(c0[s]>.5&&m<.05)msgs.push(['bad',`<b>${p.icon} ${p.name}</b> צפוי/ה להיעלם. ${plantReason(s)}`]);
+    else if(ch>.8&&m>3)msgs.push(['good',`<b>${p.icon} ${p.name}</b> יתפשט/תתפשט משמעותית (×${(m/Math.max(c0[s],.1)).toFixed(1)}).`]);
     else if(ch<-.5&&c0[s]>2)msgs.push(['warn',`<b>${p.icon} ${p.name}</b> תצטמק/יצטמק ב-${Math.round(-ch*100)}%. ${plantReason(s)}`])}
   msgs.sort((a,b)=>(a[0]==='bad'?0:a[0]==='warn'?1:2)-(b[0]==='bad'?0:b[0]==='warn'?1:2));
-  const dh=I1.health-I0.health;
-  let head=`<b>תחזית ל-${Y} שנה</b>${reason?` (${reason})`:''}: בריאות המערכת ${dh>=0?'תעלה':'תרד'} מ-${Math.round(I0.health)} ל-${Math.round(I1.health)}, פחמן אגור ${I1.carbon>I0.carbon?'יעלה':'ירד'} ל-${I1.carbon.toFixed(1)} מגה-טון.`;
+  const hs=runs.map(r=>r.h),hm=med(hs),dh=hm-I0.health;
+  const head=`<b>תחזית ל-${Y} שנה</b> (${RUNS} הרצות עם אירועים אקראיים${reason?' · '+reason:''}): בריאות ${Math.round(I0.health)} ← <b>${Math.round(hm)}</b> (טווח ${Math.round(Math.min(...hs))}–${Math.round(Math.max(...hs))}), פחמן ${med(runs.map(r=>r.carbon)).toFixed(1)} Mt.`;
   note(dh<-5?'warn':dh>3?'good':'info',head+(msgs.length?'<br>'+msgs.slice(0,4).map(m=>'• '+m[1]).join('<br>'):'<br>• המערכת צפויה להישאר יציבה יחסית.'));
   adviceCheck();
 }
@@ -729,14 +775,16 @@ function plantReason(s){const p=PLANTS[s];let suit=0,n=0;for(let r=0;r<E2;r++)if
   return 'תחרות עם מינים אחרים.';}
 let lastAdvice=0;
 function adviceCheck(){
-  if(performance.now()-lastAdvice<20000)return;lastAdvice=performance.now();
+  if(performance.now()-lastAdvice<15000)return;lastAdvice=performance.now();
   const P=S.pops;
-  const bigHerb=['deer','reindeer','bison','zebra'].map(k=>AI_[k]).filter(a=>P[a]>0);
-  for(const a of bigHerb){const A=ANIMALS[a];const hasPred=ANIMALS.some((B,p)=>B.type==='pred'&&B.prey[A.id]>=.3&&P[p]>0);
-    if(!hasPred&&P[a]>K[a]*.8){note('warn',`💡 אין טורף-על ל${A.name}. בלי זאבים/אריות האוכלוסייה תרעה יתר על המידה ותפגע בערבות ובשתילים. נסו להכניס ${A.id==='zebra'?'אריות':'להקת זאבים'} — זהו "מפל טרופי".`);return}}
-  if(P[AI_.bee]<=0&&sumCover(PI.flowers)>5){note('warn','💡 יש פרחי בר אבל אין מאביקים. הם יתמעטו בהדרגה — הוסיפו דבורי בר.');return}
-  if(sumCover(PI.fungi)<1&&sumCover(PI.oak)+sumCover(PI.spruce)+sumCover(PI.kapok)>20){note('warn','💡 אין פטריות ומפרקים — הקרקע לא מתחדשת. הוסיפו פטריות ביער.');return}
-  if(S.wq<.45)note('warn','💡 איכות המים נמוכה: מדרונות חשופים נסחפים לנחלים. שתלו ערבות לאורך הגדות או הוסיפו בונים.');
+  for(const k of ['deer','reindeer','bison','zebra']){const a=AI_[k];if(P[a]<=0)continue;const A=ANIMALS[a];
+    const hasPred=ANIMALS.some((B,p)=>B.type==='pred'&&B.prey[A.id]>=.3&&P[p]>0);
+    if(!hasPred&&P[a]>K[a]*.8){const pr=k==='zebra'?'lion':'wolf',B=ANIMALS[AI_[pr]];
+      note('warn',`💡 אין טורף-על ל${A.name}. בלי ${k==='zebra'?'אריות':'זאבים'} האוכלוסייה תרעה יתר על המידה ותפגע בצמחייה ובשתילים. זהו "מפל טרופי".`,[{l:`${B.icon} שחרר ${B.name} במקום הטוב ביותר`,f:()=>autoRelease(AI_[pr])}]);return}}
+  if(P[AI_.bee]<=0&&sumCover(PI.flowers)>5){note('warn','💡 יש פרחי בר אבל אין מאביקים. הם יתמעטו בהדרגה.',[{l:'🐝 שחרר דבורי בר',f:()=>autoRelease(AI_.bee)}]);return}
+  if(sumCover(PI.fungi)<1&&sumCover(PI.oak)+sumCover(PI.spruce)+sumCover(PI.kapok)>20){note('warn','💡 אין פטריות ומפרקים — הקרקע לא מתחדשת.',[{l:'🍄 הוסף פטריות ביער',f:()=>autoPlant(PI.fungi,.4)}]);return}
+  if(S.wq<.45){note('warn','💡 איכות המים נמוכה: מדרונות חשופים נסחפים לנחלים. עצי ערבה לאורך הגדות מייצבים אותן.',[{l:'🌳 שתול ערבות על גדות הנחלים',f:()=>autoPlant(PI.willow,.3)}]);return}
+  const g=glInfo();if(g.iceKm<.05&&g.ok&&performance.now()>60000)note('info',`💡 האקלים קר מספיק לקרחון (קו שיווי משקל ${Math.round(g.ela*M_PER_UNIT)} מ׳, פסגה ${Math.round(g.pk*M_PER_UNIT)} מ׳) אבל אין כאן קרחונים.`,[{l:'🧊 הוסף קרחון',f:()=>addGlacier(false)}]);
 }
 function analyzeStroke(tool,info){
   const I=indicators();
@@ -755,24 +803,24 @@ function analyzeStroke(tool,info){
 /* =====================================================================
    11. RENDERER / SCENE
    ===================================================================== */
-const QUALITY={low:{pr:1,trees:7000,grass:2500,shadow:1024},med:{pr:1.5,trees:14000,grass:6000,shadow:2048},high:{pr:2,trees:26000,grass:11000,shadow:4096}};
-let Q='med';try{Q=localStorage.getItem('eco_q')||(innerWidth<900?'low':'med')}catch(e){}
+const QUALITY={low:{pr:1,trees:8000,grass:3500,shadow:1024},med:{pr:1.75,trees:16000,grass:9000,shadow:2048},high:{pr:2.5,trees:26000,grass:16000,shadow:4096}};
+let Q=innerWidth<900?'med':'high';try{Q=localStorage.getItem('eco_q2')||Q}catch(e){}
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false});
 renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY[Q].pr));renderer.setSize(innerWidth,innerHeight);
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.5;renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 $('view').appendChild(renderer.domElement);
 const scene=new THREE.Scene();
-scene.fog=new THREE.FogExp2(0xa9bccb,.00042);
+scene.fog=new THREE.FogExp2(0xa9bccb,.00011);
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.5,30000);
 camera.position.set(-520,430,640);
 const controls=new OrbitControls(camera,renderer.domElement);
-controls.target.set(0,40,0);controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=1.52;controls.minDistance=4;controls.maxDistance=2600;controls.zoomSpeed=1.2;
+controls.target.set(0,40,0);controls.enableDamping=true;controls.dampingFactor=.09;controls.maxPolarAngle=1.5;controls.minDistance=3;controls.maxDistance=2400;controls.zoomSpeed=1.1;controls.rotateSpeed=.8;controls.panSpeed=1.1;controls.zoomToCursor=true;controls.screenSpacePanning=false;
 const U={time:{value:0},wind:{value:1}};
 
 // Sky
 const sky=new Sky();sky.scale.setScalar(20000);scene.add(sky);
-const skyU=sky.material.uniforms;skyU.turbidity.value=4;skyU.rayleigh.value=1.6;skyU.mieCoefficient.value=.004;skyU.mieDirectionalG.value=.82;
+const skyU=sky.material.uniforms;skyU.turbidity.value=2.2;skyU.rayleigh.value=1.4;skyU.mieCoefficient.value=.0025;skyU.mieDirectionalG.value=.8;
 const pmrem=new THREE.PMREMGenerator(renderer);const skyScene=new THREE.Scene();const sky2=new Sky();sky2.scale.setScalar(20000);skyScene.add(sky2);let envRT=null,lastEnvElev=-99;
 const sun=new THREE.DirectionalLight(0xffffff,3);sun.castShadow=true;sun.shadow.mapSize.set(QUALITY[Q].shadow,QUALITY[Q].shadow);sun.shadow.bias=-.0004;sun.shadow.normalBias=.6;
 scene.add(sun);scene.add(sun.target);
@@ -789,7 +837,8 @@ const tIdx=new Uint32Array((N-1)*(N-1)*6);{let k=0;for(let iy=0;iy<N-1;iy++)for(
 tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));
 const aVeg=new THREE.BufferAttribute(new Float32Array(NN*4),4),aVeg2=new THREE.BufferAttribute(new Float32Array(NN*4),4),aEnv=new THREE.BufferAttribute(new Float32Array(NN*4),4);
 tGeo.setAttribute('aVeg',aVeg);tGeo.setAttribute('aVeg2',aVeg2);tGeo.setAttribute('aEnv',aEnv);
-const TU={uBrush:{value:new THREE.Vector4(0,0,0,0)},uTime:U.time};
+const aHeat=new THREE.BufferAttribute(new Float32Array(NN),1);tGeo.setAttribute('aHeat',aHeat);
+const TU={uBrush:{value:new THREE.Vector4(0,0,0,0)},uTime:U.time,uHeat:{value:0}};
 const GLSL_NOISE=`
 float hash2(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);return mix(mix(hash2(i),hash2(i+vec2(1,0)),u.x),mix(hash2(i+vec2(0,1)),hash2(i+vec2(1,1)),u.x),u.y);}
@@ -799,11 +848,11 @@ const terrainMat=new THREE.MeshStandardMaterial({roughness:.95,metalness:0});
 terrainMat.onBeforeCompile=sh=>{
   Object.assign(sh.uniforms,TU);
   sh.vertexShader=sh.vertexShader.replace('#include <common>',`#include <common>
-attribute vec4 aVeg;attribute vec4 aVeg2;attribute vec4 aEnv;varying vec4 vVeg;varying vec4 vVeg2;varying vec4 vEnv;varying vec3 vWPos;varying vec3 vWN;`)
+attribute float aHeat;varying float vHeat;attribute vec4 aVeg;attribute vec4 aVeg2;attribute vec4 aEnv;varying vec4 vVeg;varying vec4 vVeg2;varying vec4 vEnv;varying vec3 vWPos;varying vec3 vWN;`)
   .replace('#include <fog_vertex>',`#include <fog_vertex>
-vVeg=aVeg;vVeg2=aVeg2;vEnv=aEnv;vWPos=(modelMatrix*vec4(transformed,1.)).xyz;vWN=normalize(mat3(modelMatrix)*objectNormal);`);
+vVeg=aVeg;vVeg2=aVeg2;vEnv=aEnv;vHeat=aHeat;vWPos=(modelMatrix*vec4(transformed,1.)).xyz;vWN=normalize(mat3(modelMatrix)*objectNormal);`);
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
-uniform vec4 uBrush;uniform float uTime;varying vec4 vVeg;varying vec4 vVeg2;varying vec4 vEnv;varying vec3 vWPos;varying vec3 vWN;
+uniform float uHeat;varying float vHeat;uniform vec4 uBrush;uniform float uTime;varying vec4 vVeg;varying vec4 vVeg2;varying vec4 vEnv;varying vec3 vWPos;varying vec3 vWN;
 ${GLSL_NOISE}
 vec3 perturbN(vec3 sp,vec3 sn,vec2 dH){vec3 sx=dFdx(sp),sy=dFdy(sp);vec3 r1=cross(sy,sn),r2=cross(sn,sx);float det=dot(sx,r1);vec3 g=sign(det)*(dH.x*r1+dH.y*r2);return normalize(abs(det)*sn-g);}`)
   .replace('#include <color_fragment>',`#include <color_fragment>
@@ -814,7 +863,7 @@ float snow=vEnv.x,ice=vEnv.y,wet=vEnv.z,green=vEnv.w;
 vec3 rock=mix(vec3(.30,.29,.27),vec3(.50,.47,.43),n2);rock*=.82+.3*smoothstep(.3,.7,fract(vWPos.y*.13+n1*1.8));rock=mix(rock,vec3(.42,.37,.31),n3*.35);
 vec3 dirt=mix(vec3(.26,.19,.13),vec3(.40,.31,.21),n2);dirt*=.9+.2*n4;
 vec3 sand=mix(vec3(.74,.62,.44),vec3(.86,.75,.55),n2*.7+n4*.3);
-vec3 lush=mix(vec3(.13,.27,.07),vec3(.26,.42,.11),n2*.8+n4*.2);
+vec3 lush=mix(vec3(.08,.26,.04),vec3(.22,.46,.08),n2*.8+n4*.2);
 vec3 drg=mix(vec3(.52,.45,.25),vec3(.66,.57,.33),n2);
 vec3 gcol=mix(drg,lush,clamp(green,0.,1.));gcol*=.88+.24*n4;
 vec3 fcol=mix(vec3(.08,.12,.05),vec3(.17,.15,.08),n2);
@@ -827,13 +876,14 @@ col=mix(col,fcol,smoothstep(.05,.7,forest+n1*.2-.1));
 vec3 fl=mix(vec3(.75,.25,.45),vec3(.92,.82,.25),step(.5,n4));col=mix(col,fl,smoothstep(.75,.98,n4*flw*1.4+n3*.1)*.6);
 float rw=clamp(smoothstep(.42,.72,slope+n2*.18)+rockP,0.,1.);col=mix(col,rock,rw);
 col=mix(col,vec3(.05,.045,.04),burn*(.6+.4*n3));
-col*=1.-wet*.32;
+col*=1.-wet*.38;col=mix(col,vec3(.16,.13,.09),smoothstep(.55,.95,wet)*.5);col*=.92+.16*vnoise(P*7.);
 vec3 icec=mix(vec3(.62,.75,.86),vec3(.86,.93,.98),n2);icec*=.85+.25*smoothstep(.4,.6,fract(P.x*.05+n1*3.));
 col=mix(col,icec,smoothstep(.05,.6,ice));
 float sw=smoothstep(.15,.55,snow-slope*.7+n2*.25);col=mix(col,vec3(.93,.95,1.),sw);
+if(uHeat>.5){float t=clamp(vHeat,0.,1.);vec3 hc=t<.25?mix(vec3(.1,.15,.6),vec3(.1,.6,.9),t*4.):t<.5?mix(vec3(.1,.6,.9),vec3(.2,.8,.3),(t-.25)*4.):t<.75?mix(vec3(.2,.8,.3),vec3(.95,.85,.15),(t-.5)*4.):mix(vec3(.95,.85,.15),vec3(.9,.15,.1),(t-.75)*4.);col=mix(col*.55,hc,.62);}
 float bd=length(P-uBrush.xy);float ring=smoothstep(uBrush.z*.04+.6,0.,abs(bd-uBrush.z))*uBrush.w;
 diffuseColor.rgb=col;
-float hd=(n4*.6+n3*.4)*(.6+rw*2.)*(1.-sw*.7)*.35;`)
+float hd=(n4*.5+n3*.3+vnoise(P*9.)*.4)*(.6+rw*2.)*(1.-sw*.7)*.5;`)
   .replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.95-wet*.35-smoothstep(.05,.6,ice)*.6-sw*.3,.2,1.);`)
   .replace('#include <normal_fragment_begin>',`#include <normal_fragment_begin>
@@ -900,7 +950,7 @@ void main(){
  foam=max(foam,smoothstep(.5,.0,vDepth)*smoothstep(.45,.75,fbm3(p*1.2+t*.2))*.7);
  foam=max(foam,smoothstep(1.2,2.5,spd)*smoothstep(.5,.8,fbm3(p*.9-fl*t*2.))*.6);
  col=mix(col,vec3(.85,.9,.92)*(.4+.6*max(uSunDir.y,.05)),clamp(foam,0.,1.));
- float a=clamp(.42+ab*.55+fres*.5,0.,.97);a=max(a,foam);a*=smoothstep(.03,.3,vDepth);
+ float a=clamp(.3+ab*.6+fres*.45,0.,.97);a=max(a,foam);a*=smoothstep(.03,.3,vDepth);
  if(vFreeze>.5){vec3 ic=mix(vec3(.72,.82,.88),vec3(.92,.96,1.),fbm3(p*.3));ic*=.9+.1*step(.97,fract(fbm3(p*.15)*9.));col=ic*(.35+.65*max(uSunDir.y,.05))+uSunCol*spec*.3;a=1.;}
  gl_FragColor=vec4(col,a);
  #include <tonemapping_fragment>
@@ -945,6 +995,7 @@ function updateTerrainAttributes(){
     const Tm=H.tAnn[i]+amp*st;
     en[k]=clamp(S.snow[i]/50,0,1);en[k+1]=clamp(S.ice[i]/2,0,1);en[k+2]=H.wet[i];en[k+3]=smooth(-1,9,Tm)*clamp(mo*1.7,.15,1)}
   aVeg.needsUpdate=aVeg2.needsUpdate=aEnv.needsUpdate=true;
+  if(layer!=='none')updateHeat();
 }
 function groundAt(x,z){
   const fx=clamp((x+W/2)/CS,0,N-1.001),fz=clamp((z+W/2)/CS,0,N-1.001);const ix=Math.floor(fx),iy=Math.floor(fz),u=fx-ix,v=fz-iy;
@@ -1027,26 +1078,27 @@ function writeInst(V,x,y,z,s,rot,r,g,b){if(V.n>=V.max)return;const e=V.mesh.inst
 function placeVegetation(){
   for(const k in VEG)VEG[k].n=0;
   const trees=PLANTS.map((p,s)=>p.layer===1?s:-1).filter(s=>s>=0);
-  const dens=QUALITY[Q].trees/14000;
+  const csum=s=>{let t=0;for(let r=0;r<E2;r++)t+=S.cover[s*E2+r];return t*RN*RN};
+  const DS={};
+  for(const s of trees){const k=KIND_OF[PLANTS[s].id];DS[k]=Math.min(1,VEG[k].max*.9/(csum(s)*2.9+1))}
+  DS.shrub=Math.min(1,VEG.shrub.max*.9/(csum(PI.shrub)*1.8+1));DS.cactus=Math.min(1,VEG.cactus.max*.9/(csum(PI.cactus)*.6+1));
   const tc=new Float32Array(NP);
   for(let iy=1;iy<N-1;iy++)for(let ix=1;ix<N-1;ix++){
     const i=iy*N+ix;if(H.wdep[i]>.05||S.ice[i]>.4)continue;
     const sl=H.slope[i];if(sl>1.1)continue;
     let can=0;for(const s of trees){tc[s]=rSample(S.cover,s*E2,ix,iy);can+=tc[s]}
     const snowy=clamp(S.snow[i]/60,0,1);
-    const slots=3;
-    for(let k=0;k<slots;k++){const h1=hash3(ix,iy,k*11+1);if(h1>can*.95*dens)continue;
+    for(let k=0;k<3;k++){const h1=hash3(ix,iy,k*11+1);if(h1>can*.95)continue;
       let pick=hash3(ix,iy,k*11+2)*can,sp=-1;for(const s of trees){pick-=tc[s];if(pick<=0){sp=s;break}}if(sp<0)continue;
-      const p=PLANTS[sp],kind=KIND_OF[p.id];
+      const p=PLANTS[sp],kind=KIND_OF[p.id];if(hash3(ix,iy,k*11+8)>DS[kind])continue;
       const x=-W/2+(ix+hash3(ix,iy,k*11+3)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k*11+4)-.5)*CS;
       if(waterAt(x,z)>.05)continue;
-      const sc=(.65+.7*hash3(ix,iy,k*11+5))*MODELS[kind].scale*(1.1+.3*clamp(tc[sp]*1.5,0,1));
+      const sc=(.65+.7*hash3(ix,iy,k*11+5))*MODELS[kind].scale*(1.1+.3*clamp(tc[sp]*1.5,0,1))*(1+(1-DS[kind])*.35);
       const v=.82+.3*hash3(ix,iy,k*11+6);let r=v,g=v,b=v;if(snowy>.3&&p.id==='spruce'){r=g=b=1+snowy*1.8}
       writeInst(VEG[kind],x,groundAt(x,z)-.15,z,sc,hash3(ix,iy,k*11+7)*6.28,r,g,b)}
-    // shrubs & cactus
     const shc=rSample(S.cover,PI.shrub*E2,ix,iy),cac=rSample(S.cover,PI.cactus*E2,ix,iy);
-    for(let k=0;k<2;k++){if(hash3(ix,iy,k+70)<shc*.9*dens){const x=-W/2+(ix+hash3(ix,iy,k+71)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+72)-.5)*CS;const sc=1+hash3(ix,iy,k+73)*1.2;const v=.8+.35*hash3(ix,iy,k+74);writeInst(VEG.shrub,x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28,v+snowy,v+snowy,v+snowy)}}
-    if(hash3(ix,iy,80)<cac*.6){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1)}
+    for(let k=0;k<2;k++){if(hash3(ix,iy,k+70)<shc*.9*DS.shrub){const x=-W/2+(ix+hash3(ix,iy,k+71)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,k+72)-.5)*CS;const sc=1+hash3(ix,iy,k+73)*1.2;const v=.8+.35*hash3(ix,iy,k+74);writeInst(VEG.shrub,x,groundAt(x,z)-.05,z,sc,hash3(ix,iy,k+75)*6.28,v+snowy,v+snowy,v+snowy)}}
+    if(hash3(ix,iy,80)<cac*.6*DS.cactus){const x=-W/2+(ix+hash3(ix,iy,81)-.5)*CS,z=-W/2+(iy+hash3(ix,iy,82)-.5)*CS;writeInst(VEG.cactus,x,groundAt(x,z)-.05,z,.8+hash3(ix,iy,83)*.9,hash3(ix,iy,84)*6.28,1,1,1)}
   }
   for(const k in VEG){if(k==='rock')continue;const V=VEG[k];V.mesh.count=V.n;V.mesh.instanceMatrix.needsUpdate=true;V.mesh.instanceColor.needsUpdate=true}
 }
@@ -1072,13 +1124,13 @@ const grassMat=vegMaterial({cy:0,sway:.9});grassMat.side=THREE.DoubleSide;
 const GRASS={max:QUALITY.high.grass};GRASS.mesh=new THREE.InstancedMesh(grassClumpGeo(),grassMat,GRASS.max);GRASS.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GRASS.max*3),3);GRASS.mesh.frustumCulled=false;GRASS.mesh.receiveShadow=true;scene.add(GRASS.mesh);
 const flMat=vegMaterial({cy:.23,sway:.6});
 const FLW={max:6000};FLW.mesh=new THREE.InstancedMesh(flowerGeo(),flMat,FLW.max);FLW.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(FLW.max*3),3);FLW.mesh.frustumCulled=false;scene.add(FLW.mesh);
-let patchCenter=new THREE.Vector3(1e9,0,0);
+let patchCenter=new THREE.Vector3(1e9,0,0),patchDist=0;
 const FLCOL=[[.85,.2,.35],[.95,.85,.2],[.6,.35,.85],[.95,.95,.95],[.95,.5,.15]];
 function placeGrassPatch(force){
   const t=controls.target;const dist=camera.position.distanceTo(t);
-  if(dist>260){GRASS.mesh.count=0;FLW.mesh.count=0;patchCenter.set(1e9,0,0);return}
-  if(!force&&patchCenter.distanceTo(t)<8)return;patchCenter.copy(t);
-  const sp=1.15,R0=Math.sqrt(QUALITY[Q].grass)*sp*.5;let n=0,nf=0;const gx0=Math.floor((t.x-R0)/sp),gx1=Math.ceil((t.x+R0)/sp),gz0=Math.floor((t.z-R0)/sp),gz1=Math.ceil((t.z+R0)/sp);
+  if(dist>520){GRASS.mesh.count=0;FLW.mesh.count=0;patchCenter.set(1e9,0,0);return}
+  const sp=clamp(.9+dist*.004,.9,2.4),R0=Math.sqrt(QUALITY[Q].grass)*sp*.5;
+  if(!force&&patchCenter.distanceTo(t)<R0*.22&&Math.abs(dist/Math.max(patchDist,1)-1)<.22)return;patchCenter.copy(t);patchDist=dist;let n=0,nf=0;const gx0=Math.floor((t.x-R0)/sp),gx1=Math.ceil((t.x+R0)/sp),gz0=Math.floor((t.z-R0)/sp),gz1=Math.ceil((t.z+R0)/sp);
   const st=seasonT(S.day);const ga=GRASS.mesh.instanceMatrix.array,gc=GRASS.mesh.instanceColor.array,fa=FLW.mesh.instanceMatrix.array,fc=FLW.mesh.instanceColor.array;
   const G={mesh:GRASS.mesh,max:QUALITY[Q].grass,n:0},F={mesh:FLW.mesh,max:FLW.max,n:0};
   for(let gz=gz0;gz<=gz1;gz++)for(let gx=gx0;gx<=gx1;gx++){
@@ -1087,7 +1139,7 @@ function placeGrassPatch(force){
     const gcv=rSample(S.cover,PI.grass*E2,ix,iy)*1.4+rSample(S.cover,PI.moss*E2,ix,iy)*.5;const snowy=S.snow[i]>40;
     if(!snowy&&hash3(gx,gz,3)<gcv&&H.slope[i]<.9){const mo=H.moist[i],Tm=H.tAnn[i]+S.climate.amp*st;const gr=smooth(-1,9,Tm)*clamp(mo*1.7,.15,1);
       const r=lerp(1.9,1,gr),g=lerp(1.45,1.15,gr),b=lerp(.6,.8,gr);const v=.85+.3*hash3(gx,gz,4);
-      writeInst(G,x,groundAt(x,z)-.03,z,.8+hash3(gx,gz,5)*.7,hash3(gx,gz,6)*6.28,r*v,g*v,b*v)}
+      writeInst(G,x,groundAt(x,z)-.03,z,(.8+hash3(gx,gz,5)*.7)*(sp/1.15)*clamp((1-Math.pow(Math.sqrt(dx*dx+dz*dz)/R0,3))*1.6,0,1),hash3(gx,gz,6)*6.28,r*v,g*v,b*v)}
     const fcv=rSample(S.cover,PI.flowers*E2,ix,iy);const bloom=st>-.2&&S.snow[i]<5&&H.tAnn[i]+S.climate.amp*st>4;
     if(bloom&&hash3(gx,gz,7)<fcv*1.2){const c=FLCOL[Math.floor(hash3(gx,gz,8)*5)];writeInst(F,x+.3,groundAt(x,z)-.02,z+.2,.8+hash3(gx,gz,9)*.6,0,c[0],c[1],c[2])}}
   GRASS.mesh.count=G.n;FLW.mesh.count=F.n;GRASS.mesh.instanceMatrix.needsUpdate=true;GRASS.mesh.instanceColor.needsUpdate=true;FLW.mesh.instanceMatrix.needsUpdate=true;FLW.mesh.instanceColor.needsUpdate=true;
@@ -1148,12 +1200,13 @@ let showIcons=true;
 function updateAgents(dt){
   const camD=camera.position.distanceTo(controls.target);const iconsOn=showIcons&&camD>140;
   ANIMALS.forEach((A,a)=>{const M=AMESH[a];if(!M)return;const list=AGENTS[a];const mesh=M.mesh;const pa=M.pts.geometry.attributes.position.array;
-    const isPred=A.type==='pred';
+    const isPred=A.type==='pred';const thr=(!isPred&&!A.fly&&!A.water&&A.type!=='poll')?ANIMALS.map((B,p)=>(B.type==='pred'&&B.prey[A.id]&&!B.fly)?AGENTS[p]:null).filter(Boolean):[];
     for(let k=0;k<list.length;k++){const g=list[k];
+      if(thr.length){g.flee=(g.flee||0)-dt;let nd=1e9,nx=0,nz=0;for(const arr of thr)for(const q of arr){const dx=g.x-q.x,dz=g.z-q.z,d2=dx*dx+dz*dz;if(d2<nd){nd=d2;nx=dx;nz=dz}}if(nd<900){const l=Math.sqrt(nd)+.01;g.tx=clamp(g.x+nx/l*45,-W/2+6,W/2-6);g.tz=clamp(g.z+nz/l*45,-W/2+6,W/2-6);g.rest=0;g.flee=2.5}}
       if(g.rest>0){g.rest-=dt}else{
         let dx=g.tx-g.x,dz=g.tz-g.z,d=Math.hypot(dx,dz);
         if(isPred&&!A.fly&&Math.random()<dt*.4&&!g.chase){for(const pk in A.prey){const pl=AGENTS[AI_[pk]];if(!pl)continue;for(const q of pl){if(Math.abs(q.x-g.x)<35&&Math.abs(q.z-g.z)<35){g.chase=q;break}}if(g.chase)break}}
-        let sp=g.spd;
+        let sp=g.spd*(g.flee>0?1.9:1);
         if(g.chase){g.tx=g.chase.x;g.tz=g.chase.z;sp*=1.7;dx=g.tx-g.x;dz=g.tz-g.z;d=Math.hypot(dx,dz);if(d<1.2){const pl=AGENTS[ANIMALS.findIndex(B=>AGENTS[ANIMALS.indexOf(B)].includes(g.chase))];g.chase.x+=9999;g.chase=null;g.rest=4+Math.random()*4}else if(d>60||Math.random()<dt*.05)g.chase=null}
         if(d<1.5||!isFinite(d)){
           if(A.fly&&A.id==='eagle'){g.tx=g.x+Math.cos(g.ph)*50;g.tz=g.z+Math.sin(g.ph)*50;g.ph+=.6}
@@ -1189,7 +1242,7 @@ const BEE_N=400;const beeGeo=new THREE.BufferGeometry();const beePos=new Float32
 const beeP=new THREE.Points(beeGeo,new THREE.PointsMaterial({color:0xffcc33,size:.12}));beeP.frustumCulled=false;scene.add(beeP);const beeHome=new Float32Array(BEE_N*3);
 // clouds
 const CLOUDS=[];{const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');for(let i=0;i<40;i++){const px=60+Math.random()*136,py=90+Math.random()*80,r=30+Math.random()*50;const g=x.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,256,256)}
- const tex=new THREE.CanvasTexture(c);for(let i=0;i<34;i++){const m=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,opacity:.0,fog:false});const s=new THREE.Sprite(m);s.position.set((Math.random()-.5)*3200,520+Math.random()*220,(Math.random()-.5)*3200);const sc=400+Math.random()*500;s.scale.set(sc,sc*.5,1);scene.add(s);CLOUDS.push(s)}}
+ const tex=new THREE.CanvasTexture(c);for(let i=0;i<20;i++){const m=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,opacity:.0,fog:false});const s=new THREE.Sprite(m);s.position.set((Math.random()-.5)*3200,950+Math.random()*400,(Math.random()-.5)*3200);const sc=400+Math.random()*500;s.scale.set(sc,sc*.5,1);scene.add(s);CLOUDS.push(s)}}
 
 /* =====================================================================
    12. WEATHER, SUN & SKY
@@ -1209,26 +1262,26 @@ function updateSun(){
   let cosAz=(Math.sin(dec)-sinA*Math.sin(lat))/(Math.cos(alt)*Math.cos(lat)+1e-6);let az=Math.acos(clamp(cosAz,-1,1));if(Ha>0)az=2*Math.PI-az;
   sunVec.set(Math.cos(alt)*Math.sin(az),Math.sin(alt),-Math.cos(alt)*Math.cos(az)).normalize();
   skyU.sunPosition.value.copy(sunVec);sky2.material.uniforms.sunPosition.value.copy(sunVec);
-  const cl=weather.cloud;skyU.turbidity.value=3+cl*9;skyU.rayleigh.value=1.2+cl*1.5;sky2.material.uniforms.turbidity.value=skyU.turbidity.value;sky2.material.uniforms.rayleigh.value=skyU.rayleigh.value;
+  const cl=weather.cloud;skyU.turbidity.value=2+cl*5;skyU.rayleigh.value=1.3+cl*1.0;sky2.material.uniforms.turbidity.value=skyU.turbidity.value;sky2.material.uniforms.rayleigh.value=skyU.rayleigh.value;
   const e=sunVec.y;const day=smooth(-.08,.12,e);
   sunCol.setRGB(1,lerp(.55,.96,smooth(0,.35,e)),lerp(.3,.9,smooth(0,.4,e)));
-  sun.color.copy(sunCol);sun.intensity=day*3.2*(1-cl*.65);
+  sun.color.copy(sunCol);sun.intensity=day*3.9*(1-cl*.5);
   const t=controls.target,dist=camera.position.distanceTo(t);const half=clamp(dist*.9,60,700);
   sun.position.copy(t).addScaledVector(sunVec,1500);sun.target.position.copy(t);const sc=sun.shadow.camera;sc.left=-half;sc.right=half;sc.top=half;sc.bottom=-half;sc.near=10;sc.far=4000;sc.updateProjectionMatrix();
   moon.intensity=(1-day)*.35;moon.position.set(t.x-300,t.y+800,t.z+400);moon.target=sun.target;
   hemi.intensity=.15+day*.25;hemi.color.setRGB(lerp(.2,.75,day),lerp(.25,.85,day),lerp(.4,1,day));
-  renderer.toneMappingExposure=lerp(.85,.48,day)*(1-cl*.15);
+  renderer.toneMappingExposure=lerp(.9,.6,day);
   stars.material.opacity=clamp(1-day*1.5,0,1)*(1-cl);
   // fog / horizon color
   horCol.setRGB(lerp(.02,.62,day),lerp(.03,.70,day),lerp(.06,.80,day));
   if(e>-.1&&e<.25){const k=1-Math.abs(e-.05)/.2;horCol.lerp(new THREE.Color(.85,.5,.3),clamp(k,0,1)*.45)}
   horCol.lerp(new THREE.Color(.55,.58,.6).multiplyScalar(.3+day*.7),cl*.6);
   zenCol.setRGB(lerp(.01,.18,day),lerp(.02,.36,day),lerp(.05,.72,day));
-  scene.fog.color.copy(horCol);scene.fog.density=.00026+cl*.00018+weather.rain*.00035+weather.snow*.0006;
+  scene.fog.color.copy(horCol);scene.fog.density=.0001+weather.rain*.0002+weather.snow*.00035;
   WU.uSunDir.value.copy(sunVec);WU.uSunCol.value.copy(sunCol).multiplyScalar(day);WU.uHorCol.value.copy(horCol);WU.uSkyCol.value.copy(zenCol);
   if(Math.abs(e-lastEnvElev)>.03){lastEnvElev=e;if(envRT)envRT.dispose();envRT=pmrem.fromScene(skyScene,0,1,30000);scene.environment=envRT.texture;}
-  terrainMat.envMapIntensity=.6;
-  for(const c of CLOUDS){c.material.opacity=cl*.85;c.material.color.setRGB(lerp(.15,1,day)*sunCol.r,lerp(.15,1,day)*lerp(.8,1,day),lerp(.2,1,day));}
+  terrainMat.envMapIntensity=.45;
+  for(const c of CLOUDS){c.material.opacity=cl*.45;c.material.color.setRGB(lerp(.15,1,day)*sunCol.r,lerp(.15,1,day)*lerp(.8,1,day),lerp(.2,1,day));}
 }
 
 /* =====================================================================
@@ -1257,7 +1310,7 @@ function pickTerrain(cx,cy){
     t+=step;step=Math.min(step*1.004+.02,8)}
   return null;
 }
-function setTool(t){tool=t;controls.mouseButtons.LEFT=(t==='view')?THREE.MOUSE.ROTATE:-1;controls.touches.ONE=(t==='view')?THREE.TOUCH.ROTATE:-1;renderTools()}
+function setTool(t){tool=t;const v=(t==='view');controls.mouseButtons.LEFT=v?THREE.MOUSE.ROTATE:-1;controls.mouseButtons.MIDDLE=THREE.MOUSE.PAN;controls.mouseButtons.RIGHT=v?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;controls.touches.ONE=v?THREE.TOUCH.ROTATE:-1;controls.touches.TWO=v?THREE.TOUCH.DOLLY_PAN:THREE.TOUCH.DOLLY_ROTATE;renderTools()}
 function applyBrush(dt){
   if(!brushOn)return;const cx=brushPos.x,cz=brushPos.z,r=brushR,st=brushS;
   const ix0=Math.max(0,Math.floor((cx-r+W/2)/CS)),ix1=Math.min(N-1,Math.ceil((cx+r+W/2)/CS)),iy0=Math.max(0,Math.floor((cz-r+W/2)/CS)),iy1=Math.min(N-1,Math.ceil((cz+r+W/2)/CS));
@@ -1347,7 +1400,7 @@ function inspectAt(p){
 /* =====================================================================
    14. TIME — realtime + jumps
    ===================================================================== */
-let speed=1,tod=10,dayCycle=false,jumping=false,dirtyVeg=true,dirtyAttr=true,lastVeg=0,lastMonthIdx=-1;
+const homeT=new THREE.Vector3(),homeC=new THREE.Vector3();let glSize=.6,layer='none',heatTick=0;let speed=1,tod=10,dayCycle=false,jumping=false,dirtyVeg=true,dirtyAttr=true,lastVeg=0,lastMonthIdx=-1;
 const SPEEDS=[[0,'⏸'],[1,'יום/ש׳'],[7,'שבוע/ש׳'],[30,'חודש/ש׳'],[120,'4 חודשים/ש׳']];
 function advanceDays(d){
   S.day+=d;let guard=0;
@@ -1409,20 +1462,20 @@ function jumpReport(b,years){
    15. UI
    ===================================================================== */
 const TABS=[['terrain','⛰️ שטח'],['design','🎨 עיצוב'],['plants','🌳 צמחייה'],['animals','🦌 חיות'],['climate','☀️ אקלים'],['time','⏳ זמן']];
-let tab='terrain';
+let tab=null;
 $('tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
-$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;tab=b.dataset.t;const first=Object.keys(TOOLS).find(k=>TOOLS[k].tab===tab);if(['climate','time'].includes(tab))setTool('view');else if(first&&TOOLS[tool].tab!==tab&&tool!=='view'&&tool!=='inspect')setTool(first);renderTools();$('tools').classList.remove('min')};
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(tab===b.dataset.t){tab=null;renderTools();return}tab=b.dataset.t;if(innerWidth<760)$('dash').classList.remove('open');const first=Object.keys(TOOLS).find(k=>TOOLS[k].tab===tab);if(['climate','time'].includes(tab))setTool('view');else if(first&&TOOLS[tool].tab!==tab&&tool!=='view'&&tool!=='inspect')setTool(first);renderTools()};
 function toolBtn(k){const t=TOOLS[k];return `<button class="tool ${tool===k?'on':''}" data-tool="${k}"><span class="ic">${t.icon}</span>${t.name}</button>`}
 function slider(id,label,min,max,step,val,fmtf){return `<div class="row"><label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><output id="${id}_o">${fmtf(val)}</output></div>`}
 const brushUI=()=>slider('bR','גודל מברשת',8,160,1,brushR,v=>Math.round(v*M_PER_UNIT)+' מ׳')+slider('bS','עוצמה',.05,1,.01,brushS,v=>Math.round(v*100)+'%');
 function renderTools(){
-  $('tabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+  $('tabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));$('tools').classList.toggle('open',!!tab);updateQuick();if(!tab)return;
   let h='';const base=`<div class="grid" style="margin-bottom:8px">${toolBtn('view')}${toolBtn('inspect')}</div>`;
   if(tab==='terrain'){h=`<h3>פיסול השטח</h3><div class="hint">גררו על הנוף. המים מחושבים מחדש בכל משיכה: שקעים מתמלאים לאגמים, נחלים זורמים במורד ומפלים נוצרים במדרגות חדות.</div>${base}<div class="grid">${['raise','lower','smooth','flatten','mountain','valley','river','spring','noise'].map(toolBtn).join('')}</div>${brushUI()}
     <h4>נוף חדש</h4><div class="btns">${[['hills','גבעות'],['alpine','הרים'],['tundra','מישור'],['savanna','רמה'],['rainforest','עמק נהר'],['desert','דיונות'],['flat','שטוח']].map(x=>`<button class="btn" data-gen="${x[0]}">${x[1]}</button>`).join('')}</div>
     <div class="btns" style="margin-top:8px"><button class="btn" id="undo">↶ ביטול משיכה</button></div>`}
   if(tab==='design'){h=`<h3>עיצוב פני השטח</h3><div class="hint">קרחונים זורמים במורד ומגלפים עמקים בזמן. חול ואדמה משפיעים על הצמחים שיכולים לגדול.</div>${base}<div class="grid">${['glacier','sand','rock','fertile','clear','fire'].map(toolBtn).join('')}</div>${brushUI()}
-    <h4>מפלס ים / אגם גדול</h4>${slider('sea','מפלס מים',-1,300,1,S.sea<-999?-1:S.sea,v=>v<0?'כבוי':Math.round(v*M_PER_UNIT)+' מ׳')}
+    ${glacierBlock()}<h4>מפלס ים / אגם גדול</h4>${slider('sea','מפלס מים',-1,300,1,S.sea<-999?-1:S.sea,v=>v<0?'כבוי':Math.round(v*M_PER_UNIT)+' מ׳')}
     <div class="hint">מעיינות פעילים: ${S.springs.length} <button class="btn" id="clrSpr" style="padding:3px 8px">הסרה</button></div>`}
   if(tab==='plants'){h=`<h3>צמחייה</h3><div class="hint">בחרו מין וצבעו על הנוף. האחוז = התאמת המין לאקלים הנוכחי בממוצע.</div>${base}<div class="grid">${PLANTS.map((p,s)=>{let m=0;for(let r=0;r<E2;r++)m=Math.max(m,R.suit[s*E2+r]);return `<button class="tool ${tool==='plant'&&selPlant===s?'on':''}" data-plant="${s}"><span class="badge" style="color:${m>.5?'var(--good)':m>.2?'var(--warn)':'var(--bad)'}">${Math.round(m*100)}%</span><span class="ic">${p.icon}</span>${p.name}</button>`}).join('')}</div>${brushUI()}
     <div class="note" style="margin-top:8px">${PLANTS[selPlant].icon} <b>${PLANTS[selPlant].name}</b>: ${PLANTS[selPlant].desc}<br><span class="t">טמפ׳ אופטימלית ${PLANTS[selPlant].T[0]}°C · לחות ${Math.round(PLANTS[selPlant].M[0]*100)}%</span></div>
@@ -1452,7 +1505,7 @@ function animalCard(a){const A=ANIMALS[a];let t=`${A.icon} <b>${A.name}</b> — 
   else t+=`אוכל: ${Object.keys(A.diet).map(k=>PLANTS[PI[k]].name).join(', ')}. טורפים: ${ANIMALS.filter(B=>B.prey&&B.prey[A.id]).map(B=>B.name).join(', ')||'אין'}.`;
   if(A.id==='beaver')t+=' בונה סכרים שמרחיבים ביצות ומשפרים איכות מים.';
   if(A.id==='songbird')t+=' מפיצות זרעים — מאיצות את התפשטות היער.';
-  return t+`<br><span class="t">טמפ׳ אופטימלית ${A.T[0]}°C · כושר נשיאה כעת ${fmt(K[a])}</span>`}
+  return t+`<br><span class="t">טמפ׳ אופטימלית ${A.T[0]}°C · כושר נשיאה כעת ${fmt(K[a])}</span>`+limiting(a)}
 function trendArrow(kind,i){const h=S.history;if(h.length<3)return '<span class="tr-eq">•</span>';const a=h[Math.max(0,h.length-6)],b=h[h.length-1];const x0=kind==='p'?a.pops[i]:a.covs[i],x1=kind==='p'?b.pops[i]:b.covs[i];if(x0<=0&&x1<=0)return '<span class="tr-eq">—</span>';const r=(x1-x0)/Math.max(x0,1e-3);return r>.05?'<span class="tr-up">▲</span>':r<-.05?'<span class="tr-dn">▼</span>':'<span class="tr-eq">•</span>'}
 function climSummary(){const c=S.climate;const co2w=3*Math.log2(c.co2/280);const el=$('climSum');if(!el)return;
   el.innerHTML=`טמפ׳ אפקטיבית <b>${effT().toFixed(1)}°C</b> (CO₂: ${co2w>=0?'+':''}${co2w.toFixed(1)}°, סטייה מצטברת: ${c.offset>=0?'+':''}${c.offset.toFixed(1)}°)<br>משקעים אפקטיביים <b>${Math.round(effP())} מ״מ</b>, אידוי פוטנציאלי ${Math.round(PET(effT()))} מ״מ → ${effP()/PET(effT())<.2?'מדברי':effP()/PET(effT())<.5?'צחיח-למחצה':effP()/PET(effT())<1?'ממוזג':'לח'}<br>קו שלג קבוע ≈ <b>${Math.max(0,Math.round((effT()+c.amp-1)/6.5*1000))} מ׳</b> · קו העצים ≈ <b>${Math.max(0,Math.round((effT()+c.amp-10)/6.5*1000))} מ׳</b>${S.anom.length?'<br>אירועים פעילים: '+S.anom.map(a=>a.name).join(', '):''}`}
@@ -1479,6 +1532,7 @@ function bindTools(){
   rng('geoS',v=>S.geoSpeed=v,v=>'×'+v.toFixed(1));
   if($('cV'))$('cV').onchange=e=>c.vary=e.target.checked;
   if($('geo'))$('geo').onchange=e=>{S.geo=e.target.checked;if(S.geo)note('info','⛰️ שחיקה גיאולוגית פעילה: נהרות חוצבים קניונים, קרחונים מגלפים עמקי U, ומדרונות תלולים מתמוטטים. קפצו 1,000+ שנה כדי לראות.')};
+  if($('glAdd')){$('glAdd').onclick=()=>addGlacier(false);$('glAddC').onclick=()=>addGlacier(true);$('glClr').onclick=()=>{S.ice.fill(0);computeHydro();computeEnv();updateTerrainMesh();updateTerrainAttributes();placeRocks();dirtyVeg=true;renderTools();note('info','🧊 כל הקרחונים הוסרו.')};rng('glS',v=>glSize=v,v=>Math.round(v*100)+'%')}
   if($('undo'))$('undo').onclick=()=>{if(!undoBuf)return;S.h.set(undoBuf.h);S.ice.set(undoBuf.ice);S.sand.set(undoBuf.sand);S.rockP.set(undoBuf.rockP);S.cover.set(undoBuf.cover);S.soil.set(undoBuf.soil);S.springs=undoBuf.springs;undoBuf=null;rebuildAll();toast('בוטל')};
   if($('clrSpr'))$('clrSpr').onclick=()=>{S.springs=[];computeHydro();computeEnv();updateTerrainMesh();renderTools()};
   if($('cull'))$('cull').onclick=()=>{const A=ANIMALS[selAnimal];S.pops[selAnimal]*=.5;syncAgents();note('warn',`🎯 צדת מחצית מה${A.name} (נותרו ${fmt(S.pops[selAnimal])}).`);scheduleForecast('ציד '+A.name);renderTools()};
@@ -1518,7 +1572,7 @@ function drawChart(){
   x.textAlign='center';x.font='16px Assistant';let lx=w/2-series.length*18;series.slice(0,14).forEach((s,i)=>{x.fillStyle=s.c;x.fillText(s.n,w/2+(i-series.slice(0,14).length/2+.5)*(chartMode==='ind'||chartMode==='climate'?60:30),h-6)});
 }
 function updateDash(){
-  const I=indicators();
+  const I=indicators();updateChip(I);
   const kp=[['מגוון ביולוגי',I.bio,'',100,'#a6d46f'],['כיסוי צמחי',I.veg,'%',100,'#7fd38a'],['פחמן אגור',I.carbon,' Mt',Math.max(1,I.carbon*1.3),'#6fc3d9'],['בריאות הקרקע',I.soil,'%',100,'#c8a26a'],['איכות מים',I.wq,'%',100,'#5aa2ff'],['רשת מזון',I.web,'',100,'#e9b44c'],['יציבות',I.stab,'',100,'#c792ea'],['טמפ׳ ממוצעת',I.T,'°C',null,'#e8664f']];
   $('kpis').innerHTML=kp.map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1].toFixed(k[2]===' Mt'||k[2]==='°C'?1:0)}${k[2]}</div>${k[3]?`<div class="bar"><i style="width:${clamp(k[1]/k[3]*100,0,100)}%;background:${k[4]}"></i></div>`:''}</div>`).join('');
   const cv=$('healthRing'),x=cv.getContext('2d');x.clearRect(0,0,116,116);x.lineWidth=10;x.strokeStyle='rgba(255,255,255,.1)';x.beginPath();x.arc(58,58,48,0,7);x.stroke();
@@ -1537,12 +1591,10 @@ $('tod').oninput=e=>{tod=+e.target.value};
 $('btnDay').onclick=e=>{dayCycle=!dayCycle;e.currentTarget.classList.toggle('on',dayCycle);e.currentTarget.style.background=dayCycle?'var(--accent2)':''};
 $('btnOrbit').onclick=e=>{controls.autoRotate=!controls.autoRotate;controls.autoRotateSpeed=.4;e.currentTarget.classList.toggle('on',controls.autoRotate)};
 $('btnIcons').onclick=e=>{showIcons=!showIcons;e.currentTarget.classList.toggle('on',showIcons)};
-$('btnTools').onclick=()=>$('tools').classList.toggle('min');
-$('btnDash').onclick=()=>$('dash').classList.toggle('open');
 $('btnNew').onclick=()=>$('startModal').hidden=false;
 $('jumpClose').onclick=()=>{$('jumpModal').hidden=true;renderTools()};
 $('infoClose').onclick=()=>$('infoModal').hidden=true;
-$('btnQ').onclick=()=>{const order=['low','med','high'];Q=order[(order.indexOf(Q)+1)%3];try{localStorage.setItem('eco_q',Q)}catch(e){}renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY[Q].pr));sun.shadow.mapSize.set(QUALITY[Q].shadow,QUALITY[Q].shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}makeVegMeshes();placeRocks();placeVegetation();placeGrassPatch(true);toast('איכות: '+{low:'נמוכה',med:'בינונית',high:'גבוהה'}[Q])};
+$('btnQ').onclick=()=>{const order=['low','med','high'];Q=order[(order.indexOf(Q)+1)%3];try{localStorage.setItem('eco_q2',Q)}catch(e){}renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY[Q].pr));sun.shadow.mapSize.set(QUALITY[Q].shadow,QUALITY[Q].shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}makeVegMeshes();placeRocks();placeVegetation();placeGrassPatch(true);toast('איכות: '+{low:'נמוכה',med:'בינונית',high:'גבוהה'}[Q])};
 function toast(t){const e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',1800)}
 addEventListener('keydown',e=>{if(e.key==='z'&&(e.ctrlKey||e.metaKey))$('undo')?.click();if(e.key===' '&&e.target===document.body){e.preventDefault();speed=speed?0:1;$('speeds').querySelectorAll('button').forEach(x=>x.classList.toggle('on',+x.dataset.s===speed))}});
 
@@ -1596,8 +1648,8 @@ function newWorld(bid){
   feed.length=0;note('info',`🌍 נוצרה מערכת <b>${B.name}</b>. ${B.desc}<br>טיפ: לחצו על 🔍 ואז על הנוף כדי לבדוק כל נקודה. בלשונית ⏳ אפשר לקפוץ עד 10,000 שנה קדימה.`);
   scheduleForecast('מצב התחלתי');
   $('startModal').hidden=true;
-  const peak=Math.max(...S.h);controls.target.set(0,peak*.25,0);camera.position.set(-480,Math.max(380,peak*1.6),620);
-  tab='terrain';setTool('view');updateDash();drawChart();
+  const peak=Math.max(...S.h);homeT.set(0,peak*.25,0);homeC.set(-480,Math.max(380,peak*1.6),620);controls.target.copy(homeT);camera.position.copy(homeC);
+  tab=null;setTool('view');updateDash();drawChart();
 }
 $('biomes').innerHTML=BIOMES.map(b=>`<button class="biome" data-b="${b.id}"><div class="e">${b.e}</div><b>${b.name}</b><span>${b.desc}</span><div class="c">${b.clim.T}°C · ${b.clim.P} מ״מ · קו רוחב ${b.clim.lat}°</div></button>`).join('');
 $('biomes').onclick=e=>{const b=e.target.closest('[data-b]');if(!b)return;$('loading').style.display='flex';$('loading').firstChild.textContent='בונה את העולם';setTimeout(()=>{newWorld(b.dataset.b);$('loading').style.display='none'},30)};
@@ -1646,11 +1698,140 @@ function frame(now){
     const tt=U.time.value*3+i;beePos[i*3]=beeHome[i*3]+Math.sin(tt*1.3)*.5;beePos[i*3+1]=beeHome[i*3+1]+Math.sin(tt*2.1)*.15;beePos[i*3+2]=beeHome[i*3+2]+Math.cos(tt*1.7)*.5}beeGeo.attributes.position.needsUpdate=true}
   WU.uRain.value=weather.rain;
   audioTick(dt);
-  dashT+=dt;if(dashT>1){dashT=0;updateDash();updateClock();if(S.history.length%1===0)drawChart();if(tab==='animals'||tab==='plants'){const sc=$('tools').scrollTop;const fl=$('tools').querySelector('.splist');if(fl&&!painting){renderTools();$('tools').scrollTop=sc}}}
-  controls.update();
+  dashT+=dt;if(dashT>1){dashT=0;const dashOpen=$('dash').classList.contains('open');updateDash();updateClock();if(dashOpen){drawChart();drawWeb()}if(layer!=='none'&&(++heatTick%3===0))updateHeat();if((tab==='animals'||tab==='plants')&&!painting&&!$('tools').matches(':hover')&&!$('tools').contains(document.activeElement)){const sc=$('tools').scrollTop;renderTools();$('tools').scrollTop=sc}}
+  moveCamera(dt);controls.update();clampCamera();
   renderer.render(scene,camera);
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+
+/* =====================================================================
+   18. v2: camera control, layers, glaciers, food web, smart actions
+   ===================================================================== */
+const keys=new Set();let fly=null;
+const fwdV=new THREE.Vector3(),rgtV=new THREE.Vector3(),offV=new THREE.Vector3();
+const typing=e=>/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.target.type!=='range';
+addEventListener('keydown',e=>{if(typing(e)||e.ctrlKey||e.metaKey||e.altKey)return;keys.add(e.code);
+  const k=e.code;
+  if(k==='KeyV')setTool('view');else if(k==='KeyI')setTool('inspect');else if(k==='KeyH')toggleHud();else if(k==='KeyT')$('btnTop').click();else if(k==='KeyC')$('btnReset').click();
+  else if(k==='BracketLeft')brushChange(.85);else if(k==='BracketRight')brushChange(1.18);else if(k==='Escape'){tab=null;setTool('view')}});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>keys.clear());
+el.addEventListener('contextmenu',e=>e.preventDefault());
+function brushChange(f){brushR=clamp(brushR*f,8,160);const o=$('bR');if(o){o.value=brushR;$('bR_o').textContent=Math.round(brushR*M_PER_UNIT)+' מ׳'}toast('גודל מברשת '+Math.round(brushR*M_PER_UNIT)+' מ׳')}
+function flyTo(p,dist){const off=camera.position.clone().sub(controls.target);if(off.y<off.length()*.35)off.y=off.length()*.35;off.setLength(Math.min(off.length(),dist||160));fly={a:controls.target.clone(),b:p.clone(),ca:camera.position.clone(),cb:p.clone().add(off),t:0,d:.9}}
+el.addEventListener('dblclick',e=>{if(tool!=='view')return;const p=pickTerrain(e.clientX,e.clientY);if(p)flyTo(p,Math.min(camera.position.distanceTo(controls.target),170))});
+function moveCamera(dt){
+  if($('startModal')&&!$('startModal').hidden)return;
+  if(fly){fly.t+=dt/fly.d;const k=smooth(0,1,fly.t);controls.target.lerpVectors(fly.a,fly.b,k);camera.position.lerpVectors(fly.ca,fly.cb,k);if(fly.t>=1)fly=null}
+  else if(keys.size){
+    let mx=0,mz=0,rot=0,zm=0;
+    if(keys.has('KeyW')||keys.has('ArrowUp'))mz++;if(keys.has('KeyS')||keys.has('ArrowDown'))mz--;
+    if(keys.has('KeyD')||keys.has('ArrowRight'))mx++;if(keys.has('KeyA')||keys.has('ArrowLeft'))mx--;
+    if(keys.has('KeyE'))rot++;if(keys.has('KeyQ'))rot--;if(keys.has('KeyR'))zm--;if(keys.has('KeyF'))zm++;
+    if(mx||mz||rot||zm){
+      const dist=camera.position.distanceTo(controls.target),fast=(keys.has('ShiftLeft')||keys.has('ShiftRight'))?3:1,sp=Math.max(12,dist*.8)*fast*dt;
+      camera.getWorldDirection(fwdV);fwdV.y=0;fwdV.normalize();rgtV.set(-fwdV.z,0,fwdV.x);
+      const d=fwdV.multiplyScalar(mz*sp).addScaledVector(rgtV,mx*sp);camera.position.add(d);controls.target.add(d);
+      controls.target.x=clamp(controls.target.x,-W/2,W/2);controls.target.z=clamp(controls.target.z,-W/2,W/2);
+      if(rot){offV.copy(camera.position).sub(controls.target).applyAxisAngle(THREE.Object3D.DEFAULT_UP,rot*1.3*dt);camera.position.copy(controls.target).add(offV)}
+      if(zm){offV.copy(camera.position).sub(controls.target);const l=clamp(offV.length()*(1+zm*1.4*dt),controls.minDistance,controls.maxDistance);offV.setLength(l);camera.position.copy(controls.target).add(offV)}
+    }}
+  if(!painting){const gy=groundAt(clamp(controls.target.x,-W/2,W/2),clamp(controls.target.z,-W/2,W/2));const dy=(gy+2-controls.target.y)*Math.min(1,dt*4);if(Math.abs(dy)>.002){controls.target.y+=dy;camera.position.y+=dy}}
+}
+function clampCamera(){const g=groundAt(clamp(camera.position.x,-W/2,W/2),clamp(camera.position.z,-W/2,W/2))+3;if(camera.position.y<g)camera.position.y=g}
+$('btnReset').onclick=()=>{fly={a:controls.target.clone(),b:homeT.clone(),ca:camera.position.clone(),cb:homeC.clone(),t:0,d:1.2}};
+$('btnTop').onclick=()=>{const d=Math.max(camera.position.distanceTo(controls.target),320),t=controls.target.clone();fly={a:t.clone(),b:t.clone(),ca:camera.position.clone(),cb:t.clone().add(new THREE.Vector3(0,Math.cos(.14),-Math.sin(.14)).multiplyScalar(d)),t:0,d:1}};
+$('qView').onclick=()=>setTool('view');$('qInsp').onclick=()=>setTool('inspect');
+let downPos=null;
+el.addEventListener('pointerdown',e=>{downPos=[e.clientX,e.clientY]});
+addEventListener('pointermove',e=>{if(downPos&&Math.hypot(e.clientX-downPos[0],e.clientY-downPos[1])>6)document.body.classList.add('busy')});
+addEventListener('pointerup',()=>{downPos=null;document.body.classList.remove('busy')});
+addEventListener('pointercancel',()=>{downPos=null;document.body.classList.remove('busy')});
+function toggleHud(){document.body.classList.toggle('nohud')}
+$('btnHide').onclick=toggleHud;$('showHud').onclick=toggleHud;
+$('chip').onclick=()=>{$('dash').classList.toggle('open');if(innerWidth<760&&$('dash').classList.contains('open')){tab=null;renderTools()}};
+function updateQuick(){const q=$('qView');if(!q)return;q.classList.toggle('on',tool==='view');$('qInsp').classList.toggle('on',tool==='inspect');
+  let t='';if(tool==='plant')t=`${PLANTS[selPlant].icon} נטיעה: ${PLANTS[selPlant].name}`;else if(tool==='animal')t=`${ANIMALS[selAnimal].icon} שחרור: ${ANIMALS[selAnimal].name}`;else if(tool!=='view'&&tool!=='inspect')t=`${TOOLS[tool].icon} ${TOOLS[tool].name}`;
+  $('qTool').textContent=t+(t&&!['animal','spring','fire'].includes(tool)&&tool!=='inspect'?'  · [ ] גודל':'')}
+function updateChip(I){const cv=$('chipRing');if(!cv)return;const x=cv.getContext('2d');x.clearRect(0,0,56,56);x.lineWidth=6;x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.arc(28,28,22,0,7);x.stroke();
+  x.strokeStyle=I.health>65?'#7fd38a':I.health>40?'#e9b44c':'#e8664f';x.lineCap='round';x.beginPath();x.arc(28,28,22,-Math.PI/2,-Math.PI/2+Math.PI*2*I.health/100);x.stroke();
+  x.fillStyle='#eaf1e9';x.font='600 17px Assistant,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(Math.round(I.health),28,30);
+  $('chipYear').textContent='שנה '+Math.floor(S.year).toLocaleString();$('chipSub').textContent=`${I.n} מינים · ${I.T.toFixed(0)}°C`}
+const HELP=`<h3 style="font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 8px">בקרות</h3>
+<b>מצלמה:</b> גרירה בעכבר שמאלי (במצב ניווט) = סיבוב · כפתור ימני = הזזה/סיבוב · גלגלת = זום לכיוון הסמן · לחיצה כפולה = טיסה לנקודה<br>
+<span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> או חצים = תנועה · <span class="kbd">Shift</span> = מהיר · <span class="kbd">Q</span><span class="kbd">E</span> = סיבוב · <span class="kbd">R</span><span class="kbd">F</span> = זום<br>
+<span class="kbd">T</span> מבט על · <span class="kbd">C</span> איפוס מצלמה · <span class="kbd">H</span> הסתר/הצג ממשק · <span class="kbd">Esc</span> חזרה לניווט<br>
+<h4>כלים</h4>בחרו לשונית למעלה (לחיצה נוספת סוגרת אותה), בחרו כלי וגררו על הנוף. <span class="kbd">[</span> <span class="kbd">]</span> משנים גודל מברשת · <span class="kbd">Ctrl+Z</span> ביטול · <span class="kbd">רווח</span> עצירה.<br>
+בזמן גרירה הממשק נעלם כדי לראות את הנוף.<h4>שכבות מפה</h4>התפריט למעלה צובע את הנוף לפי טמפרטורה, לחות, קרקע, קרח, צפיפות של כל חיה או התאמה של כל צמח.
+<h4>הערות</h4>המנוע מחשב צמיחה ותחרות בין צמחים, רשת מזון, שריפות, מגפות, קרחונים ומאזן מים. תחזית ה-AI מריצה 4 עתידים אפשריים ומציגה סיכויי הכחדה.`;
+$('btnHelp').onclick=()=>{$('infoBody').innerHTML=HELP;$('infoModal').hidden=false};
+
+/* ---- map layers ---- */
+$('layer').innerHTML='<option value="none">🗺️ שכבת מפה</option><option value="temp">🌡️ טמפרטורה</option><option value="moist">💧 לחות</option><option value="soil">🟫 פוריות קרקע</option><option value="ice">🧊 קרח</option><optgroup label="צפיפות בעלי חיים">'+ANIMALS.map(A=>`<option value="an:${A.id}">${A.icon} ${A.name}</option>`).join('')+'</optgroup><optgroup label="התאמת צמחים לאתר">'+PLANTS.map(p=>`<option value="pl:${p.id}">${p.icon} ${p.name}</option>`).join('')+'</optgroup>';
+$('layer').onchange=e=>{layer=e.target.value;updateHeat()};
+function updateHeat(){
+  const lg=$('legend');TU.uHeat.value=layer==='none'?0:1;if(layer==='none'){lg.hidden=true;return}
+  const a=aHeat.array,st=seasonT(S.day),amp=S.climate.amp;let title='',lo='',hi='',f;
+  if(layer==='temp'){title='טמפרטורה (°C)';lo='-20';hi='30';f=i=>(H.tAnn[i]+amp*st+20)/50}
+  else if(layer==='moist'){title='לחות קרקע';lo='יבש';hi='רטוב';f=i=>H.moist[i]}
+  else if(layer==='soil'){title='פוריות קרקע';lo='נמוכה';hi='גבוהה';f=(i,ix,iy)=>rSample(S.soil,0,ix,iy)}
+  else if(layer==='ice'){title='עובי קרח';lo='0';hi='160 מ׳';f=i=>clamp(S.ice[i]/20,0,1)}
+  else if(layer.startsWith('an:')){const ai=AI_[layer.slice(3)];title='צפיפות: '+ANIMALS[ai].name;lo='נדיר';hi='צפוף';let mx=1e-9;for(let r=0;r<E2;r++)mx=Math.max(mx,S.dist[ai*E2+r]);const on=S.pops[ai]>0?1:0;f=(i,ix,iy)=>rSample(S.dist,ai*E2,ix,iy)/mx*on}
+  else{const s=PI[layer.slice(3)];title='התאמה: '+PLANTS[s].name;lo='0%';hi='100%';f=(i,ix,iy)=>rSample(R.suit,s*E2,ix,iy)}
+  for(let iy=0;iy<N;iy++)for(let ix=0;ix<N;ix++){const i=iy*N+ix;a[i]=clamp(f(i,ix,iy),0,1)}
+  aHeat.needsUpdate=true;lg.hidden=false;lg.querySelector('b').textContent=title;$('lgLo').textContent=lo;$('lgHi').textContent=hi}
+
+/* ---- glaciers ---- */
+function glBal(Tsea,h){const c=S.climate,P=effP(),T=Tsea-6.5*h*M_PER_UNIT/1000,Ts=T+c.amp;return (P/1000)*(1+h*M_PER_UNIT/1000*.25)*clamp((1.5-T)/7,0,1)*1.3-Math.max(0,Ts-1)*.4}
+function glInfo(){let pk=0,pi=0,n=0;for(let i=0;i<NN;i++){if(S.h[i]>pk){pk=S.h[i];pi=i}if(S.ice[i]>.5)n++}
+  const Te=effT();let ela=-1;for(let h=0;h<=pk;h+=.5){if(glBal(Te,h)>.02){ela=h;break}}
+  return{pk,pi,ela,ok:ela>=0&&ela<pk*.97,iceKm:n*CS*CS*64/1e6}}
+function glCool(){const{pk}=glInfo(),T0=effT();for(let d=0;d<=40;d+=.5){if(glBal(T0-d,pk*.9)>.05)return d}return 40}
+function glacierBlock(){const g=glInfo();return `<h4>🧊 קרחונים</h4><div class="hint">פסגה <b>${Math.round(g.pk*M_PER_UNIT)} מ׳</b> · קו שיווי משקל (ELA) <b>${g.ela<0?'—':Math.round(g.ela*M_PER_UNIT)+' מ׳'}</b><br>${g.ok?'<span class="tr-up">✔ האקלים מאפשר קרחון</span>':'<span class="tr-dn">✖ חם מדי — קרחון חדש יימס</span>'} · קרח כעת ${g.iceKm.toFixed(1)} קמ״ר</div><div class="btns"><button class="btn primary" id="glAdd">➕ הוסף קרחון</button><button class="btn" id="glAddC">➕ + קרר אקלים</button><button class="btn danger" id="glClr">הסר</button></div>${slider('glS','גודל קרחון',.2,1,.05,glSize,v=>Math.round(v*100)+'%')}`}
+function addGlacier(cool){
+  const g=glInfo();let coolTxt='';
+  if(cool&&!g.ok){const d=glCool();S.climate.T-=d;coolTxt=` קוררתי את האקלים ב-${d.toFixed(1)}°C כדי שהקרחון ישרוד.`}
+  let i=g.pi;const path=[i];
+  for(let k=0;k<Math.round(70*N/160);k++){const ix=i%N,iy=(i/N)|0;let best=-1,bh=S.h[i];for(let d=0;d<8;d++){const x=ix+DX8[d],y=iy+DY8[d];if(x<2||y<2||x>=N-2||y>=N-2)continue;const j=y*N+x;if(S.h[j]<bh){bh=S.h[j];best=j}}if(best<0)break;i=best;path.push(i)}
+  const L=path.length,T0=4+glSize*10;
+  for(let k=0;k<L;k++){const f=Math.pow(1-k/L,.8),th=T0*f+1.2,rad=Math.max(2,Math.round((1.8+glSize*3.2)*(.35+.65*f)*N/160)),ci=path[k]%N,cj=(path[k]/N)|0;
+    for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){const x=ci+dx,y=cj+dy;if(x<2||y<2||x>=N-2||y>=N-2)continue;const d=Math.hypot(dx,dy);if(d>rad)continue;const w=.5+.5*Math.cos(Math.PI*d/rad);S.ice[y*N+x]=Math.max(S.ice[y*N+x],th*w)}}
+  computeHydro();computeEnv();updateTerrainMesh();updateTerrainAttributes();placeRocks();dirtyVeg=true;
+  const g2=glInfo();flyTo(new THREE.Vector3(tPos[g.pi*3],tPos[g.pi*3+1],tPos[g.pi*3+2]),260);
+  note(g2.ok?'good':'warn',`🧊 נוצר קרחון באורך ~${Math.round(L*CS*M_PER_UNIT)} מ׳ מהפסגה (${Math.round(g.pk*M_PER_UNIT)} מ׳). ${g2.ok?'קו שיווי המשקל ב-'+Math.round(g2.ela*M_PER_UNIT)+' מ׳ מתחת לפסגה: הקרחון ישרוד, יזרום במורד ויזין נחל מי-קרח.':'האקלים חם מדי: הקרחון יימס בתוך שנים בודדות.'}${coolTxt}`,g2.ok?null:[{l:'❄️ קרר אקלים כדי לשמר',f:()=>{S.climate.T-=glCool();climateChanged();renderTools()}}]);
+  scheduleForecast('קרחון חדש');renderTools();
+}
+
+/* ---- smart actions ---- */
+function bestRegion(a){const A=ANIMALS[a];let best=0,bv=-1;
+  for(let r=0;r<E2;r++){let v=0;
+    if(A.type==='pred'){for(const k in A.prey){const b=AI_[k];v+=A.prey[k]*S.pops[b]*S.dist[b*E2+r]*ANIMALS[b].value}v*=gauss(R.T[r],A.T[0],A.T[1]+3)*(R.L[r]>.1?1:0)}
+    else if(A.type==='fish')v=(R.water[r]+R.river[r])*gauss(R.T[r],A.T[0],A.T[1]+4);
+    else{for(const k in A.diet)v+=A.diet[k]*S.cover[PI[k]*E2+r];v*=gauss(R.T[r],A.T[0],A.T[1])*(R.L[r]>.1?1:0)}
+    if(v>bv){bv=v;best=r}}
+  return best}
+function autoRelease(a){const r=bestRegion(a),p=new THREE.Vector3(-W/2+((r%E)+.5)*RN*CS,0,-W/2+(((r/E)|0)+.5)*RN*CS);p.y=groundAt(p.x,p.z);flyTo(p,230);releaseAnimal(a,p);renderTools()}
+function autoPlant(s,amt){const sc=[];for(let r=0;r<E2;r++)sc.push([R.suit[s*E2+r]*(PLANTS[s].riparian?R.river[r]+R.water[r]+.05:1)*Math.max(R.L[r],.05),r]);sc.sort((x,y)=>y[0]-x[0]);
+  for(const[v,r]of sc.slice(0,36)){const room=PLANTS[s].layer===2?1:Math.max(.05,R.L[r]);S.cover[s*E2+r]=clamp(S.cover[s*E2+r]+amt*room,0,room)}
+  dirtyVeg=dirtyAttr=true;note('good',`${PLANTS[s].icon} נטעתי ${PLANTS[s].name} ב-36 האזורים המתאימים ביותר.`);scheduleForecast('נטיעה אוטומטית')}
+function limiting(a){const A=ANIMALS[a];if(S.pops[a]<=0)return '';
+  let cl=0;for(let r=0;r<E2;r++)cl+=S.dist[a*E2+r]*gauss(R.T[r],A.T[0],A.T[1]);
+  let pr=0;for(let p=0;p<NA;p++)pr+=KM[p*NA+a];const kr=pr/S.pops[a],fill=K[a]>0?S.pops[a]/K[a]:9;
+  const sc=[['אקלים',1-cl],['מזון/שטח',fill>.8?Math.min(1,fill-.3):0],['טריפה',Math.min(1,kr/Math.max(A.r||.5,.3))]];sc.sort((x,y)=>y[1]-x[1]);
+  return `<br><span class="t">אקלים מתאים ${Math.round(cl*100)}% · תפוסת כושר נשיאה ${Math.round(fill*100)}% · טריפה ${(kr*100).toFixed(0)}% בשנה · <b>גורם מגביל: ${sc[0][1]>.15?sc[0][0]:'אין'}</b></span>`}
+
+/* ---- food web ---- */
+function drawWeb(){
+  const cv=$('fw');if(!cv)return;const x=cv.getContext('2d'),w=cv.width,h=cv.height;x.clearRect(0,0,w,h);
+  const herb=[],pred=[];ANIMALS.forEach((A,a)=>{if(S.pops[a]<=0)return;(A.type==='pred'?pred:herb).push(a)});
+  const pos={};const row=(l,y)=>l.forEach((a,i)=>pos[a]={x:w*(i+.5)/l.length,y});row(herb,h*.52);row(pred,h*.15);const pl={x:w/2,y:h*.9};
+  let mx=1e-9;for(const v of KM)mx=Math.max(mx,v);
+  for(const a of herb){if(ANIMALS[a].type==='fish')continue;x.strokeStyle='rgba(127,211,138,.22)';x.lineWidth=1.5;x.beginPath();x.moveTo(pl.x,pl.y);x.lineTo(pos[a].x,pos[a].y);x.stroke()}
+  for(const p of pred)for(const i of herb){const v=KM[p*NA+i];if(v<=0)continue;x.strokeStyle=`rgba(232,102,79,${.25+.55*v/mx})`;x.lineWidth=1+6*Math.sqrt(v/mx);x.beginPath();x.moveTo(pos[i].x,pos[i].y);x.lineTo(pos[p].x,pos[p].y);x.stroke()}
+  const node=(px,py,r,ic,lab)=>{x.fillStyle='rgba(255,255,255,.09)';x.strokeStyle='rgba(170,210,180,.35)';x.lineWidth=1;x.beginPath();x.arc(px,py,r,0,7);x.fill();x.stroke();x.font=`${r*1.45}px serif`;x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';x.fillText(ic,px,py+1);if(lab){x.font='600 15px Assistant,sans-serif';x.fillStyle='#9fb4a8';x.fillText(lab,px,py+r+11)}};
+  node(pl.x,pl.y,20,'🌿','צמחייה');
+  for(const a of herb)node(pos[a].x,pos[a].y,12+3.4*Math.log10(1+S.pops[a]),ANIMALS[a].icon,fmt(S.pops[a]));
+  for(const a of pred)node(pos[a].x,pos[a].y,12+4*Math.log10(1+S.pops[a]),ANIMALS[a].icon,fmt(S.pops[a]));
+}
 
 // boot
 $('loading').style.display='none';
