@@ -1,0 +1,17 @@
+<svg class="map" viewBox="0 0 520 843" style="--fs:26.9px;--sw:3.8px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_sa.jpg" width="520" height="843" preserveAspectRatio="none"/>
+<polyline points="119.6,26.6 78.0,94.8 57.2,157.3 72.8,230.5 93.6,272.9 140.4,316.0 161.2,405.3 145.6,500.6 130.0,591.3 119.6,691.9 109.2,789.2" fill="none" stroke="#ffd23f" stroke-width="6.3" stroke-dasharray="2 7"  stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+<path d="M137.7,502.6 L145.6,486.7 L153.5,502.6Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="167.8" y="489.9" class="mlab" text-anchor="end">אקונקגואה</text>
+<path d="M152.9,436.1 L160.8,420.2 L168.7,436.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="183.0" y="439.2" class="mlab" text-anchor="end">אוחוס דל סלדו</text>
+<path d="M58.6,238.1 L66.6,222.2 L74.5,238.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="88.8" y="225.4" class="mlab" text-anchor="end">וואסקרן</text>
+<path d="M45.9,158.1 L53.9,142.2 L61.8,158.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="76.1" y="151.7" class="mlab" text-anchor="end">צ'ימבורסו</text>
+<circle cx="152.9" cy="305.2" r="7.1" fill="#39a7d8" stroke="#fff" stroke-width="2.4"/>
+<text x="175.1" y="336.9" class="mlab" text-anchor="end">טיטיקקה</text>
+<circle cx="171.6" cy="351.2" r="9.5" fill="#fff" stroke="#fff" stroke-width="3.2"/>
+<text x="193.8" y="370.2" class="mlab" text-anchor="end">סלאר דה אוניי</text>
+<circle cx="109.2" cy="731.0" r="7.1" fill="#39a7d8" stroke="#fff" stroke-width="2.4"/>
+<text x="131.4" y="731.0" class="mlab" text-anchor="end">שדה הקרח הפטגוני</text>
+</svg>

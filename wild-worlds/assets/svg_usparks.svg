@@ -1,0 +1,24 @@
+<svg class="map" viewBox="0 0 1400 977" style="--fs:37.3px;--sw:5.2px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_usparks.jpg" width="1400" height="977" preserveAspectRatio="none"/>
+<circle cx="302.8" cy="113.3" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="294.0" y="87.0" class="mlab park" text-anchor="start">אולימפיק</text>
+<circle cx="409.8" cy="68.7" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="396.7" y="40.2" class="mlab park" text-anchor="start">קסקייד הצפוניים</text>
+<circle cx="377.1" cy="179.1" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="350.8" y="190.1" class="mlab park" text-anchor="start">ריינייר</text>
+<circle cx="708.1" cy="80.9" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="708.1" y="50.2" class="mlab park" text-anchor="middle">גלייסר</text>
+<circle cx="844.9" cy="327.8" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="844.9" y="297.1" class="mlab park" text-anchor="middle">ילוסטון</text>
+<circle cx="840.4" cy="380.2" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="814.1" y="417.5" class="mlab park" text-anchor="start">גרנד טיטון</text>
+<circle cx="433.0" cy="738.0" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="459.3" y="729.3" class="mlab park" text-anchor="end">יוסמיטי</text>
+<circle cx="477.3" cy="810.8" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="503.7" y="845.9" class="mlab park" text-anchor="end">סקויה וקינגס קניון</text>
+<circle cx="1086.2" cy="572.8" r="14.3" fill="#1f7a3d" stroke="#fff" stroke-width="4.4"/>
+<text x="1086.2" y="542.1" class="mlab park" text-anchor="middle">רוקי מאונטן</text>
+<text x="353.8" y="320.5" class="mlab zone" text-anchor="middle" transform="rotate(-82 353.8 320.5)">רכס הקסקייד</text>
+<text x="462.5" y="688.1" class="mlab zone" text-anchor="middle" transform="rotate(-60 462.5 688.1)">סיירה נבדה</text>
+<text x="816.3" y="608.2" class="mlab zone" text-anchor="middle" transform="rotate(0 816.3 608.2)">הוואסאץ' והאוינטה</text>
+<text x="973.2" y="722.4" class="mlab zone" text-anchor="middle" transform="rotate(0 973.2 722.4)">סן חואן</text>
+</svg>

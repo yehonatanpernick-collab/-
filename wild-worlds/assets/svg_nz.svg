@@ -1,0 +1,17 @@
+<svg class="map" viewBox="0 0 900 894" style="--fs:29.1px;--sw:4.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_nz.jpg" width="900" height="894" preserveAspectRatio="none"/>
+<polyline points="634.7,201.5 511.6,291.2 416.8,395.0 331.6,460.6 208.4,553.3" fill="none" stroke="#ff5a4a" stroke-width="6.9" stroke-dasharray="10 6"  stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+<path d="M402.8,414.3 L411.3,397.1 L419.9,414.3Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="486.8" y="373.1" class="mlab" text-anchor="middle">אאוראקי / קוק 3,724</text>
+<circle cx="414.9" cy="391.1" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="390.9" y="418.5" class="mlab" text-anchor="start">פרנץ ג'וזף</text>
+<path d="M268.7,518.2 L277.3,501.0 L285.9,518.2Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="267.0" y="545.6" class="mlab" text-anchor="start">אספיירינג 3,033</text>
+<circle cx="426.3" cy="421.1" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="546.3" y="438.3" class="mlab" text-anchor="middle">קרחון טסמן</text>
+<circle cx="198.9" cy="549.3" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="192.1" y="580.2" class="mlab" text-anchor="start">מילפורד סאונד</text>
+<circle cx="445.3" cy="446.1" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="541.3" y="446.1" class="mlab" text-anchor="middle">אגם טקפו</text>
+<text x="757.9" y="125.3" class="mlab zone" text-anchor="middle" transform="rotate(0 757.9 125.3)">הצפון</text>
+<text x="227.4" y="714.9" class="mlab zone" text-anchor="middle" transform="rotate(0 227.4 714.9)">פיורדלנד</text>
+</svg>

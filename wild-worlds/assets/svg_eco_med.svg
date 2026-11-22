@@ -1,0 +1,12 @@
+<svg class="map" viewBox="0 0 1400 552" style="--fs:21.9px;--sw:3.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_eco.jpg" width="1400" height="552" preserveAspectRatio="none"/>
+<circle cx="740.0" cy="168.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="740.0" y="149.9" class="mlab" text-anchor="middle">אגן הים התיכון</text>
+<circle cx="200.0" cy="174.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="200.0" y="155.9" class="mlab" text-anchor="middle">קליפורניה</text>
+<circle cx="396.0" cy="454.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="396.0" y="435.9" class="mlab" text-anchor="middle">צ'ילה</text>
+<circle cx="756.0" cy="456.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="756.0" y="437.9" class="mlab" text-anchor="middle">פינבוש</text>
+<circle cx="1144.0" cy="448.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="1144.0" y="429.9" class="mlab" text-anchor="middle">דרום-מערב אוסטרליה</text>
+</svg>

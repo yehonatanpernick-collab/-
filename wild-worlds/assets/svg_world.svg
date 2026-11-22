@@ -1,0 +1,42 @@
+<svg class="map" viewBox="0 0 1400 552" style="--fs:21.9px;--sw:3.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_world.jpg" width="1400" height="552" preserveAspectRatio="none"/>
+<circle cx="735.0" cy="138.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="735.0" y="122.5" class="mlab" text-anchor="middle">האלפים</text>
+<circle cx="1030.6" cy="209.9" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="1030.6" y="194.4" class="mlab" text-anchor="middle">ההימלאיה</text>
+<circle cx="427.8" cy="377.1" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="458.7" y="377.1" class="mlab" text-anchor="end">האנדים</text>
+<circle cx="867.2" cy="151.6" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="885.3" y="141.3" class="mlab" text-anchor="end">קווקז</text>
+<circle cx="264.4" cy="143.8" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="264.4" y="128.4" class="mlab" text-anchor="middle">הרוקי</text>
+<circle cx="1363.1" cy="487.9" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="1350.2" y="516.2" class="mlab" text-anchor="start">האלפים הדרומיים</text>
+<circle cx="933.3" cy="85.5" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="933.3" y="70.0" class="mlab" text-anchor="middle">אורל</text>
+<circle cx="676.7" cy="196.3" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="676.7" y="180.8" class="mlab" text-anchor="middle">האטלס</text>
+<circle cx="1011.1" cy="155.5" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="1011.1" y="140.0" class="mlab" text-anchor="middle">טיין שאן</text>
+<circle cx="738.9" cy="73.9" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="738.9" y="58.4" class="mlab" text-anchor="middle">הרי סקנדינביה</text>
+<circle cx="701.9" cy="152.8" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="696.8" y="178.6" class="mlab" text-anchor="start">פירנאים</text>
+<circle cx="1042.2" cy="128.3" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="1080.9" y="118.0" class="mlab" text-anchor="end">אלטאי</text>
+<circle cx="894.4" cy="194.4" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="894.4" y="220.2" class="mlab" text-anchor="middle">זאגרוס</text>
+<circle cx="847.8" cy="279.9" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="886.5" y="303.1" class="mlab" text-anchor="end">הרמה האתיופית</text>
+<circle cx="812.8" cy="431.5" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="812.8" y="457.3" class="mlab" text-anchor="middle">דרקנסברג</text>
+<circle cx="1275.6" cy="456.8" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="1275.6" y="485.1" class="mlab" text-anchor="middle">רכס פרשת המים</text>
+<circle cx="388.9" cy="174.9" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="388.9" y="200.7" class="mlab" text-anchor="middle">אפלצ'ים</text>
+<circle cx="291.7" cy="241.0" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="276.2" y="264.2" class="mlab" text-anchor="start">סיירה מדרה</text>
+<circle cx="116.7" cy="77.7" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="116.7" y="62.3" class="mlab" text-anchor="middle">אלסקה</text>
+<circle cx="972.2" cy="176.9" r="7.7" fill="#fff" stroke="#fff" stroke-width="2.6"/>
+<text x="943.8" y="158.8" class="mlab" text-anchor="start">הינדו כוש</text>
+</svg>

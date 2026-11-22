@@ -1,0 +1,56 @@
+<svg class="map" viewBox="0 0 1400 552" style="--fs:21.9px;--sw:3.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_eco.jpg" width="1400" height="552" preserveAspectRatio="none"/>
+<circle cx="1080.0" cy="80.0" r="7.7" fill="#1f7a3d" stroke="#fff" stroke-width="2.6"/>
+<text x="1080.0" y="64.5" class="mlab" text-anchor="middle">טייגה סיבירית</text>
+<circle cx="280.0" cy="96.0" r="7.7" fill="#1f7a3d" stroke="#fff" stroke-width="2.6"/>
+<text x="280.0" y="80.5" class="mlab" text-anchor="middle">טייגה קנדית</text>
+<circle cx="186.0" cy="128.8" r="7.7" fill="#79b83b" stroke="#fff" stroke-width="2.6"/>
+<text x="186.0" y="113.3" class="mlab" text-anchor="middle">יער גשם ממוזג</text>
+<circle cx="392.0" cy="484.0" r="7.7" fill="#79b83b" stroke="#fff" stroke-width="2.6"/>
+<text x="392.0" y="468.5" class="mlab" text-anchor="middle">יער ולדיביאני</text>
+<circle cx="432.0" cy="332.0" r="7.7" fill="#0b5d1e" stroke="#fff" stroke-width="2.6"/>
+<text x="432.0" y="316.5" class="mlab" text-anchor="middle">אמזונס</text>
+<circle cx="772.0" cy="318.0" r="7.7" fill="#0b5d1e" stroke="#fff" stroke-width="2.6"/>
+<text x="772.0" y="302.5" class="mlab" text-anchor="middle">אגן קונגו</text>
+<circle cx="1136.0" cy="316.0" r="7.7" fill="#0b5d1e" stroke="#fff" stroke-width="2.6"/>
+<text x="1136.0" y="300.5" class="mlab" text-anchor="middle">בורנאו</text>
+<circle cx="280.0" cy="36.0" r="7.7" fill="#8fd3e8" stroke="#fff" stroke-width="2.6"/>
+<text x="280.0" y="20.5" class="mlab" text-anchor="middle">טונדרה ארקטית</text>
+<circle cx="1080.0" cy="32.0" r="7.7" fill="#8fd3e8" stroke="#fff" stroke-width="2.6"/>
+<text x="1080.0" y="16.5" class="mlab" text-anchor="middle">טונדרה</text>
+<circle cx="280.0" cy="156.0" r="7.7" fill="#e6c84a" stroke="#fff" stroke-width="2.6"/>
+<text x="280.0" y="140.5" class="mlab" text-anchor="middle">פרריות</text>
+<circle cx="432.0" cy="456.0" r="7.7" fill="#e6c84a" stroke="#fff" stroke-width="2.6"/>
+<text x="432.0" y="440.5" class="mlab" text-anchor="middle">פמפס</text>
+<circle cx="820.0" cy="330.0" r="7.7" fill="#e6c84a" stroke="#fff" stroke-width="2.6"/>
+<text x="820.0" y="314.5" class="mlab" text-anchor="middle">סרנגטי</text>
+<circle cx="960.0" cy="120.0" r="7.7" fill="#e6c84a" stroke="#fff" stroke-width="2.6"/>
+<text x="960.0" y="104.5" class="mlab" text-anchor="middle">ערבות אירו-אסיה</text>
+<circle cx="720.0" cy="228.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="720.0" y="212.5" class="mlab" text-anchor="middle">סהרה</text>
+<circle cx="404.0" cy="416.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="404.0" y="400.5" class="mlab" text-anchor="middle">אטקמה</text>
+<circle cx="232.0" cy="192.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="232.0" y="176.5" class="mlab" text-anchor="middle">סונורה</text>
+<circle cx="1092.0" cy="148.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="1092.0" y="132.5" class="mlab" text-anchor="middle">גובי</text>
+<circle cx="1216.0" cy="420.0" r="7.7" fill="#e8741a" stroke="#fff" stroke-width="2.6"/>
+<text x="1216.0" y="404.5" class="mlab" text-anchor="middle">מדבר אוסטרלי</text>
+<circle cx="740.0" cy="168.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="740.0" y="152.5" class="mlab" text-anchor="middle">אגן הים התיכון</text>
+<circle cx="200.0" cy="174.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="200.0" y="158.5" class="mlab" text-anchor="middle">קליפורניה</text>
+<circle cx="396.0" cy="454.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="396.0" y="438.5" class="mlab" text-anchor="middle">צ'ילה</text>
+<circle cx="756.0" cy="456.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="756.0" y="440.5" class="mlab" text-anchor="middle">פינבוש</text>
+<circle cx="1144.0" cy="448.0" r="7.7" fill="#c3459b" stroke="#fff" stroke-width="2.6"/>
+<text x="1144.0" y="432.5" class="mlab" text-anchor="middle">דרום-מערב אוסטרליה</text>
+<circle cx="452.0" cy="388.0" r="7.7" fill="#2a7fa8" stroke="#fff" stroke-width="2.6"/>
+<text x="452.0" y="372.5" class="mlab" text-anchor="middle">פנטנאל</text>
+<circle cx="1112.0" cy="106.0" r="7.7" fill="#2a7fa8" stroke="#fff" stroke-width="2.6"/>
+<text x="1112.0" y="90.5" class="mlab" text-anchor="middle">באיקל</text>
+<circle cx="772.0" cy="396.0" r="7.7" fill="#2a7fa8" stroke="#fff" stroke-width="2.6"/>
+<text x="772.0" y="380.5" class="mlab" text-anchor="middle">אוקבנגו</text>
+<circle cx="356.0" cy="216.0" r="7.7" fill="#2a7fa8" stroke="#fff" stroke-width="2.6"/>
+<text x="356.0" y="200.5" class="mlab" text-anchor="middle">אברגלייד</text>
+</svg>

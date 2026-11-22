@@ -1,0 +1,21 @@
+<svg class="map" viewBox="0 0 520 647" style="--fs:26.9px;--sw:3.8px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_rockies.jpg" width="520" height="647" preserveAspectRatio="none"/>
+<path d="M232.4,291.0 L240.3,275.2 L248.2,291.0Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="240.3" y="265.6" class="mlab" text-anchor="middle">גרנד טיטון</text>
+<path d="M273.6,318.7 L281.5,302.8 L289.4,318.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="300.5" y="321.8" class="mlab" text-anchor="end">גאנט</text>
+<path d="M268.2,219.7 L276.1,203.8 L284.1,219.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="295.2" y="222.8" class="mlab" text-anchor="end">גרניט</text>
+<path d="M388.4,512.1 L396.3,496.3 L404.2,512.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="415.3" y="515.3" class="mlab" text-anchor="end">אלברט</text>
+<path d="M438.9,525.1 L446.8,509.2 L454.8,525.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="465.9" y="534.6" class="mlab" text-anchor="end">פייקס</text>
+<path d="M247.8,434.5 L255.7,418.6 L263.6,434.5Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="236.7" y="444.0" class="mlab" text-anchor="start">קינגס</text>
+<path d="M347.1,568.1 L355.0,552.2 L363.0,568.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="336.0" y="583.9" class="mlab" text-anchor="start">סן חואן</text>
+<circle cx="132.7" cy="16.4" r="10.3" fill="#1f7a3d" stroke="#fff" stroke-width="3.2"/>
+<text x="132.7" y="-5.8" class="mlab park" text-anchor="middle">גלייסר</text>
+<text x="107.6" y="133.9" class="mlab zone" text-anchor="middle" transform="rotate(0 107.6 133.9)">רוקי צפוניים</text>
+<text x="304.8" y="360.2" class="mlab zone" text-anchor="middle" transform="rotate(0 304.8 360.2)">רוקי מרכזיים</text>
+<text x="405.2" y="593.4" class="mlab zone" text-anchor="middle" transform="rotate(0 405.2 593.4)">רוקי דרומיים</text>
+</svg>

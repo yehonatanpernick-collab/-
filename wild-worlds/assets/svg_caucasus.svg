@@ -1,0 +1,20 @@
+<svg class="map" viewBox="0 0 1200 701" style="--fs:18.8px;--sw:2.6px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_caucasus.jpg" width="1200" height="701" preserveAspectRatio="none"/>
+<path d="M485.8,312.5 L491.3,301.5 L496.9,312.5Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="491.3" y="294.8" class="mlab" text-anchor="middle">אלברוס 5,642</text>
+<path d="M544.0,345.7 L549.5,334.6 L555.0,345.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="626.9" y="361.1" class="mlab" text-anchor="middle">דיח'-טאו 5,205</text>
+<path d="M658.0,386.6 L663.6,375.6 L669.1,386.6Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="676.8" y="368.9" class="mlab" text-anchor="end">קזבק 5,054</text>
+<path d="M503.4,352.4 L509.0,341.4 L514.5,352.4Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="464.8" y="367.9" class="mlab" text-anchor="middle">אושבה 4,710</text>
+<rect x="683.0" y="489.7" width="7.7" height="7.7" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="686.9" y="513.4" class="mlab" text-anchor="middle">טביליסי</text>
+<rect x="658.2" y="656.1" width="7.7" height="7.7" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="662.1" y="679.9" class="mlab" text-anchor="middle">ירבאן</text>
+<rect x="1105.1" y="632.2" width="7.7" height="7.7" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="1097.9" y="625.1" class="mlab" text-anchor="start">באקו</text>
+<text x="827.6" y="336.7" class="mlab zone" text-anchor="middle" transform="rotate(0 827.6 336.7)">הקווקז הגדול</text>
+<text x="620.7" y="592.5" class="mlab zone" text-anchor="middle" transform="rotate(0 620.7 592.5)">הקווקז הקטן</text>
+<text x="248.3" y="426.7" class="mlab zone" text-anchor="middle" transform="rotate(0 248.3 426.7)">הים השחור</text>
+<text x="1133.8" y="279.8" class="mlab zone" text-anchor="middle" transform="rotate(0 1133.8 279.8)">הים הכספי</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg class="map" viewBox="0 0 900 897" style="--fs:29.1px;--sw:4.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_yell.jpg" width="900" height="897" preserveAspectRatio="none"/>
+<circle cx="405.4" cy="315.6" r="11.1" fill="#1f7a3d" stroke="#fff" stroke-width="3.4"/>
+<text x="388.2" y="322.4" class="mlab park" text-anchor="start">אולד פית'פול</text>
+<circle cx="495.0" cy="318.3" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="519.0" y="328.6" class="mlab" text-anchor="end">אגם ילוסטון</text>
+<circle cx="430.4" cy="173.5" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="409.9" y="163.2" class="mlab" text-anchor="start">מאמות הוט ספרינגס</text>
+<path d="M401.9,518.3 L410.5,501.1 L419.1,518.3Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="389.9" y="518.3" class="mlab" text-anchor="start">גרנד טיטון 4,199</text>
+<circle cx="450.0" cy="481.9" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="474.0" y="475.0" class="mlab" text-anchor="end">אגם ג'קסון</text>
+<rect x="412.7" y="575.9" width="12.0" height="12.0" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="398.1" y="602.5" class="mlab" text-anchor="start">ג'קסון</text>
+<path d="M626.5,668.4 L635.1,651.3 L643.7,668.4Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="655.7" y="668.4" class="mlab" text-anchor="end">גאנט 4,209</text>
+<circle cx="471.5" cy="244.1" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="495.5" y="237.3" class="mlab" text-anchor="end">קניון ילוסטון</text>
+<path d="M596.6,128.6 L605.2,111.4 L613.7,128.6Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="625.7" y="132.0" class="mlab" text-anchor="end">גרניט 3,903</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg class="map" viewBox="0 0 1200 825" style="--fs:18.8px;--sw:2.6px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_hotspot.jpg" width="1200" height="825" preserveAspectRatio="none"/>
+<polyline points="124.5,621.5 373.6,514.3 566.0,522.0 713.2,405.9 849.1,343.4 950.9,225.1" fill="none" stroke="#ffd23f" stroke-width="3.3" stroke-dasharray="2 9"  stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+<circle cx="124.5" cy="621.5" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="124.5" y="601.6" class="mlab" text-anchor="middle">מקדרמיט ~16 מ״ש</text>
+<circle cx="373.6" cy="514.3" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="373.6" y="547.5" class="mlab" text-anchor="middle">ברוניו-ג׳רביז׳ ~12 עד 10</text>
+<circle cx="566.0" cy="522.0" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="566.0" y="502.1" class="mlab" text-anchor="middle">טווין פולס ~10 עד 8</text>
+<circle cx="713.2" cy="405.9" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="693.3" y="439.1" class="mlab" text-anchor="middle">פיקבו ~10</text>
+<circle cx="849.1" cy="343.4" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="811.5" y="323.5" class="mlab" text-anchor="middle">הייז ~6.6 עד 4.5</text>
+<circle cx="950.9" cy="225.1" r="6.6" fill="#e8741a" stroke="#fff" stroke-width="2.2"/>
+<text x="928.8" y="203.0" class="mlab" text-anchor="middle">ילוסטון ~2.1 עד 0.6</text>
+<text x="543.4" y="319.9" class="mlab zone" text-anchor="middle" transform="rotate(0 543.4 319.9)">מישור נהר הסנייק</text>
+</svg>

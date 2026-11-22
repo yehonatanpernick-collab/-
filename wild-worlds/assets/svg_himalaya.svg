@@ -1,0 +1,27 @@
+<svg class="map" viewBox="0 0 1200 721" style="--fs:18.8px;--sw:2.6px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_himalaya.jpg" width="1200" height="721" preserveAspectRatio="none"/>
+<path d="M739.1,550.8 L744.6,539.8 L750.1,550.8Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="744.6" y="533.1" class="mlab" text-anchor="middle">אוורסט 8,849</text>
+<path d="M329.4,184.3 L334.9,173.3 L340.5,184.3Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="334.9" y="166.6" class="mlab" text-anchor="middle">K2 8,611</text>
+<path d="M787.1,563.5 L792.7,552.4 L798.2,563.5Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="825.8" y="579.0" class="mlab" text-anchor="middle">קנצ'נג'ונגה 8,586</text>
+<path d="M603.9,519.0 L609.4,507.9 L615.0,519.0Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="605.0" y="501.3" class="mlab" text-anchor="middle">דאולגירי 8,167</text>
+<path d="M616.9,523.7 L622.4,512.6 L628.0,523.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="622.4" y="543.6" class="mlab" text-anchor="middle">אנפורנה 8,091</text>
+<path d="M253.7,215.5 L259.2,204.4 L264.8,215.5Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="252.6" y="235.4" class="mlab" text-anchor="middle">נאנגה פרבאט 8,126</text>
+<path d="M1059.1,477.1 L1064.7,466.0 L1070.2,477.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="1064.7" y="459.4" class="mlab" text-anchor="middle">נאמצ'ה ברווה 7,782</text>
+<circle cx="883.3" cy="543.6" r="6.6" fill="#fff" stroke="#fff" stroke-width="2.2"/>
+<text x="883.3" y="570.2" class="mlab" text-anchor="middle">בהוטן</text>
+<circle cx="651.5" cy="521.3" r="6.6" fill="#fff" stroke="#fff" stroke-width="2.2"/>
+<text x="631.6" y="518.0" class="mlab" text-anchor="start">מנאסלו</text>
+<rect x="676.8" y="555.3" width="7.7" height="7.7" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="680.7" y="581.3" class="mlab" text-anchor="middle">קטמנדו</text>
+<text x="432.8" y="80.7" class="mlab zone" text-anchor="middle" transform="rotate(0 432.8 80.7)">הקאראקורום</text>
+<text x="216.4" y="198.4" class="mlab zone" text-anchor="middle" transform="rotate(-25 216.4 198.4)">הינדו כוש</text>
+<text x="885.2" y="387.2" class="mlab zone" text-anchor="middle" transform="rotate(0 885.2 387.2)">הרמה הטיבטית</text>
+<text x="472.1" y="451.3" class="mlab zone" text-anchor="middle" transform="rotate(-15 472.1 451.3)">הרי ההימלאיה</text>
+<text x="432.8" y="607.8" class="mlab zone" text-anchor="middle" transform="rotate(0 432.8 607.8)">מישור הגנגס</text>
+</svg>

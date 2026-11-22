@@ -1,0 +1,8 @@
+<svg class="map" viewBox="0 0 1400 977" style="--fs:37.3px;--sw:5.2px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_usparks.jpg" width="1400" height="977" preserveAspectRatio="none"/>
+<path d="M996.2,734.9 L1007.1,712.9 L1018.1,734.9Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="1007.1" y="695.4" class="mlab" text-anchor="middle">סן חואן</text>
+<path d="M1075.3,581.6 L1086.2,559.7 L1097.2,581.6Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="1121.3" y="586.0" class="mlab" text-anchor="end">לונגס פיק</text>
+<path d="M1044.7,656.4 L1055.6,634.5 L1066.6,656.4Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="1020.5" y="656.4" class="mlab" text-anchor="start">אלברט</text>
+</svg>

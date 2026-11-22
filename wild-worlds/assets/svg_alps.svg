@@ -1,0 +1,29 @@
+<svg class="map" viewBox="0 0 1200 684" style="--fs:18.8px;--sw:2.6px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_alps.jpg" width="1200" height="684" preserveAspectRatio="none"/>
+<path d="M211.8,401.4 L217.4,390.4 L222.9,401.4Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="217.4" y="383.7" class="mlab" text-anchor="middle">מון בלאן 4,806</text>
+<path d="M295.3,379.8 L300.8,368.7 L306.4,379.8Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="309.7" y="399.7" class="mlab" text-anchor="middle">מטרהורן 4,478</text>
+<path d="M317.3,385.7 L322.8,374.6 L328.4,385.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="400.2" y="374.6" class="mlab" text-anchor="middle">מונטה רוזה 4,634</text>
+<path d="M331.8,288.3 L337.4,277.3 L342.9,288.3Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="328.5" y="270.6" class="mlab" text-anchor="middle">אייגר 3,967</text>
+<path d="M598.7,298.7 L604.2,287.7 L609.7,298.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="604.2" y="281.0" class="mlab" text-anchor="middle">אורטלר 3,905</text>
+<path d="M532.0,318.1 L537.6,307.1 L543.1,318.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="537.6" y="338.0" class="mlab" text-anchor="middle">פיץ' ברנינה 4,049</text>
+<path d="M825.4,211.9 L831.0,200.8 L836.5,211.9Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="831.0" y="194.2" class="mlab" text-anchor="middle">גרוסגלוקנר 3,798</text>
+<path d="M945.7,318.7 L951.3,307.7 L956.8,318.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="951.3" y="338.6" class="mlab" text-anchor="middle">טריגלב 2,864</text>
+<path d="M736.6,310.2 L742.1,299.1 L747.6,310.2Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="742.1" y="330.1" class="mlab" text-anchor="middle">מרמולדה 3,343</text>
+<path d="M645.5,158.1 L651.0,147.0 L656.6,158.1Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="651.0" y="140.4" class="mlab" text-anchor="middle">צוגשפיצה 2,962</text>
+<path d="M231.3,448.6 L236.8,437.5 L242.4,448.6Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="230.2" y="468.5" class="mlab" text-anchor="middle">גראן פרדיזו 4,061</text>
+<circle cx="341.1" cy="303.3" r="5.0" fill="#39a7d8" stroke="#fff" stroke-width="1.7"/>
+<text x="341.1" y="327.6" class="mlab" text-anchor="middle">קרחון אלץ'</text>
+<text x="231.6" y="234.3" class="mlab zone" text-anchor="middle" transform="rotate(0 231.6 234.3)">האלפים המערביים</text>
+<text x="631.6" y="242.0" class="mlab zone" text-anchor="middle" transform="rotate(0 631.6 242.0)">האלפים המרכזיים</text>
+<text x="947.4" y="141.4" class="mlab zone" text-anchor="middle" transform="rotate(0 947.4 141.4)">האלפים המזרחיים</text>
+</svg>

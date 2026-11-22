@@ -1,0 +1,18 @@
+<svg class="map" viewBox="0 0 900 948" style="--fs:29.1px;--sw:4.1px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_sierra.jpg" width="900" height="948" preserveAspectRatio="none"/>
+<polyline points="304.6,198.9 415.4,430.0 526.2,639.6 623.1,811.8" fill="none" stroke="#ffd23f" stroke-width="6.9" stroke-dasharray="2 9"  stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+<path d="M574.1,719.4 L582.6,702.3 L591.2,719.4Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="613.5" y="719.4" class="mlab" text-anchor="end">ויטני 4,421</text>
+<circle cx="410.8" cy="509.7" r="11.1" fill="#1f7a3d" stroke="#fff" stroke-width="3.4"/>
+<text x="386.8" y="516.5" class="mlab park" text-anchor="start">יוסמיטי</text>
+<circle cx="340.6" cy="270.5" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="320.0" y="260.2" class="mlab" text-anchor="start">אגם טאהו</text>
+<circle cx="484.6" cy="465.1" r="7.7" fill="#39a7d8" stroke="#fff" stroke-width="2.6"/>
+<text x="512.0" y="461.7" class="mlab" text-anchor="end">אגם מונו</text>
+<circle cx="733.8" cy="734.6" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="733.8" y="710.6" class="mlab" text-anchor="middle">עמק המוות</text>
+<circle cx="541.4" cy="682.9" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="520.8" y="672.6" class="mlab" text-anchor="start">קינגס קניון</text>
+<circle cx="138.5" cy="639.6" r="10.3" fill="#fff" stroke="#fff" stroke-width="3.4"/>
+<text x="87.0" y="691.1" class="mlab" text-anchor="middle">העמק המרכזי</text>
+<text x="512.3" y="341.6" class="mlab zone" text-anchor="middle" transform="rotate(-62 512.3 341.6)">סיירה נבדה</text>
+</svg>

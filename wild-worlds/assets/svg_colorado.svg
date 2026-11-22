@@ -1,0 +1,19 @@
+<svg class="map" viewBox="0 0 760 607" style="--fs:20.2px;--sw:2.8px" xmlns="http://www.w3.org/2000/svg" direction="rtl"><image href="../assets/map_colorado.jpg" width="760" height="607" preserveAspectRatio="none"/>
+<path d="M268.3,406.7 L274.3,394.8 L280.3,406.7Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="260.0" y="394.8" class="mlab" text-anchor="start">אונקומפהגרה</text>
+<rect x="241.3" y="486.1" width="8.3" height="8.3" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="233.6" y="504.6" class="mlab" text-anchor="start">דורנגו</text>
+<rect x="485.9" y="210.2" width="8.3" height="8.3" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="504.4" y="221.5" class="mlab" text-anchor="end">דנוור</text>
+<path d="M430.8,160.9 L436.8,149.0 L442.7,160.9Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="451.1" y="149.0" class="mlab" text-anchor="end">לונגס פיק</text>
+<path d="M357.4,289.3 L363.4,277.4 L369.4,289.3Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="349.1" y="277.4" class="mlab" text-anchor="start">אלברט</text>
+<path d="M479.7,320.8 L485.7,308.9 L491.7,320.8Z" fill="#c8362d" stroke="#fff" stroke-width="1.2"/>
+<text x="502.4" y="330.3" class="mlab" text-anchor="end">פייקס פיק</text>
+<rect x="252.7" y="426.6" width="8.3" height="8.3" fill="#222" stroke="#fff" stroke-width="1.2"/>
+<text x="273.5" y="442.7" class="mlab" text-anchor="end">סילברטון</text>
+<text x="279.5" y="519.9" class="mlab zone" text-anchor="middle" transform="rotate(0 279.5 519.9)">הרי סן חואן</text>
+<text x="410.6" y="92.9" class="mlab zone" text-anchor="middle" transform="rotate(0 410.6 92.9)">פרונט ריינג׳</text>
+<text x="349.4" y="331.7" class="mlab zone" text-anchor="middle" transform="rotate(-65 349.4 331.7)">סווץ׳</text>
+</svg>
