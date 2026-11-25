@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>עוזר הגיטרה</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>🎸 עוזר הגיטרה</h1></header>
+<nav id="tabs">
+  <button data-tab="tuner" class="active">מכוון</button>
+  <button data-tab="metro">מטרונום</button>
+  <button data-tab="chords">אקורדים</button>
+  <button data-tab="scales">סולמות</button>
+  <button data-tab="log">יומן תרגול</button>
+</nav>
+<main>
+  <section id="tuner" class="panel active">
+    <div class="big" id="tNote">–</div>
+    <div class="meter"><div class="mid"></div><div id="needle"></div></div>
+    <div id="tInfo" class="muted">לחצו על ״התחל״ ופרטו מיתר</div>
+    <button id="tStart" class="primary">התחל</button>
+    <div class="row" id="tStrings"></div>
+  </section>
+
+  <section id="metro" class="panel">
+    <div class="big" id="bpmVal">100</div>
+    <input type="range" id="bpm" min="30" max="240" value="100">
+    <div class="row">
+      <button id="bpmMinus">−</button><button id="bpmPlus">+</button>
+      <button id="tap">טאפ טמפו</button>
+    </div>
+    <label>פעימות בתיבה
+      <select id="beats"><option>2</option><option>3</option><option selected>4</option><option>6</option></select>
+    </label>
+    <div class="row" id="dots"></div>
+    <button id="mStart" class="primary">התחל</button>
+  </section>
+
+  <section id="chords" class="panel">
+    <label>סולם (מז׳ור)
+      <select id="keySel"></select>
+    </label>
+    <div class="row" id="keyChords"></div>
+    <hr>
+    <div class="row" id="allChords"></div>
+    <div id="chordView"></div>
+  </section>
+
+  <section id="scales" class="panel">
+    <div class="row">
+      <label>שורש <select id="rootSel"></select></label>
+      <label>סולם <select id="scaleSel"></select></label>
+    </div>
+    <div id="notesLine" class="muted"></div>
+    <div id="fretWrap"></div>
+  </section>
+
+  <section id="log" class="panel">
+    <div class="big" id="timer">00:00</div>
+    <div class="row">
+      <button id="lStart" class="primary">התחל תרגול</button>
+      <button id="lStop">סיים ושמור</button>
+    </div>
+    <input id="lNote" placeholder="על מה עבדתם? (לא חובה)">
+    <div id="lStats" class="muted"></div>
+    <ul id="lList"></ul>
+  </section>
+</main>
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
