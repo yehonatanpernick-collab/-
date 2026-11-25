@@ -64,8 +64,10 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #swatches div{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.5);cursor:pointer}
 #swatches div.on{border-color:#fff;transform:scale(1.2)}
 #lvlBox{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(96vw,860px);pointer-events:auto;background:rgba(6,20,30,.62);border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:10px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-#lvlBox h3{font-size:14px;margin-bottom:8px;opacity:.85;text-align:center}
-#levels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#modeTabs{display:flex;gap:6px;justify-content:center;margin-bottom:8px}#modeTabs div{padding:6px 22px;border-radius:10px;background:rgba(255,255,255,.1);cursor:pointer;font-weight:800;font-size:14px}#modeTabs div.on{background:#38bdf8;color:#06202e}
+#money{position:absolute;top:calc(14px + env(safe-area-inset-top));left:calc(16px + env(safe-area-inset-left));font-size:22px;font-weight:900;color:#7dff8a;text-shadow:0 2px 8px rgba(0,0,0,.6);pointer-events:none}
+#buyBtn{padding:7px 16px;font-size:14px;margin:8px 0 2px}
+#levels{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
 .lv{padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);cursor:pointer;text-align:right;transition:.15s}
 .lv:hover:not(.lock){background:rgba(125,211,252,.22)}
 .lv.lock{opacity:.38;cursor:not-allowed}
@@ -74,8 +76,8 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .lv .st{color:#fcd34d;letter-spacing:2px;font-size:13px}
 .links{text-align:center;margin-top:8px;font-size:12px;opacity:.75}
 .links a{color:#9bd8ff;cursor:pointer;text-decoration:underline;margin:0 8px}
-@media (max-width:640px){#menu .top p{padding:0 14px;font-size:12px}#info{top:calc(118px + env(safe-area-inset-top))}#levels{grid-template-columns:repeat(2,1fr)}#menu .top h1{font-size:30px}#garage{top:calc(78px + env(safe-area-inset-top))}}
-@media (max-height:500px){#menu .top h1{font-size:24px}#menu .top p{display:none}#garage{top:calc(44px + env(safe-area-inset-top))}#levels{grid-template-columns:repeat(4,1fr)}.lv span{display:none}#gaugeBox{width:104px;height:104px}#gauge{width:104px;height:104px}}
+@media (max-width:640px){#menu .top p{padding:0 14px;font-size:12px}#info{top:calc(118px + env(safe-area-inset-top))}#levels{grid-template-columns:repeat(3,1fr)}#menu .top h1{font-size:30px}#garage{top:calc(78px + env(safe-area-inset-top))}}
+@media (max-height:500px){#menu .top h1{font-size:24px}#menu .top p{display:none}#garage{top:calc(44px + env(safe-area-inset-top))}#levels{grid-template-columns:repeat(5,1fr);gap:5px}.lv{padding:3px 8px}.lv b{font-size:12px}.lv span{font-size:10px}.lv .st{font-size:10px}#lvlBox{padding:6px 10px;bottom:calc(6px + env(safe-area-inset-bottom))}#modeTabs{margin-bottom:5px}#modeTabs div{padding:3px 16px;font-size:13px}.links{display:none}#carCard{padding:4px 10px}#carName{font-size:15px}.stat{margin-top:1px}#garage{top:calc(36px + env(safe-area-inset-top))}#gaugeBox{width:104px;height:104px}#gauge{width:104px;height:104px}}
 .cardP{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,10,16,.62)}
 .card{width:min(92vw,520px);max-height:90vh;overflow:auto;background:rgba(10,26,40,.94);border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:22px;text-align:center;box-shadow:0 20px 70px rgba(0,0,0,.6)}
 .card h1{font-size:30px;margin-bottom:10px}
@@ -113,13 +115,14 @@ kbd{display:inline-block;padding:0 6px;border-radius:4px;background:rgba(255,255
 <div class="panel on" id="loading"><h1>מסלול הים</h1><div id="lbar"><div id="lfill"></div></div><div id="ltxt">טוען מודלים…</div></div>
 
 <div class="panel" id="menu">
+  <div id="money">$0</div>
   <div class="top"><h1>מסלול הים</h1><p>מכולות, רמפות וקפיצות מעל האוקיינוס · כאן מנצחים בשליטה, לא במהירות</p></div>
   <div id="garage">
     <div class="arrowBtn" id="carPrev">›</div>
-    <div id="carCard"><div id="carName"></div><div id="carStats"></div><div id="swatches"></div></div>
+    <div id="carCard"><div id="carName"></div><div id="carStats"></div><div id="swatches"></div><button class="btn" id="buyBtn" hidden></button></div>
     <div class="arrowBtn" id="carNext">‹</div>
   </div>
-  <div id="lvlBox"><h3>בחר שלב</h3><div id="levels"></div>
+  <div id="lvlBox"><div id="modeTabs"><div data-m="c" class="on">מכולות</div><div data-m="s">פעלולים</div></div><div id="levels"></div>
     <div class="links"><a id="lnkHelp">איך משחקים</a><a id="lnkCredits">קרדיטים למודלים</a></div></div>
 </div>
 
@@ -128,11 +131,11 @@ kbd{display:inline-block;padding:0 6px;border-radius:4px;background:rgba(255,255
   <button class="btn" id="bResume">המשך</button><button class="btn alt" id="bRetry">התחל מחדש</button><button class="btn alt" id="bMenu">מוסך / שלבים</button>
   <div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / חיצים · <kbd>רווח</kbd> בלם יד · <kbd>R</kbd> חזרה · <kbd>C</kbd> מצלמה · <kbd>M</kbd> שתיקה</div></div></div></div>
 <div class="panel" id="help"><div class="cardP"><div class="card"><h1>איך משחקים</h1><div class="credits">
-  • נוסעים על גגות מכולות ופלטפורמות מעל הים, ומגיעים לקשת הסיום.<br>
-  • אם מרכז המכונית יוצא מהמסלול, היא נופלת לים וחוזרת לנקודת הביקורת האחרונה (+5 שניות).<br>
-  • בפניות חדות ובקטעים של מכולה אחת צריך לנסוע לאט ובדיוק.<br>
-  • ברמפות קפיצה צריך מהירות: השלט שליד הרמפה מראה כמה.<br>
-  • קונוס שנפגע מוסיף 1.5 שניות. מחסומים נעים וחביות דוחפים את המכונית.<br><br>
+  • <b>מכולות:</b> שלבים צרים על מכולות מעל הים. <b>פעלולים:</b> פלטפורמות צבעוניות, רמפות וקפיצות.<br>
+  • המכונית חזקה ולא יציבה: גז בפנייה מעיף את האחור הצידה. נוסעים לאט, מיישרים, ואז מאיצים.<br>
+  • נפלת לים? חוזרים לנקודת הביקורת האחרונה. סיום בלי נפילות = 3 כוכבים.<br>
+  • כל שלב משלם כסף. במוסך קונים מכוניות חזקות יותר.<br>
+  • ברמפות קפיצה צריך מהירות: השלט שליד הרמפה מראה כמה.<br><br>
   <b>מגע:</b> חיצים להיגוי, דוושה ימנית לגז, דוושה רחבה לבלם, ידית לבלם יד, R/N/D להילוכים.<br>
   <b>מקלדת:</b> חיצים או WASD, רווח לבלם יד, R לחזרה, C למצלמה, Esc להשהיה. לחיצה ממושכת על בלם בעצירה מעבירה לרברס.</div>
   <button class="btn" onclick="setPanel('help',false)">הבנתי</button></div></div></div>
@@ -157,29 +160,44 @@ const IS_MOBILE = IS_TOUCH && Math.min(screen.width, screen.height) < 820;
 
 /* ---------------------------------------------------------------- data */
 const CARS = [
-  { id: 'gt350', file: 'car_gt350.glb', name: 'Ford Mustang Shelby GT350R', len: 4.79, acc: 9.5, vmax: 58, grip: 10.2, paint: /paint/i, colors: ['#1f5fd6', '#c8141c', '#f2f2f2', '#111317', '#f2a10c'],
+  { id: 'gt350', file: 'car_gt350.glb', name: 'Ford Mustang Shelby GT350R', len: 4.79, price: 0, power: 340e3, mass: 1650, mu: 1.0, awd: false, paint: /paint/i, colors: ['#1f5fd6', '#c8141c', '#f2f2f2', '#111317', '#f2a10c'],
     credit: ['2016 Ford Mustang Shelby GT350R', 'tangwang920', 'ac6ae892ff8e497289f0f7618ed6e817'] },
-  { id: 'r34', file: 'car_r34.glb', name: 'Nissan Skyline R34 GT-R', len: 4.6, acc: 9.0, vmax: 55, grip: 10.8, paint: null, colors: [],
-    credit: ['Nissan Skyline R34 GT-R', 'Lexyc16', 'ff8fb2251dfa4bb9979e7022c5a6666c'] },
-  { id: '930', file: 'car_930.glb', name: 'Porsche 911 Turbo (930)', len: 4.29, acc: 8.6, vmax: 52, grip: 9.8, paint: null, colors: [],
+  { id: '930', file: 'car_930.glb', name: 'Porsche 911 Turbo (930)', len: 4.29, price: 3000, power: 280e3, mass: 1300, mu: .97, awd: false, paint: null, colors: [],
     credit: ['Porsche 911 (930) Turbo 1975', 'Lexyc16', 'de1ffd344c41481892511f7fd332c136'] },
-  { id: 'one1', file: 'car_one1.glb', name: 'Koenigsegg One:1', len: 4.5, acc: 11.5, vmax: 68, grip: 11, paint: /^bod$/i, colors: ['#e07a10', '#c8141c', '#1f5fd6', '#f2f2f2', '#111317'],
+  { id: 'r34', file: 'car_r34.glb', name: 'Nissan Skyline R34 GT-R', len: 4.6, price: 6000, power: 330e3, mass: 1560, mu: 1.05, awd: true, paint: null, colors: [],
+    credit: ['Nissan Skyline R34 GT-R', 'Lexyc16', 'ff8fb2251dfa4bb9979e7022c5a6666c'] },
+  { id: 'one1', file: 'car_one1.glb', name: 'Koenigsegg One:1', len: 4.5, price: 12000, power: 650e3, mass: 1360, mu: 1.08, awd: false, paint: /^bod$/i, colors: ['#e07a10', '#c8141c', '#1f5fd6', '#f2f2f2', '#111317'],
     credit: ['Koenigsegg One:1', 'OneSteven', 'b4e5a4c5fa5d4d45acd6715d3325254f'] }
 ];
+const topSpeed = c => Math.cbrt(c.power / .42); // m/s, where engine power equals aero drag
 const OTHER_CREDITS = [['Classic Shipping Container (Free/Gameready)', 'Sebastian.Hamish.Webster', '772f4be391a245f699c54e6cf157c58d'], ['Cargo ship', 'hungry_drifter', 'b7c97df584824ca682d26daabf401f87']];
 
 const CL = 6.06, CW = 2.44, CH = 2.59, Y0 = CH * 2;
 const TEAL = '#2f9488', RED = '#d1493c', YEL = '#e6b422', GRAY = '#8b939a', BLUE = '#3f6fb5';
-const LEVELS = [
-  { name: 'נמל הבוקר', sub: 'חימום על שלוש מכולות ברוחב', sky: 'day', par: 34, ops: [['start'], ['c', 5, 3, { cones: 3 }], ['r', 45], ['c', 4, 3], ['l', 45], ['c', 4, 3, { barrels: 2 }], ['cp'], ['l', 90], ['c', 4, 3], ['r', 90], ['c', 5, 3, { cones: 4 }], ['finish']] },
-  { name: 'גשר המכולות', sub: 'שתי מכולות ברוחב, רמפות ופניות חדות', sky: 'day', par: 40, ops: [['start'], ['c', 4, 2], ['up', 2], ['c', 3, 2, { cones: 3 }], ['r', 90], ['c', 4, 2], ['cp'], ['l', 90], ['c', 3, 2, { barrels: 2 }], ['down', 2], ['c', 3, 2], ['l', 90], ['c', 4, 2, { cones: 4 }], ['r', 90], ['c', 3, 2], ['finish']] },
-  { name: 'הצעדה הצרה', sub: 'מכולה אחת ברוחב, מדרגות הצידה', sky: 'golden', par: 48, ops: [['start'], ['c', 3, 2], ['c', 2, 1], ['shift', 1.0], ['c', 2, 1], ['shift', -1.0], ['c', 2, 1], ['shift', 1.0], ['c', 2, 1], ['cp'], ['r', 90], ['c', 4, 2, { cones: 3 }], ['l', 90], ['up', 1], ['c', 3, 1], ['l', 90], ['c', 3, 1], ['down', 1], ['r', 90], ['c', 3, 2, { barrels: 2 }], ['finish']] },
-  { name: 'קפיצת הים', sub: 'רמפות קפיצה: כאן דווקא צריך מהירות', sky: 'day', par: 42, ops: [['start'], ['c', 4, 2], ['jump', 7, 2], ['slab', 14, 9, RED], ['cp'], ['r', 90], ['c', 3, 2, { cones: 3 }], ['up', 2], ['c', 2, 2], ['jump', 9, 2], ['slab', 16, 9, TEAL], ['l', 90], ['c', 4, 2, { mover: 1 }], ['cp'], ['l', 90], ['c', 3, 2], ['r', 90], ['c', 3, 1], ['finish']] },
-  { name: 'מבוך הצבעים', sub: 'מחסומים נעים ושערים צרים', sky: 'golden', par: 46, ops: [['start'], ['slab', 18, 7, TEAL, { mover: 1 }], ['r', 90], ['slab', 14, 5, RED, { gate: 1 }], ['l', 90], ['c', 3, 1], ['shift', 1.2], ['c', 3, 1], ['cp'], ['l', 90], ['slab', 18, 6, YEL, { rollers: 1 }], ['r', 90], ['c', 4, 2, { cones: 4 }], ['r', 90], ['c', 3, 2, { mover: 1 }], ['l', 90], ['finish']] },
-  { name: 'הגובה המסחרר', sub: 'ארבע קומות מכולות מעל המים', sky: 'sunset', par: 44, ops: [['start'], ['up', 2], ['up', 2], ['c', 3, 1], ['r', 90], ['c', 3, 2, { cones: 2 }], ['l', 90], ['c', 4, 2], ['jump', 8, 2], ['slab', 12, 7, GRAY], ['cp'], ['l', 90], ['c', 4, 1], ['shift', -1.2], ['c', 2, 1], ['r', 90], ['down', 2], ['c', 3, 2, { barrels: 2 }], ['finish']] },
-  { name: 'ים הלילה', sub: 'חושך, פנסים ומכולה אחת ברוחב', sky: 'night', par: 68, ops: [['start'], ['c', 4, 2, { cones: 3 }], ['r', 60], ['c', 3, 1], ['l', 60], ['c', 3, 1], ['shift', 1.1], ['c', 2, 1], ['cp'], ['l', 90], ['up', 1], ['c', 3, 2, { mover: 1 }], ['r', 90], ['c', 4, 2], ['jump', 8, 2], ['slab', 14, 8, TEAL], ['r', 90], ['slab', 16, 6, BLUE, { rollers: 1 }], ['cp'], ['l', 90], ['c', 3, 1], ['l', 45], ['c', 3, 1], ['r', 45], ['finish']] },
-  { name: 'סערת המכולות', sub: 'גשם, גלים ואפס מקום לטעות', sky: 'storm', par: 66, ops: [['start'], ['c', 3, 1], ['shift', 1.1], ['c', 2, 1], ['shift', -1.1], ['c', 2, 1], ['r', 90], ['up', 1], ['c', 3, 2, { cones: 2 }], ['l', 90], ['c', 4, 2], ['jump', 9, 2], ['slab', 12, 7, RED], ['cp'], ['l', 90], ['slab', 16, 5, GRAY, { mover: 1 }], ['r', 90], ['c', 2, 1], ['shift', 1.2], ['c', 2, 1], ['shift', -1.2], ['c', 2, 1], ['cp'], ['r', 90], ['down', 1], ['c', 3, 2, { barrels: 2 }], ['l', 90], ['c', 4, 2], ['jump', 9, 2], ['finish']] }
+// Container mode: simple, narrow lines of containers high above the sea
+const CONTAINER_LEVELS = [
+  { name: 'קו ישר', sky: 'day', ops: [['start'], ['c', 6, 2], ['r', 90], ['c', 5, 2], ['l', 90], ['c', 6, 2], ['finish']] },
+  { name: 'מכולה אחת', sky: 'day', ops: [['start'], ['c', 4, 2], ['c', 4, 1], ['l', 90], ['c', 5, 1], ['r', 90], ['c', 4, 2], ['finish']] },
+  { name: 'קומה למעלה', sky: 'day', ops: [['start'], ['c', 3, 2], ['up', 2], ['c', 4, 1], ['r', 90], ['c', 3, 1], ['down', 1], ['c', 3, 2], ['finish']] },
+  { name: 'מדרגות', sky: 'golden', ops: [['start'], ['c', 4, 1], ['shift', .9], ['c', 3, 1], ['shift', -.9], ['c', 3, 1], ['l', 90], ['c', 5, 1], ['finish']] },
+  { name: 'קפיצה ראשונה', sky: 'day', ops: [['start'], ['c', 4, 2], ['jump', 7, 2], ['c', 4, 2], ['cp'], ['r', 90], ['c', 4, 1], ['l', 90], ['c', 3, 1], ['finish']] },
+  { name: 'זיגזג', sky: 'golden', ops: [['start'], ['c', 3, 1], ['r', 90], ['c', 2, 1], ['l', 90], ['c', 2, 1], ['r', 90], ['c', 2, 1], ['l', 90], ['c', 3, 1], ['finish']] },
+  { name: 'מגדל', sky: 'sunset', ops: [['start'], ['up', 1], ['up', 1], ['c', 5, 1], ['l', 90], ['c', 3, 1], ['cp'], ['shift', 1], ['c', 3, 1], ['r', 90], ['down', 1], ['c', 3, 1], ['finish']] },
+  { name: 'לילה בנמל', sky: 'night', ops: [['start'], ['c', 3, 1], ['jump', 8, 2], ['c', 3, 2], ['l', 90], ['c', 4, 1], ['cp'], ['r', 90], ['c', 2, 1], ['shift', -1], ['c', 2, 1], ['shift', 1], ['c', 2, 1], ['finish']] },
+  { name: 'אלכסון', sky: 'golden', ops: [['start'], ['c', 6, 1], ['r', 45], ['c', 4, 1], ['l', 90], ['c', 4, 1], ['cp'], ['r', 45], ['c', 3, 2], ['jump', 9, 2], ['c', 3, 1], ['finish']] },
+  { name: 'סערה', sky: 'storm', ops: [['start'], ['c', 3, 1], ['shift', 1], ['c', 2, 1], ['r', 90], ['up', 1], ['c', 3, 1], ['l', 90], ['c', 3, 2], ['jump', 9, 2], ['c', 2, 1], ['cp'], ['l', 90], ['c', 4, 1], ['r', 90], ['down', 1], ['c', 3, 1], ['finish']] }
 ];
+// Stunt mode: wide colourful platforms, ramps and big airtime
+const STUNT_LEVELS = [
+  { name: 'טיסה ראשונה', sky: 'day', ops: [['start'], ['slab', 30, 9, RED], ['jump', 10, 3], ['slab', 24, 9, TEAL], ['r', 90], ['slab', 20, 9, YEL], ['finish']] },
+  { name: 'עלייה וקפיצה', sky: 'day', ops: [['start'], ['slab', 24, 8, BLUE], ['up', 3], ['slab', 14, 8, RED], ['jump', 12, 3], ['slab', 24, 9, TEAL], ['l', 90], ['slab', 18, 8, YEL], ['finish']] },
+  { name: 'כפולה', sky: 'golden', ops: [['start'], ['slab', 26, 7, YEL], ['jump', 10, 3], ['slab', 14, 7, RED], ['jump', 10, 3], ['slab', 16, 7, BLUE], ['r', 90], ['slab', 20, 7, TEAL], ['finish']] },
+  { name: 'מהגובה', sky: 'day', ops: [['start'], ['slab', 20, 6, TEAL], ['up', 2], ['up', 2], ['slab', 14, 6, RED], ['jump', 14, 2], ['slab', 24, 8, YEL], ['finish']] },
+  { name: 'פנייה באוויר', sky: 'golden', ops: [['start'], ['slab', 26, 6, RED], ['r', 45], ['slab', 20, 6, BLUE], ['jump', 11, 2], ['slab', 16, 6, TEAL], ['cp'], ['l', 90], ['slab', 18, 5, YEL], ['jump', 10, 2], ['finish']] },
+  { name: 'שקיעה מעל המים', sky: 'sunset', ops: [['start'], ['slab', 30, 5, TEAL], ['jump', 12, 2], ['slab', 14, 5, RED], ['r', 90], ['slab', 22, 5, BLUE], ['cp'], ['up', 2], ['jump', 14, 2], ['slab', 14, 6, YEL], ['l', 90], ['slab', 18, 5, GRAY], ['finish']] }
+];
+const MODES = { c: { name: 'מכולות', levels: CONTAINER_LEVELS, reward: i => 500 + 250 * i, pad: 8 }, s: { name: 'פעלולים', levels: STUNT_LEVELS, reward: i => 700 + 300 * i, pad: 10 } };
+let gameMode = 'c', LEVELS = CONTAINER_LEVELS;
 const SKIES = {
   day: { top: '#3a7fd8', hor: '#c2dcf2', el: 55, az: 35, sun: '#fff3dc', sunI: 3.2, hemiI: .8, deep: '#0a3f60', shal: '#2f9ab4', fog: .0014, amp: .45, cloud: .55, night: 0, exp: 1.0 },
   golden: { top: '#3a68b0', hor: '#f2c79a', el: 20, az: 50, sun: '#ffc27a', sunI: 3.0, hemiI: .62, deep: '#0a3a52', shal: '#2a8296', fog: .0019, amp: .6, cloud: .5, night: 0, exp: 1.0 },
@@ -401,7 +419,7 @@ function parseLevel(ops) {
     if (t === 'start') add('slab', 16, 9, S.y, S.y, { color: TEAL, start: true });
     else if (t === 'c') add('cont', op[1] * CL, op[2] * CW, S.y, S.y, { cols: op[2], rows: op[1], obs: op[3] });
     else if (t === 'r' || t === 'l') {
-      const s = Math.max(S.w + 3.5, 8.5); const p = add('pad', s, s, S.y, S.y); W.pop(); W.pop(); W.push([p.x, p.z, S.y]);
+      const s = Math.max(S.w + 2, MODES[gameMode].pad); const p = add('pad', s, s, S.y, S.y); W.pop(); W.pop(); W.push([p.x, p.z, S.y]);
       S.h += (t === 'r' ? -1 : 1) * op[1] * Math.PI / 180; const [nx, nz] = fwd(); S.x = p.x + nx * s / 2; S.z = p.z + nz * s / 2;
     }
     else if (t === 'up' || t === 'down') { const w = op[1] * CW, y1 = S.y + (t === 'up' ? CH : -CH); add('ramp', CL * 2.2, w, S.y, y1); S.y = y1; }
@@ -670,12 +688,12 @@ function sfx(type) {
 }
 let rpmNow = 900, gearNum = 1;
 function updateAudio() {
-  const v = Math.abs(car.vf || 0), gs = [0, 9, 17, 26, 37, 50]; let g = 0; for (let i = 0; i < 6; i++) if (v >= gs[i]) g = i;
-  const lo = gs[g], hi = gs[g + 1] || 70; rpmNow = lerp(rpmNow, 900 + clamp((v - lo) / (hi - lo), 0, 1) * 5600 + (input.up ? 600 : 0), .15); gearNum = g + 1;
+  const v = Math.abs(car.vf || 0), gs = [0, 12, 23, 35, 49, 66]; let g = 0; for (let i = 0; i < 6; i++) if (v >= gs[i]) g = i;
+  const lo = gs[g], hi = gs[g + 1] || 95; rpmNow = lerp(rpmNow, 900 + clamp((v - lo) / (hi - lo), 0, 1) * 5600 + (input.up ? 600 : 0), .15); gearNum = g + 1;
   if (!AC) return; const on = (mode === 'race' || mode === 'countdown') && !muted, t = AC.currentTime, f = rpmNow / 60;
   aEng.o1.frequency.setTargetAtTime(f, t, .05); aEng.o2.frequency.setTargetAtTime(f * .5, t, .05); aEng.lp.frequency.setTargetAtTime(500 + rpmNow * .35, t, .05);
   aEng.eg.gain.setTargetAtTime(on ? (.07 + (input.up ? .1 : 0)) : 0, t, .1);
-  aSkid.g.gain.setTargetAtTime(on && !car.air && !car.sink ? clamp((Math.abs(car.slip) - 2.5) / 6, 0, 1) * .35 : 0, t, .05);
+  aSkid.g.gain.setTargetAtTime(on && !car.air && !car.sink ? clamp((Math.abs(car.slip) - 1.2) / 4, 0, 1) * .35 : 0, t, .05);
   aWind.g.gain.setTargetAtTime(on ? clamp(v / 50, 0, 1) * .25 + (L && L.sky === 'storm' ? .08 : 0) : 0, t, .2);
 }
 
@@ -684,14 +702,16 @@ let mode = 'loading', camMode = 0, simTime = 0;
 const race = { t: 0, falls: 0, cones: 0, pen: 0, cp: 0, last: null, countdown: 0, introT: 0 };
 const input = { up: 0, down: 0, left: 0, right: 0, hand: 0, upKey: 0, downKey: 0 };
 const save = (() => { try { return JSON.parse(localStorage.getItem('searun2')) || {}; } catch (e) { return {}; } })();
-save.best = save.best || []; save.stars = save.stars || []; save.unlocked = save.unlocked || 1;
+save.money = save.money || 0; save.owned = save.owned || ['gt350'];
+save.prog = save.prog || {}; for (const m of ['c', 's']) save.prog[m] = save.prog[m] || { unlocked: 1, best: [], stars: [] };
+const prog = () => save.prog[gameMode];
 function persist() { try { localStorage.setItem('searun2', JSON.stringify(save)); } catch (e) { } }
 
 /* ---------------------------------------------------------------- physics */
 const BRAKE = 14, G_ACC = 9.8, EDGE = .25; // EDGE: how far the car's centre may hang past an edge
 function respawn(manual) {
   const r = race.last || spawnStart; if (!r) return;
-  Object.assign(car, { x: r.x, z: r.z, y: r.y, psi: r.h, vx: 0, vz: 0, vy: 0, spin: 0, steer: 0, air: false, sink: false, piece: r.piece, vf: 0, slip: 0, ax: 0, aLat: 0 });
+  Object.assign(car, { x: r.x, z: r.z, y: r.y, psi: r.h, vx: 0, vz: 0, vy: 0, yr: 0, axb: 0, spin: 0, steer: 0, air: false, sink: false, piece: r.piece, vf: 0, slip: 0, ax: 0, aLat: 0 });
   gear = 'D'; updateGearUI();
   if (carObj) { carObj.userData.r = 0; carObj.userData.p = 0; }
   if (manual) race.pen += 3;
@@ -700,33 +720,58 @@ function stepCar(dt) {
   const c = car; if (!(mode === 'race' || mode === 'countdown' || mode === 'finished')) return;
   if (c.sink) { c.sinkT += dt; c.y -= 1.4 * dt; c.x += c.vx * dt * .2; c.z += c.vz * dt * .2; if (c.sinkT > .9 && !c.faded) { c.faded = true; $('fade').classList.add('on'); } if (c.sinkT > 1.4) { respawn(false); $('fade').classList.remove('on'); } return; }
   const f = [Math.sin(c.psi), Math.cos(c.psi)], r = [-Math.cos(c.psi), Math.sin(c.psi)];
-  let vf = c.vx * f[0] + c.vz * f[1], vl = c.vx * r[0] + c.vz * r[1];
+  const vf = c.vx * f[0] + c.vz * f[1];
   const racing = mode === 'race';
   const gas = racing ? input.up : 0, brk = racing ? input.down : 0, hb = racing ? input.hand : 0, st = racing ? input.left - input.right : 0;
   if (racing) {
     if (brk && gear === 'D' && Math.abs(vf) < .4) { c.brakeT += dt; if (c.brakeT > .35) { gear = 'R'; updateGearUI(); } } else if (!brk) c.brakeT = 0;
     if (input.upKey && gear === 'R' && Math.abs(vf) < .5) { gear = 'D'; updateGearUI(); }
   }
-  const spec = carSpec; let acc = 0, yaw = 0;
+  // ---- dynamic bicycle model: tyre slip angles, friction circle and weight transfer ----
+  const spec = carSpec, m = spec.mass, Iz = m * 1.45, A = 1.22, B = 1.48, WB = A + B, HCG = .52;
+  const lf = [Math.cos(c.psi), -Math.sin(c.psi)];             // body left axis
+  let vx = c.vx * f[0] + c.vz * f[1], vy = c.vx * lf[0] + c.vz * lf[1], yr = c.yr || 0;
+  const rate = st ? (Math.sign(st) === Math.sign(c.steer) || !c.steer ? 4.2 : 8) : 7; c.steer += clamp(st - c.steer, -rate * dt, rate * dt);
+  const delta = c.steer * .7 / (1 + Math.max(0, Math.abs(vx) - 3) / 9);
+  let axb = 0;
   if (!c.air) {
-    // in reverse the keyboard "down" key (held) drives backward; the touch brake pedal only brakes
+    const mu = spec.mu * (L.sky === 'storm' ? .78 : 1);
+    // driver forces
+    let Fd = 0; const av = Math.abs(vx);
     const revDrive = gear === 'R' && (gas || (input.downKey && brk));
-    if (gas && gear === 'D') { acc += spec.acc * (1 - clamp(vf / spec.vmax, 0, 1)) * (vf < 8 ? 1.15 : 1); if (vf < -.3) acc += BRAKE; }
-    if (revDrive) { if (vf > .3) acc -= BRAKE; else acc -= 6 * clamp(1 + vf / 9, 0, 1); }
-    else if (brk) { if (Math.abs(vf) > .3) acc -= Math.sign(vf) * BRAKE; else vf *= Math.exp(-10 * dt); }
-    const av = Math.abs(vf); acc -= .0032 * vf * av; if (av > .05) acc -= Math.sign(vf) * (.25 + (gas ? 0 : .6));
-    if (hb && av > .5) acc -= Math.sign(vf) * 3.5;
-    vf += acc * dt; if (!gas && !brk && Math.abs(vf) < .25) vf *= Math.exp(-4 * dt);
-    const rate = st ? (Math.sign(st) === Math.sign(c.steer) || !c.steer ? 3.6 : 7) : 6; c.steer += clamp(st - c.steer, -rate * dt, rate * dt);
-    const dmax = .7 / (1 + Math.pow(Math.abs(vf) / 12, 1.7));
-    yaw = vf * Math.tan(c.steer * dmax) / 2.7;
-    const grip = spec.grip * (L.sky === 'storm' ? .8 : 1) * (hb ? .38 : 1), cap = grip * (hb ? 2.4 : 1.12) / Math.max(Math.abs(vf), 2.5); yaw = clamp(yaw, -cap, cap);
-    const aL = clamp(-vl * 14, -grip, grip); vl += aL * dt; vf -= Math.sign(vf) * Math.abs(vl) * .22 * dt;
-    c.aLat = lerp(c.aLat, aL, 1 - Math.exp(-8 * dt));
-  } else { vf *= 1 - .02 * dt; c.aLat *= .9; }
-  c.ax = lerp(c.ax, acc, 1 - Math.exp(-8 * dt)); c.slip = vl;
-  c.spin *= Math.exp(-3.2 * dt); c.psi += (yaw + c.spin) * dt;
-  c.vx = f[0] * vf + r[0] * vl; c.vz = f[1] * vf + r[1] * vl; c.vf = vf;
+    if (gas && gear === 'D') Fd = Math.min(spec.power / Math.max(av, 4), m * 1.25 * G_ACC);
+    if (revDrive) Fd = vx > .3 ? -m * 9 : (vx > -9 ? -m * 4 : 0);
+    let Fb = 0; if (brk && !revDrive) Fb = av > .3 ? m * 9.5 * Math.sign(vx) : 0;
+    if (brk && !revDrive && av <= .3) { vx *= Math.exp(-10 * dt); vy *= Math.exp(-10 * dt); }
+    const drag = .42 * vx * av + (av > .05 ? Math.sign(vx) * (180 + (gas ? 0 : 450)) : 0);
+    // vertical loads with longitudinal weight transfer (uses last step's acceleration)
+    const Fzf = Math.max(.15 * m * G_ACC, m * (G_ACC * B - (c.axb || 0) * HCG) / WB), Fzr = Math.max(.15 * m * G_ACC, m * (G_ACC * A + (c.axb || 0) * HCG) / WB);
+    const fsplit = spec.awd ? .4 : 0;
+    // tyre grip: the rear has a little more grip than the front (stable when coasting),
+    // but engine force eats into the rear's sideways grip, so throttle in a turn pushes the tail out
+    const maxF = mu * Fzf, maxR = mu * Fzr * 1.08, longR = maxR * 1.2, longF = maxF * 1.2;
+    let FxF = clamp(Fd * fsplit - Fb * .62, -longF, longF), FxR = clamp(Fd * (1 - fsplit) - Fb * .38, -longR, longR);
+    if (hb && av > .5) FxR = -Math.sign(vx) * longR * .8;
+    const use = (Fx, lim) => Math.sqrt(Math.max(.08, 1 - .8 * (Fx / lim) ** 2));
+    const latF = maxF * use(FxF, longF), latR = maxR * use(FxR, longR) * (hb ? .4 : 1);
+    if (av > 1.2) {
+      const sv = Math.sign(vx), af = Math.atan2(vy + A * yr, av) - delta * sv, ar = Math.atan2(vy - B * yr, av);
+      let FyF = clamp(-11 * Fzf * af, -latF, latF), FyR = clamp(-16 * Fzr * ar, -latR, latR);
+      if (sv < 0) { FyF = -FyF; FyR = -FyR; }
+      const cd = Math.cos(delta), sd = Math.sin(delta);
+      axb = (FxF * cd - FyF * sd + FxR - drag) / m;
+      const ay = (FyF * cd + FxF * sd + FyR) / m;
+      vx += (axb + vy * yr) * dt; vy += (ay - vx * yr) * dt; yr += ((A * (FyF * cd + FxF * sd) - B * FyR) / Iz) * dt;
+      c.aLat = lerp(c.aLat, ay, 1 - Math.exp(-8 * dt));
+    } else { // parking speeds: kinematic steering, no slip
+      axb = (FxF + FxR - drag) / m; vx += axb * dt; vy *= Math.exp(-10 * dt); yr = vx * Math.tan(delta) / WB;
+      if (!gas && !brk && !revDrive && av < .25) vx *= Math.exp(-5 * dt);
+      c.aLat *= .9;
+    }
+  } else { yr *= Math.exp(-.6 * dt); c.aLat *= .9; }
+  c.axb = axb; c.ax = lerp(c.ax, axb, 1 - Math.exp(-8 * dt)); c.slip = vy; c.yr = yr;
+  c.spin *= Math.exp(-3.2 * dt); c.psi += (yr + c.spin) * dt;
+  c.vx = f[0] * vx + lf[0] * vy; c.vz = f[1] * vx + lf[1] * vy; c.vf = vx;
   const ox = c.x, oz = c.z; c.x += c.vx * dt; c.z += c.vz * dt;
   collideObs();
   let s = surface(c.x, c.z, c.y);
@@ -740,7 +785,7 @@ function stepCar(dt) {
     const s2 = surface(c.x, c.z, c.y + .3);
     if (s2.i >= 0 && c.y <= s2.y) { const imp = -c.vy; c.y = s2.y; c.vy = 0; c.air = false; c.piece = s2.i; if (imp > 5) { sfx('land'); camShake = Math.min(1, imp / 14); if (carObj) carObj.userData.bump = -Math.min(.22, imp * .02); } }
   }
-  if (c.y < .25 && !c.sink) { c.sink = true; c.sinkT = 0; c.faded = false; splash(c.x, c.z, true); sfx('splash'); if (racing) { race.falls++; race.pen += 5; showToast('נפלת לים! +5 שנ\'', '#ff9a8a'); } }
+  if (c.y < .25 && !c.sink) { c.sink = true; c.sinkT = 0; c.faded = false; splash(c.x, c.z, true); sfx('splash'); if (racing) { race.falls++; showToast('נפלת לים!', '#ff9a8a'); } }
   if (racing && !c.air) {
     while (race.cp < cps.length && c.piece >= cps[race.cp] && c.piece <= cps[race.cp] + 3) { const p = pieces[cps[race.cp]]; race.last = { x: p.x, z: p.z, y: p.y1, h: p.h, piece: p.i }; race.cp++; showToast(`נקודת ביקורת ${race.cp}/${cps.length}`, '#8affc0'); sfx('cp'); }
     if (c.piece === finishPiece) finishRace();
@@ -785,14 +830,14 @@ function updateCarVisual(dt) {
     const f = [Math.sin(c.psi), Math.cos(c.psi)], r = [-Math.cos(c.psi), Math.sin(c.psi)], a = c.hl * .7, b = c.hw * .8;
     const q = (x, z) => { const s = surface(x, z, c.y + .5); return s.i >= 0 ? s.y : c.y - .7; };
     const hf = q(c.x + f[0] * a, c.z + f[1] * a), hb = q(c.x - f[0] * a, c.z - f[1] * a), hr = q(c.x + r[0] * b, c.z + r[1] * b), hl = q(c.x - r[0] * b, c.z - r[1] * b);
-    pT = -Math.atan2(hf - hb, 2 * a) - c.ax * .004; rT = Math.atan2(hl - hr, 2 * b) - c.aLat * .005;
+    pT = -Math.atan2(hf - hb, 2 * a) - c.ax * .006; rT = Math.atan2(hl - hr, 2 * b) + c.aLat * .009;
   } else if (c.air) { pT = clamp(-Math.atan2(c.vy, Math.max(Math.abs(c.vf), 3)) * .7, -.6, .6); rT = U.r || 0; }
   else { pT = .5; rT = .4; }
   U.p = lerp(U.p || 0, pT, 1 - Math.exp(-(c.air ? 3 : 12) * dt)); U.r = lerp(U.r || 0, rT, 1 - Math.exp(-10 * dt)); U.bump = lerp(U.bump || 0, 0, 1 - Math.exp(-8 * dt));
   carObj.position.set(c.x, c.y + U.bump, c.z); carObj.rotation.set(U.p, c.psi, U.r);
   c.wheelRot += (c.vf || 0) * dt / .34; U.wheels.forEach(w => w.rotation.x = c.wheelRot);
-  const dmax = .7 / (1 + Math.pow(Math.abs(c.vf || 0) / 12, 1.7)); U.fronts.forEach(p => p.rotation.y = c.steer * dmax);
-  if (!c.air && !c.sink && Math.abs(c.slip) > 4.2 && mode === 'race') { const f = [Math.sin(c.psi), Math.cos(c.psi)]; for (const sd of [.85, -.85]) emit(c.x - f[0] * c.hl * .7 - f[1] * sd, c.y + .2, c.z - f[1] * c.hl * .7 + f[0] * sd, (Math.random() - .5) * 1.5, .8, (Math.random() - .5) * 1.5, .9, .9, .85, .85, .85, -.4, 2.2); }
+  const dmax = .7 / (1 + Math.max(0, Math.abs(c.vf || 0) - 3) / 9); U.fronts.forEach(p => p.rotation.y = c.steer * dmax);
+  if (!c.air && !c.sink && Math.abs(c.slip) > 2.2 && mode === 'race') { const f = [Math.sin(c.psi), Math.cos(c.psi)]; for (const sd of [.85, -.85]) emit(c.x - f[0] * c.hl * .7 - f[1] * sd, c.y + .2, c.z - f[1] * c.hl * .7 + f[0] * sd, (Math.random() - .5) * 1.5, .8, (Math.random() - .5) * 1.5, .9, .9, .85, .85, .85, -.4, 2.2); }
 }
 const camPos = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), look = new THREE.Vector3(), want = new THREE.Vector3();
 function updateCamera(dt) {
@@ -846,31 +891,41 @@ function fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' +
 let toastTimer = 0;
 function showToast(txt, color, dur) { const e = $('toast'); e.textContent = txt; e.style.color = color || '#fff'; e.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => e.classList.remove('show'), (dur || 1.6) * 1000); }
 function updateHud() {
-  $('timeTxt').textContent = fmt(race.t + race.pen); $('lvlName').textContent = `שלב ${lvlIdx + 1} · ${L.name}`;
-  $('cpTxt').textContent = `ביקורת ${race.cp}/${cps.length} · נפילות ${race.falls}` + (race.pen > 0 ? ` · קנס +${race.pen.toFixed(1)}` : '');
+  $('timeTxt').textContent = fmt(race.t); $('lvlName').textContent = `${MODES[gameMode].name} · שלב ${lvlIdx + 1} · ${L.name}`;
+  $('cpTxt').textContent = `ביקורת ${race.cp}/${cps.length} · נפילות ${race.falls}` + '';
   $('progfill').style.width = clamp(car.piece / Math.max(1, finishPiece), 0, 1) * 100 + '%'; drawGauge();
 }
 function updateGearUI() { document.querySelectorAll('#gears div').forEach(d => d.classList.toggle('on', d.dataset.g === gear)); }
 
 /* ---------------------------------------------------------------- menu / flow */
 function setPanel(id, on) { $(id).classList.toggle('on', on); }
+const owned = id => save.owned.includes(id);
+const money = n => '$' + n.toLocaleString('en-US');
 function updateGarageUI() {
-  $('carName').textContent = carSpec.name;
-  const st = [['האצה', carSpec.acc / 12], ['מהירות', carSpec.vmax / 70], ['אחיזה', carSpec.grip / 11.5]];
-  $('carStats').innerHTML = st.map(s => `<div class="stat"><span>${s[0]}</span><i><b style="width:${Math.round(s[1] * 100)}%"></b></i></div>`).join('');
+  $('carName').textContent = carSpec.name; $('money').textContent = money(save.money);
+  const vt = topSpeed(carSpec) * 3.6;
+  const st = [['כוח', carSpec.power / carSpec.mass / 480, Math.round(carSpec.power / 745.7) + ' כ"ס'], ['מהירות', vt / 400, Math.round(vt) + ' קמ"ש'], ['אחיזה', (carSpec.mu - .8) / .35, carSpec.awd ? '4X4' : 'הנעה אחורית']];
+  $('carStats').innerHTML = st.map(s => `<div class="stat"><span>${s[0]}</span><i><b style="width:${Math.round(clamp(s[1], .05, 1) * 100)}%"></b></i><span style="width:auto;opacity:.75">${s[2]}</span></div>`).join('');
   const sw = $('swatches'); sw.innerHTML = '';
-  const cached = carCache[carSpec.id]; if (carSpec.colors.length && (!cached || cached.userData.paintMat)) carSpec.colors.forEach(col => { const d = document.createElement('div'); d.style.background = col; if ((carColor[carSpec.id] || '') === col) d.className = 'on'; d.onclick = () => { carColor[carSpec.id] = col; applyColor(); updateGarageUI(); try { localStorage.setItem('searun2_col', JSON.stringify(carColor)); } catch (e) { } }; sw.appendChild(d); });
+  const cached = carCache[carSpec.id]; if (owned(carSpec.id) && carSpec.colors.length && (!cached || cached.userData.paintMat)) carSpec.colors.forEach(col => { const d = document.createElement('div'); d.style.background = col; if ((carColor[carSpec.id] || '') === col) d.className = 'on'; d.onclick = () => { carColor[carSpec.id] = col; applyColor(); updateGarageUI(); try { localStorage.setItem('searun2_col', JSON.stringify(carColor)); } catch (e) { } }; sw.appendChild(d); });
+  const bb = $('buyBtn'); bb.hidden = owned(carSpec.id);
+  if (!owned(carSpec.id)) { const can = save.money >= carSpec.price; bb.textContent = can ? `קנה ב-${money(carSpec.price)}` : `🔒 ${money(carSpec.price)} · חסר ${money(carSpec.price - save.money)}`; bb.disabled = !can; bb.style.opacity = can ? 1 : .6; }
 }
+$('buyBtn').onclick = () => { if (owned(carSpec.id) || save.money < carSpec.price) return; save.money -= carSpec.price; save.owned.push(carSpec.id); persist(); sfx('cp'); updateGarageUI(); };
+function setMode(m) { gameMode = m; LEVELS = MODES[m].levels; document.querySelectorAll('#modeTabs div').forEach(d => d.classList.toggle('on', d.dataset.m === m)); buildMenu(); }
+document.querySelectorAll('#modeTabs div').forEach(d => d.onclick = () => setMode(d.dataset.m));
 function buildMenu() {
-  const box = $('levels'); box.innerHTML = '';
-  LEVELS.forEach((l, i) => { const d = document.createElement('div'), locked = i >= save.unlocked; d.className = 'lv' + (locked ? ' lock' : ''); const s = save.stars[i] || 0; d.innerHTML = `<b>${i + 1}. ${l.name}</b><span>${l.sub}</span><div class="st">${locked ? '🔒' : '★'.repeat(s) + '☆'.repeat(3 - s)}${save.best[i] ? ` <small style="color:#fff;opacity:.7">${fmt(save.best[i])}</small>` : ''}</div>`; if (!locked) d.onclick = () => startLevel(i); box.appendChild(d); });
+  const box = $('levels'), P = prog(); box.innerHTML = '';
+  LEVELS.forEach((l, i) => { const d = document.createElement('div'), locked = i >= P.unlocked; d.className = 'lv' + (locked ? ' lock' : ''); const st = P.stars[i] || 0; d.innerHTML = `<b>${i + 1}. ${l.name}</b><span>${money(MODES[gameMode].reward(i))}</span><div class="st">${locked ? '🔒' : '★'.repeat(st) + '☆'.repeat(3 - st)}</div>`; if (!locked) d.onclick = () => startLevel(i); box.appendChild(d); });
+  updateGarageUI();
 }
 function toMenu() {
   mode = 'menu'; setPanel('result', false); setPanel('pause', false); document.body.classList.add('nohud'); buildMenu(); setPanel('menu', true);
-  buildLevel(0); setupRain(false); setHeadlights(false); race.last = null; respawn(false);
+  const gm = gameMode; gameMode = 'c'; LEVELS = CONTAINER_LEVELS; buildLevel(0); gameMode = gm; LEVELS = MODES[gm].levels; setupRain(false); setHeadlights(false); race.last = null; respawn(false);
 }
 let lastCount = 4;
 function startLevel(i) {
+  if (!owned(carSpec.id)) { showToast('קנה את המכונית או בחר מכונית אחרת', '#ffc27a', 2); document.body.classList.remove('nohud'); setTimeout(() => mode === 'menu' && document.body.classList.add('nohud'), 2000); return; }
   initAudio(); setPanel('menu', false); setPanel('result', false); setPanel('pause', false); $('fade').classList.add('on');
   setTimeout(() => {
     buildLevel(i); setupRain(!!SKIES[L.sky].rain); setHeadlights(lightsOn(L.sky));
@@ -881,10 +936,11 @@ function startLevel(i) {
 }
 function finishRace() {
   if (mode === 'finished') return; mode = 'finished'; sfx('win');
-  const total = race.t + race.pen, par = L.par, stars = total <= par ? 3 : total <= par * 1.35 ? 2 : 1;
-  const nb = !save.best[lvlIdx] || total < save.best[lvlIdx]; if (nb) save.best[lvlIdx] = total; save.stars[lvlIdx] = Math.max(save.stars[lvlIdx] || 0, stars); if (lvlIdx + 1 < LEVELS.length) save.unlocked = Math.max(save.unlocked, lvlIdx + 2); persist();
-  $('resTitle').textContent = lvlIdx + 1 === LEVELS.length ? 'אלוף הנמל! 🏆' : 'השלב הושלם!';
-  $('resBody').innerHTML = `<div class="big">${fmt(total)}</div><div style="color:#fcd34d;font-size:34px;letter-spacing:6px">${'★'.repeat(stars) + '☆'.repeat(3 - stars)}</div>זמן נקי ${fmt(race.t)} · קנסות ${race.pen.toFixed(1)} שנ'<br>נפילות ${race.falls} · קונוסים ${race.cones}${nb ? '<br><b style="color:#8affc0">שיא חדש!</b>' : ''}<br><small style="opacity:.7">3 כוכבים מתחת ל-${fmt(par)}</small>`;
+  const P = prog(), total = race.t, stars = race.falls === 0 ? 3 : race.falls <= 2 ? 2 : 1, first = !P.stars[lvlIdx];
+  const reward = MODES[gameMode].reward(lvlIdx) * (first ? 1 : .3) | 0; save.money += reward;
+  const nb = !P.best[lvlIdx] || total < P.best[lvlIdx]; if (nb) P.best[lvlIdx] = total; P.stars[lvlIdx] = Math.max(P.stars[lvlIdx] || 0, stars); if (lvlIdx + 1 < LEVELS.length) P.unlocked = Math.max(P.unlocked, lvlIdx + 2); persist();
+  $('resTitle').textContent = lvlIdx + 1 === LEVELS.length ? 'סיימת את כל השלבים! 🏆' : 'השלב הושלם!';
+  $('resBody').innerHTML = `<div class="big" style="color:#7dff8a">+${money(reward)}</div><div style="color:#fcd34d;font-size:34px;letter-spacing:6px">${'★'.repeat(stars) + '☆'.repeat(3 - stars)}</div>זמן ${fmt(total)}${nb ? ' · <b style="color:#8affc0">שיא חדש!</b>' : ''} · נפילות ${race.falls}<br><small style="opacity:.7">3 כוכבים = בלי ליפול לים${first ? '' : ' · שלב חוזר משלם 30%'}</small>`;
   let b = ''; if (lvlIdx + 1 < LEVELS.length) b += `<button class="btn" onclick="startLevel(${lvlIdx + 1})">השלב הבא</button>`; b += `<button class="btn alt" onclick="startLevel(${lvlIdx})">שוב</button><button class="btn alt" onclick="toMenu()">מוסך</button>`;
   $('resBtns').innerHTML = b; setTimeout(() => setPanel('result', true), 1300);
 }
@@ -892,7 +948,7 @@ function pauseGame() { if (mode === 'race' || mode === 'countdown') { mode = 'pa
 $('bResume').onclick = () => { setPanel('pause', false); mode = race.countdown > 0 ? 'countdown' : 'race'; };
 $('bRetry').onclick = () => startLevel(lvlIdx); $('bMenu').onclick = toMenu;
 $('bPause').onclick = pauseGame;
-$('bRestart').onclick = () => { if (mode === 'race' && !car.sink) { respawn(true); showToast('חזרה לנקודת ביקורת +3 שנ\'', '#ffc27a'); } };
+$('bRestart').onclick = () => { if (mode === 'race' && !car.sink) { respawn(false); showToast('חזרה לנקודת ביקורת', '#ffc27a'); } };
 $('camBtn').onclick = () => { camMode = (camMode + 1) % 4; };
 $('carPrev').onclick = () => setCar(carIdx - 1); $('carNext').onclick = () => setCar(carIdx + 1);
 $('lnkHelp').onclick = () => setPanel('help', true);
@@ -964,7 +1020,7 @@ function frame(now) {
   } catch (e) { console.error(e); $('ltxt').textContent = 'שגיאה בטעינה: ' + (e && e.message || e) + ' · יש לפתוח את המשחק דרך שרת (לא כקובץ מקומי)'; }
 })();
 requestAnimationFrame(frame);
-window.__game = { car, race, input, get pieces() { return pieces; }, get wps() { return wps; }, get mode() { return mode; }, set mode(v) { mode = v; }, startLevel, respawn, setCar, obbOverlap, parseLevel, LEVELS, get carObj() { return carObj; }, step(n) { for (let k = 0; k < n; k++) { if (mode === 'race') race.t += FIX; simTime += FIX; updateMovers(simTime); stepCar(FIX); } }, clearObs() { solids.length = 0; cones.length = 0; movers.length = 0; }, get gear() { return gear; }, set gear(g) { gear = g; } };
+window.__game = { setMode, get MODES() { return MODES; }, car, race, input, get pieces() { return pieces; }, get wps() { return wps; }, get mode() { return mode; }, set mode(v) { mode = v; }, startLevel, respawn, setCar, obbOverlap, parseLevel, LEVELS, get carObj() { return carObj; }, step(n) { for (let k = 0; k < n; k++) { if (mode === 'race') race.t += FIX; simTime += FIX; updateMovers(simTime); stepCar(FIX); } }, clearObs() { solids.length = 0; cones.length = 0; movers.length = 0; }, get gear() { return gear; }, set gear(g) { gear = g; } };
 </script>
 </body>
 </html>
