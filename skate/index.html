@@ -66,6 +66,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--dusk);color:var(
   box-shadow:0 5px 0 var(--ink),0 14px 34px rgba(255,80,30,.5);text-shadow:0 2px 0 rgba(58,18,48,.5);transition:transform .12s}
 .btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink),0 6px 18px rgba(255,80,30,.4)}
 .btn:focus-visible{outline:3px solid var(--cream);outline-offset:4px}
+.todpick{width:min(260px,80vw)}.todpick button{cursor:pointer}.todpick button:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
 .keys{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;max-width:460px;font-weight:800;font-size:13px;color:rgba(255,238,226,.95);text-shadow:0 1px 5px rgba(30,0,16,.9)}
 .keys span{display:inline-flex;gap:6px;align-items:center}
 .keys b{display:inline-block;min-width:22px;padding:2px 7px;border-radius:6px;background:rgba(255,247,236,.16);border:1px solid rgba(255,247,236,.35);font-weight:900}
@@ -131,7 +132,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--dusk);color:var(
 
 <section id="title" class="screen" aria-label="Start">
   <h1 class="logo impact"><span class="a">Sundown</span><span class="b">Boulevard</span></h1>
-  <p class="tag">An endless golden-hour skate down a palm-lined street that never quite reaches the sea.</p>
+  <p class="tag" id="tagline">An endless golden-hour skate down a palm-lined street that never quite reaches the sea.</p>
+  <div class="seg todpick" id="todPick" role="group" aria-label="Time of day"><button type="button" data-t="sunset">Sunset</button><button type="button" data-t="noon">Noon</button></div>
   <button class="btn" id="play">Start rolling</button>
   <div class="keys" id="keys"></div>
 </section>
@@ -187,7 +189,7 @@ const PRESETS={
   high:{res:1.5,shadow:3072,msaa:4,bloom:0.3,scenery:2,rays:0.6},
   ultra:{res:2,shadow:4096,msaa:4,bloom:0.35,scenery:2,rays:0.8}};
 const PRESET_KEYS=['res','shadow','msaa','bloom','scenery','rays'];
-const DEFAULTS=Object.assign({preset:isTouch?'medium':'high',reflect:true,auto:true,grain:0.03,vig:0.42,sat:1.2,con:1.05,sunH:0.15,sunA:-0.2,sunPow:7,warm:0.7,amb:0.3,expo:1.55,fog:820,glare:1,fov:0,camH:1,shake:true,music:0.3,sfx:0.8,fps:false},PRESETS[isTouch?'medium':'high']);
+const DEFAULTS=Object.assign({tod:'sunset',preset:isTouch?'medium':'high',reflect:true,auto:true,grain:0.03,vig:0.42,sat:1.2,con:1.05,sunH:0.15,sunA:-0.2,sunPow:7,warm:0.7,amb:0.3,expo:1.55,fog:820,glare:1,fov:0,camH:1,shake:true,music:0.3,sfx:0.8,fps:false},PRESETS[isTouch?'medium':'high']);
 const SKEY='sundown-settings-v1';
 const S=Object.assign({},DEFAULTS);
 try{const raw=JSON.parse(store.get(SKEY)||'null');if(raw&&typeof raw==='object')for(const k in DEFAULTS)if(typeof raw[k]===typeof DEFAULTS[k]&&(typeof raw[k]!=='number'||isFinite(raw[k])))S[k]=raw[k];}catch(e){}
@@ -249,10 +251,10 @@ sun.shadow.bias=-0.0003;sun.shadow.normalBias=0.04;
 scene.add(sun,sun.target);
 const LZ=SUN.clone(),LX=new V3().crossVectors(new V3(0,1,0),LZ).normalize(),LY=new V3().crossVectors(LZ,LX);
 let TX=80/SHADOW,TY=80/SHADOW;
-function applySun(){SUN.set(S.sunA,S.sunH,-1).normalize();LZ.copy(SUN);LX.crossVectors(new V3(0,1,0),LZ).normalize();LY.crossVectors(LZ,LX);}
+function applySun(){if(S.tod==='noon')SUN.set(-0.25+S.sunA,1.5,0.35).normalize();else SUN.set(S.sunA,S.sunH,-1).normalize();LZ.copy(SUN);LX.crossVectors(new V3(0,1,0),LZ).normalize();LY.crossVectors(LZ,LX);}
 applySun();
 function placeSun(pz){
-  const T=new V3(0,0,pz-115);
+  const T=new V3(0,0,pz-(S.tod==='noon'?35:115));
   let a=T.dot(LX),b=T.dot(LY);const c=T.dot(LZ);
   a=Math.round(a/TX)*TX;b=Math.round(b/TY)*TY;
   T.copy(LX).multiplyScalar(a).addScaledVector(LY,b).addScaledVector(LZ,c);
@@ -266,11 +268,11 @@ float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<6;i++){v+=a*vn(p);p=p*2.02+vec2(1.7,9.2);a*=.5;}return v;}`;
 const HORIZON=`vec3 horizonCol(vec3 d,vec3 s){float az=max(dot(normalize(vec3(d.x,0.,d.z)),normalize(vec3(s.x,0.,s.z))),0.);
-  return mix(vec3(0.95,0.20,0.06),vec3(1.9,0.62,0.14),pow(az,7.));}`;
+  return mix(mix(vec3(0.95,0.20,0.06),vec3(1.9,0.62,0.14),pow(az,7.)),vec3(0.80,0.90,1.06),noon);}`;
 const skyMat=new THREE.ShaderMaterial({
-  uniforms:{sunDir:{value:SUN},time:{value:0},tint:{value:new THREE.Vector3(1,1,1)}},side:THREE.BackSide,depthWrite:false,
+  uniforms:{sunDir:{value:SUN},time:{value:0},noon:{value:0},tint:{value:new THREE.Vector3(1,1,1)}},side:THREE.BackSide,depthWrite:false,
   vertexShader:`varying vec3 vDir;void main(){vDir=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
-  fragmentShader:`uniform vec3 sunDir;uniform float time;uniform vec3 tint;varying vec3 vDir;${NOISE}${HORIZON}
+  fragmentShader:`uniform vec3 sunDir;uniform float time;uniform float noon;uniform vec3 tint;varying vec3 vDir;${NOISE}${HORIZON}
   void main(){
     vec3 d=normalize(vDir);float h=d.y;float cs=dot(d,sunDir);float sd=max(cs,0.);
     vec3 hz=horizonCol(d,sunDir);
@@ -306,6 +308,23 @@ const skyMat=new THREE.ShaderMaterial({
     col=mix(col,vec3(30.,18.,7.),disc*(1.-cover*0.45));
     col+=vec3(4.,2.2,0.8)*pow(sd,700.);
     if(h<0.)col=hz*0.85;
+    if(noon>0.5){
+      vec3 nc=mix(vec3(0.66,0.82,1.06),vec3(0.14,0.40,1.0),smoothstep(0.0,0.2,t));
+      nc=mix(nc,vec3(0.04,0.17,0.70),smoothstep(0.22,0.9,t));
+      nc+=vec3(1.0,0.97,0.9)*(pow(sd,5.)*0.3+pow(sd,60.)*0.9);
+      vec2 u3=uv*0.11+vec2(time*0.005,time*0.002);
+      float cn=fbm(u3+vec2(fbm(u3*0.8+5.1),fbm(u3*0.8+1.7))*0.7);
+      float cnS=fbm(u3+vec2(fbm(u3*0.8+5.1),fbm(u3*0.8+1.7))*0.7+normalize(sunDir.xz+vec2(1e-4))*0.02);
+      float cov=smoothstep(0.5,0.7,cn)*smoothstep(0.015,0.13,h);
+      vec3 lc=mix(vec3(1.55,1.55,1.6),vec3(0.70,0.76,0.9),smoothstep(0.62,0.92,cn));
+      lc+=vec3(0.5,0.48,0.45)*clamp((cn-cnS)*14.,0.,1.);
+      nc=mix(nc,lc,cov*0.92);
+      float wisp=smoothstep(0.55,0.85,fbm(vec2(uv.x*0.08,uv.y*0.5)+vec2(time*0.003,0.)+31.))*smoothstep(0.1,0.5,h);
+      nc=mix(nc,vec3(1.3,1.35,1.45),wisp*0.35);
+      float disc2=smoothstep(0.99900,0.99935,cs);nc=mix(nc,vec3(32.,30.,26.),disc2);
+      if(h<0.)nc=vec3(0.80,0.90,1.06)*0.9;
+      col=nc;
+    }
     col*=tint;
     gl_FragColor=vec4(col,1.);
   }`
@@ -319,7 +338,7 @@ const pmrem=new THREE.PMREMGenerator(renderer);
 function bakeEnv(){
   const envScene=new THREE.Scene();
   const envSky=new THREE.Mesh(new THREE.SphereGeometry(100,32,16),skyMat);envScene.add(envSky);
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(90,24),new THREE.MeshBasicMaterial({color:new THREE.Color().setRGB(0.25,0.08,0.06)}));
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(90,24),new THREE.MeshBasicMaterial({color:S.tod==='noon'?new THREE.Color().setRGB(0.30,0.28,0.22):new THREE.Color().setRGB(0.25,0.08,0.06)}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-3;envScene.add(ground);
   const t=pmrem.fromScene(envScene,0.02).texture;
   envSky.geometry.dispose();ground.geometry.dispose();ground.material.dispose();
@@ -328,9 +347,9 @@ function bakeEnv(){
 
 /* ---------- ocean ---------- */
 const oceanMat=new THREE.ShaderMaterial({
-  uniforms:{sunDir:{value:SUN},time:{value:0},tint:{value:new THREE.Vector3(1,1,1)}},
+  uniforms:{sunDir:{value:SUN},time:{value:0},noon:{value:0},tint:{value:new THREE.Vector3(1,1,1)}},
   vertexShader:`varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader:`uniform vec3 sunDir;uniform float time;uniform vec3 tint;varying vec3 vW;${HORIZON}${NOISE}
+  fragmentShader:`uniform vec3 sunDir;uniform float time;uniform float noon;uniform vec3 tint;varying vec3 vW;${HORIZON}${NOISE}
   void main(){
     vec3 vd=vW-cameraPosition;float dist=length(vd);vd/=dist;
     vec2 p=vW.xz;
@@ -345,6 +364,12 @@ const oceanMat=new THREE.ShaderMaterial({
     float column=pow(az,700.);float broad=pow(az,60.);
     col+=vec3(4.5,2.3,0.8)*column*(0.25+2.2*sp)+vec3(1.6,0.6,0.2)*broad*(0.15+0.7*sp);
     col=mix(col,horizonCol(vd,sunDir)*0.8,smoothstep(900.,3400.,dist)*0.5);
+    if(noon>0.5){
+      vec3 dN=mix(vec3(0.01,0.13,0.32),vec3(0.03,0.27,0.45),swell*0.6);
+      vec3 cN=mix(dN,horizonCol(vd,sunDir)*0.75,fres*0.6);
+      cN+=vec3(2.6,2.5,2.3)*sp*0.14*smoothstep(3000.,250.,dist);
+      col=mix(cN,horizonCol(vd,sunDir)*0.85,smoothstep(900.,3400.,dist)*0.5);
+    }
     col*=tint;
     gl_FragColor=vec4(col,1.);
   }`
@@ -386,15 +411,15 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),0.3,0.4,2.6);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade=new ShaderPass({
-  uniforms:{tDiffuse:{value:null},time:{value:0},res:{value:new THREE.Vector2(1,1)},sat:{value:1.2},con:{value:1.05},vig:{value:0.42},grain:{value:0.03}},
+  uniforms:{tDiffuse:{value:null},time:{value:0},res:{value:new THREE.Vector2(1,1)},sat:{value:1.2},con:{value:1.05},vig:{value:0.42},grain:{value:0.03},warmG:{value:1}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform sampler2D tDiffuse;uniform float time;uniform vec2 res;uniform float sat,con,vig,grain;varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tDiffuse;uniform float time;uniform vec2 res;uniform float sat,con,vig,grain,warmG;varying vec2 vUv;
   float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   void main(){
     vec3 c=texture2D(tDiffuse,vUv).rgb;
     float l=dot(c,vec3(0.299,0.587,0.114));
-    c*=mix(vec3(1.0),vec3(1.06,0.94,0.88),0.8);
-    c+=vec3(0.10,0.015,0.05)*(1.-smoothstep(0.0,0.45,l))*0.55;
+    c*=mix(vec3(1.0),vec3(1.06,0.94,0.88),0.8*warmG);
+    c+=vec3(0.10,0.015,0.05)*(1.-smoothstep(0.0,0.45,l))*0.55*warmG;
     c=mix(vec3(l),c,sat);
     c=(c-0.5)*con+0.5;
     vec2 q=vUv-0.5;q.y*=1.15;
@@ -1155,7 +1180,8 @@ const AU={ctx:null,muted:store.get('sundown-mute')==='1',
 /* ---------- UI helpers ---------- */
 function fmt(m){return m<1000?Math.floor(m)+' m':(m/1000).toFixed(2)+' km';}
 let capTimer=0,popTimer=0;
-function caption(c,dur=3.6){const el=$('caption');el.className=c[1];el.textContent=c[0];void el.offsetWidth;el.classList.add('on');capTimer=dur;}
+const NOON_SWAP={'Golden hour, every hour.':'Blue skies all day.','Warm asphalt, long shadows.':'Hot asphalt, short shadows.'};
+function caption(c,dur=3.6){const el=$('caption');el.className=c[1];el.textContent=(S.tod==='noon'&&NOON_SWAP[c[0]])||c[0];void el.offsetWidth;el.classList.add('on');capTimer=dur;}
 function pop(text,sub){const el=$('pop');el.innerHTML='';el.append(text);if(sub){const s=document.createElement('span');s.className='sub';s.textContent=sub;el.append(s);}el.classList.add('on');popTimer=1.2;}
 $('keys').innerHTML=isTouch?
   '<span>Drag <b>↔</b> steer</span><span>Tap <b>●</b> ollie</span><span>Tap in air <b>✦</b> trick</span><span>Swipe <b>↑</b> kickflip</span><span>Flick <b>←</b><b>→</b> heelflip / shove-it</span><span>Hold <b>●</b> manual / grab</span>':
@@ -1606,6 +1632,20 @@ function applyLook(){
   HAZE.hazeSunCol.value.setRGB(0.55*S.glare,0.22*S.glare,0.04*S.glare);
   const tg=clamp(1+(0.7-t)*0.7,0.7,1.5),tb=clamp(1+(0.7-t)*1.2,0.55,1.8);
   skyMat.uniforms.tint.value.set(1,tg,tb);oceanMat.uniforms.tint.value.set(1,tg,tb);
+  hemi.groundColor.setRGB(0.22,0.06,0.08);
+  const noon=S.tod==='noon';skyMat.uniforms.noon.value=oceanMat.uniforms.noon.value=noon?1:0;grade.uniforms.warmG.value=noon?0.12:1;
+  mLit.color.setRGB(2.4,1.15,0.42);lampMats[1].color.setRGB(3,1.7,0.7);headMat.color.setRGB(4,3.3,2.2);motes.material.color.setRGB(1.5,0.8,0.4);
+  if(noon){
+    // bright midday: white sun high overhead, blue skylight, light haze
+    const w=(t-0.7)*0.25;
+    sun.color.setRGB(1,0.96-w*0.2,0.9-w*0.5);sun.intensity=S.sunPow*0.95;
+    hemi.color.setRGB(0.55,0.72,1.0);hemi.groundColor.setRGB(0.36,0.31,0.22);hemi.intensity=S.amb*1.8;
+    scene.fog.color.setRGB(0.66,0.80,1.0);scene.fog.far=S.fog*1.7;scene.fog.near=Math.min(120,S.fog*0.4);
+    renderer.toneMappingExposure=S.expo*0.8;
+    HAZE.hazeSunCol.value.setRGB(0.18*S.glare,0.18*S.glare,0.16*S.glare);
+    skyMat.uniforms.tint.value.set(1,1-w*0.15,1-w*0.3);oceanMat.uniforms.tint.value.set(1,1,1);
+    mLit.color.setRGB(0.10,0.10,0.12);lampMats[1].color.setRGB(0.8,0.8,0.75);headMat.color.setRGB(1.5,1.45,1.3);motes.material.color.setRGB(0.5,0.5,0.45);
+  }
   const u=grade.uniforms;u.sat.value=S.sat;u.con.value=S.con;u.vig.value=S.vig;u.grain.value=S.grain;
   bloom.enabled=S.bloom>0.01;bloom.strength=S.bloom;rays.enabled=S.rays>0.01;rays.uniforms.amount.value=S.rays;
 }
@@ -1624,7 +1664,7 @@ function applyScenery(){
 function applyAudio(){if(AU.music)AU.music.gain.value=S.music;if(AU.sfx)AU.sfx.gain.value=S.sfx;}
 function applyRes(){PRMAX=S.res;PR=S.res;resize();}
 function applyEnv(force){
-  const key=S.sunH+'|'+S.sunA+'|'+S.warm;
+  const key=S.tod+'|'+S.sunH+'|'+S.sunA+'|'+S.warm;
   if(force||key!==envTexBakedKey){bakeEnv();envTexBakedKey=key;}
   scene.environment=S.reflect?envTex:null;
 }
@@ -1636,6 +1676,7 @@ function apply(k){
     case 'scenery':applyScenery();break;
     case 'reflect':scene.environment=S.reflect?envTex:null;break;
     case 'sunH':case 'sunA':applySun();break;
+    case 'tod':applySun();applyLook();applyEnv(true);syncTod();break;
     case 'fov':case 'camH':resize();break;
     case 'music':case 'sfx':applyAudio();break;
     case 'fps':$('fps').hidden=!S.fps;break;
@@ -1645,8 +1686,13 @@ function apply(k){
 }
 function applyAll(){
   applySun();applyLook();applyShadows();applyMSAA();applyScenery();applyAudio();applyRes();
-  $('fps').hidden=!S.fps;applyEnv(false);
+  $('fps').hidden=!S.fps;applyEnv(false);syncTod();
 }
+function syncTod(){
+  for(const b of document.querySelectorAll('#todPick button'))b.classList.toggle('on',b.dataset.t===S.tod);
+  $('tagline').textContent=S.tod==='noon'?'An endless skate under a bright blue sky, down a palm-lined street that never quite reaches the sea.':'An endless golden-hour skate down a palm-lined street that never quite reaches the sea.';
+}
+document.querySelectorAll('#todPick button').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();S.tod=b.dataset.t;apply('tod');saveSettings();}));
 
 const FMT={x:v=>v.toFixed(2)+'×',pct:v=>Math.round(v*100)+'%',n1:v=>v.toFixed(1),n2:v=>v.toFixed(2),
   deg:v=>(v>0?'+':'')+Math.round(v)+'°',ang:v=>Math.round(Math.atan(v)*180/Math.PI)+'°'};
@@ -1662,7 +1708,8 @@ const SCHEMA=[
   {k:'auto',label:'Auto-adjust resolution',hint:'Lowers the resolution when the frame rate drops.',type:'toggle'},
  ]},
  {tab:'Lighting',items:[
-  {k:'sunH',label:'Sun height',hint:'Lower gives longer shadows.',type:'range',min:0.02,max:0.5,step:0.01,fmt:v=>FMT.ang(v/Math.hypot(S.sunA,1)),bake:1},
+  {k:'tod',label:'Time of day',type:'seg',opts:[['sunset','Sunset'],['noon','Noon']]},
+  {k:'sunH',label:'Sun height',hint:'Sunset only. Lower gives longer shadows.',type:'range',min:0.02,max:0.5,step:0.01,fmt:v=>FMT.ang(v/Math.hypot(S.sunA,1)),bake:1},
   {k:'sunA',label:'Sun direction',type:'range',min:-0.8,max:0.8,step:0.02,fmt:FMT.ang,bake:1},
   {k:'sunPow',label:'Sun strength',type:'range',min:1,max:14,step:0.5,fmt:FMT.n1},
   {k:'warm',label:'Warmth',hint:'Slide right for a deeper red sunset.',type:'range',min:0,max:1,step:0.05,fmt:FMT.pct,bake:1},
