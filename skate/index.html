@@ -251,7 +251,7 @@ sun.shadow.bias=-0.0003;sun.shadow.normalBias=0.04;
 scene.add(sun,sun.target);
 const LZ=SUN.clone(),LX=new V3().crossVectors(new V3(0,1,0),LZ).normalize(),LY=new V3().crossVectors(LZ,LX);
 let TX=80/SHADOW,TY=80/SHADOW;
-function applySun(){if(S.tod==='noon')SUN.set(-0.25+S.sunA,1.5,0.35).normalize();else SUN.set(S.sunA,S.sunH,-1).normalize();LZ.copy(SUN);LX.crossVectors(new V3(0,1,0),LZ).normalize();LY.crossVectors(LZ,LX);}
+function applySun(){if(S.tod==='noon')SUN.set(-0.78+S.sunA,1.15,-0.42).normalize();else SUN.set(S.sunA,S.sunH,-1).normalize();LZ.copy(SUN);LX.crossVectors(new V3(0,1,0),LZ).normalize();LY.crossVectors(LZ,LX);}
 applySun();
 function placeSun(pz){
   const T=new V3(0,0,pz-(S.tod==='noon'?35:115));
@@ -268,7 +268,7 @@ float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
   return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<6;i++){v+=a*vn(p);p=p*2.02+vec2(1.7,9.2);a*=.5;}return v;}`;
 const HORIZON=`vec3 horizonCol(vec3 d,vec3 s){float az=max(dot(normalize(vec3(d.x,0.,d.z)),normalize(vec3(s.x,0.,s.z))),0.);
-  return mix(mix(vec3(0.95,0.20,0.06),vec3(1.9,0.62,0.14),pow(az,7.)),vec3(0.80,0.90,1.06),noon);}`;
+  return mix(mix(vec3(0.95,0.20,0.06),vec3(1.9,0.62,0.14),pow(az,7.)),vec3(0.62,0.80,1.08),noon);}`;
 const skyMat=new THREE.ShaderMaterial({
   uniforms:{sunDir:{value:SUN},time:{value:0},noon:{value:0},tint:{value:new THREE.Vector3(1,1,1)}},side:THREE.BackSide,depthWrite:false,
   vertexShader:`varying vec3 vDir;void main(){vDir=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
@@ -309,20 +309,20 @@ const skyMat=new THREE.ShaderMaterial({
     col+=vec3(4.,2.2,0.8)*pow(sd,700.);
     if(h<0.)col=hz*0.85;
     if(noon>0.5){
-      vec3 nc=mix(vec3(0.66,0.82,1.06),vec3(0.14,0.40,1.0),smoothstep(0.0,0.2,t));
-      nc=mix(nc,vec3(0.04,0.17,0.70),smoothstep(0.22,0.9,t));
-      nc+=vec3(1.0,0.97,0.9)*(pow(sd,5.)*0.3+pow(sd,60.)*0.9);
+      vec3 nc=mix(vec3(0.52,0.74,1.08),vec3(0.10,0.36,1.05),smoothstep(0.0,0.16,t));
+      nc=mix(nc,vec3(0.025,0.13,0.66),smoothstep(0.18,0.85,t));
+      nc+=vec3(1.0,0.92,0.7)*(pow(sd,4.)*0.35+pow(sd,40.)*1.2);
       vec2 u3=uv*0.11+vec2(time*0.005,time*0.002);
       float cn=fbm(u3+vec2(fbm(u3*0.8+5.1),fbm(u3*0.8+1.7))*0.7);
       float cnS=fbm(u3+vec2(fbm(u3*0.8+5.1),fbm(u3*0.8+1.7))*0.7+normalize(sunDir.xz+vec2(1e-4))*0.02);
       float cov=smoothstep(0.5,0.7,cn)*smoothstep(0.015,0.13,h);
-      vec3 lc=mix(vec3(1.55,1.55,1.6),vec3(0.70,0.76,0.9),smoothstep(0.62,0.92,cn));
-      lc+=vec3(0.5,0.48,0.45)*clamp((cn-cnS)*14.,0.,1.);
+      vec3 lc=mix(vec3(1.75,1.68,1.55),vec3(0.62,0.70,0.88),smoothstep(0.6,0.9,cn));
+      lc+=vec3(0.9,0.8,0.55)*clamp((cn-cnS)*14.,0.,1.);
       nc=mix(nc,lc,cov*0.92);
       float wisp=smoothstep(0.55,0.85,fbm(vec2(uv.x*0.08,uv.y*0.5)+vec2(time*0.003,0.)+31.))*smoothstep(0.1,0.5,h);
       nc=mix(nc,vec3(1.3,1.35,1.45),wisp*0.35);
       float disc2=smoothstep(0.99900,0.99935,cs);nc=mix(nc,vec3(32.,30.,26.),disc2);
-      if(h<0.)nc=vec3(0.80,0.90,1.06)*0.9;
+      if(h<0.)nc=vec3(0.52,0.74,1.08)*0.9;
       col=nc;
     }
     col*=tint;
@@ -340,7 +340,9 @@ function bakeEnv(){
   const envSky=new THREE.Mesh(new THREE.SphereGeometry(100,32,16),skyMat);envScene.add(envSky);
   const ground=new THREE.Mesh(new THREE.CircleGeometry(90,24),new THREE.MeshBasicMaterial({color:S.tod==='noon'?new THREE.Color().setRGB(0.30,0.28,0.22):new THREE.Color().setRGB(0.25,0.08,0.06)}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-3;envScene.add(ground);
+  const tint0=skyMat.uniforms.tint.value.clone();if(S.tod==='noon')skyMat.uniforms.tint.value.multiplyScalar(0.42);
   const t=pmrem.fromScene(envScene,0.02).texture;
+  skyMat.uniforms.tint.value.copy(tint0);
   envSky.geometry.dispose();ground.geometry.dispose();ground.material.dispose();
   if(envTex)envTex.dispose();envTex=t;
 }
@@ -1633,16 +1635,16 @@ function applyLook(){
   const tg=clamp(1+(0.7-t)*0.7,0.7,1.5),tb=clamp(1+(0.7-t)*1.2,0.55,1.8);
   skyMat.uniforms.tint.value.set(1,tg,tb);oceanMat.uniforms.tint.value.set(1,tg,tb);
   hemi.groundColor.setRGB(0.22,0.06,0.08);
-  const noon=S.tod==='noon';skyMat.uniforms.noon.value=oceanMat.uniforms.noon.value=noon?1:0;grade.uniforms.warmG.value=noon?0.12:1;
+  const noon=S.tod==='noon';skyMat.uniforms.noon.value=oceanMat.uniforms.noon.value=noon?1:0;grade.uniforms.warmG.value=noon?0.3:1;
   mLit.color.setRGB(2.4,1.15,0.42);lampMats[1].color.setRGB(3,1.7,0.7);headMat.color.setRGB(4,3.3,2.2);motes.material.color.setRGB(1.5,0.8,0.4);
   if(noon){
     // bright midday: white sun high overhead, blue skylight, light haze
     const w=(t-0.7)*0.25;
-    sun.color.setRGB(1,0.96-w*0.2,0.9-w*0.5);sun.intensity=S.sunPow*0.95;
-    hemi.color.setRGB(0.55,0.72,1.0);hemi.groundColor.setRGB(0.36,0.31,0.22);hemi.intensity=S.amb*1.8;
-    scene.fog.color.setRGB(0.66,0.80,1.0);scene.fog.far=S.fog*1.7;scene.fog.near=Math.min(120,S.fog*0.4);
-    renderer.toneMappingExposure=S.expo*0.8;
-    HAZE.hazeSunCol.value.setRGB(0.18*S.glare,0.18*S.glare,0.16*S.glare);
+    sun.color.setRGB(1,0.86-w*0.2,0.58-w*0.4);sun.intensity=S.sunPow*1.5;
+    hemi.color.setRGB(0.45,0.62,1.0);hemi.groundColor.setRGB(0.42,0.34,0.22);hemi.intensity=S.amb*1.1;
+    scene.fog.color.setRGB(0.62,0.78,1.05);scene.fog.far=S.fog*2.0;scene.fog.near=Math.min(120,S.fog*0.4);
+    renderer.toneMappingExposure=S.expo*0.82;
+    HAZE.hazeSunCol.value.setRGB(0.3*S.glare,0.25*S.glare,0.12*S.glare);
     skyMat.uniforms.tint.value.set(1,1-w*0.15,1-w*0.3);oceanMat.uniforms.tint.value.set(1,1,1);
     mLit.color.setRGB(0.10,0.10,0.12);lampMats[1].color.setRGB(0.8,0.8,0.75);headMat.color.setRGB(1.5,1.45,1.3);motes.material.color.setRGB(0.5,0.5,0.45);
   }
