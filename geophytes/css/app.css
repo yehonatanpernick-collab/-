@@ -216,3 +216,7 @@ dialog.capture::backdrop { background: rgba(0,0,0,.5); }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } }
 @keyframes fadeout { 80% { opacity: 1; } to { opacity: 0; } }
 .source { font-size: .8rem; color: var(--muted); text-align: center; }
+
+.refphoto { margin: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface2); border: 1px solid var(--line); }
+.refphoto img { display: block; width: 100%; max-height: 420px; object-fit: cover; aspect-ratio: 4 / 3; }
+.refphoto figcaption { padding: 6px 12px; font-size: .78rem; color: var(--muted); }

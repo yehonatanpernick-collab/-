@@ -1,5 +1,6 @@
 import { SPECIES } from '../data/species.js';
 import { GENERA } from '../data/genera.js';
+import { PHOTOS } from '../data/photos.js';
 import { CLIMATES, REGIONS, EXTRA_REGIONS, ABUNDANCE, TAGS, ZONES, ORGANS, MONTHS, MONTHS_SHORT } from '../data/regions.js';
 import { getSettings, saveSettings, trackedYear } from './settings.js';
 import * as db from './db.js';
@@ -18,6 +19,7 @@ const NONE = 'NONE'; // טקסונים שבמקור אין להם אזור מו�
 const UNASSIGNED = SPECIES.filter((s) => !Object.keys(s.r).length);
 
 // ---------- עזרים ----------
+const refPhoto = (code) => (PHOTOS[code] ? `img/${code.toLowerCase()}.jpg` : null);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const groupOf = (sp) => GENERA[sp.g]?.group || 'classic';
 
@@ -28,8 +30,8 @@ function hueFor(text) {
 }
 
 function avatar(sp, size = 44) {
-  const thumb = latestObs(sp.c)?.url;
-  if (thumb) return `<img class="avatar" style="width:${size}px;height:${size}px" src="${thumb}" alt="">`;
+  const thumb = latestObs(sp.c)?.url || refPhoto(sp.c);
+  if (thumb) return `<img class="avatar" loading="lazy" style="width:${size}px;height:${size}px" src="${thumb}" alt="">`;
   const g = GENERA[sp.g];
   const hue = hueFor(g?.fam || sp.g);
   return `<span class="avatar ph" style="width:${size}px;height:${size}px;--h:${hue}">${esc((g?.he || sp.he)[0])}</span>`;
@@ -312,8 +314,12 @@ function renderSpecies(sp, regionCtx) {
 
   $app.innerHTML = `${topbar(esc(sp.he), back)}
   <main class="species">
+    ${refPhoto(sp.c) ? `<figure class="refphoto">
+      <img src="${refPhoto(sp.c)}" alt="${esc(sp.he)} – ${esc(sp.la)}">
+      <figcaption>צילום: ${esc(PHOTOS[sp.c].credit.replace(/^\(c\)\s*/i, '').replace(/, some rights reserved/i, '').replace(/, uploaded by .*/i, ''))} · <a href="${esc(PHOTOS[sp.c].page)}" target="_blank" rel="noopener">${esc(PHOTOS[sp.c].source)}</a></figcaption>
+    </figure>` : ''}
     <section class="card sphead">
-      ${latest ? `<img class="hero-photo" src="${latest.url}" alt="${esc(sp.he)}">` : avatar(sp, 72)}
+      ${latest ? `<img class="hero-photo" src="${latest.url}" alt="התצפית שלי">` : (refPhoto(sp.c) ? '' : avatar(sp, 72))}
       <div>
         <h2>${esc(sp.he)}</h2>
         <p class="latin">${esc(sp.la)}</p>
