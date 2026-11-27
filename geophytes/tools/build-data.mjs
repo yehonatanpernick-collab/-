@@ -92,6 +92,11 @@ const species = list.map(({ c, he, la }) => {
   return rec;
 });
 
+// רק גאופיטים "קלאסיים" (בצל / פקעת / קנה שורש של אירוס וסחלבים) – בלי דגנים, צמחי מים, מטפסים ועשבוניים בעלי קנה שורש.
+const KEEP_GROUP = 'classic';
+const dropped = species.filter((s) => GENERA[s.g]?.group !== KEEP_GROUP).map((s) => s.c);
+species.splice(0, species.length, ...species.filter((s) => GENERA[s.g]?.group === KEEP_GROUP));
+console.log('dropped non-classic:', dropped.length);
 const out = `// נוצר אוטומטית ע"י tools/build-data.mjs – אל תערכו ידנית.\n// מקור: צמחיית ישראל וסביבתה (flora.org.il), צורת חיים: גיאופיט – ${species.length} טקסונים.\nexport const SPECIES = ${JSON.stringify(species)};\n`;
 fs.writeFileSync(path.join(root, 'data', 'species.js'), out);
 console.log(`wrote ${species.length} species, ${details.size} detail records`);

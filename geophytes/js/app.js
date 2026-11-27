@@ -19,7 +19,35 @@ const NONE = 'NONE'; // טקסונים שבמקור אין להם אזור מו�
 const UNASSIGNED = SPECIES.filter((s) => !Object.keys(s.r).length);
 
 // ---------- עזרים ----------
-const refPhoto = (code) => (PHOTOS[code] ? `img/${code.toLowerCase()}.jpg` : null);
+// כל מין: קובץ אחד (פס של עד 3 תמונות זו לצד זו) – כל מסגרת נחתכת ב-CSS.
+const photoCount = (code) => PHOTOS[code]?.length || 0;
+const refPhoto = (code) => (photoCount(code) ? `img/${code.toLowerCase()}.jpg` : null);
+function frameStyle(code, i) {
+  const n = photoCount(code);
+  return `background-image:url(${refPhoto(code)});background-size:${n * 100}% 100%;background-position:${n > 1 ? (i * 100) / (n - 1) : 0}% 0`;
+}
+const cleanCredit = (c) => String(c || '').replace(/^\(c\)\s*/i, '').replace(/, some rights reserved.*$/i, '').replace(/, uploaded by .*/i, '').replace(/\s*\(CC[^)]*\)\s*$/i, '');
+
+// דירוג נדירות 1–5: 1 = הכי נפוץ, 5 = הכי נדיר.
+// מקומי (באזור נבחר) לפי רמת השכיחות באזור; ארצי לפי השכיחות הגבוהה ביותר ומספר האזורים. מין בסכנת הכחדה עולה דרגה.
+const AB_TO_LEVEL = { 5: 1, 4: 2, 3: 3, 2: 4, 1: 5, 0: 3 };
+function rarity(sp, code) {
+  const abs = Object.values(sp.r);
+  let lvl;
+  if (code && sp.r[code] != null) lvl = AB_TO_LEVEL[sp.r[code]];
+  else {
+    const best = AB_TO_LEVEL[Math.max(...abs, 0)] ?? 3;
+    const n = abs.length;
+    const byRange = n >= 15 ? 1 : n >= 8 ? 2 : n >= 4 ? 3 : n >= 2 ? 4 : n === 1 ? 5 : 4;
+    lvl = Math.round((best + byRange) / 2);
+  }
+  if (/[DX]/.test(sp.t) && lvl >= 2) lvl += 1;
+  return Math.max(1, Math.min(5, lvl));
+}
+const RAR_NAMES = ['', 'נפוץ מאוד', 'שכיח', 'בינוני', 'נדיר', 'נדיר מאוד'];
+function rarBadge(lvl) {
+  return `<span class="rar r${lvl}" title="דירוג נדירות ${lvl} מתוך 5 (1 = הכי נפוץ, 5 = הכי נדיר): ${RAR_NAMES[lvl]}"><b>${lvl}</b>/5 ${'●'.repeat(lvl)}${'○'.repeat(5 - lvl)}</span>`;
+}
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const groupOf = (sp) => GENERA[sp.g]?.group || 'classic';
 
@@ -30,7 +58,8 @@ function hueFor(text) {
 }
 
 function avatar(sp, size = 44) {
-  const thumb = latestObs(sp.c)?.url || refPhoto(sp.c);
+  if (refPhoto(sp.c) && size > 60) return `<span class="thumb" role="img" aria-label="${esc(sp.he)}" style="${frameStyle(sp.c, 0)}"></span>`;
+  const thumb = latestObs(sp.c)?.url || (size <= 60 ? null : refPhoto(sp.c));
   if (thumb) return `<img class="avatar" loading="lazy" style="width:${size}px;height:${size}px" src="${thumb}" alt="">`;
   const g = GENERA[sp.g];
   const hue = hueFor(g?.fam || sp.g);
@@ -39,7 +68,15 @@ function avatar(sp, size = 44) {
 
 function monthsBar(f, labels = false) {
   return `<div class="months${labels ? ' labeled' : ''}" aria-label="חודשי פריחה: ${esc(f.map((m) => MONTHS[m - 1]).join(', '))}">${
-    MONTHS_SHORT.map((m, i) => `<span class="${f.includes(i + 1) ? 'on' : ''}${i + 1 === NOW_MONTH ? ' now' : ''}">${labels ? m : ''}</span>`).join('')}</div>`;
+    MONTHS_SHORT.map((m, i) => `<span class="${f.includes(i + 1) ? 'on' : ''}${i + 1 === NOW_MONTH ? ' now' : ''}">${labels ? m : i + 1}</span>`).join('')}</div>`;
+}
+
+// שורת "איפה" ברשימה: שכיחות באזור שנבחר ובית הגידול; בלי אזור – האזורים העיקריים.
+function whereLine(sp, code, r) {
+  const hab = sp.h || [...sp.z].map((z) => ZONES[z]).filter(Boolean).join(', ');
+  if (r && sp.r[code] != null) return `${ABUNDANCE[sp.r[code]]?.name || ''} ב${r.name}${hab ? ` · ${hab}` : ''}`;
+  const top = Object.entries(sp.r).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([c]) => REGION[c]?.name).filter(Boolean);
+  return `${top.length ? `בעיקר ב${top.join(', ')}` : 'אין אזור מוגדר בישראל'}${hab ? ` · ${hab}` : ''}`;
 }
 
 function tagChips(t) {
@@ -101,19 +138,31 @@ function yearLabel() {
 }
 
 // ---------- ניתוב ----------
-const filters = { q: '', status: 'all', bloom: false, rarity: 'all', group: 'all', sort: 'name' };
+const filters = { q: '', status: 'all', bloom: false, rarity: 'all', lvl: 'all', sort: 'name' };
+
+// זוכר את מיקום הגלילה של כל מסך, כדי שחזרה מדף מין תחזיר בדיוק למקום ברשימה.
+const scrollPos = {};
+let curScroll = 0;
+let lastHash = null;
+window.addEventListener('scroll', () => { curScroll = window.scrollY; }, { passive: true });
 
 function route() {
+  if (lastHash !== null) scrollPos[lastHash] = curScroll;
+  const prevHash = lastHash;
+  lastHash = location.hash;
   const [path, query] = location.hash.slice(1).split('?');
   const params = new URLSearchParams(query || '');
   const parts = path.split('/').filter(Boolean);
-  window.scrollTo(0, 0);
-  if (parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE)) return renderRegion(parts[1]);
-  if (parts[0] === 's' && BY_CODE[parts[1]]) return renderSpecies(BY_CODE[parts[1]], params.get('r'));
-  if (parts[0] === 'all') return renderRegion(null);
-  if (parts[0] === 'seen') return renderSeen();
-  if (parts[0] === 'settings') return renderSettings();
-  return renderHome();
+  const view = parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE) ? () => renderRegion(parts[1])
+    : parts[0] === 's' && BY_CODE[parts[1]] ? () => renderSpecies(BY_CODE[parts[1]], params.get('r'))
+      : parts[0] === 'all' ? () => renderRegion(null)
+        : parts[0] === 'seen' ? renderSeen
+          : parts[0] === 'settings' ? renderSettings : renderHome;
+  view();
+  const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all'].includes(parts[0]);
+  const y = cameBackFromSpecies ? scrollPos[location.hash] || 0 : 0;
+  window.scrollTo(0, y);
+  curScroll = y;
 }
 
 function topbar(title, back) {
@@ -236,9 +285,9 @@ function renderRegion(code) {
           ${[['all', 'כל השכיחויות'], ['rare', `נדירים ${r ? 'באזור' : ''}`], ['vrare', 'נדירים מאוד'], ['P', 'מוגנים'], ['E', 'אנדמיים'], ['D', 'בסכנת הכחדה']]
             .map(([v, l]) => `<option value="${v}"${filters.rarity === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select>
-        <select id="group">
-          <option value="all">כל סוגי הצמחים</option>
-          ${Object.entries(GROUPS).map(([v, l]) => `<option value="${v}"${filters.group === v ? ' selected' : ''}>${l}</option>`).join('')}
+        <select id="lvl">
+          <option value="all">כל דרגות הנדירות</option>
+          ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}"${String(filters.lvl) === String(n) ? ' selected' : ''}>נדירות ${n}${n === 1 ? ' (הכי נפוץ)' : n === 5 ? ' (הכי נדיר)' : ''}</option>`).join('')}
         </select>
         <select id="sort">
           ${[['name', 'מיון: א-ב'], ['rare', 'מיון: הנדירים קודם'], ['common', 'מיון: הנפוצים קודם'], ['bloom', 'מיון: פריחה קרובה'], ['family', 'מיון: לפי משפחה']]
@@ -257,7 +306,7 @@ function renderRegion(code) {
       if (filters.status === 'missing' && seen.has(sp.c)) return false;
       if (filters.status === 'seen' && !seen.has(sp.c)) return false;
       if (filters.bloom && !sp.f.includes(NOW_MONTH)) return false;
-      if (filters.group !== 'all' && groupOf(sp) !== filters.group) return false;
+      if (filters.lvl !== 'all' && rarity(sp, code) !== Number(filters.lvl)) return false;
       if (filters.rarity === 'rare' && localAb(sp) > 3) return false;
       if (filters.rarity === 'vrare' && localAb(sp) > 2) return false;
       if ('PED'.includes(filters.rarity) && filters.rarity.length === 1 && !sp.t.includes(filters.rarity)) return false;
@@ -266,8 +315,8 @@ function renderRegion(code) {
     const monthsAway = (sp) => (sp.f.length ? Math.min(...sp.f.map((m) => (m - NOW_MONTH + 12) % 12)) : 99);
     const cmp = {
       name: (a, b) => a.he.localeCompare(b.he, 'he'),
-      rare: (a, b) => localAb(a) - localAb(b) || a.he.localeCompare(b.he, 'he'),
-      common: (a, b) => localAb(b) - localAb(a) || a.he.localeCompare(b.he, 'he'),
+      rare: (a, b) => rarity(b, code) - rarity(a, code) || a.he.localeCompare(b.he, 'he'),
+      common: (a, b) => rarity(a, code) - rarity(b, code) || a.he.localeCompare(b.he, 'he'),
       bloom: (a, b) => monthsAway(a) - monthsAway(b) || a.he.localeCompare(b.he, 'he'),
       family: (a, b) => (GENERA[a.g]?.famHe || '').localeCompare(GENERA[b.g]?.famHe || '', 'he') || a.he.localeCompare(b.he, 'he'),
     }[filters.sort];
@@ -278,10 +327,11 @@ function renderRegion(code) {
       const elsewhere = !isSeen && seenAnywhere.has(sp.c);
       return `<li class="sp${isSeen ? ' seen' : ''}">
         <a href="#/s/${sp.c}${code ? `?r=${code}` : ''}">
-          ${avatar(sp)}
+          ${avatar(sp, 96)}
           <div class="sptxt">
             <b>${esc(sp.he)}</b> <i>${esc(sp.la)}</i>
-            <div class="meta">${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>
+            <div class="meta">${rarBadge(rarity(sp, code))}${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>
+            <p class="where">${esc(whereLine(sp, code, r))}</p>
             ${monthsBar(sp.f)}
           </div>
         </a>
@@ -296,7 +346,7 @@ function renderRegion(code) {
     b.onclick = () => { filters.status = b.dataset.v; document.querySelectorAll('#status button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
   });
   document.getElementById('bloom').onchange = (e) => { filters.bloom = e.target.checked; draw(); };
-  for (const id of ['rarity', 'group', 'sort']) document.getElementById(id).onchange = (e) => { filters[id] = e.target.value; draw(); };
+  for (const id of ['rarity', 'lvl', 'sort']) document.getElementById(id).onchange = (e) => { filters[id] = e.target.value; draw(); };
   draw();
 }
 
@@ -314,17 +364,20 @@ function renderSpecies(sp, regionCtx) {
 
   $app.innerHTML = `${topbar(esc(sp.he), back)}
   <main class="species">
-    ${refPhoto(sp.c) ? `<figure class="refphoto">
-      <img src="${refPhoto(sp.c)}" alt="${esc(sp.he)} – ${esc(sp.la)}">
-      <figcaption>צילום: ${esc(PHOTOS[sp.c].credit.replace(/^\(c\)\s*/i, '').replace(/, some rights reserved/i, '').replace(/, uploaded by .*/i, ''))} · <a href="${esc(PHOTOS[sp.c].page)}" target="_blank" rel="noopener">${esc(PHOTOS[sp.c].source)}</a></figcaption>
-    </figure>` : ''}
+    ${photoCount(sp.c) ? `<section class="gallery3" aria-label="תמונות של ${esc(sp.he)}">
+      <div class="strip">${PHOTOS[sp.c].map((p, i) => `<figure class="shot3">
+        <button class="frame" data-i="${i}" style="${frameStyle(sp.c, i)}" aria-label="הגדל תמונה ${i + 1}"></button>
+        <figcaption>${esc(cleanCredit(p.credit))} · <a href="${esc(p.page)}" target="_blank" rel="noopener">${esc(p.source)}</a></figcaption>
+      </figure>`).join('')}</div>
+      ${photoCount(sp.c) > 1 ? '<p class="muted swipe">החליקו הצידה לעוד תמונות · לחיצה להגדלה</p>' : ''}
+    </section>` : ''}
     <section class="card sphead">
-      ${latest ? `<img class="hero-photo" src="${latest.url}" alt="התצפית שלי">` : (refPhoto(sp.c) ? '' : avatar(sp, 72))}
+      ${latest ? `<img class="hero-photo" src="${latest.url}" alt="התצפית שלי">` : (refPhoto(sp.c) ? '' : avatar(sp, 56))}
       <div>
         <h2>${esc(sp.he)}</h2>
         <p class="latin">${esc(sp.la)}</p>
         <p class="muted">משפחת ה${esc(g.famHe || '')} (${esc(g.fam || '')}) · סוג ${esc(g.he || sp.g)}</p>
-        <div class="meta">${tagChips(sp.t)}${myObs.length ? '<span class="tag tg-ok">✓ נמצא ואומת</span>' : ''}</div>
+        <div class="meta">${rarBadge(rarity(sp, regionCtx && sp.r[regionCtx] != null ? regionCtx : null))}${tagChips(sp.t)}${myObs.length ? '<span class="tag tg-ok">✓ נמצא ואומת</span>' : ''}</div>
       </div>
     </section>
 
@@ -374,6 +427,7 @@ function renderSpecies(sp, regionCtx) {
   </main>`;
 
   document.getElementById('capture').onclick = () => openCapture({ species: sp, region: regionCtx || regs[0]?.[0] });
+  document.querySelectorAll('.gallery3 .frame').forEach((b) => { b.onclick = () => openLightbox(sp, Number(b.dataset.i)); });
   bindObsDelete(() => renderSpecies(sp, regionCtx));
   const $p = document.getElementById('profile');
   const $btn = document.getElementById('genprofile');
@@ -393,6 +447,30 @@ function renderSpecies(sp, regionCtx) {
     }
     $btn.disabled = false;
   };
+}
+
+function openLightbox(sp, start) {
+  const n = photoCount(sp.c);
+  let i = start;
+  const dlg = document.createElement('dialog');
+  dlg.className = 'lightbox';
+  dlg.innerHTML = `<div class="lb"><div class="lbimg" role="img" aria-label="${esc(sp.he)}"></div>
+    <p class="lbcap"></p>
+    <div class="row lbnav"><button class="btn" id="lbprev" aria-label="הקודמת">›</button><span id="lbpos"></span><button class="btn" id="lbnext" aria-label="הבאה">‹</button><button class="btn" id="lbclose">סגירה</button></div></div>`;
+  document.body.append(dlg);
+  const show = () => {
+    dlg.querySelector('.lbimg').setAttribute('style', frameStyle(sp.c, i));
+    const p = PHOTOS[sp.c][i];
+    dlg.querySelector('.lbcap').innerHTML = `${esc(cleanCredit(p.credit))} · <a href="${esc(p.page)}" target="_blank" rel="noopener">${esc(p.source)}</a>`;
+    dlg.querySelector('#lbpos').textContent = `${i + 1} / ${n}`;
+  };
+  dlg.querySelector('#lbprev').onclick = () => { i = (i - 1 + n) % n; show(); };
+  dlg.querySelector('#lbnext').onclick = () => { i = (i + 1) % n; show(); };
+  dlg.querySelector('#lbclose').onclick = () => dlg.close();
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', () => dlg.remove());
+  show();
+  dlg.showModal();
 }
 
 function obsCard(o) {

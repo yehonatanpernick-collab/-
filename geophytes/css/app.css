@@ -142,13 +142,6 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
 .avatar.ph { display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; color: hsl(var(--h) 45% 30%); background: hsl(var(--h) 45% 88%); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .avatar.ph { color: hsl(var(--h) 50% 85%); background: hsl(var(--h) 30% 24%); } }
 
-.months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; max-width: 240px; margin-top: 4px; }
-.months span { height: 6px; border-radius: 2px; background: var(--line); }
-.months span.on { background: #e0779b; }
-.months span.now { outline: 1.5px solid var(--text); outline-offset: 1px; }
-.months.labeled { max-width: none; gap: 3px; }
-.months.labeled span { height: auto; padding: 6px 0; text-align: center; font-size: .72rem; border-radius: 6px; }
-.months.labeled span.on { color: #fff; font-weight: 700; }
 
 .ab, .tag { display: inline-block; font-size: .72rem; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
 .ab5 { background: #dcfce7; color: #166534; } .ab4 { background: #e0f2fe; color: #075985; }
@@ -217,6 +210,35 @@ dialog.capture::backdrop { background: rgba(0,0,0,.5); }
 @keyframes fadeout { 80% { opacity: 1; } to { opacity: 0; } }
 .source { font-size: .8rem; color: var(--muted); text-align: center; }
 
-.refphoto { margin: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface2); border: 1px solid var(--line); }
-.refphoto img { display: block; width: 100%; max-height: 420px; object-fit: cover; aspect-ratio: 4 / 3; }
-.refphoto figcaption { padding: 6px 12px; font-size: .78rem; color: var(--muted); }
+
+/* --- רשימה: תמונה גדולה יותר, חודשים ממוספרים, שורת מיקום --- */
+.thumb { flex: none; width: 104px; height: 78px; border-radius: 12px; background-color: var(--surface2); background-repeat: no-repeat; border: 1px solid var(--line); }
+.sp > a { align-items: flex-start; }
+.where { margin: 2px 0 4px; font-size: .8rem; line-height: 1.35; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; max-width: 264px; margin-top: 4px; }
+.months span { font-size: 10px; line-height: 16px; text-align: center; border-radius: 4px; color: var(--muted); opacity: .75; font-variant-numeric: tabular-nums; }
+.months span.on { background: #d9628f; color: #fff; opacity: 1; font-weight: 700; }
+.months span.now { outline: 1.5px solid var(--text); outline-offset: 0; opacity: 1; }
+.months.labeled { max-width: none; gap: 3px; direction: rtl; }
+.months.labeled span { padding: 6px 0; font-size: .72rem; line-height: 1.2; border-radius: 6px; background: var(--surface2); }
+.months.labeled span.on { background: #d9628f; color: #fff; }
+.rar { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; font-weight: 600; letter-spacing: .5px; }
+.rar b { font-size: .85rem; letter-spacing: 0; }
+.r1 { background: #dcfce7; color: #166534; } .r2 { background: #ecfccb; color: #3f6212; } .r3 { background: #fef3c7; color: #92400e; }
+.r4 { background: #ffedd5; color: #9a3412; } .r5 { background: #fee2e2; color: #991b1b; }
+
+/* --- דף מין: שלוש תמונות --- */
+.gallery3 { display: flex; flex-direction: column; gap: 4px; }
+.strip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+.shot3 { margin: 0; flex: 0 0 min(86%, 560px); scroll-snap-align: center; border-radius: var(--radius); overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.strip:has(.shot3:only-child) .shot3 { flex-basis: 100%; }
+.frame { display: block; width: 100%; aspect-ratio: 4 / 3; border: 0; padding: 0; cursor: zoom-in; background-color: var(--surface2); background-repeat: no-repeat; }
+.shot3 figcaption { padding: 6px 10px; font-size: .75rem; color: var(--muted); }
+.swipe { margin: 0; font-size: .75rem; text-align: center; }
+dialog.lightbox { border: 0; padding: 0; background: transparent; width: min(960px, 100vw); max-width: 100vw; max-height: 100dvh; }
+dialog.lightbox::backdrop { background: rgba(0,0,0,.85); }
+.lb { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.lbimg { width: 100%; aspect-ratio: 4 / 3; max-height: 78dvh; margin: 0 auto; background-color: #000; background-repeat: no-repeat; border-radius: 10px; }
+.lbcap { margin: 0; color: #ddd; font-size: .8rem; text-align: center; }
+.lbcap a { color: #9fd3ff; }
+.lbnav { justify-content: center; color: #fff; }
