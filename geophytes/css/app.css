@@ -242,3 +242,4 @@ dialog.lightbox::backdrop { background: rgba(0,0,0,.85); }
 .lbcap { margin: 0; color: #ddd; font-size: .8rem; text-align: center; }
 .lbcap a { color: #9fd3ff; }
 .lbnav { justify-content: center; color: #fff; }
+.rar { direction: ltr; unicode-bidi: isolate; }
