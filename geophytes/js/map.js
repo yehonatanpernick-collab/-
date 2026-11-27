@@ -5,7 +5,7 @@ import { MAPMETA } from './mapmeta.js';
 const Z = 11; // מערכת הקואורדינטות הפנימית: פיקסלים בזום 11
 const WORLD = 256 * 2 ** Z;
 const MIN_ZOOM = 7.3, MAX_ZOOM = 15.5;
-const SRC_NAME = { i: 'iNaturalist', h: 'דוגמה באוסף (הרבריום / מוזיאון)', o: 'מאגר תצפיות', x: 'אזור כללי – המיקום המדויק הוסתר להגנה על המין' };
+const SRC_NAME = { i: 'iNaturalist', h: 'דוגמה באוסף (הרבריום / מוזיאון)', o: 'מאגר תצפיות', c: 'תמונה עם מיקום (ויקישיתוף)', x: 'אזור כללי – המיקום המדויק הוסתר להגנה על המין' };
 const ACCENT = '#e5266f';
 
 const PLACES = [
