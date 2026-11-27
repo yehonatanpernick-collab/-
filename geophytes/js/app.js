@@ -441,7 +441,7 @@ function renderSpecies(sp, regionCtx) {
     <section class="card mapcard">
       <h3>🗺 מפת תצפיות</h3>
       <div class="mapbox" id="mapbox"><p class="muted maploading">טוען מפה…</p></div>
-      <p class="muted maphelp">כל נקודה היא תצפית מתועדת (iNaturalist, אוספי הרבריום, סקרים ועוד, דרך GBIF). לחצו על נקודה לפרטים; גררו והגדילו כדי לראות את המקום המדויק.</p>
+      <p class="muted maphelp">כל נקודה היא תצפית מתועדת בישראל (iNaturalist, אוספי הרבריום, סקרים ועוד דרך GBIF). עיגול מקווקו = אזור כללי: מיקום מדויק של מין נדיר מוסתר בכוונה להגנה עליו. לחצו על נקודה לפרטים, והגדילו כדי לראות את המקום המדויק.</p>
     </section>
 
     <section class="card">
