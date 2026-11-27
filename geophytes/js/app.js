@@ -4,6 +4,7 @@ import { PHOTOS } from '../data/photos.js';
 import { CLIMATES, REGIONS, EXTRA_REGIONS, ABUNDANCE, TAGS, ZONES, ORGANS, MONTHS, MONTHS_SHORT } from '../data/regions.js';
 import { getSettings, saveSettings, trackedYear } from './settings.js';
 import * as db from './db.js';
+import { createMap, loadOccurrences } from './map.js';
 import { MODELS, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
@@ -71,7 +72,7 @@ function avatar(sp, size = 44) {
 
 function monthsBar(f, labels = false) {
   return `<div class="months${labels ? ' labeled' : ''}" aria-label="חודשי פריחה: ${esc(f.map((m) => MONTHS[m - 1]).join(', '))}">${
-    MONTHS_SHORT.map((m, i) => `<span class="${f.includes(i + 1) ? 'on' : ''}${i + 1 === NOW_MONTH ? ' now' : ''}">${labels ? m : i + 1}</span>`).join('')}</div>`;
+    MONTHS_SHORT.map((m, i) => `<span class="${f.includes(i + 1) ? 'on' : ''}${i + 1 === NOW_MONTH ? ' now' : ''}">${labels ? m : `<b>${i + 1}</b><i>${m}</i>`}</span>`).join('')}</div>`;
 }
 
 // שורת "איפה" ברשימה: שכיחות באזור שנבחר ובית הגידול; בלי אזור – האזורים העיקריים.
@@ -437,6 +438,12 @@ function renderSpecies(sp, regionCtx) {
       ${extra.length ? `<p class="muted">גם בעבר הירדן: ${extra.map(([c, a]) => `${EXTRA_REGIONS[c]} (${ABUNDANCE[a]?.name})`).join(', ')}</p>` : ''}
     </section>
 
+    <section class="card mapcard">
+      <h3>🗺 מפת תצפיות</h3>
+      <div class="mapbox" id="mapbox"><p class="muted maploading">טוען מפה…</p></div>
+      <p class="muted maphelp">כל נקודה היא תצפית מתועדת (iNaturalist, אוספי הרבריום, סקרים ועוד, דרך GBIF). לחצו על נקודה לפרטים; גררו והגדילו כדי לראות את המקום המדויק.</p>
+    </section>
+
     <section class="card">
       <h3>🧬 על הסוג ${esc(g.he || sp.g)}</h3>
       <p>${esc(g.about || '')}</p>
@@ -458,6 +465,7 @@ function renderSpecies(sp, regionCtx) {
   </main>`;
 
   document.getElementById('capture').onclick = () => openCapture({ species: sp, region: regionCtx || regs[0]?.[0] });
+  initSpeciesMap(sp);
   document.querySelectorAll('.gallery3 .frame').forEach((b) => { b.onclick = () => openLightbox(sp, Number(b.dataset.i)); });
   bindObsDelete(() => renderSpecies(sp, regionCtx));
   const $p = document.getElementById('profile');
@@ -478,6 +486,25 @@ function renderSpecies(sp, regionCtx) {
     }
     $btn.disabled = false;
   };
+}
+
+let curMap = null;
+function initSpeciesMap(sp) {
+  curMap?.destroy();
+  curMap = null;
+  const box = document.getElementById('mapbox');
+  if (!box) return;
+  const mine = db.observations().filter((o) => o.code === sp.c && o.lat != null).map((o) => [o.lat, o.lon, new Date(o.ts).toLocaleDateString('he-IL')]);
+  const start = async () => {
+    const occ = await loadOccurrences();
+    if (!document.body.contains(box)) return;
+    box.innerHTML = '';
+    curMap = createMap(box, { points: occ[sp.c] || [], mine });
+  };
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); start(); } }, { rootMargin: '400px' });
+    io.observe(box);
+  } else start();
 }
 
 function openLightbox(sp, start) {

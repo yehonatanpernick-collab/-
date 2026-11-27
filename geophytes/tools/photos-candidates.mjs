@@ -66,17 +66,21 @@ async function candidates(sp) {
   const add = (p, page, prior) => {
     if (!p || !ALLOWED.has(p.license_code) || seen.has(p.id)) return;
     const w = p.original_dimensions?.width || 0;
-    if (w && w < 900) return; // לא מספיק חד/גדול
+    if (w && w < 1200) return; // לא מספיק חד/גדול
     seen.add(p.id);
     out.push({ id: p.id, medium: p.url.replace('square', 'medium'), large: p.url.replace('square', 'large'), credit: p.attribution, license: p.license_code, page, prior, width: w });
   };
   for (const name of names(sp.la)) {
     const t = TAXON_ID[sp.c] ? { id: TAXON_ID[sp.c] } : await findTaxon(name);
     if (!t) continue;
-    const full = (await getJson(`https://api.inaturalist.org/v1/taxa/${t.id}`))?.results?.[0];
-    (full?.taxon_photos || []).forEach((tp, i) => add(tp.photo, `https://www.inaturalist.org/taxa/${t.id}`, i));
-    const o = await getJson(`https://api.inaturalist.org/v1/observations?taxon_id=${t.id}&photo_license=${LIC_Q}&quality_grade=research&order_by=votes&per_page=40&photos=true`);
-    (o?.results || []).forEach((ob, i) => (ob.photos || []).slice(0, 2).forEach((p) => add(p, `https://www.inaturalist.org/observations/${ob.id}`, 10 + i)));
+    // רק תצפיות שסומנו ב-iNaturalist כ"פורח" (Plant Phenology = Flowering), לפי מספר המועדפים – כך מקבלים תמונות של הצמח בפריחה.
+    const q = `taxon_id=${t.id}&photo_license=${LIC_Q}&quality_grade=research&order_by=votes&per_page=40&photos=true`;
+    const flowering = await getJson(`https://api.inaturalist.org/v1/observations?${q}&term_id=12&term_value_id=13`);
+    (flowering?.results || []).forEach((ob, i) => (ob.photos || []).slice(0, 1).forEach((p) => add(p, `https://www.inaturalist.org/observations/${ob.id}`, i)));
+    if (out.length < 6) { // מין עם מעט תצפיות מסומנות – משלימים מכל התצפיות המחקריות
+      const all = await getJson(`https://api.inaturalist.org/v1/observations?${q}`);
+      (all?.results || []).forEach((ob, i) => (ob.photos || []).slice(0, 1).forEach((p) => add(p, `https://www.inaturalist.org/observations/${ob.id}`, 20 + i)));
+    }
     if (out.length >= POOL) break;
   }
   return out.slice(0, POOL);

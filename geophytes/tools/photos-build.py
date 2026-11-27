@@ -29,10 +29,18 @@ def feats(path):
     sharp = float(lap.var())
     lum = float(g.mean())
     sat = float((a.max(axis=2) - a.min(axis=2)).mean())
+    # פריחה: פיקסלים צבעוניים שאינם ירוקים (עלי כותרת) או לבנים, באזור המרכזי של התמונה
+    hsv = np.asarray(im.convert('HSV'), dtype=np.float32)
+    h_, s_, v_ = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    hh, ww = h_.shape
+    cy, cx = slice(int(hh * .2), int(hh * .8)), slice(int(ww * .2), int(ww * .8))
+    colored = (s_ > 80) & (v_ > 70) & ~((h_ > 40) & (h_ < 125))
+    white = (v_ > 215) & (s_ < 40)
+    bloom = float(colored[cy, cx].mean() + 0.5 * white[cy, cx].mean())
     # dhash
     s = np.asarray(ImageOps.grayscale(im).resize((9, 8)), dtype=np.int16)
     dh = (s[:, 1:] > s[:, :-1]).flatten()
-    return sharp, lum, sat, dh
+    return sharp, lum, sat, dh, bloom
 
 
 def choose(code):
@@ -47,26 +55,28 @@ def choose(code):
         if not os.path.exists(p):
             continue
         try:
-            sharp, lum, sat, dh = feats(p)
+            sharp, lum, sat, dh, bloom = feats(p)
         except Exception:
             continue
-        if sharp < 25 or lum < 35 or lum > 225:
+        if sharp < 40 or lum < 35 or lum > 225:
             continue
-        rows.append(dict(m=m, sharp=sharp, sat=sat, dh=dh, pos=i))
+        rows.append(dict(m=m, sharp=sharp, sat=sat, dh=dh, pos=i, bloom=bloom))
     if not rows:
         return []
     sh = np.array([np.log1p(r['sharp']) for r in rows]); sa = np.array([r['sat'] for r in rows])
     z = lambda v: (v - v.mean()) / (v.std() + 1e-6) if len(v) > 1 else np.zeros_like(v)
+    bl = np.array([r['bloom'] for r in rows])
     for k, r in enumerate(rows):
         prior = 1 - r['pos'] / max(len(meta), 1)
-        r['score'] = 0.45 * prior + 0.35 * z(sh)[k] + 0.2 * z(sa)[k]
+        r['score'] = 0.3 * prior + 0.3 * z(sh)[k] + 0.15 * z(sa)[k] + 0.35 * z(bl)[k] - (1.5 if r['bloom'] < 0.03 else 0)
     rows.sort(key=lambda r: -r['score'])
     picked = []
     for r in rows:
         if all(int((r['dh'] != q['dh']).sum()) > 9 for q in picked):
             picked.append(r)
-    n = 3 if len(picked) < 4 else 4 if len(picked) < 7 else 5
-    return picked[:n]
+    for r in picked:
+        r['want'] = 3 if len(picked) < 4 else 4 if len(picked) < 7 else 5
+    return picked[:7]
 
 
 def dl(url, dest):
@@ -78,9 +88,9 @@ def fit(im, w, h):
     return ImageOps.fit(ImageOps.exif_transpose(im).convert('RGB'), (w, h), Image.LANCZOS, centering=(0.5, 0.5))
 
 
-def build_one(code):
+def build_one(args):
+    code, sel = args
     frames, credits = [], []
-    sel = choose(code)
     tmp = os.path.join(CAND, code, 'sel')
     os.makedirs(tmp, exist_ok=True)
     for k, r in enumerate(sel):
@@ -99,10 +109,25 @@ def build_one(code):
 def main():
     extra = json.load(open(os.path.join(ROOT, 'data', 'extra-photos.json')))
     codes = sorted(d for d in os.listdir(CAND) if os.path.isdir(os.path.join(CAND, d)))
+    # בחירה + סינון תמונות שמופיעות אצל יותר ממין אחד (אותו מין ב-iNaturalist תחת שמות נרדפים): התמונה נשארת רק אצל המין הראשון
+    used, selections, dropped = {}, [], {}
+    for c in codes:
+        sel = choose(c)
+        want = sel[0]['want'] if sel else 3
+        keep = []
+        for r in sel:
+            pid = r['m']['id']
+            if pid in used and used[pid] != c:
+                dropped[c] = dropped.get(c, 0) + 1
+                continue
+            used[pid] = c
+            keep.append(r)
+        selections.append((c, keep[:want]))
+    print('species with cross-species duplicate photos removed:', {k: v for k, v in dropped.items()})
     species = {c.lower(): c for c in json.load(open(os.path.join(ROOT, 'data', 'photos.json'))).keys()}
     out = {}
     with ThreadPoolExecutor(4) as ex:
-        results = list(ex.map(build_one, codes))
+        results = list(ex.map(build_one, selections))
     # שמות הקודים המקוריים (רישיות) לפי species.js
     names = {}
     import re
