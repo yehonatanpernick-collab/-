@@ -1,0 +1,15 @@
+{
+  "name": "אתגר הגאופיטים של ישראל",
+  "short_name": "גאופיטים",
+  "description": "כל הגאופיטים של ישראל לפי אזורים, עם אימות תצפיות בבינה מלאכותית",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#2f6b45",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
