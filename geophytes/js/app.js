@@ -10,10 +10,12 @@ const BY_CODE = Object.fromEntries(SPECIES.map((s) => [s.c, s]));
 const REGION = Object.fromEntries(REGIONS.map((r) => [r.code, r]));
 const CLIMATE = Object.fromEntries(CLIMATES.map((c) => [c.id, c]));
 const GROUPS = {
-  classic: 'גאופיטים קלאסיים (בצל / פקעת)', rhizome: 'עשבוניים בעלי קנה שורש', grass: 'דגניים וגומאיים',
+  classic: 'גאופיטים קלאסיים (בצל, פקעת, קנה שורש)', rhizome: 'עשבוניים בעלי קנה שורש', grass: 'דגניים וגומאיים',
   aquatic: 'צמחי מים וביצות', climber: 'מטפסים',
 };
 const NOW_MONTH = new Date().getMonth() + 1;
+const NONE = 'NONE'; // טקסונים שבמקור אין להם אזור מוגדר בישראל
+const UNASSIGNED = SPECIES.filter((s) => !Object.keys(s.r).length);
 
 // ---------- עזרים ----------
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -104,7 +106,7 @@ function route() {
   const params = new URLSearchParams(query || '');
   const parts = path.split('/').filter(Boolean);
   window.scrollTo(0, 0);
-  if (parts[0] === 'r' && REGION[parts[1]]) return renderRegion(parts[1]);
+  if (parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE)) return renderRegion(parts[1]);
   if (parts[0] === 's' && BY_CODE[parts[1]]) return renderSpecies(BY_CODE[parts[1]], params.get('r'));
   if (parts[0] === 'all') return renderRegion(null);
   if (parts[0] === 'seen') return renderSeen();
@@ -172,6 +174,11 @@ function renderHome() {
         <div class="regions">${regs.map((r) => regionCard(r)).join('')}</div>
       </section>`;
     }).join('')}
+    <section class="climate" style="--cc:#8a8f88">
+      <h3><span class="dot"></span>ללא אזור מוגדר</h3>
+      <p class="muted">${UNASSIGNED.length} טקסונים שבמקור אין להם תפוצה מפורטת בישראל (עבר הירדן, מינים זרים, טקסונים חדשים).</p>
+      <div class="regions"><a class="region card" href="#/r/${NONE}"><div class="rtop"><b>רשימה נפרדת</b><span class="count">${UNASSIGNED.filter((sp) => seen.has(sp.c)).length}/${UNASSIGNED.length}</span></div></a></div>
+    </section>
     <p class="source">מקור הנתונים: <a href="https://flora.org.il/plants/life-form/geophyte/" target="_blank" rel="noopener">צמחיית ישראל וסביבתה – צורת חיים: גיאופיט</a>.</p>
   </main>`;
 
@@ -194,15 +201,18 @@ function regionCard(r) {
 
 // ---------- מסך אזור ----------
 function renderRegion(code) {
-  const r = code ? REGION[code] : null;
+  const none = code === NONE;
+  const r = code && !none ? REGION[code] : null;
   const cl = r ? CLIMATE[r.climate] : null;
-  const list = SPECIES.filter((sp) => !r || sp.r[code] != null);
+  const list = none ? UNASSIGNED : SPECIES.filter((sp) => !r || sp.r[code] != null);
+  if (none) code = null;
   const seen = seenSet(code);
   const seenAnywhere = seenSet();
   const done = list.filter((sp) => seen.has(sp.c)).length;
 
-  $app.innerHTML = `${topbar(r ? esc(r.name) : 'כל הגאופיטים בישראל', '#/')}
+  $app.innerHTML = `${topbar(r ? esc(r.name) : none ? 'ללא אזור מוגדר' : 'כל הגאופיטים בישראל', '#/')}
   <main>
+    ${none ? `<section class="card"><p>טקסונים שמופיעים ברשימת הגאופיטים של "צמחיית ישראל וסביבתה" אבל בעמוד שלהם אין אזור תפוצה בישראל: מינים מעבר הירדן ומסיני, מינים זרים, הכלאות וטקסונים שתוארו לאחרונה. אם מצאתם אחד מהם – אפשר לצלם ולסמן אותו בכל אזור.</p></section>` : ''}
     ${r ? `<section class="card region-head" style="--cc:${cl.color}">
       <span class="climate-chip">${cl.name}</span>
       <p>${esc(r.desc)}</p>

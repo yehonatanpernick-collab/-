@@ -1,5 +1,5 @@
 // מטמון לעבודה בשטח גם בלי קליטה (הבינה המלאכותית עצמה דורשת אינטרנט).
-const CACHE = 'geophytes-v1';
+const CACHE = 'geophytes-v2';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/app.js', 'js/ai.js', 'js/db.js', 'js/settings.js',
   'data/species.js', 'data/genera.js', 'data/regions.js', 'vendor/anthropic-sdk.mjs', 'icon.svg', 'manifest.webmanifest',

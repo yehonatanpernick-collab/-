@@ -24,8 +24,46 @@ const list = fs.readFileSync(path.join(rawDir, 'list.tsv'), 'utf8').trim().split
 const details = new Map();
 for (const f of fs.readdirSync(rawDir).filter((f) => f.endsWith('.json')).sort()) {
   const json = JSON.parse(fs.readFileSync(path.join(rawDir, f), 'utf8'));
-  for (const p of json.p) details.set(p.c.toLowerCase(), p);
+  // מיזוג ברמת שדה: ערך לא-ריק בקובץ מאוחר יותר דורס ערך קודם.
+  for (const p of json.p) {
+    const key = p.c.toLowerCase();
+    const prev = details.get(key) || {};
+    const merged = { ...prev };
+    for (const [k, v] of Object.entries(p)) if (v != null && String(v).trim() !== '') merged[k] = v;
+    details.set(key, merged);
+  }
 }
+
+// תגיות שהגיעו כמילים בעברית → אותיות
+function normTags(t) {
+  let out = (t || '').replace(/[^ERDPIXA]/g, '');
+  const he = t || '';
+  if (/תת-אנדמי/.test(he)) out += 'S';
+  else if (/אנדמי/.test(he)) out += 'E';
+  if (/נדיר(?!\s*-)/.test(he) && !/כמעט נדיר/.test(he)) out += 'R';
+  if (/בסכנ|באיום|פגיע/.test(he)) out += 'D';
+  if (/פולש|זר /.test(he) || /^זר/.test(he)) out += 'I';
+  if (/נכחד/.test(he)) out += 'X';
+  return [...new Set(out)].join('');
+}
+
+// איבר האגירה האופייני לסוג – משמש כשעמוד המין אינו מציין אותו במפורש.
+const GENUS_ORGAN = {
+  Allium: 'B', Gagea: 'B', Ornithogalum: 'B', Bellevalia: 'B', Muscari: 'B', Leopoldia: 'B', Scilla: 'B',
+  Drimia: 'B', Prospero: 'B', Narcissus: 'B', Pancratium: 'B', Sternbergia: 'B', Tulipa: 'B', Fritillaria: 'B',
+  Lilium: 'B', Hyacinthus: 'B', Hyacinthella: 'B', Dipcadi: 'B', Vagaria: 'B', Nothoscordum: 'B', Ixiolirion: 'B',
+  Crocus: 'C', Colchicum: 'C', Romulea: 'C', Gladiolus: 'C', Moraea: 'C', Androcymbium: 'C', Biarum: 'C', Arum: 'C',
+  Arisarum: 'C', Eminium: 'C', Cyclamen: 'C', Anemone: 'C', Ophrys: 'C', Orchis: 'C', Anacamptis: 'C',
+  Serapias: 'C', Himantoglossum: 'C', Neotinea: 'C', Platanthera: 'C', Dactylorhiza: 'T', Bunium: 'C', Leontice: 'C',
+  Bongardia: 'C', Corydalis: 'C', Tamus: 'C', Geranium: 'C', Iris: 'R', Ranunculus: 'T', Eremurus: 'T',
+  Asparagus: 'R', Arundo: 'R', Phragmites: 'R', Typha: 'R', Nuphar: 'R', Nymphaea: 'R', Butomus: 'R',
+  Convolvulus: 'R', Epipactis: 'R', Cephalanthera: 'R', Limodorum: 'R', Sorghum: 'R', Pennisetum: 'R',
+  Cynodon: 'R', Cyperus: 'R', Carex: 'R', Piptatherum: 'R', Hyparrhenia: 'R', Ophioglossum: 'R', Isoetes: 'C',
+  Umbilicus: 'C', Arisaema: 'C', Aristolochia: 'C', Paeonia: 'T', Biebersteinia: 'T', Delphinium: 'T',
+  Scorzonera: 'T', Rumex: 'T', Euphorbia: 'T', Astomaea: 'C', Arrhenatherum: 'C', Oxalis: 'B', Poa: 'B',
+  Myriophyllum: 'R', Ambrosia: 'R', Ipomoea: 'T', Stipagrostis: 'R', Ammophila: 'R', Panicum: 'R', Urochloa: 'R',
+  Chloris: 'R', Saccharum: 'R',
+};
 
 const warnings = [];
 const species = list.map(({ c, he, la }) => {
@@ -44,9 +82,10 @@ const species = list.map(({ c, he, la }) => {
     else warnings.push(`${c}: unknown region "${part}"`);
   }
   rec.f = (d.f || '').split(',').map((n) => Number(n)).filter((n) => n >= 1 && n <= 12);
-  rec.t = (d.t || '').replace(/[^ERDPIXA]/g, '');
+  rec.t = normTags(d.t);
+  if (rec.t.includes('A')) rec.t = rec.t.replace('A', rec.t.includes('D') ? '' : 'D');
   rec.z = (d.z || '').replace(/[^MBTDHS]/g, '');
-  rec.o = /^[BCRTO]$/.test(d.o) ? d.o : 'O';
+  rec.o = /^[BCRT]$/.test(d.o) ? d.o : (GENUS_ORGAN[genus] || 'O');
   rec.h = (d.h || '').trim();
   rec.s = (d.s || '').trim();
   if (!Object.keys(rec.r).length) warnings.push(`${c}: no Israeli region`);
