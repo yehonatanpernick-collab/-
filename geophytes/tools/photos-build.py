@@ -110,6 +110,9 @@ def main():
     extra = json.load(open(os.path.join(ROOT, 'data', 'extra-photos.json')))
     codes = sorted(d for d in os.listdir(CAND) if os.path.isdir(os.path.join(CAND, d)))
     # בחירה + סינון תמונות שמופיעות אצל יותר ממין אחד (אותו מין ב-iNaturalist תחת שמות נרדפים): התמונה נשארת רק אצל המין הראשון
+    import re as _re
+    latin = {m.group(1).lower(): m.group(2) for m in _re.finditer(r'"c":"([^"]+)","he":"[^"]*","la":"([^"]*)"', open(os.path.join(ROOT, 'data', 'species.js'), encoding='utf-8').read())}
+    codes = sorted(codes, key=lambda c: ('aff.' in latin.get(c, ''), c))  # מינים "aff." אחרונים: אם חולקים תמונות עם מין מוגדר – הן נשארות אצל המוגדר
     used, selections, dropped = {}, [], {}
     for c in codes:
         sel = choose(c)
