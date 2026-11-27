@@ -1,5 +1,4 @@
 // חיבור ל-Claude: אימות תצפית מצילום, זיהוי חופשי והסבר מורחב על מין.
-import Anthropic from '../vendor/anthropic-sdk.mjs';
 import { SPECIES } from '../data/species.js';
 import { GENERA } from '../data/genera.js';
 import { REGIONS, ABUNDANCE, ORGANS, MONTHS, TAGS } from '../data/regions.js';
@@ -17,23 +16,61 @@ export class AiError extends Error {
 
 const REGION_NAME = Object.fromEntries(REGIONS.map((r) => [r.code, r.name]));
 
-function makeClient() {
+// ---- שני מצבי חיבור ----
+// 1) מארח (Claude Artifact): הבינה המלאכותית מגיעה דרך claude.use("sample") – בלי מפתח, על חשבון המשתמש.
+// 2) עצמאי: SDK של Anthropic עם מפתח API (נטען רק כשצריך).
+const HOSTED_BUILD = typeof __HOSTED__ !== 'undefined' && __HOSTED__;
+export const isHosted = () => HOSTED_BUILD || !!(typeof window !== 'undefined' && window.claude?.use);
+
+let samplePromise = null;
+async function getSample() {
+  if (!samplePromise) samplePromise = Promise.resolve(window.claude?.use ? window.claude.use('sample') : null).catch(() => null);
+  return samplePromise;
+}
+
+let sdk = null;
+async function makeClient() {
   const s = getSettings();
-  if (s.mode === 'proxy') {
-    return new Anthropic({ apiKey: 'via-proxy', baseURL: `${location.origin}/anthropic`, dangerouslyAllowBrowser: true });
-  }
+  if (typeof __HOSTED__ === 'undefined' && !sdk) sdk = (await import('../vendor/anthropic-sdk.mjs')).default;
+  if (!sdk) throw new AiError('הבינה המלאכותית אינה זמינה כאן.');
+  if (s.mode === 'proxy') return new sdk({ apiKey: 'via-proxy', baseURL: `${location.origin}/anthropic`, dangerouslyAllowBrowser: true });
   if (!s.apiKey) throw new AiError('צריך להגדיר מפתח API של Anthropic בהגדרות כדי להשתמש בבינה המלאכותית.', 'nokey');
-  return new Anthropic({ apiKey: s.apiKey, dangerouslyAllowBrowser: true });
+  return new sdk({ apiKey: s.apiKey, dangerouslyAllowBrowser: true });
 }
 
 function explainError(err) {
   if (err instanceof AiError) return err;
-  if (err instanceof Anthropic.AuthenticationError) return new AiError('מפתח ה-API שגוי או לא פעיל. בדקו אותו בהגדרות.', 'nokey');
-  if (err instanceof Anthropic.PermissionDeniedError) return new AiError('למפתח אין הרשאה למודל הזה. נסו מודל אחר בהגדרות.');
-  if (err instanceof Anthropic.RateLimitError) return new AiError('יותר מדי בקשות כרגע. חכו דקה ונסו שוב.');
-  if (err instanceof Anthropic.APIConnectionError) return new AiError('אין חיבור לשרת הבינה המלאכותית. בדקו את החיבור לאינטרנט.');
-  if (err instanceof Anthropic.APIError) return new AiError(`שגיאה מהשרת (${err.status ?? ''}): ${err.message}`);
+  const code = err?.code;
+  if (code) { // שגיאות של claude.use("sample")
+    const map = {
+      not_granted: 'לא אישרת ל-Claude לעבוד עם האפליקציה. אשר כשתתבקש ונסה שוב.',
+      sampling_disabled: 'Claude אינו זמין בחשבון הזה.',
+      rate_limited: 'יותר מדי בקשות או שהגעת למגבלת השימוש. נסה שוב עוד מעט.',
+      session_expired: 'צריך להתחבר מחדש ל-Claude.',
+      image_rejected: 'אי אפשר לקרוא את התמונה. נסה תמונה אחרת.',
+      images_unavailable: 'שליחת תמונות ל-Claude אינה זמינה כאן.',
+      refused: 'הבינה המלאכותית סירבה לנתח את התמונה. נסה תמונה אחרת.',
+      invalid_json: 'התקבלה תשובה לא תקינה מהבינה המלאכותית. נסה שוב.',
+      upstream_error: 'תקלה זמנית בחיבור ל-Claude. נסה שוב.',
+      prompt_too_large: 'הבקשה גדולה מדי.',
+    };
+    if (map[code]) return new AiError(map[code], code === 'not_granted' ? 'nogrant' : 'error');
+    return new AiError(`שגיאה (${code}): ${err.message || ''}`);
+  }
+  const st = err?.status;
+  if (st === 401) return new AiError('מפתח ה-API שגוי או לא פעיל. בדקו אותו בהגדרות.', 'nokey');
+  if (st === 403) return new AiError('למפתח אין הרשאה למודל הזה. נסו מודל אחר בהגדרות.');
+  if (st === 429) return new AiError('יותר מדי בקשות כרגע. חכו דקה ונסו שוב.');
+  if (st) return new AiError(`שגיאה מהשרת (${st}): ${err.message}`);
+  if (/connection|fetch|network/i.test(err?.message || '')) return new AiError('אין חיבור לשרת הבינה המלאכותית. בדקו את החיבור לאינטרנט.');
   return new AiError(err?.message || String(err));
+}
+
+function b64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type });
 }
 
 // רשימת כל הגאופיטים בישראל – חלק קבוע בהנחיית המערכת (נשמר במטמון בין בקשות).
@@ -105,8 +142,24 @@ function contextText({ region, lat, lon }) {
 }
 
 async function runJson(content) {
+  const sample = await getSample();
+  if (sample) {
+    const images = content.filter((b) => b.type === 'image').map((b) => b.source.data && b64ToBlob(b.source.data, b.source.media_type));
+    const task = content.filter((b) => b.type === 'text').map((b) => b.text).join('\n\n');
+    const prompt = `${SYSTEM}\n\n---\n${task}\n\nThe ${images.length} attached image(s) are the user's photos of the plant.\nReply with ONLY one JSON object (no prose, no code fence) that follows this JSON Schema exactly:\n${JSON.stringify(RESULT_SCHEMA)}`;
+    try {
+      const result = await sample.json(prompt, { images, modelTier: 'complex', effort: 'high' });
+      if (!result || typeof result !== 'object') throw new AiError('התקבלה תשובה לא תקינה מהבינה המלאכותית. נסו שוב.');
+      result.confidence = Math.max(0, Math.min(100, Math.round(Number(result.confidence) || 0)));
+      result.alternatives = Array.isArray(result.alternatives) ? result.alternatives : [];
+      result.model = 'Claude';
+      return result;
+    } catch (err) {
+      throw explainError(err);
+    }
+  }
   const s = getSettings();
-  const client = makeClient();
+  const client = await makeClient();
   let resp;
   try {
     resp = await client.beta.messages.create({
@@ -170,8 +223,9 @@ The user sent ${images.length} photo(s) of the same plant.`;
 
 /** הסבר מורחב בעברית על המין – זורם (streaming). */
 export async function speciesProfile(species, onText) {
+  const sample = await getSample();
   const s = getSettings();
-  const client = makeClient();
+  const client = sample ? null : await makeClient();
   const g = GENERA[species.g];
   const prompt = `כתוב פרופיל מעמיק ומעניין בעברית על הגאופיט הבא מצמחיית ישראל, לחובב טבע שרוצה למצוא ולצלם אותו בשטח.
 
@@ -190,6 +244,12 @@ ${speciesBrief(species)}
 ## עובדה מפתיעה
 
 הסתמך על הנתונים שלמעלה. אם אינך בטוח בפרט מסוים – כתוב זאת במפורש ואל תמציא. אורך: 400–700 מילים.`;
+  if (sample) {
+    try {
+      const { text } = await sample(prompt, { modelTier: 'default', onText: ({ text }) => onText(text) });
+      return text;
+    } catch (err) { throw explainError(err); }
+  }
   try {
     const stream = client.beta.messages.stream({
       model: s.model,
@@ -210,8 +270,12 @@ ${speciesBrief(species)}
 
 /** בדיקת חיבור קצרה מההגדרות. */
 export async function testConnection() {
+  const sample = await getSample();
+  if (sample) {
+    try { return (await sample('ענה במילה אחת: שלום', { modelTier: 'quick', cache: false })).text.trim(); } catch (err) { throw explainError(err); }
+  }
   const s = getSettings();
-  const client = makeClient();
+  const client = await makeClient();
   try {
     const r = await client.messages.create({
       model: s.model, max_tokens: 2000, output_config: { effort: 'low' },

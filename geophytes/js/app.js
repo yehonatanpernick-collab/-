@@ -3,7 +3,7 @@ import { GENERA } from '../data/genera.js';
 import { CLIMATES, REGIONS, EXTRA_REGIONS, ABUNDANCE, TAGS, ZONES, ORGANS, MONTHS, MONTHS_SHORT } from '../data/regions.js';
 import { getSettings, saveSettings, trackedYear } from './settings.js';
 import * as db from './db.js';
-import { MODELS, verifyObservation, identifyPlant, speciesProfile, testConnection } from './ai.js';
+import { MODELS, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
 const BY_CODE = Object.fromEntries(SPECIES.map((s) => [s.c, s]));
@@ -382,7 +382,7 @@ function renderSpecies(sp, regionCtx) {
       $btn.textContent = 'רענון ההסבר';
     } catch (err) {
       $p.innerHTML = `<p class="err">${esc(err.message)}</p>`;
-      if (err.kind === 'nokey') $p.innerHTML += '<a class="btn" href="#/settings">להגדרות</a>';
+      if (err.kind === 'nokey' && !isHosted()) $p.innerHTML += '<a class="btn" href="#/settings">להגדרות</a>';
       $btn.textContent = 'נסו שוב';
     }
     $btn.disabled = false;
@@ -428,9 +428,18 @@ function renderSeen() {
 // ---------- הגדרות ----------
 function renderSettings() {
   const s = getSettings();
+  const hosted = isHosted();
   $app.innerHTML = `${topbar('הגדרות', '#/')}
   <main class="settings">
-    <section class="card">
+    ${hosted ? `<section class="card">
+      <h3>🤖 בינה מלאכותית</h3>
+      <p>Claude מחובר לאפליקציה ועובד דרך חשבון ה-Claude שלך – אין צורך במפתח. בפעם הראשונה תתבקש לאשר.</p>
+      <label>סף ביטחון לאישור: <b id="thv">${s.threshold}%</b>
+        <input type="range" id="threshold" min="60" max="95" step="5" value="${s.threshold}">
+      </label>
+      <div class="row"><button class="btn primary" id="save">שמירה</button><button class="btn" id="test">בדיקת חיבור</button></div>
+      <p id="testres" class="muted"></p>
+    </section>` : `<section class="card">
       <h3>🤖 חיבור לבינה המלאכותית (Claude)</h3>
       <p class="muted">הזיהוי והאימות מתבצעים ע"י Claude של Anthropic. צריך מפתח API אישי מ-<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. המפתח נשמר רק בדפדפן הזה ונשלח רק ל-Anthropic.</p>
       <label>אופן החיבור
@@ -454,7 +463,7 @@ function renderSettings() {
         <button class="btn" id="test">בדיקת חיבור</button>
       </div>
       <p id="testres" class="muted"></p>
-    </section>
+    </section>`}
 
     <section class="card">
       <h3>💾 גיבוי</h3>
@@ -474,17 +483,19 @@ function renderSettings() {
   </main>`;
 
   const $mode = document.getElementById('mode');
-  const syncMode = () => { document.getElementById('keyrow').hidden = $mode.value === 'proxy'; };
-  $mode.onchange = syncMode;
+  const syncMode = () => { if ($mode) document.getElementById('keyrow').hidden = $mode.value === 'proxy'; };
+  if ($mode) $mode.onchange = syncMode;
   syncMode();
   document.getElementById('threshold').oninput = (e) => { document.getElementById('thv').textContent = `${e.target.value}%`; };
-  const collect = () => saveSettings({
-    mode: $mode.value,
-    apiKey: document.getElementById('apikey').value.trim(),
-    model: document.getElementById('model').value,
-    threshold: Number(document.getElementById('threshold').value),
-    saveLocation: document.getElementById('loc').checked,
-  });
+  const collect = () => saveSettings(hosted
+    ? { threshold: Number(document.getElementById('threshold').value) }
+    : {
+      mode: $mode.value,
+      apiKey: document.getElementById('apikey').value.trim(),
+      model: document.getElementById('model').value,
+      threshold: Number(document.getElementById('threshold').value),
+      saveLocation: document.getElementById('loc').checked,
+    });
   document.getElementById('save').onclick = () => { collect(); toast('נשמר ✓'); };
   document.getElementById('test').onclick = async () => {
     collect();
@@ -593,7 +604,7 @@ function openCapture({ species, region }) {
       const res = species ? await verifyObservation({ species, ...args }) : await identifyPlant(args);
       showResult(res, reg, pos);
     } catch (err) {
-      $result.innerHTML = `<p class="err">${esc(err.message)}</p>${err.kind === 'nokey' ? '<a class="btn" href="#/settings">להגדרות</a>' : ''}`;
+      $result.innerHTML = `<p class="err">${esc(err.message)}</p>${err.kind === 'nokey' && !isHosted() ? '<a class="btn" href="#/settings">להגדרות</a>' : ''}`;
     }
     $analyze.disabled = false;
   };
@@ -652,9 +663,8 @@ function celebrate(sp, reg) {
 
 // ---------- אתחול ----------
 window.addEventListener('hashchange', route);
-await db.loadAll();
-route();
+db.loadAll().then(route);
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if ('serviceWorker' in navigator && location.protocol !== 'file:' && !isHosted()) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
