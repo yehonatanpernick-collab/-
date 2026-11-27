@@ -61,7 +61,7 @@ function hueFor(text) {
 }
 
 function avatar(sp, size = 44) {
-  if (refPhoto(sp.c) && size > 60) return `<span class="thumb" role="img" aria-label="${esc(sp.he)}" style="${frameStyle(sp.c, 0)}"></span>`;
+  if (refPhoto(sp.c) && size > 60) return `<span class="thumb" role="img" aria-label="${esc(sp.he)}" style="background-image:url(img/t/${sp.c.toLowerCase()}.jpg);background-size:cover;background-position:center"></span>`;
   const thumb = latestObs(sp.c)?.url || (size <= 60 ? null : refPhoto(sp.c));
   if (thumb) return `<img class="avatar" loading="lazy" style="width:${size}px;height:${size}px" src="${thumb}" alt="">`;
   const g = GENERA[sp.g];

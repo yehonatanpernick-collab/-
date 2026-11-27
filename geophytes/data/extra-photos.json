@@ -1,0 +1,22 @@
+{
+  "irimoa": [
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2025/09/13235743/Iris_regis-uzziae6_2014.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2016/02/Iris_regis-uzziae10_2014.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2025/09/14003702/Iris_regis-uzziae41_2014.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2025/09/14003850/Iris_regis-uzziae72_2014.jpg", "credit": "אורי פרגמן-ספיר"}
+  ],
+  "cromoa": [
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2022/01/15130529/C.-moabiticus-4-Oron-Peri.jpg", "credit": "אורון פרי"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2022/01/14225639/Crocus_moabiticus6_251.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2022/01/14230741/0RI_0781-833x1200.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2022/01/14230958/Crocus_moabiticus9_251.jpg", "credit": "אורי פרגמן-ספיר"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2022/01/15130812/C.-moabiticos-1-Oron-Peri-958x1200.jpg", "credit": "אורון פרי"}
+  ],
+  "colfas": [
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2019/01/06230216/IMG_0090-1600x1200.jpg", "credit": "יואב סילברט"}
+  ],
+  "allcal": [
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2019/08/06105613/all.jpg", "credit": "עוז גולן"},
+    {"url": "https://floraupload.s3.amazonaws.com/uploads/2019/08/06110142/all2.jpg", "credit": "עוז גולן"}
+  ]
+}
