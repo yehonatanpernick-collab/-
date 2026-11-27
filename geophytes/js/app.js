@@ -149,11 +149,36 @@ let curScroll = 0;
 let lastHash = null;
 window.addEventListener('scroll', () => { curScroll = window.scrollY; }, { passive: true });
 
+// בתוך Claude Artifact הכתובת אינה מעבירה מסלולים כמו #/r/GOL, ולכן הניווט נשמר בזיכרון (ערימת מסכים) ולא בכתובת.
+let memHash = '#/';
+const navStack = [];
+const hashNow = () => (isHosted() ? memHash : location.hash);
+
+function go(hash) {
+  if (!isHosted()) { location.hash = hash; return; }
+  navStack.push(memHash);
+  memHash = hash;
+  route();
+}
+function goBack(fallback) {
+  if (!isHosted()) { location.hash = fallback; return; }
+  memHash = navStack.length ? navStack.pop() : fallback;
+  route();
+}
+document.addEventListener('click', (e) => {
+  if (!isHosted() || e.defaultPrevented || e.button) return;
+  const link = e.target.closest?.('a[href^="#/"]');
+  if (!link) return;
+  e.preventDefault();
+  const href = link.getAttribute('href');
+  if (link.dataset.back != null) goBack(href); else go(href);
+});
+
 function route() {
   if (lastHash !== null) scrollPos[lastHash] = curScroll;
   const prevHash = lastHash;
-  lastHash = location.hash;
-  const [path, query] = location.hash.slice(1).split('?');
+  lastHash = hashNow();
+  const [path, query] = lastHash.slice(1).split('?');
   const params = new URLSearchParams(query || '');
   const parts = path.split('/').filter(Boolean);
   const view = parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE) ? () => renderRegion(parts[1])
@@ -163,14 +188,14 @@ function route() {
           : parts[0] === 'settings' ? renderSettings : renderHome;
   view();
   const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all'].includes(parts[0]);
-  const y = cameBackFromSpecies ? scrollPos[location.hash] || 0 : 0;
+  const y = cameBackFromSpecies ? scrollPos[lastHash] || 0 : 0;
   window.scrollTo(0, y);
   curScroll = y;
 }
 
 function topbar(title, back) {
   return `<header class="topbar">
-    ${back ? `<a class="iconbtn" href="${back}" aria-label="חזרה">→</a>` : '<span class="logo">🌷</span>'}
+    ${back ? `<a class="iconbtn" data-back href="${back}" aria-label="חזרה">→</a>` : '<span class="logo">🌷</span>'}
     <h1>${title}</h1>
     <a class="iconbtn" href="#/settings" aria-label="הגדרות">⚙</a>
   </header>`;
