@@ -67,10 +67,13 @@ async function findTaxon(name) {
   return null;
 }
 
+// מינים ששמם ב-iNaturalist שונה (הכלאה, זן) – מזהה ישיר.
+const TAXON_ID = { anafei: 1077391, tulauc: 860616, ROMPET: 1191474 };
+
 async function inatCandidates(sp) {
   const out = [];
   for (const name of names(sp.la)) {
-    const t = await findTaxon(name);
+    const t = TAXON_ID[sp.c] ? { id: TAXON_ID[sp.c] } : await findTaxon(name);
     if (!t) continue;
     const full = (await getJson(`https://api.inaturalist.org/v1/taxa/${t.id}`))?.results?.[0];
     const page = `https://www.inaturalist.org/taxa/${t.id}`;
@@ -112,6 +115,7 @@ async function commonsCandidates(sp) {
 async function doSpecies(sp) {
   const have = photos[sp.c]?.length || 0;
   if (have >= WANT) return;
+  for (const f of fs.readdirSync(rawDir)) if (f.startsWith(sp.c.toLowerCase() + '-')) fs.unlinkSync(path.join(rawDir, f));
   let cands = [];
   try { cands = await inatCandidates(sp); } catch (e) { console.log('ERR inat', sp.c, e.message); }
   if (cands.length < WANT) { try { cands = cands.concat(await commonsCandidates(sp)); } catch (e) { console.log('ERR commons', sp.c, e.message); } }
