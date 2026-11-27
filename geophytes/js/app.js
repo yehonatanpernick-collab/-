@@ -46,7 +46,10 @@ function rarity(sp, code) {
 }
 const RAR_NAMES = ['', 'נפוץ מאוד', 'שכיח', 'בינוני', 'נדיר', 'נדיר מאוד'];
 function rarBadge(lvl) {
-  return `<span class="rar r${lvl}" title="דירוג נדירות ${lvl} מתוך 5 (1 = הכי נפוץ, 5 = הכי נדיר): ${RAR_NAMES[lvl]}"><b>${lvl}</b>/5 ${'●'.repeat(lvl)}${'○'.repeat(5 - lvl)}</span>`;
+  return `<span class="rar r${lvl}" title="דירוג נדירות ${lvl} מתוך 5 (1 = הכי נפוץ, 5 = הכי נדיר)">
+    <span class="rar-top"><span class="rar-lbl">נדירות</span><b>${lvl}</b><small>מתוך 5 · ${RAR_NAMES[lvl]}</small></span>
+    <span class="rar-bars">${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= lvl ? 'on' : ''}"></i>`).join('')}</span>
+  </span>`;
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const groupOf = (sp) => GENERA[sp.g]?.group || 'classic';
@@ -326,14 +329,17 @@ function renderRegion(code) {
       const isSeen = seen.has(sp.c);
       const elsewhere = !isSeen && seenAnywhere.has(sp.c);
       return `<li class="sp${isSeen ? ' seen' : ''}">
-        <a href="#/s/${sp.c}${code ? `?r=${code}` : ''}">
-          ${avatar(sp, 96)}
-          <div class="sptxt">
-            <b>${esc(sp.he)}</b> <i>${esc(sp.la)}</i>
-            <div class="meta">${rarBadge(rarity(sp, code))}${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>
-            <p class="where">${esc(whereLine(sp, code, r))}</p>
-            ${monthsBar(sp.f)}
+        <a class="spcard" href="#/s/${sp.c}${code ? `?r=${code}` : ''}">
+          <div class="sprow">
+            ${avatar(sp, 96)}
+            <div class="sptxt">
+              <b class="spname">${esc(sp.he)}</b>
+              <i class="splatin">${esc(sp.la)}</i>
+              ${rarBadge(rarity(sp, code))}
+            </div>
           </div>
+          <div class="spmonths"><span class="mlbl">חודשי פריחה</span>${monthsBar(sp.f)}</div>
+          ${(r || sp.t.replace('R', '') || elsewhere) ? `<div class="meta">${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>` : ''}
         </a>
         ${isSeen ? '<span class="check" title="נמצא ואומת">✓</span>' : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">📷</button>`}
       </li>`;
