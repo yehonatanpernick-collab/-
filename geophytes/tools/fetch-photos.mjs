@@ -41,7 +41,7 @@ const ALIAS = {
   'Drimia aphylla': 'Drimia maritima', 'Prospero autumnale': 'Prospero autumnale',
   'Androcymbium palaestinum': 'Colchicum palaestinum', 'Leopoldia comosa': 'Muscari comosum',
   'Orchis laxiflora': 'Anacamptis laxiflora', 'Orchis collina': 'Anacamptis collina',
-  'Orchis israelitica': 'Anacamptis israelitica', 'Gagea gageoides': 'Gagea gageoides',
+  'Orchis israelitica': 'Anacamptis israelitica', 'Ophrys holosericea': 'Ophrys holoserica', 'Piptatherum miliaceum': 'Oloptum miliaceum', 'Serapias levantina': 'Serapias levantina', 'Allium trachycoleum': 'Allium trachycoleum', 'Nothoscordum borbonicum': 'Nothoscordum gracile', 'Gagea gageoides': 'Gagea gageoides',
 };
 function cleanName(la) {
   const parts = la.replace(/[×]/g, ' ').replace(/\b(aff\.|var\.|sp\. nov\.)/g, ' ').split(/\s+/).filter(Boolean);
