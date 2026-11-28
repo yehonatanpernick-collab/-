@@ -10,8 +10,8 @@ from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LAT0, LAT1, LON0, LON1 = 29.35, 33.55, 34.1, 36.05
 LAYERS = {'sat': 's2cloudless-2020_3857', 'ter': 'terrain-light_3857'}
-ZOOMS = [9, 10, 11]
-BANDS = 3  # פסים לרמת הזום הגבוהה
+ZOOMS = [9, 10, 11, 12]
+BANDS = {11: 3, 12: 8}  # פסים לרמות הזום הגבוהות (נטענים רק כשרואים אותם)
 
 def tile(lat, lon, z):
     n = 2 ** z
@@ -48,7 +48,7 @@ for style, layer in LAYERS.items():
                 miss += 1
                 continue
             im.paste(Image.open(io.BytesIO(data)).convert('RGB'), ((x - x0) * 256, (y - y0) * 256))
-        bands = BANDS if z == max(ZOOMS) else 1
+        bands = BANDS.get(z, 1)
         rows = math.ceil(ny / bands)
         files = []
         for b in range(bands):
@@ -56,8 +56,8 @@ for style, layer in LAYERS.items():
             if r0 >= r1:
                 break
             part = im.crop((0, r0 * 256, nx * 256, r1 * 256))
-            name = f'map/{style}{z}' + ('abc'[b] if bands > 1 else '') + '.jpg'
-            part.save(os.path.join(ROOT, name), 'JPEG', quality=78 if style == 'sat' else 82, optimize=True, progressive=True)
+            name = f'map/{style}{z}' + ('abcdefgh'[b] if bands > 1 else '') + '.jpg'
+            part.save(os.path.join(ROOT, name), 'JPEG', quality=(70 if z == 12 else 78) if style == 'sat' else (74 if z == 12 else 82), optimize=True, progressive=True)
             files.append(dict(file=name, y=y0 + r0, rows=r1 - r0))
         meta['levels'].setdefault(style, {})[str(z)] = dict(x0=x0, cols=nx, files=files)
         print(style, z, nx, ny, 'missing', miss, [os.path.getsize(os.path.join(ROOT, f['file'])) // 1024 for f in files], 'KB')

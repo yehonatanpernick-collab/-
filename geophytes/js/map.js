@@ -4,7 +4,7 @@ import { MAPMETA } from './mapmeta.js';
 
 const Z = 11; // מערכת הקואורדינטות הפנימית: פיקסלים בזום 11
 const WORLD = 256 * 2 ** Z;
-const MIN_ZOOM = 7.3, MAX_ZOOM = 15.5;
+const MIN_ZOOM = 7.3, MAX_ZOOM = 13.4; // רזולוציית רקע מקורית עד זום 12 – מעבר לכך הרקע רק מוגדל, לכן לא מתקרבים יותר
 const SRC_NAME = { i: 'iNaturalist', h: 'דוגמה באוסף (הרבריום / מוזיאון)', o: 'מאגר תצפיות', c: 'תמונה עם מיקום (ויקישיתוף)', u: 'דיווח לא מאומת מרשת חברתית (המיקום משוער)', x: 'אזור כללי – המיקום המדויק הוסתר להגנה על המין' };
 const ACCENT = '#e5266f';
 
@@ -64,7 +64,8 @@ function loadImg(src, onLoad) {
 const ICON = {
   full: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  fit: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>',
+  locate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>',
+  fit: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3.5" stroke-dasharray="3.2 3.2"/><circle cx="9.5" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="14.5" cy="9" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
 };
 
 /** points = [[lat, lon, year, uncertaintyMeters, src], ...]; mine = [[lat, lon, label], ...] */
@@ -79,11 +80,13 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
       <button type="button" class="mapbtn" data-act="in" aria-label="הגדלה">+</button>
       <button type="button" class="mapbtn" data-act="out" aria-label="הקטנה">−</button>
       <button type="button" class="mapbtn" data-act="fit" aria-label="הצג את כל הנקודות">${ICON.fit}</button>
+      <button type="button" class="mapbtn maploc" data-act="locate" aria-label="המיקום שלי">${ICON.locate}</button>
     </div>
     <div class="mapcount"></div>
     <div class="mapempty" hidden></div>
     <div class="mappop" hidden></div>
-    <div class="mapattr">לוויין: Sentinel-2 © EOX · מפה: EOX, OSM · תצפיות: GBIF, iNaturalist · יישובים: Wikipedia</div>`;
+    <div class="maptoast" hidden></div>
+    <div class="mapattr">© EOX (Sentinel-2) · OSM · GBIF · iNaturalist · Wikipedia</div>`;
   const cv = root.querySelector('canvas');
   const ctx = cv.getContext('2d');
   const pop = root.querySelector('.mappop');
@@ -106,6 +109,59 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     const ang = (Math.atan2((lon - best.lon) * kx, lat - best.lat) * 180) / Math.PI;
     return `<span class="near">📍 כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ ${DIRS[Math.round(((ang + 360) % 360) / 45) % 8]}ית ל<b>${best.t}</b></span>`;
   };
+  // --- המיקום שלי (שידור חי) ---
+  let me = null, watchId = null, following = false, pulse = 0, pulseTimer = 0, toastT = 0;
+  const locBtn = root.querySelector('[data-act="locate"]');
+  const toastEl = root.querySelector('.maptoast');
+  const toast = (msg, ms = 3200) => { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastT); if (ms) toastT = setTimeout(() => { toastEl.hidden = true; }, ms); };
+  const distMe = (lat, lon) => {
+    if (!me) return '';
+    const kx = Math.cos((lat * Math.PI) / 180), km = Math.hypot((lon - me.lon) * kx, lat - me.lat) * 111.2;
+    return `<span class="near">🧭 ${km < 1 ? `כ-${Math.round(km * 100) * 10} מ'` : `כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ`} ממני</span>`;
+  };
+  function setLocUi() {
+    locBtn.classList.toggle('on', watchId != null);
+    locBtn.classList.toggle('follow', watchId != null && following);
+    locBtn.setAttribute('aria-pressed', String(watchId != null));
+  }
+  function onPos(pos) {
+    const c = pos.coords, first = !me;
+    me = { lat: c.latitude, lon: c.longitude, acc: c.accuracy || 0, heading: Number.isFinite(c.heading) ? c.heading : null, speed: c.speed || 0, xy: toPx(c.longitude, c.latitude) };
+    if (!pulseTimer) pulseTimer = setInterval(() => { pulse = (pulse + 0.045) % 1; draw(); }, 50);
+    if (first) {
+      const inside = me.lat > 29.3 && me.lat < 33.6 && me.lon > 34.0 && me.lon < 36.1;
+      if (!inside) toast('המיקום שלך מחוץ לישראל, ולכן הוא לא נראה על המפה', 5000); else toast(`נמצא · דיוק ±${Math.round(me.acc)} מ'`, 2200);
+    }
+    if (following) {
+      view.x = me.xy[0]; view.y = me.xy[1];
+      if (first) view.zoom = Math.max(view.zoom, Math.min(12.4, me.acc > 400 ? 11 : 12.4));
+      pop.hidden = true; picked = null;
+    }
+    draw();
+  }
+  function onGeoErr(err) {
+    const msgs = { 1: 'אין הרשאת מיקום. אשרו גישה למיקום בדפדפן ונסו שוב', 2: 'לא הצלחתי לאתר את המיקום כרגע', 3: 'איתור המיקום לוקח יותר מדי זמן. נסו שוב בשטח פתוח' };
+    toast(msgs[err.code] || 'שגיאה באיתור המיקום', 5000);
+    if (err.code === 1) stopLocate();
+  }
+  function stopLocate() {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; following = false; me = null; clearInterval(pulseTimer); pulseTimer = 0;
+    pop.hidden = true; setLocUi(); draw();
+  }
+  function startLocate() {
+    if (!('geolocation' in navigator)) { toast('המכשיר או הדפדפן לא תומכים באיתור מיקום'); return; }
+    if (watchId == null) {
+      following = true; toast('מאתר את המיקום…', 0); setLocUi();
+      try { watchId = navigator.geolocation.watchPosition(onPos, onGeoErr, { enableHighAccuracy: true, maximumAge: 1500, timeout: 25000 }); }
+      catch { toast('איתור המיקום חסום בדפדפן הזה'); watchId = null; following = false; setLocUi(); }
+      setLocUi();
+    } else if (!following && me) { // חזרה למעקב אחרי שגררתי את המפה
+      following = true; view.x = me.xy[0]; view.y = me.xy[1]; view.zoom = Math.max(view.zoom, 12); setLocUi(); draw();
+    } else { stopLocate(); toast('מעקב המיקום הופסק', 1800); }
+  }
+  locBtn.onclick = startLocate;
+
   let layer = 'ter';
   const view = { x: 0, y: 0, zoom: 8 };
   let W = 0, H = 0, dpr = 1, raf = 0, hits = [], picked = null;
@@ -143,6 +199,7 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     const out = ['9'];
     if (z >= 9.7) out.push('10');
     if (z >= 10.7) out.push('11');
+    if (z >= 11.6 && set['12']) out.push('12');
     return out.map((l) => [Number(l), set[l]]);
   };
 
@@ -251,6 +308,22 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
       ctx.lineWidth = 2.2; ctx.strokeStyle = '#fff'; ctx.stroke();
       hits.push({ x, y, r: dot + 8, p, kind: 'own' });
     }
+    if (me) { // המיקום שלי – נקודה כחולה עם טווח דיוק ופעימה
+      const x = (me.xy[0] - view.x) * s + W / 2, y = (me.xy[1] - view.y) * s + H / 2;
+      if (x > -60 && y > -60 && x < W + 60 && y < H + 60) {
+        const ar = me.acc / mPerPx;
+        if (ar > 10) { ctx.beginPath(); ctx.arc(x, y, ar, 0, 6.2832); ctx.fillStyle = 'rgba(37,99,235,.13)'; ctx.fill(); ctx.strokeStyle = 'rgba(37,99,235,.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+        if (me.heading != null && me.speed > 0.6) { // כיוון תנועה
+          const a = (me.heading * Math.PI) / 180 - Math.PI / 2;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, 26, a - 0.5, a + 0.5); ctx.closePath();
+          const g = ctx.createRadialGradient(x, y, 4, x, y, 26); g.addColorStop(0, 'rgba(37,99,235,.55)'); g.addColorStop(1, 'rgba(37,99,235,0)'); ctx.fillStyle = g; ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(x, y, 9 + pulse * 13, 0, 6.2832); ctx.strokeStyle = `rgba(37,99,235,${0.45 * (1 - pulse)})`; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 8, 0, 6.2832); ctx.fillStyle = '#2563eb'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+        hits.push({ x, y, r: 16, kind: 'me', p: me });
+      }
+    }
     if (picked) { // הדגשת הנקודה שנבחרה
       const h = hits.find((q) => q.p === picked);
       if (h) { ctx.beginPath(); ctx.arc(h.x, h.y, dot + 5, 0, 6.2832); ctx.lineWidth = 2.2; ctx.strokeStyle = '#fff'; ctx.stroke(); }
@@ -304,7 +377,7 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     moved += Math.abs(dx) + Math.abs(dy);
     const s = 2 ** (view.zoom - Z);
     view.x -= dx / s; view.y -= dy / s;
-    if (moved > 4) { pop.hidden = true; picked = null; }
+    if (moved > 4) { pop.hidden = true; picked = null; if (following) { following = false; setLocUi(); } }
     draw();
   });
   cv.addEventListener('pointerup', (e) => {
@@ -326,12 +399,18 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     }
     if (!best) { pop.hidden = true; picked = null; draw(); return; }
     if (best.kind === 'cluster') { zoomAt(2.6, best.x, best.y); return; }
+    if (best.kind === 'me') {
+      pop.innerHTML = `<b>המיקום שלי</b><span class="muted">שידור חי · דיוק ±${Math.round(me.acc)} מ'</span>${nearest(me.lat, me.lon)}<span class="mono">${me.lat.toFixed(5)}, ${me.lon.toFixed(5)}</span>`;
+      pop.hidden = false; const pw = 232;
+      pop.style.left = `${Math.max(8, Math.min(W - pw - 8, best.x - pw / 2))}px`; pop.style.top = `${best.y > 150 ? best.y - 124 : best.y + 18}px`;
+      return;
+    }
     picked = best.p;
     const p = best.p;
     const lat = p[0].toFixed(4), lon = p[1].toFixed(4);
     pop.innerHTML = best.kind === 'own'
-      ? `<b>התצפית שלי</b><span>${p[2] || ''}</span>${nearest(p[0], p[1])}<span class="mono">${lat}, ${lon}</span>`
-      : `${fmtDate(p[5], p[2])}<span>${SRC_NAME[p[4]] || ''}</span>${nearest(p[0], p[1])}${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
+      ? `<b>התצפית שלי</b><span>${p[2] || ''}</span>${nearest(p[0], p[1])}${distMe(p[0], p[1])}<span class="mono">${lat}, ${lon}</span>`
+      : `${fmtDate(p[5], p[2])}<span>${SRC_NAME[p[4]] || ''}</span>${nearest(p[0], p[1])}${distMe(p[0], p[1])}${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
     pop.hidden = false;
     const pw = 232;
     pop.style.left = `${Math.max(8, Math.min(W - pw - 8, best.x - pw / 2))}px`;
@@ -367,5 +446,5 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
   const ro = new ResizeObserver(() => { const first = !W; resize(); if (first) fit(exact.length ? exact : own); });
   ro.observe(root);
   setTimeout(() => { for (const l of ['ter', 'sat']) for (const lv of ['9', '10']) for (const f of MAPMETA.levels[l][lv].files) loadImg(f.file, draw); }, 600);
-  return { destroy() { ro.disconnect(); document.body.classList.remove('mapfull'); } };
+  return { destroy() { ro.disconnect(); if (watchId != null) navigator.geolocation.clearWatch(watchId); clearInterval(pulseTimer); document.body.classList.remove('mapfull'); } };
 }
