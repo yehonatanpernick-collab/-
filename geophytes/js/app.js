@@ -7,7 +7,8 @@ import * as db from './db.js';
 import { createMap, loadOccurrences } from './map.js';
 import * as rep from './reports.js';
 import { ic } from './icons.js';
-import { MODELS, extractReports, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
+import { habitatBaseline } from './habitat.js';
+import { MODELS, extractReports, habitatProfile, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
 const BY_CODE = Object.fromEntries(SPECIES.map((s) => [s.c, s]));
@@ -178,6 +179,22 @@ document.addEventListener('click', (e) => {
   if (link.dataset.back != null) goBack(href); else go(href);
 });
 
+// ---------- אנימציות עדינות: חשיפה הדרגתית בגלילה ----------
+const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const revealIO = !calm && 'IntersectionObserver' in window
+  ? new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { e.target.classList.add('in'); revealIO.unobserve(e.target); } }, { rootMargin: '0px 0px -5% 0px' })
+  : null;
+function reveal(root = document) {
+  if (!revealIO) return;
+  let n = 0;
+  const fresh = [];
+  root.querySelectorAll('.card, .sp, .habrow').forEach((el) => {
+    if (el.classList.contains('rv')) return;
+    el.classList.add('rv'); el.style.transitionDelay = `${Math.min(n++, 8) * 35}ms`; revealIO.observe(el); fresh.push(el);
+  });
+  setTimeout(() => fresh.forEach((el) => el.classList.add('in')), 1800); // רשת ביטחון
+}
+
 function route() {
   if (lastHash !== null) scrollPos[lastHash] = curScroll;
   const prevHash = lastHash;
@@ -192,6 +209,7 @@ function route() {
           : parts[0] === 'reports' ? renderReports
           : parts[0] === 'settings' ? renderSettings : renderHome;
   view();
+  reveal($app);
   const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all', undefined].includes(parts[0]);
   const y = cameBackFromSpecies ? scrollPos[lastHash] || 0 : 0;
   window.scrollTo(0, y);
@@ -358,6 +376,7 @@ function renderRegion(code, home) {
         ${isSeen ? `<span class="check" title="נמצא ואומת">${ic('tick', 'solo')}</span>` : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">${ic('camera', 'solo')}</button>`}
       </li>`;
     }).join('') : '<li class="empty">אין מינים שתואמים לסינון.</li>';
+    reveal($list);
     $list.querySelectorAll('.cam').forEach((b) => { b.onclick = () => openCapture({ species: BY_CODE[b.dataset.c], region: code }); });
   };
 
@@ -378,6 +397,51 @@ function renderRegion(code, home) {
   document.getElementById('bloom').onchange = (e) => { filters.bloom = e.target.checked; draw(); };
   for (const id of ['rarity', 'lvl', 'sort']) document.getElementById(id).onchange = (e) => { filters[id] = e.target.value; draw(); };
   draw();
+}
+
+// ---------- איפה למצוא אותו ----------
+const habKey = (c) => `geophytes.habitat.${c}`;
+function habRow(icon, label, html) { return html ? `<div class="habrow"><span class="habic">${ic(icon, 'solo')}</span><div><small>${label}</small><b>${html}</b></div></div>` : ''; }
+function habList(items) { return (items || []).map((x) => esc(typeof x === 'string' ? x : x.text)).join(' · '); }
+function habitatCard(sp) {
+  const b = habitatBaseline(sp);
+  let ai = null;
+  try { ai = JSON.parse(localStorage.getItem(habKey(sp.c)) || 'null'); } catch { /* ignore */ }
+  const rows = [
+    habRow('home', 'סוג בית הגידול', habList(b.types) || esc(sp.h || '')),
+    habRow(b.soil[0]?.icon || 'soil', 'קרקע', habList(b.soil)), habRow('rock', 'סלעים', habList(b.rock)),
+    habRow(b.light[0]?.icon || 'sun', 'אור', habList(b.light)), habRow(b.moisture[0]?.icon || 'water', 'לחות', habList(b.moisture)),
+    habRow('plants', 'צמחים בסביבה', habList(b.plants)), habRow('tree', 'עצים בסביבה', habList(b.trees)),
+    habRow('map', 'חגורת צומח', b.zones.map(esc).join(' · ')),
+    habRow('pin', 'איפה בארץ (הכי שכיח)', b.regions.map((r) => `${esc(r.name)} <small>(${esc(r.alt)} · גשם ${esc(r.rain)} מ"מ)</small>`).join(' · ')),
+  ].join('');
+  const aiHtml = ai ? `<div class="habai">
+      ${habRow('soil', 'קרקע', esc(ai.soil_he))}${habRow('rock', 'סלעים', esc(ai.rocks_he))}${habRow(/צל/.test(ai.light_he || '') ? 'shade' : 'sun', 'אור', esc(ai.light_he))}${habRow(/יבש|מנוקז/.test(ai.moisture_he || '') ? 'dry' : 'water', 'לחות', esc(ai.moisture_he))}
+      ${habRow('plants', 'צמחים בסביבה', habList(ai.companion_plants_he))}${habRow('tree', 'עצים בסביבה', habList(ai.trees_he))}
+      ${habRow('pin', 'איפה לחפש', esc(ai.where_to_look_he))}${habRow('tip', 'טיפ לשטח', esc(ai.tips_he))}
+      <p class="muted habnote">${ic('spark', 'sm')}מידע כללי מהבינה המלאכותית על סמך הידע על המין והסוג. לא מדידה בשטח, ולכן כדאי לאמת אותו.</p></div>` : '';
+  return `<h3>${ic('home')}איפה למצוא אותו</h3>
+    <div class="habgrid">${rows || '<p class="muted">אין תיאור בית גידול במקור.</p>'}</div>
+    <p class="muted habnote">לפי תיאור בית הגידול ב"צמחיית ישראל וסביבתה".</p>
+    ${aiHtml}
+    <button class="btn" id="habgo" type="button">${ic('spark')}${ai ? 'רענון התיאור' : 'פירוט מלא: קרקע, צל, צמחים ועצים בסביבה'}</button>
+    <p class="err" id="haberr"></p>`;
+}
+function bindHabitat(sp) {
+  const btn = document.getElementById('habgo');
+  if (!btn) return;
+  btn.onclick = async () => {
+    btn.disabled = true; btn.innerHTML = `${ic('spark')}<span class="pulse">מחפש…</span>`;
+    try {
+      const r = await habitatProfile(sp);
+      try { localStorage.setItem(habKey(sp.c), JSON.stringify(r)); } catch { /* ignore */ }
+      const card = document.getElementById('habcard');
+      if (card) { card.innerHTML = habitatCard(sp); bindHabitat(sp); }
+    } catch (err) {
+      btn.disabled = false; btn.innerHTML = `${ic('spark')}נסו שוב`;
+      document.getElementById('haberr').textContent = err.message;
+    }
+  };
 }
 
 // ---------- מסך מין ----------
@@ -430,6 +494,8 @@ function renderSpecies(sp, regionCtx) {
       </dl>
     </section>
 
+    <section class="card habitat" id="habcard">${habitatCard(sp)}</section>
+
     <section class="card">
       <h3>${ic('pin')}איפה הוא גדל בישראל</h3>
       <ul class="distr">${regs.map(([c, a]) => `<li class="${c === regionCtx ? 'cur' : ''}"><a href="#/r/${c}">${esc(REGION[c].name)}</a>${abBadge(a)}</li>`).join('')}</ul>
@@ -472,6 +538,7 @@ function renderSpecies(sp, regionCtx) {
 
   document.getElementById('capture').onclick = () => openCapture({ species: sp, region: regionCtx || regs[0]?.[0] });
   initSpeciesMap(sp);
+  bindHabitat(sp);
   document.querySelectorAll('.gallery3 .frame').forEach((b) => { b.onclick = () => openLightbox(sp, Number(b.dataset.i)); });
   bindObsDelete(() => renderSpecies(sp, regionCtx));
   const $p = document.getElementById('profile');
@@ -853,7 +920,8 @@ function celebrate(sp, reg) {
   const done = inReg.filter((x) => seen.has(x.c)).length;
   const el = document.createElement('div');
   el.className = 'celebrate';
-  el.innerHTML = `<div><span>${ic('logo', 'solo')}</span><b>${esc(sp.he)} נוסף לרשימה!</b><small>${esc(REGION[reg]?.name || '')}: ${done}/${inReg.length}</small></div>`;
+  const petals = calm ? '' : Array.from({ length: 16 }, (_, i) => `<i class="petal" style="left:${(i * 6.4 + Math.random() * 4).toFixed(1)}%;animation-delay:${(Math.random() * 0.9).toFixed(2)}s;--s:${(0.7 + Math.random() * 0.8).toFixed(2)};background:${['#ee6f9a', '#f7c453', '#9a7bdc', '#fff'][i % 4]}"></i>`).join('');
+  el.innerHTML = `${petals}<div><span>${ic('logo', 'solo')}</span><b>${esc(sp.he)} נוסף לרשימה!</b><small>${esc(REGION[reg]?.name || '')}: ${done}/${inReg.length}</small></div>`;
   document.body.append(el);
   setTimeout(() => el.remove(), 2600);
 }

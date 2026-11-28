@@ -489,7 +489,7 @@ body { background: linear-gradient(180deg, color-mix(in srgb, var(--green2) 16%,
 .hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 40px; background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22140%22 height=%2240%22 viewBox=%220 0 140 40%22%3E%0A%3Cpath d=%22M0 40V30c4 2 6 6 8 10zM10 40c0-8 2-14 6-18 0 8 0 13-2 18zM20 40c1-6 4-10 9-13-1 6-3 10-6 13zM46 40c-1-7-4-11-8-14 1 7 3 11 6 14zM56 40c0-6 2-11 6-15 0 6-1 11-4 15zM84 40c-1-8-4-13-9-16 1 8 3 13 7 16zM96 40c0-7 2-12 7-16 0 7-1 12-4 16zM116 40c-1-6-4-10-8-13 1 6 3 10 6 13zM126 40c1-7 4-11 9-14-1 7-3 11-7 14z%22 fill=%22%238cc272%22/%3E%0A%3Cpath d=%22M0 40c6-3 12-3 18 0zM30 40c8-4 16-4 24 0zM66 40c8-3 14-3 20 0zM104 40c8-3 16-3 24 0z%22 fill=%22%236fae58%22/%3E%0A%3Cpath d=%22M33 40V22%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M27.8 12c-.4 5 1.4 8.6 5.2 8.6s5.6-3.6 5.2-8.6l-2.6 2.1L33 10l-2.6 4.1z%22 fill=%22%23e8467c%22/%3E%3Cpath d=%22M33 10l2.6 4.1L33 20.6l-2.6-6.5z%22 fill=%22%23f98fb1%22/%3E%0A%3Cpath d=%22M72 40V26%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cg fill=%22%23fff%22%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(60 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(120 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(180 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(240 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(300 72 22)%22/%3E%3C/g%3E%3Ccircle cx=%2272%22 cy=%2222%22 r=%222.6%22 fill=%22%23f6b93b%22/%3E%0A%3Cpath d=%22M112 40V28%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M107 30c-1-5 1-9 5-11 4 2 6 6 5 11z%22 fill=%22%239a7bdc%22/%3E%3Cpath d=%22M112 19c2 3 2 7 0 11-2-4-2-8 0-11z%22 fill=%22%23b9a2ee%22/%3E%0A%3C/svg%3E") repeat-x bottom left / 140px 40px; pointer-events: none; }
 .hero h2 { color: #25472f; }
 :root[data-theme="dark"] .hero h2 { color: #d6f0d9; }
-.ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(255, 255, 255, .6) 0); }
+.ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(60, 110, 70, .16) 0); }
 .ring > div { background: #fffdf2; }
 :root[data-theme="dark"] .ring > div { background: var(--surface); }
 
@@ -515,3 +515,39 @@ body { background: linear-gradient(180deg, color-mix(in srgb, var(--green2) 16%,
 .distr li { background: #f3f1dc; }
 .fun { background: #fbf3d2; }
 .tip { background: #fdf0cf; }
+
+/* ===== איפה למצוא אותו ===== */
+.habgrid, .habai { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+.habai { border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 10px; }
+.habrow { display: flex; gap: 10px; align-items: flex-start; background: #f3f1dc; border-radius: 16px; padding: 10px 12px; }
+:root[data-theme="dark"] .habrow { background: var(--surface2); }
+.habic { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #fff; }
+.habic .ic { margin: 0; width: 26px; height: 26px; }
+.habrow small { display: block; color: var(--muted); font-size: .75rem; }
+.habrow b { font-weight: 600; font-size: .94rem; line-height: 1.35; }
+.habrow b small { display: inline; font-weight: 400; }
+.habnote { font-size: .76rem; margin: 6px 0 10px; display: flex; gap: 4px; align-items: center; }
+.habai .habnote { grid-column: 1 / -1; }
+#habgo { width: 100%; }
+
+/* ===== אנימציות עדינות (מכבדות "הפחתת תנועה") ===== */
+@property --k { syntax: '<number>'; inherits: true; initial-value: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  main { animation: pagein .32s ease-out both; }
+  @keyframes pagein { from { opacity: 0; transform: translateY(8px); } }
+  .rv { opacity: 0; transform: translateY(12px); transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .3, 1); }
+  .rv.in { opacity: 1; transform: none; }
+  .btn, .chip, .mchips button, .seg button, .iconbtn, .mapbtn, .sp .cam { transition: transform .16s ease, background-color .22s ease, color .22s ease, border-color .22s ease, box-shadow .22s ease; }
+  .btn:active, .chip:active, .mchips button:active, .iconbtn:active, .sp .cam:active { transform: scale(.95); }
+  .mchips button.on { animation: pop .3s ease; }
+  @keyframes pop { 45% { transform: scale(1.14); } }
+  .ring { animation: ringin 1.1s cubic-bezier(.2, .7, .3, 1) both; background: conic-gradient(var(--green) calc(var(--p) * var(--k) * 1%), rgba(60, 110, 70, .16) 0); }
+  @keyframes ringin { from { --k: 0; } to { --k: 1; } }
+  .hero::after { left: -8px; right: -8px; transform-origin: bottom center; animation: sway 7s ease-in-out infinite alternate; }
+  @keyframes sway { from { transform: translateX(-4px) skewX(-.6deg); } to { transform: translateX(4px) skewX(.6deg); } }
+  .sp.seen .check { animation: pop .5s ease .1s both; }
+  .logo .ic { animation: bob 5s ease-in-out infinite; transform-origin: bottom center; }
+  @keyframes bob { 50% { transform: rotate(3deg); } }
+  .celebrate .petal { position: fixed; top: -20px; width: 12px; height: 16px; border-radius: 80% 0 80% 0; opacity: .9; animation: petalfall 2.4s ease-in forwards; transform: scale(var(--s)); }
+  @keyframes petalfall { to { top: 105vh; transform: translateX(40px) rotate(280deg) scale(var(--s)); opacity: .2; } }
+}

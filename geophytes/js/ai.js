@@ -338,3 +338,47 @@ ${text.slice(0, 12000)}
     throw explainError(err);
   }
 }
+
+const HABITAT_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['soil_he', 'rocks_he', 'light_he', 'moisture_he', 'companion_plants_he', 'trees_he', 'where_to_look_he', 'tips_he'],
+  properties: {
+    soil_he: { type: 'string', description: 'Soil type it prefers (e.g. terra rossa, rendzina, loess, sand, basalt clay) in 1-2 short Hebrew sentences' },
+    rocks_he: { type: 'string', description: 'Rock/stone context: limestone outcrops, basalt stones, between boulders, etc., or that it does not depend on rock' },
+    light_he: { type: 'string', description: 'Sun / shade preference' },
+    moisture_he: { type: 'string', description: 'Dry vs moist, seasonal flooding, drainage' },
+    companion_plants_he: { type: 'array', items: { type: 'string' }, description: 'Typical companion plants/vegetation around it (Hebrew common names, max 6)' },
+    trees_he: { type: 'array', items: { type: 'string' }, description: 'Typical trees/shrubs around it (Hebrew, max 5), empty array if open habitat' },
+    where_to_look_he: { type: 'string', description: '2-3 short Hebrew sentences: concrete habitat types, altitude and landscape positions to search; no invented precise sites' },
+    tips_he: { type: 'string', description: 'One practical field tip in Hebrew (season, time of day, how to spot it)' },
+  },
+};
+
+/** תיאור קצר של בית הגידול: קרקע, סלעים, אור, לחות, צמחים ועצים בסביבה. */
+export async function habitatProfile(species) {
+  const task = `TASK: describe the ecological niche of this taxon in Israel so a hiker knows where to look for it.
+Use ONLY well-established general knowledge about the species / its genus / its vegetation belt; if a detail is uncertain, say it is typical for the genus or leave it general. Never invent precise localities. Keep every field short, clear Hebrew.
+
+TAXON:
+${speciesBrief(species)}`;
+  const sample = await getSample();
+  try {
+    if (sample) {
+      const prompt = `${SYSTEM}\n\n---\n${task}\n\nReply with ONLY one JSON object (no prose, no code fence) that follows this JSON Schema exactly:\n${JSON.stringify(HABITAT_SCHEMA)}`;
+      const r = await sample.json(prompt, { modelTier: 'complex', effort: 'medium' });
+      if (!r || typeof r !== 'object') throw new AiError('התקבלה תשובה לא תקינה מהבינה המלאכותית. נסו שוב.');
+      return r;
+    }
+    const s = getSettings();
+    const client = await makeClient();
+    const resp = await client.beta.messages.create({
+      model: s.model, max_tokens: 4000,
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: HABITAT_SCHEMA } },
+      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: task }] }],
+    });
+    return JSON.parse(resp.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
+  } catch (err) {
+    throw explainError(err);
+  }
+}
