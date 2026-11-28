@@ -485,7 +485,7 @@ function initSpeciesMap(sp) {
   curMap = null;
   const box = document.getElementById('mapbox');
   if (!box) return;
-  const mine = db.observations().filter((o) => o.code === sp.c && o.lat != null).map((o) => [o.lat, o.lon, new Date(o.ts).toLocaleDateString('he-IL')]);
+  const mine = db.observations().filter((o) => o.code === sp.c && o.lat != null).map((o) => [o.lat, o.lon, new Date(o.ts).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })]);
   const start = async () => {
     const occ = await loadOccurrences();
     if (!document.body.contains(box)) return;

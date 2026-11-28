@@ -33,6 +33,18 @@ export function loadPlaces() {
   if (!placesPromise) placesPromise = fetch('data/places.json').then((r) => (r.ok ? r.json() : [])).catch(() => []);
   return placesPromise;
 }
+const HE_MONTHS = ['בינואר', 'בפברואר', 'במרץ', 'באפריל', 'במאי', 'ביוני', 'ביולי', 'באוגוסט', 'בספטמבר', 'באוקטובר', 'בנובמבר', 'בדצמבר'];
+const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+/** תאריך תצפית מלא בעברית: "יום ג׳, 15 במרץ 2022" (או חודש ושנה / שנה בלבד כשחסר מידע) */
+function fmtDate(d, year) {
+  const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(d || '');
+  if (m && m[3]) {
+    const dt = new Date(+m[1], +m[2] - 1, +m[3]);
+    return `<b>יום ${HE_DAYS[dt.getDay()]}, ${+m[3]} ${HE_MONTHS[+m[2] - 1]} ${m[1]}</b>`;
+  }
+  if (m) return `<b>${HE_MONTHS[+m[2] - 1].slice(1)} ${m[1]}</b><span class="muted">היום המדויק לא ידוע</span>`;
+  return year ? `<b>שנת ${year}</b><span class="muted">התאריך המדויק לא ידוע</span>` : '<b>תאריך לא ידוע</b>';
+}
 const DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מזרח', 'דרום', 'דרום-מערב', 'מערב', 'צפון-מערב'];
 
 const imgCache = new Map();
@@ -319,9 +331,9 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     const lat = p[0].toFixed(4), lon = p[1].toFixed(4);
     pop.innerHTML = best.kind === 'own'
       ? `<b>התצפית שלי</b><span>${p[2] || ''}</span>${nearest(p[0], p[1])}<span class="mono">${lat}, ${lon}</span>`
-      : `<b>${p[2] ? `שנת ${p[2]}` : 'שנה לא ידועה'}</b><span>${SRC_NAME[p[4]] || ''}</span>${nearest(p[0], p[1])}${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
+      : `${fmtDate(p[5], p[2])}<span>${SRC_NAME[p[4]] || ''}</span>${nearest(p[0], p[1])}${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
     pop.hidden = false;
-    const pw = 200;
+    const pw = 232;
     pop.style.left = `${Math.max(8, Math.min(W - pw - 8, best.x - pw / 2))}px`;
     pop.style.top = `${best.y > 150 ? best.y - 124 : best.y + 18}px`;
     draw();
