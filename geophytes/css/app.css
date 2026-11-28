@@ -337,3 +337,4 @@ body.mapfull { overflow: hidden; }
 .replist .btn { margin-inline-start: auto; padding: 2px 10px; }
 .spnav { display: flex; gap: 10px; justify-content: space-between; margin: 14px 0; }
 .spnav .btn { flex: 1; text-align: center; }
+.filters #region { flex: none; width: 100%; font-weight: 600; }

@@ -144,7 +144,7 @@ function yearLabel() {
 }
 
 // ---------- ניתוב ----------
-const filters = { q: '', status: 'all', bloom: false, rarity: 'all', lvl: 'all', sort: 'name' };
+const filters = { region: '', q: '', status: 'all', bloom: false, rarity: 'all', lvl: 'all', sort: 'name' };
 
 // זוכר את מיקום הגלילה של כל מסך, כדי שחזרה מדף מין תחזיר בדיוק למקום ברשימה.
 const scrollPos = {};
@@ -184,14 +184,14 @@ function route() {
   const [path, query] = lastHash.slice(1).split('?');
   const params = new URLSearchParams(query || '');
   const parts = path.split('/').filter(Boolean);
-  const view = parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE) ? () => renderRegion(parts[1])
+  const view = parts[0] === 'r' && (REGION[parts[1]] || parts[1] === NONE) ? () => renderRegion(parts[1], true)
     : parts[0] === 's' && BY_CODE[parts[1]] ? () => renderSpecies(BY_CODE[parts[1]], params.get('r'))
-      : parts[0] === 'all' ? () => renderRegion(null)
+      : parts[0] === 'all' ? () => renderRegion(null, true)
         : parts[0] === 'seen' ? renderSeen
           : parts[0] === 'reports' ? renderReports
           : parts[0] === 'settings' ? renderSettings : renderHome;
   view();
-  const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all'].includes(parts[0]);
+  const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all', undefined].includes(parts[0]);
   const y = cameBackFromSpecies ? scrollPos[lastHash] || 0 : 0;
   window.scrollTo(0, y);
   curScroll = y;
@@ -205,8 +205,8 @@ function topbar(title, back) {
   </header>`;
 }
 
-// ---------- מסך בית ----------
-function renderHome() {
+// ---------- מסך בית: רשימה אחת של כל הגאופיטים; האזור הוא רק מסנן ----------
+function homeTop() {
   const seen = seenSet();
   const total = SPECIES.length;
   const pct = Math.round((seen.size / total) * 100);
@@ -216,9 +216,7 @@ function renderHome() {
   const years = [...new Set(db.observations().map((o) => new Date(o.ts).getFullYear()))];
   if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear());
 
-  $app.innerHTML = `${topbar('אתגר הגאופיטים')}
-  <main class="home">
-    <section class="hero card">
+  return `    <section class="hero card">
       <div class="ring" style="--p:${pct}">
         <div><b>${seen.size}</b><small>מתוך ${total}</small></div>
       </div>
@@ -239,7 +237,7 @@ function renderHome() {
       <button class="btn primary" id="identify">📷 זהה צמח מתמונה</button>
       <a class="btn" href="#/seen">🗂 התצפיות שלי (${db.observations().length})</a>
       <a class="btn" href="#/reports">💬 דיווחים מרשתות (${rep.reports().length})</a>
-      <a class="btn" href="#/all">📋 כל ${total} המינים</a>
+      
     </div>
 
     <section class="card bloom">
@@ -247,44 +245,17 @@ function renderHome() {
       <p>${blooming.length} מינים פורחים החודש; ${bloomingMissing} מהם עוד חסרים לך.</p>
       <div class="chips scroll">${blooming.filter((sp) => !seen.has(sp.c)).slice(0, 40).map((sp) =>
         `<a class="chip" href="#/s/${sp.c}">${esc(sp.he)}</a>`).join('')}</div>
-    </section>
-
-    <h2 class="section-title">בחרו אזור בארץ</h2>
-    ${CLIMATES.map((cl) => {
-      const regs = REGIONS.filter((r) => r.climate === cl.id);
-      return `<section class="climate" style="--cc:${cl.color}">
-        <h3><span class="dot"></span>${cl.name}</h3>
-        <p class="muted">${cl.desc}</p>
-        <div class="regions">${regs.map((r) => regionCard(r)).join('')}</div>
-      </section>`;
-    }).join('')}
-    <section class="climate" style="--cc:#8a8f88">
-      <h3><span class="dot"></span>ללא אזור מוגדר</h3>
-      <p class="muted">${UNASSIGNED.length} טקסונים שבמקור אין להם תפוצה מפורטת בישראל (עבר הירדן, מינים זרים, טקסונים חדשים).</p>
-      <div class="regions"><a class="region card" href="#/r/${NONE}"><div class="rtop"><b>רשימה נפרדת</b><span class="count">${UNASSIGNED.filter((sp) => seen.has(sp.c)).length}/${UNASSIGNED.length}</span></div></a></div>
-    </section>
-    <p class="source">מקור הנתונים: <a href="https://flora.org.il/plants/life-form/geophyte/" target="_blank" rel="noopener">צמחיית ישראל וסביבתה – צורת חיים: גיאופיט</a>.</p>
-  </main>`;
-
+    </section>`;
+}
+function bindHomeTop() {
   document.getElementById('year').onchange = (e) => { saveSettings({ year: e.target.value }); renderHome(); };
   document.getElementById('identify').onclick = () => openCapture({});
 }
-
-function regionCard(r) {
-  const list = SPECIES.filter((sp) => sp.r[r.code] != null);
-  const seen = seenSet();
-  const done = list.filter((sp) => seen.has(sp.c)).length;
-  const rare = list.filter((sp) => sp.r[r.code] <= 3).length;
-  const pct = list.length ? Math.round((done / list.length) * 100) : 0;
-  return `<a class="region card" href="#/r/${r.code}">
-    <div class="rtop"><b>${esc(r.name)}</b><span class="count">${done}/${list.length}</span></div>
-    <div class="bar"><span style="width:${pct}%"></span></div>
-    <small class="muted">${rare} נדירים · ${esc(r.rain)} מ"מ גשם</small>
-  </a>`;
-}
+function renderHome() { renderRegion(filters.region || null, true); }
 
 // ---------- מסך אזור ----------
-function renderRegion(code) {
+function renderRegion(code, home) {
+  filters.region = code || '';
   const none = code === NONE;
   const r = code && !none ? REGION[code] : null;
   const cl = r ? CLIMATE[r.climate] : null;
@@ -294,20 +265,26 @@ function renderRegion(code) {
   const seenAnywhere = seenSet();
   const done = list.filter((sp) => seen.has(sp.c)).length;
 
-  $app.innerHTML = `${topbar(r ? esc(r.name) : none ? 'ללא אזור מוגדר' : 'כל הגאופיטים בישראל', '#/')}
-  <main>
+  $app.innerHTML = `${topbar('אתגר הגאופיטים')}
+  <main class="home">
+    ${homeTop()}
     ${none ? `<section class="card"><p>טקסונים שמופיעים ברשימת הגאופיטים של "צמחיית ישראל וסביבתה" אבל בעמוד שלהם אין אזור תפוצה בישראל: מינים מעבר הירדן ומסיני, מינים זרים, הכלאות וטקסונים שתוארו לאחרונה. אם מצאתם אחד מהם – אפשר לצלם ולסמן אותו בכל אזור.</p></section>` : ''}
     ${r ? `<section class="card region-head" style="--cc:${cl.color}">
       <span class="climate-chip">${cl.name}</span>
       <p>${esc(r.desc)}</p>
       <p class="muted">גשם: ${esc(r.rain)} מ"מ · גובה: ${esc(r.alt)}</p>
     </section>` : ''}
-    <section class="card progress">
+    ${r || none ? `<section class="card progress">
       <div class="rtop"><b>${done} מתוך ${list.length} נמצאו</b><span class="muted">${yearLabel()}</span></div>
       <div class="bar big"><span style="width:${list.length ? (done / list.length) * 100 : 0}%"></span></div>
-    </section>
+    </section>` : ''}
 
     <section class="filters card">
+      <select id="region" aria-label="סינון לפי אזור">
+        <option value="">כל הארץ</option>
+        ${CLIMATES.map((cl) => `<optgroup label="${cl.name}">${REGIONS.filter((x) => x.climate === cl.id).map((x) => `<option value="${x.code}"${code === x.code ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>`).join('')}
+        <option value="${NONE}"${none ? ' selected' : ''}>ללא אזור מוגדר</option>
+      </select>
       <input type="search" id="q" placeholder="חיפוש בשם עברי או לטיני…" value="${esc(filters.q)}">
       <div class="seg" id="status">
         ${[['all', 'הכל'], ['missing', 'חסרים'], ['seen', 'נמצאו']].map(([v, l]) => `<button data-v="${v}" class="${filters.status === v ? 'on' : ''}">${l}</button>`).join('')}
@@ -329,6 +306,7 @@ function renderRegion(code) {
       </div>
     </section>
     <ul class="splist" id="list"></ul>
+    <p class="source">מקור הנתונים: <a href="https://flora.org.il/plants/life-form/geophyte/" target="_blank" rel="noopener">צמחיית ישראל וסביבתה – צורת חיים: גיאופיט</a>.</p>
   </main>`;
 
   const draw = () => {
@@ -377,6 +355,8 @@ function renderRegion(code) {
     $list.querySelectorAll('.cam').forEach((b) => { b.onclick = () => openCapture({ species: BY_CODE[b.dataset.c], region: code }); });
   };
 
+  bindHomeTop();
+  document.getElementById('region').onchange = (e) => { renderRegion(e.target.value || null); window.scrollTo(0, document.getElementById('region').getBoundingClientRect().top + scrollY - 70); };
   document.getElementById('q').oninput = (e) => { filters.q = e.target.value; draw(); };
   document.querySelectorAll('#status button').forEach((b) => {
     b.onclick = () => { filters.status = b.dataset.v; document.querySelectorAll('#status button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
@@ -389,7 +369,7 @@ function renderRegion(code) {
 // ---------- מסך מין ----------
 function renderSpecies(sp, regionCtx) {
   const g = GENERA[sp.g] || {};
-  const back = regionCtx && REGION[regionCtx] ? `#/r/${regionCtx}` : '#/';
+  const back = '#/';
   const myObs = db.observations().filter((o) => o.code === sp.c).map(withUrl);
   const regs = Object.entries(sp.r).sort((a, b) => b[1] - a[1]);
   const extra = Object.entries(sp.x || {});
