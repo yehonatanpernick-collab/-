@@ -5,7 +5,8 @@ import { CLIMATES, REGIONS, EXTRA_REGIONS, ABUNDANCE, TAGS, ZONES, ORGANS, MONTH
 import { getSettings, saveSettings, trackedYear } from './settings.js';
 import * as db from './db.js';
 import { createMap, loadOccurrences } from './map.js';
-import { MODELS, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
+import * as rep from './reports.js';
+import { MODELS, extractReports, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
 const BY_CODE = Object.fromEntries(SPECIES.map((s) => [s.c, s]));
@@ -187,6 +188,7 @@ function route() {
     : parts[0] === 's' && BY_CODE[parts[1]] ? () => renderSpecies(BY_CODE[parts[1]], params.get('r'))
       : parts[0] === 'all' ? () => renderRegion(null)
         : parts[0] === 'seen' ? renderSeen
+          : parts[0] === 'reports' ? renderReports
           : parts[0] === 'settings' ? renderSettings : renderHome;
   view();
   const cameBackFromSpecies = prevHash && prevHash.startsWith('#/s/') && ['r', 'all'].includes(parts[0]);
@@ -236,6 +238,7 @@ function renderHome() {
     <div class="actions">
       <button class="btn primary" id="identify">📷 זהה צמח מתמונה</button>
       <a class="btn" href="#/seen">🗂 התצפיות שלי (${db.observations().length})</a>
+      <a class="btn" href="#/reports">💬 דיווחים מרשתות (${rep.reports().length})</a>
       <a class="btn" href="#/all">📋 כל ${total} המינים</a>
     </div>
 
@@ -459,6 +462,13 @@ function renderSpecies(sp, regionCtx) {
 
     <a class="btn wide" href="https://flora.org.il/plants/${sp.c}/" target="_blank" rel="noopener">🖼 תמונות ומידע מלא ב"צמחיית ישראל"</a>
 
+    ${(() => {
+      const ls = SPECIES.filter((x) => !regionCtx || !REGION[regionCtx] || x.r[regionCtx] != null);
+      const i = ls.findIndex((x) => x.c === sp.c), q = regionCtx && REGION[regionCtx] ? `?r=${regionCtx}` : '';
+      const pv = ls[(i - 1 + ls.length) % ls.length], nx = ls[(i + 1) % ls.length];
+      return i < 0 ? '' : `<nav class="spnav"><a class="btn" href="#/s/${pv.c}${q}">› ${esc(pv.he)}</a><a class="btn" href="#/s/${nx.c}${q}">${esc(nx.he)} ‹</a></nav>`;
+    })()}
+
     ${myObs.length ? `<section class="card">
       <h3>🗂 התצפיות שלי</h3>
       <div class="gallery">${myObs.map((o) => obsCard(o)).join('')}</div>
@@ -500,7 +510,7 @@ function initSpeciesMap(sp) {
     const occ = await loadOccurrences();
     if (!document.body.contains(box)) return;
     box.innerHTML = '';
-    curMap = createMap(box, { points: occ[sp.c] || [], mine });
+    curMap = createMap(box, { points: (occ[sp.c] || []).concat(rep.reportPoints(sp.c)), mine });
   };
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); start(); } }, { rootMargin: '400px' });
@@ -566,6 +576,51 @@ function renderSeen() {
     ${obs.length ? `<div class="gallery">${obs.map((o) => obsCard(o)).join('')}</div>` : '<p class="empty">עוד אין תצפיות. בחרו אזור, מצאו גאופיט וצלמו אותו!</p>'}
   </main>`;
   bindObsDelete(renderSeen);
+}
+
+// ---------- דיווחים מרשתות חברתיות ----------
+function renderReports() {
+  const saved = rep.reports();
+  $app.innerHTML = `${topbar('דיווחים מרשתות', '#/')}
+  <main class="reports">
+    <section class="card">
+      <h3>💬 הדבקת דיווחים</h3>
+      <p class="muted">הדביקו כאן טקסט מפוסט, קבוצה או הודעה (למשל "ראיתי חבצלת החוף בחוף דור"). הבינה המלאכותית תזהה מינים ומקומות ותשים אותם במפה כ<b>דיווח לא מאומת</b>, עם מיקום משוער.</p>
+      <textarea id="rtext" rows="6" placeholder="הדביקו כאן…"></textarea>
+      <div class="row"><button class="btn primary" id="rgo">חלץ נקודות</button></div>
+      <div id="rres"></div>
+    </section>
+    <section class="card">
+      <h3>🗂 הדיווחים שלי (${saved.length})</h3>
+      ${saved.length ? `<ul class="replist">${saved.map((r) => `<li><a href="#/s/${r.code}"><b>${esc(BY_CODE[r.code]?.he || r.code)}</b></a> · ${esc(r.place)}${r.year ? ` · ${r.year}` : ''}<small class="muted"> · דיוק ~${r.acc} מ'</small><button class="btn" data-del="${r.id}" aria-label="מחיקה">✕</button></li>`).join('')}</ul>` : '<p class="muted">עוד אין דיווחים.</p>'}
+    </section>
+  </main>`;
+  document.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { rep.deleteReport(b.dataset.del); renderReports(); }; });
+  const $res = document.getElementById('rres');
+  document.getElementById('rgo').onclick = async (ev) => {
+    const text = document.getElementById('rtext').value.trim();
+    if (!text) return;
+    ev.target.disabled = true;
+    $res.innerHTML = '<p class="muted pulse">הבינה המלאכותית קוראת…</p>';
+    try {
+      const found = (await extractReports(text)).filter((r) => BY_CODE[r.code]);
+      if (!found.length) { $res.innerHTML = '<p class="muted">לא נמצאו דיווחים על מינים מהרשימה.</p>'; }
+      else {
+        $res.innerHTML = `<ul class="replist">${found.map((r, i) => `<li><label><input type="checkbox" data-i="${i}"${r.located ? ' checked' : ' disabled'}>
+          <b>${esc(BY_CODE[r.code].he)}</b> · ${esc(r.place_he)}${r.located ? ` <small class="muted">(${r.lat.toFixed(3)}, ${r.lon.toFixed(3)} · ~${r.accuracy_m} מ' · ודאות ${{ high: 'גבוהה', medium: 'בינונית', low: 'נמוכה' }[r.certainty]})</small>` : ' <small class="err">אי אפשר לאתר את המקום</small>'}
+          <q class="muted">${esc(r.quote)}</q></label></li>`).join('')}</ul>
+          <button class="btn primary" id="rsave">שמור במפה כדיווחים לא מאומתים</button>`;
+        document.getElementById('rsave').onclick = () => {
+          const picked = [...$res.querySelectorAll('input:checked')].map((c) => found[Number(c.dataset.i)]);
+          rep.addReports(picked.map((r) => ({ code: r.code, place: r.place_he, lat: r.lat, lon: r.lon, acc: r.accuracy_m, year: r.year || 0, quote: r.quote })));
+          renderReports();
+        };
+      }
+    } catch (err) {
+      $res.innerHTML = `<p class="err">${esc(err.message)}</p>${err.kind === 'nokey' && !isHosted() ? '<a class="btn" href="#/settings">להגדרות</a>' : ''}`;
+    }
+    ev.target.disabled = false;
+  };
 }
 
 // ---------- הגדרות ----------

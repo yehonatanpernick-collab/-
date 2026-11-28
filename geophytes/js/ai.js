@@ -286,3 +286,55 @@ export async function testConnection() {
     throw explainError(err);
   }
 }
+
+const REPORTS_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['reports'],
+  properties: { reports: { type: 'array', items: {
+    type: 'object', additionalProperties: false,
+    required: ['code', 'place_he', 'located', 'lat', 'lon', 'accuracy_m', 'year', 'certainty', 'quote'],
+    properties: {
+      code: { type: 'string', description: 'Checklist code of the species' },
+      place_he: { type: 'string', description: 'Place name as written in the text' },
+      located: { type: 'boolean', description: 'true only if the place can be placed on a map inside Israel' },
+      lat: { type: 'number' }, lon: { type: 'number' },
+      accuracy_m: { type: 'integer', description: 'Estimated radius of uncertainty in metres' },
+      year: { type: 'integer', description: '0 if unknown' },
+      certainty: { type: 'string', enum: ['high', 'medium', 'low'] },
+      quote: { type: 'string', description: 'Short quote from the text supporting this report' },
+    } } } },
+};
+
+/** המרת טקסט חופשי (פוסטים, הודעות) לדיווחי תצפית לא מאומתים. */
+export async function extractReports(text) {
+  const task = `TASK: extract plant sighting reports from the pasted social-media text below.
+- Report only taxa that are in the checklist (use its code). Skip anything else.
+- Use the place named in the text to estimate coordinates inside Israel (WGS84). If the place is vague, unknown or outside Israel set located=false and lat=lon=0. Never invent a precise location: set accuracy_m to the realistic radius (e.g. a named trail 500–2000, a town 3000, a nature reserve 2000–5000, a region 15000+).
+- year = year of the sighting if stated or clearly implied, else 0. certainty reflects how sure the text is about the species ID.
+- quote = a short fragment (max 120 chars) of the original text.
+- Return {"reports": []} when nothing qualifies.
+
+TEXT:
+"""
+${text.slice(0, 12000)}
+"""`;
+  const sample = await getSample();
+  try {
+    if (sample) {
+      const prompt = `${SYSTEM}\n\n---\n${task}\n\nReply with ONLY one JSON object (no prose, no code fence) that follows this JSON Schema exactly:\n${JSON.stringify(REPORTS_SCHEMA)}`;
+      const r = await sample.json(prompt, { modelTier: 'complex', effort: 'medium' });
+      return Array.isArray(r?.reports) ? r.reports : [];
+    }
+    const s = getSettings();
+    const client = await makeClient();
+    const resp = await client.beta.messages.create({
+      model: s.model, max_tokens: 8000,
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: REPORTS_SCHEMA } },
+      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: task }] }],
+    });
+    const out = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    return JSON.parse(out).reports || [];
+  } catch (err) {
+    throw explainError(err);
+  }
+}

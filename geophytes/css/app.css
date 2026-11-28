@@ -328,3 +328,12 @@ body.mapfull { overflow: hidden; }
 .spmonths .months { width: 100%; max-width: none; }
 .spcard .meta { width: 100%; }
 .sprow .thumb { flex: 0 0 42%; width: 42%; max-width: 220px; }
+
+/* ===== דיווחים מרשתות + ניווט בין מינים ===== */
+.reports textarea { width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px; font: inherit; border: 1px solid var(--line, #d8d6cc); background: transparent; color: inherit; }
+.replist { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.replist li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.replist q { display: block; width: 100%; font-size: .82rem; }
+.replist .btn { margin-inline-start: auto; padding: 2px 10px; }
+.spnav { display: flex; gap: 10px; justify-content: space-between; margin: 14px 0; }
+.spnav .btn { flex: 1; text-align: center; }

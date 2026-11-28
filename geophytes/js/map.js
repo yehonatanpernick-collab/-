@@ -5,7 +5,7 @@ import { MAPMETA } from './mapmeta.js';
 const Z = 11; // מערכת הקואורדינטות הפנימית: פיקסלים בזום 11
 const WORLD = 256 * 2 ** Z;
 const MIN_ZOOM = 7.3, MAX_ZOOM = 15.5;
-const SRC_NAME = { i: 'iNaturalist', h: 'דוגמה באוסף (הרבריום / מוזיאון)', o: 'מאגר תצפיות', c: 'תמונה עם מיקום (ויקישיתוף)', x: 'אזור כללי – המיקום המדויק הוסתר להגנה על המין' };
+const SRC_NAME = { i: 'iNaturalist', h: 'דוגמה באוסף (הרבריום / מוזיאון)', o: 'מאגר תצפיות', c: 'תמונה עם מיקום (ויקישיתוף)', u: 'דיווח לא מאומת מרשת חברתית (המיקום משוער)', x: 'אזור כללי – המיקום המדויק הוסתר להגנה על המין' };
 const ACCENT = '#e5266f';
 
 const PLACES = [
@@ -214,7 +214,7 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
 
   function drawDot(x, y, r, p) {
     ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
-    ctx.fillStyle = p[4] === 'h' ? '#f59e0b' : ACCENT; ctx.fill();
+    ctx.fillStyle = p[4] === 'h' ? '#f59e0b' : p[4] === 'u' ? '#7c5cff' : ACCENT; ctx.fill();
     ctx.lineWidth = 1.7; ctx.strokeStyle = '#fff'; ctx.stroke();
   }
 
