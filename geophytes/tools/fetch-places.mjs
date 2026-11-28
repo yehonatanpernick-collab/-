@@ -31,13 +31,16 @@ const KIND = [
 const BAD = /(reserve|park|museum|station|junction|interchange|road|highway|battle|school|university|hospital|synagogue|church|mosque|monastery|castle|fortress|tomb|cave|spring|stream|river|valley|mountain|hill|archaeolog|ruins|tell|site|bridge|airport|base|prison|camp|stadium|mall|center|centre|forest|beach|lake|sea|waterfall|nature|garden|zoo|cemetery|memorial|monument|power|plant|factory|company|organization|group|event|war|massacre|operation|raid|tourist)/i;
 const found = new Map();
 const pts = [];
-for (let lat = 29.45; lat <= 33.4; lat += 0.115) for (let lon = 34.2; lon <= 35.95; lon += 0.135) if (inIsrael(lon, lat) || inIsrael(lon + 0.1, lat) || inIsrael(lon - 0.1, lat)) pts.push([lat, lon]);
+const A = process.argv.slice(2).map(Number); // [latMin, latMax, lonMin, lonMax, stepLat, stepLon, radius]
+const [LA0, LA1, LO0, LO1, SLA, SLO, RAD] = A.length ? A : [29.45, 33.4, 34.2, 35.95, 0.115, 0.135, 10000];
+const OUT = process.env.OUT || 'places-raw.json';
+for (let lat = LA0; lat <= LA1; lat += SLA) for (let lon = LO0; lon <= LO1; lon += SLO) if (inIsrael(lon, lat) || inIsrael(lon + 0.1, lat) || inIsrael(lon - 0.1, lat)) pts.push([lat, lon]);
 console.log('grid points', pts.length);
 let n = 0;
 for (const [lat, lon] of pts) {
   let cont = {};
   for (let k = 0; k < 4; k++) {
-    const qs = new URLSearchParams({ action: 'query', format: 'json', generator: 'geosearch', ggscoord: `${lat}|${lon}`, ggsradius: '10000', ggslimit: '500', prop: 'coordinates|langlinks|description', lllang: 'he', lllimit: '500', ...cont });
+    const qs = new URLSearchParams({ action: 'query', format: 'json', generator: 'geosearch', ggscoord: `${lat}|${lon}`, ggsradius: String(RAD), ggslimit: '500', prop: 'coordinates|langlinks|description', lllang: 'he', lllimit: '500', ...cont });
     const j = await get(`https://en.wikipedia.org/w/api.php?${qs}`);
     if (!j?.query?.pages) break;
     for (const pg of Object.values(j.query.pages)) {
@@ -50,7 +53,7 @@ for (const [lat, lon] of pts) {
     if (!j.continue) break; cont = j.continue;
   }
   if (++n % 25 === 0) console.log(n, pts.length, found.size);
-  await sleep(350);
+  await sleep(500);
 }
 const out = [];
 for (const e of found.values()) {
@@ -60,5 +63,5 @@ for (const e of found.values()) {
   if (!inIsrael(e.lon, e.lat)) continue;
   out.push([e.he.replace(/ \(.*\)$/, ''), +e.lon.toFixed(4), +e.lat.toFixed(4), k[1], k[2], e.desc]);
 }
-fs.writeFileSync(path.join(root, 'data', 'places-raw.json'), JSON.stringify(out));
+fs.writeFileSync(path.join(root, 'data', OUT), JSON.stringify(out));
 console.log('DONE', found.size, 'kept', out.length);
