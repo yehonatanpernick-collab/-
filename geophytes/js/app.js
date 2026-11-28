@@ -355,7 +355,7 @@ function renderRegion(code, home) {
           <div class="spmonths"><span class="mlbl">חודשי פריחה</span>${monthsBar(sp.f)}</div>
           ${(r || sp.t.replace('R', '') || elsewhere) ? `<div class="meta">${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>` : ''}
         </a>
-        ${isSeen ? `<span class="check" title="נמצא ואומת">${ic('check', 'solo')}</span>` : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">${ic('camera', 'solo')}</button>`}
+        ${isSeen ? `<span class="check" title="נמצא ואומת">${ic('tick', 'solo')}</span>` : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">${ic('camera', 'solo')}</button>`}
       </li>`;
     }).join('') : '<li class="empty">אין מינים שתואמים לסינון.</li>';
     $list.querySelectorAll('.cam').forEach((b) => { b.onclick = () => openCapture({ species: BY_CODE[b.dataset.c], region: code }); });
@@ -407,7 +407,7 @@ function renderSpecies(sp, regionCtx) {
         <h2>${esc(sp.he)}</h2>
         <p class="latin">${esc(sp.la)}</p>
         <p class="muted">משפחת ה${esc(g.famHe || '')} (${esc(g.fam || '')}) · סוג ${esc(g.he || sp.g)}</p>
-        <div class="meta">${rarBadge(rarity(sp, regionCtx && sp.r[regionCtx] != null ? regionCtx : null))}${tagChips(sp.t)}${myObs.length ? `<span class="tag tg-ok">${ic('check', 'sm')}נמצא ואומת</span>` : ''}</div>
+        <div class="meta">${rarBadge(rarity(sp, regionCtx && sp.r[regionCtx] != null ? regionCtx : null))}${tagChips(sp.t)}${myObs.length ? `<span class="tag tg-ok">${ic('tick', 'sm')}נמצא ואומת</span>` : ''}</div>
       </div>
     </section>
 
@@ -829,8 +829,8 @@ function openCapture({ species, region }) {
         ${res.alternatives?.length ? `<p><b>אפשרויות אחרות:</b></p><ul>${res.alternatives.map((a) => `<li>${BY_CODE[a.code] ? `<a href="#/s/${a.code}">${esc(a.hebrew)}</a>` : esc(a.hebrew)} <i>${esc(a.latin)}</i> – ${esc(a.why_he)}</li>`).join('')}</ul>` : ''}
         ${res.tips_he ? `<p class="tip">${ic('tip')}${esc(res.tips_he)}</p>` : ''}
       </div>
-      ${targetOk ? `<button class="btn primary wide" type="button" id="mark">${ic('check')}סמנו ברשימה</button>` : ''}
-      ${otherOk ? `<button class="btn primary wide" type="button" id="markother">${ic('check')}סמנו את ${esc(idSp.he)}</button>` : ''}`;
+      ${targetOk ? `<button class="btn primary wide" type="button" id="mark">${ic('tick')}סמנו ברשימה</button>` : ''}
+      ${otherOk ? `<button class="btn primary wide" type="button" id="markother">${ic('tick')}סמנו את ${esc(idSp.he)}</button>` : ''}`;
 
     const save = async (sp) => {
       await db.addObservation({

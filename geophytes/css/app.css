@@ -450,3 +450,68 @@ select, input[type="search"], input[type="password"], input[type="text"], textar
 .actions { grid-template-columns: 1fr 1fr; }
 .actions #identify { grid-column: 1 / -1; min-height: 52px; font-size: 1.02rem; }
 .actions .btn { padding-inline: 12px; font-size: .95rem; white-space: nowrap; }
+
+/* =====================================================================
+   צבעוני וטבעי: אדמה, עשב, פרחים; איורים צבעוניים במקום סמלי קו
+   ===================================================================== */
+:root {
+  --bg: #f1eedd; --surface: #fcfbf3; --surface2: #ecebd4; --line: #e0dcc2;
+  --green: #3a8550; --green2: #8cc084; --petal: #e0618f; --sky: #4da3e3; --sun: #f6c453; --clay: #d98a54;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141a14; --surface: #1c241c; --surface2: #243024; --line: #2d3a2d; --green: #7fcf97; --petal: #d9709a; }
+}
+:root[data-theme="dark"] { --bg: #141a14; --surface: #1c241c; --surface2: #243024; --line: #2d3a2d; --green: #7fcf97; --petal: #d9709a; }
+body { background: linear-gradient(180deg, color-mix(in srgb, var(--green2) 16%, var(--bg)) 0, var(--bg) 220px) no-repeat, var(--bg); }
+
+.ic.color { color: initial; }
+.ic.color.solo { width: 1.45em; height: 1.45em; }
+.card h3 .ic { color: initial; }
+.btn .ic.color { width: 1.35em; height: 1.35em; }
+.btn.primary .ic { background: #fff; border-radius: 50%; padding: 3px; box-sizing: content-box; width: 1.1em; height: 1.1em; }
+.btn.primary .ic.color { width: 1.1em; height: 1.1em; }
+.btn.primary .ic:not(.color) { color: #fff; background: none; padding: 0; }
+.logo { width: 42px; height: 42px; }
+.logo .ic { width: 34px; height: 34px; filter: drop-shadow(0 2px 2px rgba(80, 40, 40, .18)); }
+.iconbtn { background: color-mix(in srgb, var(--green2) 24%, var(--surface)); color: var(--green); }
+.sp .cam { background: color-mix(in srgb, var(--sky) 14%, var(--surface)); border-color: transparent; }
+.sp .cam .ic { width: 26px; height: 26px; }
+.sp .check { background: var(--ok); }
+.sp .check .ic { color: #fff; }
+.tag .ic { width: .9em; height: .9em; }
+.near .ic, .mappop .ic { color: initial; width: 1.05em; height: 1.05em; }
+
+/* שער: אחו עם פרחים בתחתית הכרטיס */
+.hero { position: relative; overflow: hidden; padding-bottom: 54px; border: 0;
+  background: linear-gradient(160deg, #dcefc9 0%, #f3f0c4 58%, #fbe4d2 100%); }
+:root[data-theme="dark"] .hero { background: linear-gradient(160deg, #22402a, #2f3d22 60%, #3d2b2b); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero { background: linear-gradient(160deg, #22402a, #2f3d22 60%, #3d2b2b); } }
+.hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 40px; background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22140%22 height=%2240%22 viewBox=%220 0 140 40%22%3E%0A%3Cpath d=%22M0 40V30c4 2 6 6 8 10zM10 40c0-8 2-14 6-18 0 8 0 13-2 18zM20 40c1-6 4-10 9-13-1 6-3 10-6 13zM46 40c-1-7-4-11-8-14 1 7 3 11 6 14zM56 40c0-6 2-11 6-15 0 6-1 11-4 15zM84 40c-1-8-4-13-9-16 1 8 3 13 7 16zM96 40c0-7 2-12 7-16 0 7-1 12-4 16zM116 40c-1-6-4-10-8-13 1 6 3 10 6 13zM126 40c1-7 4-11 9-14-1 7-3 11-7 14z%22 fill=%22%238cc272%22/%3E%0A%3Cpath d=%22M0 40c6-3 12-3 18 0zM30 40c8-4 16-4 24 0zM66 40c8-3 14-3 20 0zM104 40c8-3 16-3 24 0z%22 fill=%22%236fae58%22/%3E%0A%3Cpath d=%22M33 40V22%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M27.8 12c-.4 5 1.4 8.6 5.2 8.6s5.6-3.6 5.2-8.6l-2.6 2.1L33 10l-2.6 4.1z%22 fill=%22%23e8467c%22/%3E%3Cpath d=%22M33 10l2.6 4.1L33 20.6l-2.6-6.5z%22 fill=%22%23f98fb1%22/%3E%0A%3Cpath d=%22M72 40V26%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cg fill=%22%23fff%22%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(60 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(120 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(180 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(240 72 22)%22/%3E%3Cellipse cx=%2272%22 cy=%2217.5%22 rx=%222%22 ry=%224.2%22 transform=%22rotate(300 72 22)%22/%3E%3C/g%3E%3Ccircle cx=%2272%22 cy=%2222%22 r=%222.6%22 fill=%22%23f6b93b%22/%3E%0A%3Cpath d=%22M112 40V28%22 stroke=%22%234f9548%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M107 30c-1-5 1-9 5-11 4 2 6 6 5 11z%22 fill=%22%239a7bdc%22/%3E%3Cpath d=%22M112 19c2 3 2 7 0 11-2-4-2-8 0-11z%22 fill=%22%23b9a2ee%22/%3E%0A%3C/svg%3E") repeat-x bottom left / 140px 40px; pointer-events: none; }
+.hero h2 { color: #25472f; }
+:root[data-theme="dark"] .hero h2 { color: #d6f0d9; }
+.ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(255, 255, 255, .6) 0); }
+.ring > div { background: #fffdf2; }
+:root[data-theme="dark"] .ring > div { background: var(--surface); }
+
+/* כרטיסים */
+.card { border-color: var(--line); background: var(--surface); }
+.bloom { background: linear-gradient(180deg, #fff1f5, var(--surface)); border-color: #f4d2de; }
+:root[data-theme="dark"] .bloom { background: var(--surface); border-color: var(--line); }
+.chip { background: #fff; border: 1px solid #f1cddb; color: #8a2e55; }
+:root[data-theme="dark"] .chip { background: var(--surface2); border-color: var(--line); color: var(--text); }
+.mapcard { background: linear-gradient(180deg, #eef7fb, var(--surface) 90px); }
+.sp { background: var(--surface); }
+.sp.seen { background: linear-gradient(180deg, #e9f6e6, var(--surface)); }
+.spmonths .months span { background: #efeedb; }
+.spmonths .months span.on { background: linear-gradient(180deg, #ee74a0, #d9507f); }
+.mchips button { background: #fff; }
+.mchips button.on { background: linear-gradient(180deg, #ee74a0, #d9507f); }
+.seg button.on { background: #fff; color: var(--green); font-weight: 700; }
+.btn.primary { background: linear-gradient(180deg, #4a9a5e, #347a49); border-color: #347a49; }
+.btn:not(.primary):not(.danger) { background: #fff; }
+:root[data-theme="dark"] .btn:not(.primary):not(.danger) { background: var(--surface2); }
+.verdict.ok { background: color-mix(in srgb, #3fa05a 16%, transparent); }
+.facts div { background: #f3f1dc; }
+.distr li { background: #f3f1dc; }
+.fun { background: #fbf3d2; }
+.tip { background: #fdf0cf; }
