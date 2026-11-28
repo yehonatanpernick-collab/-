@@ -357,3 +357,96 @@ body.mapfull { overflow: hidden; }
 .mappop { border-radius: 16px; padding: 11px 14px; gap: 3px; }
 .mapattr { font-size: 8px; opacity: .75; }
 .mapbox.full .maptoast { top: max(62px, calc(env(safe-area-inset-top) + 52px)); }
+
+/* =====================================================================
+   עיצוב טבעי ומינימלי: נייר חם, ירוק מרווה, קווים דקים, הרבה אוויר
+   ===================================================================== */
+:root {
+  --bg: #f4f2eb; --surface: #fbfaf6; --surface2: #efece2; --text: #28312b; --muted: #7b8478; --line: #e4e0d3;
+  --green: #3f6b4f; --green2: #7aa386; --accent: #b4572f; --ok: #3f7d57; --warn: #a8731a; --bad: #a8402f;
+  --shadow: none; --radius: 20px; --petal: #cf7391;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141815; --surface: #1b211c; --surface2: #232a24; --text: #e6ece6; --muted: #98a496; --line: #2b342d; --green: #86bb98; --green2: #5d8b6c; --ok: #7fcf9b; --petal: #c26a87; }
+}
+:root[data-theme="dark"] { --bg: #141815; --surface: #1b211c; --surface2: #232a24; --text: #e6ece6; --muted: #98a496; --line: #2b342d; --green: #86bb98; --green2: #5d8b6c; --ok: #7fcf9b; --petal: #c26a87; }
+body { letter-spacing: .005em; }
+main { gap: 14px; padding: 8px 16px 48px; }
+
+.ic { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.22em; margin-inline-end: .45em; flex: none; }
+.ic.solo { margin: 0; width: 1.3em; height: 1.3em; }
+.ic.sm { width: 1em; height: 1em; margin-inline-end: .3em; }
+.card h3 { display: flex; align-items: center; font-weight: 700; font-size: 1rem; color: var(--text); }
+.card h3 .ic { color: var(--green); }
+
+.topbar { background: color-mix(in srgb, var(--bg) 82%, transparent); border-bottom: 0; padding-block: 12px 8px; }
+.topbar h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .01em; }
+.logo { display: grid; place-items: center; width: 38px; height: 38px; color: var(--green); }
+.iconbtn { border: 0; background: var(--surface2); color: var(--text); }
+
+.card { border: 1px solid var(--line); box-shadow: none; padding: 16px; }
+.btn { border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; min-height: 46px; padding: 8px 20px; }
+.btn .ic { color: var(--green); }
+.btn.primary { background: var(--green); border-color: var(--green); }
+.btn.primary .ic { color: currentColor; }
+.btn:active { transform: scale(.985); }
+.actions { gap: 10px; }
+select, input[type="search"], input[type="password"], input[type="text"], textarea { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); min-height: 44px; }
+
+.hero { background: var(--surface2); border: 0; gap: 18px; }
+.hero h2 { font-size: 1.3rem; font-weight: 800; }
+.ring { width: 108px; height: 108px; background: conic-gradient(var(--green) calc(var(--p) * 1%), color-mix(in srgb, var(--text) 10%, transparent) 0); }
+.ring > div { width: 94px; height: 94px; background: var(--surface2); }
+.bloom .chips { gap: 8px; }
+.chip { background: var(--surface); padding: 6px 14px; font-size: .9rem; }
+.bar span { background: var(--green); }
+
+/* מסנן חודשים */
+.mfilter { display: flex; flex-direction: column; gap: 6px; }
+.mflbl { font-size: .8rem; color: var(--muted); }
+.mchips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.mchips button { border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: .86rem; padding: 7px 0; border-radius: 12px; cursor: pointer; }
+.mchips button.on { background: var(--petal); border-color: var(--petal); color: #fff; font-weight: 700; }
+.mchips.mapm { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.mchips.mapm::-webkit-scrollbar { display: none; }
+.mchips.mapm button { flex: none; padding: 6px 12px; font-size: .8rem; }
+.seg { border-radius: 999px; background: var(--surface2); }
+.seg button { border-radius: 999px; }
+.seg button.on { background: var(--surface); box-shadow: none; border: 1px solid var(--line); }
+
+/* רשימת מינים */
+.splist { gap: 14px; }
+.sp { border-radius: 22px; box-shadow: none; background: var(--surface); }
+.sp.seen { background: color-mix(in srgb, var(--ok) 7%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 28%, var(--line)); }
+.spname { font-weight: 700; font-size: 1.2rem; }
+.sprow .thumb, .sprow .avatar { border: 0; border-radius: 16px; }
+.sp .check { background: var(--ok); }
+.sp .check .ic, .sp .cam .ic { margin: 0; width: 22px; height: 22px; }
+.sp .cam { border: 1px solid var(--line); box-shadow: none; color: var(--green); }
+.spmonths .months span { background: var(--surface2); border-radius: 12px; }
+.spmonths .months span.on { background: var(--petal); box-shadow: none; color: #fff; }
+.spmonths .months span.now { outline-color: var(--text); }
+.months span.on, .months.labeled span.on { background: var(--petal); }
+.mlbl { letter-spacing: .02em; }
+.tag, .ab { font-weight: 500; }
+.tag .ic { margin-inline-end: .25em; }
+.verdict .ic { margin-inline-end: .35em; }
+.near .ic, .mappop .ic { color: #4b7a5a; }
+.tip { display: flex; gap: 6px; align-items: flex-start; }
+.tip .ic { color: var(--warn); margin-top: .2em; }
+.fun { display: flex; gap: 6px; align-items: flex-start; }
+.fun .ic { color: var(--green); margin-top: .2em; }
+.celebrate span { color: var(--green); display: grid; place-items: center; }
+.celebrate span .ic { width: 3rem; height: 3rem; }
+.shot button .ic, .iconbtn .ic { margin: 0; }
+.climate { border-inline-start-width: 3px; }
+.reports textarea { border-radius: 16px; }
+.region-head { border-top: 0; }
+
+/* מפה */
+.mapbox { border-radius: 22px; box-shadow: none; }
+.mapcount[hidden] { display: none; }
+.mapcard { padding: 14px; }
+.actions { grid-template-columns: 1fr 1fr; }
+.actions #identify { grid-column: 1 / -1; min-height: 52px; font-size: 1.02rem; }
+.actions .btn { padding-inline: 12px; font-size: .95rem; white-space: nowrap; }

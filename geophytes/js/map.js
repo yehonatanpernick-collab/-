@@ -1,6 +1,7 @@
 // מפת תצפיות מינימלית: רקע מצויר או לוויין (תמונות מוכנות מראש), נקודות תצפית, איגוד נקודות בזום רחוק,
 // "אזור כללי" לתצפיות שמיקומן הוסתר להגנה על מין נדיר, הגדלה/הקטנה/גרירה, ותוויות מקומות בעברית.
 import { MAPMETA } from './mapmeta.js';
+import { ic } from './icons.js';
 
 const Z = 11; // מערכת הקואורדינטות הפנימית: פיקסלים בזום 11
 const WORLD = 256 * 2 ** Z;
@@ -92,8 +93,13 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
   const pop = root.querySelector('.mappop');
   const fullBtn = root.querySelector('[data-act="full"]');
 
-  const exact = [], general = [];
-  for (const p of points) (p[4] === 'x' ? general : exact).push({ p, xy: toPx(p[1], p[0]) });
+  const all = points.map((p) => ({ p, xy: toPx(p[1], p[0]), m: /^\d{4}-(\d{2})/.test(p[5] || '') ? +p[5].slice(5, 7) : 0 }));
+  let exact = [], general = [], monthSel = null;
+  const refilter = () => {
+    const keep = monthSel && monthSel.size ? all.filter((it) => monthSel.has(it.m)) : all;
+    exact = keep.filter((it) => it.p[4] !== 'x'); general = keep.filter((it) => it.p[4] === 'x');
+  };
+  refilter();
   const own = mine.map((p) => ({ p, xy: toPx(p[1], p[0]) }));
   const places = PLACES.map(([t, lon, lat, z, k]) => ({ t, xy: toPx(lon, lat), z, k }));
   let towns = [];
@@ -105,9 +111,9 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     for (const t of towns) { const dx = (t.lon - lon) * kx, dy = t.lat - lat, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = t; } }
     if (!best) return '';
     const km = Math.sqrt(bd) * 111.2;
-    if (km < 0.6) return `<span class="near">📍 בתוך / ליד <b>${best.t}</b></span>`;
+    if (km < 0.6) return `<span class="near">${ic('pin', 'sm')}בתוך / ליד <b>${best.t}</b></span>`;
     const ang = (Math.atan2((lon - best.lon) * kx, lat - best.lat) * 180) / Math.PI;
-    return `<span class="near">📍 כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ ${DIRS[Math.round(((ang + 360) % 360) / 45) % 8]}ית ל<b>${best.t}</b></span>`;
+    return `<span class="near">${ic('pin', 'sm')}כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ ${DIRS[Math.round(((ang + 360) % 360) / 45) % 8]}ית ל<b>${best.t}</b></span>`;
   };
   // --- המיקום שלי (שידור חי) ---
   let me = null, watchId = null, following = false, pulse = 0, pulseTimer = 0, toastT = 0;
@@ -117,7 +123,7 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
   const distMe = (lat, lon) => {
     if (!me) return '';
     const kx = Math.cos((lat * Math.PI) / 180), km = Math.hypot((lon - me.lon) * kx, lat - me.lat) * 111.2;
-    return `<span class="near">🧭 ${km < 1 ? `כ-${Math.round(km * 100) * 10} מ'` : `כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ`} ממני</span>`;
+    return `<span class="near">${ic('compass', 'sm')}${km < 1 ? `כ-${Math.round(km * 100) * 10} מ'` : `כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ`} ממני</span>`;
   };
   function setLocUi() {
     locBtn.classList.toggle('on', watchId != null);
@@ -281,10 +287,10 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
       for (const c of cells.values()) {
         const x = c.sx / c.n, y = c.sy / c.n;
         if (c.n === 1) { drawDot(x, y, dot, c.it.p); hits.push({ x, y, r: dot + 6, p: c.it.p, kind: 'pt' }); continue; }
-        const r = Math.min(24, 9 + Math.sqrt(c.n) * 2.1);
-        ctx.beginPath(); ctx.arc(x, y, r + 4, 0, 6.2832); ctx.fillStyle = 'rgba(229,38,111,.22)'; ctx.fill();
-        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fillStyle = ACCENT; ctx.fill();
-        ctx.lineWidth = 1.8; ctx.strokeStyle = '#fff'; ctx.stroke();
+        const r = Math.min(19, 8 + Math.sqrt(c.n) * 1.5);
+        ctx.beginPath(); ctx.arc(x, y, r + 4, 0, 6.2832); ctx.fillStyle = 'rgba(229,38,111,.16)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fillStyle = 'rgba(229,38,111,.9)'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
         ctx.font = '700 11px Heebo, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
         ctx.fillText(c.n >= 1000 ? `${(c.n / 1000).toFixed(1)}k` : String(c.n), x, y + 0.5);
         hits.push({ x, y, r: r + 4, kind: 'cluster' });
@@ -436,15 +442,19 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     resize();
   };
 
+  const countEl = root.querySelector('.mapcount');
+  const setCount = () => {
+    const nExact = exact.length, nGen = general.length;
+    countEl.textContent = nExact + nGen ? `${nExact.toLocaleString('he-IL')} תצפיות${nGen ? ` · ${nGen.toLocaleString('he-IL')} באזור כללי` : ''}` : (monthSel && monthSel.size ? 'אין תצפיות בחודשים שנבחרו' : '');
+    countEl.hidden = !countEl.textContent;
+  };
+  setCount();
   const nExact = exact.length, nGen = general.length;
-  root.querySelector('.mapcount').textContent = nExact + nGen
-    ? `${nExact.toLocaleString('he-IL')} תצפיות${nGen ? ` · ${nGen.toLocaleString('he-IL')} באזור כללי` : ''}`
-    : '';
   const empty = root.querySelector('.mapempty');
-  if (!nExact && !nGen && !own.length) { empty.textContent = emptyText || 'עדיין אין תצפיות ידועות של המין במאגרים הציבוריים'; empty.hidden = false; }
+  if (!all.length && !own.length) { empty.textContent = emptyText || 'עדיין אין תצפיות ידועות של המין במאגרים הציבוריים'; empty.hidden = false; }
 
   const ro = new ResizeObserver(() => { const first = !W; resize(); if (first) fit(exact.length ? exact : own); });
   ro.observe(root);
   setTimeout(() => { for (const l of ['ter', 'sat']) for (const lv of ['9', '10']) for (const f of MAPMETA.levels[l][lv].files) loadImg(f.file, draw); }, 600);
-  return { destroy() { ro.disconnect(); if (watchId != null) navigator.geolocation.clearWatch(watchId); clearInterval(pulseTimer); document.body.classList.remove('mapfull'); } };
+  return { setMonths(set) { monthSel = set; refilter(); pop.hidden = true; picked = null; setCount(); draw(); }, destroy() { ro.disconnect(); if (watchId != null) navigator.geolocation.clearWatch(watchId); clearInterval(pulseTimer); document.body.classList.remove('mapfull'); } };
 }

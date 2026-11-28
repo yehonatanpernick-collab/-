@@ -6,6 +6,7 @@ import { getSettings, saveSettings, trackedYear } from './settings.js';
 import * as db from './db.js';
 import { createMap, loadOccurrences } from './map.js';
 import * as rep from './reports.js';
+import { ic } from './icons.js';
 import { MODELS, extractReports, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
@@ -144,7 +145,7 @@ function yearLabel() {
 }
 
 // ---------- ניתוב ----------
-const filters = { region: '', q: '', status: 'all', bloom: false, rarity: 'all', lvl: 'all', sort: 'name' };
+const filters = { months: [], region: '', q: '', status: 'all', bloom: false, rarity: 'all', lvl: 'all', sort: 'name' };
 
 // זוכר את מיקום הגלילה של כל מסך, כדי שחזרה מדף מין תחזיר בדיוק למקום ברשימה.
 const scrollPos = {};
@@ -199,9 +200,9 @@ function route() {
 
 function topbar(title, back) {
   return `<header class="topbar">
-    ${back ? `<a class="iconbtn" data-back href="${back}" aria-label="חזרה">→</a>` : '<span class="logo">🌷</span>'}
+    ${back ? `<a class="iconbtn" data-back href="${back}" aria-label="חזרה">${ic('back', 'solo')}</a>` : `<span class="logo">${ic('logo', 'solo')}</span>`}
     <h1>${title}</h1>
-    <a class="iconbtn" href="#/settings" aria-label="הגדרות">⚙</a>
+    <a class="iconbtn" href="#/settings" aria-label="הגדרות">${ic('settings', 'solo')}</a>
   </header>`;
 }
 
@@ -222,7 +223,7 @@ function homeTop() {
       </div>
       <div class="hero-txt">
         <h2>כל הגאופיטים של ישראל</h2>
-        <p>${total} מינים, תתי-מינים וזנים לפי "צמחיית ישראל וסביבתה". צלמו כל אחד – הבינה המלאכותית מאמתת – ומסמנים ✓.</p>
+        <p>${total} מינים, תתי-מינים וזנים לפי "צמחיית ישראל וסביבתה". צלמו כל אחד – הבינה המלאכותית מאמתת – ומסמנים.</p>
         <label class="yearsel">מעקב:
           <select id="year">
             <option value="current"${s.year === 'current' ? ' selected' : ''}>השנה הנוכחית</option>
@@ -234,14 +235,14 @@ function homeTop() {
     </section>
 
     <div class="actions">
-      <button class="btn primary" id="identify">📷 זהה צמח מתמונה</button>
-      <a class="btn" href="#/seen">🗂 התצפיות שלי (${db.observations().length})</a>
-      <a class="btn" href="#/reports">💬 דיווחים מרשתות (${rep.reports().length})</a>
+      <button class="btn primary" id="identify">${ic('camera')}זהה צמח מתמונה</button>
+      <a class="btn" href="#/seen">${ic('folder')}התצפיות שלי (${db.observations().length})</a>
+      <a class="btn" href="#/reports">${ic('chat')}דיווחים מרשתות (${rep.reports().length})</a>
       
     </div>
 
     <section class="card bloom">
-      <h3>🌸 פורחים עכשיו – ${MONTHS[NOW_MONTH - 1]}</h3>
+      <h3>${ic('bloom')}פורחים עכשיו – ${MONTHS[NOW_MONTH - 1]}</h3>
       <p>${blooming.length} מינים פורחים החודש; ${bloomingMissing} מהם עוד חסרים לך.</p>
       <div class="chips scroll">${blooming.filter((sp) => !seen.has(sp.c)).slice(0, 40).map((sp) =>
         `<a class="chip" href="#/s/${sp.c}">${esc(sp.he)}</a>`).join('')}</div>
@@ -289,6 +290,10 @@ function renderRegion(code, home) {
       <div class="seg" id="status">
         ${[['all', 'הכל'], ['missing', 'חסרים'], ['seen', 'נמצאו']].map(([v, l]) => `<button data-v="${v}" class="${filters.status === v ? 'on' : ''}">${l}</button>`).join('')}
       </div>
+      <div class="mfilter" id="mfilter" role="group" aria-label="סינון לפי חודש פריחה">
+        <span class="mflbl">חודש פריחה</span>
+        <div class="mchips">${MONTHS_SHORT.map((m, i) => `<button type="button" data-m="${i + 1}" class="${filters.months.includes(i + 1) ? 'on' : ''}">${m}</button>`).join('')}</div>
+      </div>
       <div class="row">
         <label class="toggle"><input type="checkbox" id="bloom"${filters.bloom ? ' checked' : ''}> פורחים עכשיו</label>
         <select id="rarity">
@@ -317,6 +322,7 @@ function renderRegion(code, home) {
       if (filters.status === 'missing' && seen.has(sp.c)) return false;
       if (filters.status === 'seen' && !seen.has(sp.c)) return false;
       if (filters.bloom && !sp.f.includes(NOW_MONTH)) return false;
+      if (filters.months.length && !sp.f.some((m) => filters.months.includes(m))) return false;
       if (filters.lvl !== 'all' && rarity(sp, code) !== Number(filters.lvl)) return false;
       if (filters.rarity === 'rare' && localAb(sp) > 3) return false;
       if (filters.rarity === 'vrare' && localAb(sp) > 2) return false;
@@ -349,7 +355,7 @@ function renderRegion(code, home) {
           <div class="spmonths"><span class="mlbl">חודשי פריחה</span>${monthsBar(sp.f)}</div>
           ${(r || sp.t.replace('R', '') || elsewhere) ? `<div class="meta">${r ? abBadge(sp.r[code]) : ''}${tagChips(sp.t.replace('R', ''))}${elsewhere ? '<span class="tag tg-else">נמצא באזור אחר</span>' : ''}</div>` : ''}
         </a>
-        ${isSeen ? '<span class="check" title="נמצא ואומת">✓</span>' : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">📷</button>`}
+        ${isSeen ? `<span class="check" title="נמצא ואומת">${ic('check', 'solo')}</span>` : `<button class="cam" data-c="${sp.c}" aria-label="צלם ${esc(sp.he)}">${ic('camera', 'solo')}</button>`}
       </li>`;
     }).join('') : '<li class="empty">אין מינים שתואמים לסינון.</li>';
     $list.querySelectorAll('.cam').forEach((b) => { b.onclick = () => openCapture({ species: BY_CODE[b.dataset.c], region: code }); });
@@ -360,6 +366,14 @@ function renderRegion(code, home) {
   document.getElementById('q').oninput = (e) => { filters.q = e.target.value; draw(); };
   document.querySelectorAll('#status button').forEach((b) => {
     b.onclick = () => { filters.status = b.dataset.v; document.querySelectorAll('#status button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
+  });
+  document.querySelectorAll('#mfilter [data-m]').forEach((b) => {
+    b.onclick = () => {
+      const m = Number(b.dataset.m);
+      filters.months = filters.months.includes(m) ? filters.months.filter((x) => x !== m) : [...filters.months, m];
+      b.classList.toggle('on', filters.months.includes(m));
+      draw();
+    };
   });
   document.getElementById('bloom').onchange = (e) => { filters.bloom = e.target.checked; draw(); };
   for (const id of ['rarity', 'lvl', 'sort']) document.getElementById(id).onchange = (e) => { filters[id] = e.target.value; draw(); };
@@ -393,20 +407,20 @@ function renderSpecies(sp, regionCtx) {
         <h2>${esc(sp.he)}</h2>
         <p class="latin">${esc(sp.la)}</p>
         <p class="muted">משפחת ה${esc(g.famHe || '')} (${esc(g.fam || '')}) · סוג ${esc(g.he || sp.g)}</p>
-        <div class="meta">${rarBadge(rarity(sp, regionCtx && sp.r[regionCtx] != null ? regionCtx : null))}${tagChips(sp.t)}${myObs.length ? '<span class="tag tg-ok">✓ נמצא ואומת</span>' : ''}</div>
+        <div class="meta">${rarBadge(rarity(sp, regionCtx && sp.r[regionCtx] != null ? regionCtx : null))}${tagChips(sp.t)}${myObs.length ? `<span class="tag tg-ok">${ic('check', 'sm')}נמצא ואומת</span>` : ''}</div>
       </div>
     </section>
 
-    <button class="btn primary wide" id="capture">📷 צלמו וסמנו שראיתם</button>
+    <button class="btn primary wide" id="capture">${ic('camera')}צלמו וסמנו שראיתם</button>
 
     <section class="card">
-      <h3>🌼 עונת פריחה</h3>
+      <h3>${ic('bloom')}עונת פריחה</h3>
       ${monthsBar(sp.f, true)}
       <p class="muted">${sp.f.length ? (sp.f.includes(NOW_MONTH) ? 'פורח עכשיו – זה הזמן לחפש!' : `פורח ב: ${sp.f.map((m) => MONTHS[m - 1]).join(', ')}`) : 'מועד הפריחה אינו מצוין במקור.'}</p>
     </section>
 
     <section class="card">
-      <h3>🔎 סימני זיהוי</h3>
+      <h3>${ic('search')}סימני זיהוי</h3>
       <p>${esc(sp.s || 'אין תיאור במקור.')}</p>
       <dl class="facts">
         <div><dt>איבר אגירה</dt><dd>${ORGANS[sp.o].name}<small>${ORGANS[sp.o].desc}</small></dd></div>
@@ -417,30 +431,31 @@ function renderSpecies(sp, regionCtx) {
     </section>
 
     <section class="card">
-      <h3>📍 איפה הוא גדל בישראל</h3>
+      <h3>${ic('pin')}איפה הוא גדל בישראל</h3>
       <ul class="distr">${regs.map(([c, a]) => `<li class="${c === regionCtx ? 'cur' : ''}"><a href="#/r/${c}">${esc(REGION[c].name)}</a>${abBadge(a)}</li>`).join('')}</ul>
       ${extra.length ? `<p class="muted">גם בעבר הירדן: ${extra.map(([c, a]) => `${EXTRA_REGIONS[c]} (${ABUNDANCE[a]?.name})`).join(', ')}</p>` : ''}
     </section>
 
     <section class="card mapcard">
-      <h3>🗺 מפת תצפיות</h3>
+      <h3>${ic('map')}מפת תצפיות</h3>
+      <div class="mchips mapm" id="mapm" role="group" aria-label="תצפיות לפי חודש">${MONTHS_SHORT.map((m, i) => `<button type="button" data-m="${i + 1}">${m}</button>`).join('')}</div>
       <div class="mapbox" id="mapbox"><p class="muted maploading">טוען מפה…</p></div>
       <p class="muted maphelp">כל נקודה היא תצפית מתועדת בישראל (iNaturalist, אוספי הרבריום, סקרים ועוד דרך GBIF). עיגול מקווקו = אזור כללי: מיקום מדויק של מין נדיר מוסתר בכוונה להגנה עליו. לחצו על נקודה לפרטים, והגדילו כדי לראות את המקום המדויק.</p>
     </section>
 
     <section class="card">
-      <h3>🧬 על הסוג ${esc(g.he || sp.g)}</h3>
+      <h3>${ic('leaf')}על הסוג ${esc(g.he || sp.g)}</h3>
       <p>${esc(g.about || '')}</p>
-      ${g.more ? `<p class="fun">💡 ${esc(g.more)}</p>` : ''}
+      ${g.more ? `<p class="fun">${ic('sprout')}${esc(g.more)}</p>` : ''}
     </section>
 
     <section class="card">
-      <h3>🤖 הסבר מורחב מהבינה המלאכותית</h3>
+      <h3>${ic('spark')}הסבר מורחב מהבינה המלאכותית</h3>
       <div id="profile" class="profile">${cachedProfile ? mdToHtml(cachedProfile) : '<p class="muted">זיהוי, מינים דומים, אקולוגיה, האבקה, נדירות, שמירת טבע, תרבות ושימושים.</p>'}</div>
       <button class="btn" id="genprofile">${cachedProfile ? 'רענון ההסבר' : 'כתוב לי הסבר מלא'}</button>
     </section>
 
-    <a class="btn wide" href="https://flora.org.il/plants/${sp.c}/" target="_blank" rel="noopener">🖼 תמונות ומידע מלא ב"צמחיית ישראל"</a>
+    <a class="btn wide" href="https://flora.org.il/plants/${sp.c}/" target="_blank" rel="noopener">${ic('image')}תמונות ומידע מלא ב"צמחיית ישראל"</a>
 
     ${(() => {
       const ls = SPECIES.filter((x) => !regionCtx || !REGION[regionCtx] || x.r[regionCtx] != null);
@@ -450,7 +465,7 @@ function renderSpecies(sp, regionCtx) {
     })()}
 
     ${myObs.length ? `<section class="card">
-      <h3>🗂 התצפיות שלי</h3>
+      <h3>${ic('folder')}התצפיות שלי</h3>
       <div class="gallery">${myObs.map((o) => obsCard(o)).join('')}</div>
     </section>` : ''}
   </main>`;
@@ -491,6 +506,10 @@ function initSpeciesMap(sp) {
     if (!document.body.contains(box)) return;
     box.innerHTML = '';
     curMap = createMap(box, { points: (occ[sp.c] || []).concat(rep.reportPoints(sp.c)), mine });
+    const sel = new Set();
+    document.querySelectorAll('#mapm [data-m]').forEach((b) => {
+      b.onclick = () => { const m = Number(b.dataset.m); if (sel.has(m)) sel.delete(m); else sel.add(m); b.classList.toggle('on', sel.has(m)); curMap.setMonths(sel); };
+    });
   };
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); start(); } }, { rootMargin: '400px' });
@@ -564,15 +583,15 @@ function renderReports() {
   $app.innerHTML = `${topbar('דיווחים מרשתות', '#/')}
   <main class="reports">
     <section class="card">
-      <h3>💬 הדבקת דיווחים</h3>
+      <h3>${ic('chat')}הדבקת דיווחים</h3>
       <p class="muted">הדביקו כאן טקסט מפוסט, קבוצה או הודעה (למשל "ראיתי חבצלת החוף בחוף דור"). הבינה המלאכותית תזהה מינים ומקומות ותשים אותם במפה כ<b>דיווח לא מאומת</b>, עם מיקום משוער.</p>
       <textarea id="rtext" rows="6" placeholder="הדביקו כאן…"></textarea>
       <div class="row"><button class="btn primary" id="rgo">חלץ נקודות</button></div>
       <div id="rres"></div>
     </section>
     <section class="card">
-      <h3>🗂 הדיווחים שלי (${saved.length})</h3>
-      ${saved.length ? `<ul class="replist">${saved.map((r) => `<li><a href="#/s/${r.code}"><b>${esc(BY_CODE[r.code]?.he || r.code)}</b></a> · ${esc(r.place)}${r.year ? ` · ${r.year}` : ''}<small class="muted"> · דיוק ~${r.acc} מ'</small><button class="btn" data-del="${r.id}" aria-label="מחיקה">✕</button></li>`).join('')}</ul>` : '<p class="muted">עוד אין דיווחים.</p>'}
+      <h3>${ic('folder')}הדיווחים שלי (${saved.length})</h3>
+      ${saved.length ? `<ul class="replist">${saved.map((r) => `<li><a href="#/s/${r.code}"><b>${esc(BY_CODE[r.code]?.he || r.code)}</b></a> · ${esc(r.place)}${r.year ? ` · ${r.year}` : ''}<small class="muted"> · דיוק ~${r.acc} מ'</small><button class="btn" data-del="${r.id}" aria-label="מחיקה">${ic('cross', 'solo')}</button></li>`).join('')}</ul>` : '<p class="muted">עוד אין דיווחים.</p>'}
     </section>
   </main>`;
   document.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { rep.deleteReport(b.dataset.del); renderReports(); }; });
@@ -610,7 +629,7 @@ function renderSettings() {
   $app.innerHTML = `${topbar('הגדרות', '#/')}
   <main class="settings">
     ${hosted ? `<section class="card">
-      <h3>🤖 בינה מלאכותית</h3>
+      <h3>${ic('spark')}בינה מלאכותית</h3>
       <p>Claude מחובר לאפליקציה ועובד דרך חשבון ה-Claude שלך – אין צורך במפתח. בפעם הראשונה תתבקש לאשר.</p>
       <label>סף ביטחון לאישור: <b id="thv">${s.threshold}%</b>
         <input type="range" id="threshold" min="60" max="95" step="5" value="${s.threshold}">
@@ -618,7 +637,7 @@ function renderSettings() {
       <div class="row"><button class="btn primary" id="save">שמירה</button><button class="btn" id="test">בדיקת חיבור</button></div>
       <p id="testres" class="muted"></p>
     </section>` : `<section class="card">
-      <h3>🤖 חיבור לבינה המלאכותית (Claude)</h3>
+      <h3>${ic('spark')}חיבור לבינה המלאכותית (Claude)</h3>
       <p class="muted">הזיהוי והאימות מתבצעים ע"י Claude של Anthropic. צריך מפתח API אישי מ-<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. המפתח נשמר רק בדפדפן הזה ונשלח רק ל-Anthropic.</p>
       <label>אופן החיבור
         <select id="mode">
@@ -644,7 +663,7 @@ function renderSettings() {
     </section>`}
 
     <section class="card">
-      <h3>💾 גיבוי</h3>
+      <h3>${ic('save')}גיבוי</h3>
       <p class="muted">התצפיות והתמונות נשמרות במכשיר הזה. כדאי לגבות מדי פעם.</p>
       <div class="row">
         <button class="btn" id="export">ייצוא גיבוי</button>
@@ -674,12 +693,12 @@ function renderSettings() {
       threshold: Number(document.getElementById('threshold').value),
       saveLocation: document.getElementById('loc').checked,
     });
-  document.getElementById('save').onclick = () => { collect(); toast('נשמר ✓'); };
+  document.getElementById('save').onclick = () => { collect(); toast('נשמר'); };
   document.getElementById('test').onclick = async () => {
     collect();
     const $r = document.getElementById('testres');
     $r.textContent = 'בודק…';
-    try { $r.textContent = `✓ מחובר. התשובה: ${await testConnection()}`; } catch (err) { $r.textContent = `✗ ${err.message}`; }
+    try { $r.textContent = `מחובר. התשובה: ${await testConnection()}`; } catch (err) { $r.textContent = err.message; }
   };
   document.getElementById('export').onclick = async () => {
     const blob = new Blob([await db.exportJson()], { type: 'application/json' });
@@ -732,7 +751,7 @@ function openCapture({ species, region }) {
   const dlg = document.createElement('dialog');
   dlg.className = 'capture';
   dlg.innerHTML = `<form method="dialog" class="dlg">
-    <header><h3>${species ? `אימות: ${esc(species.he)}` : 'זיהוי צמח מתמונה'}</h3><button class="iconbtn" value="close" aria-label="סגירה">✕</button></header>
+    <header><h3>${species ? `אימות: ${esc(species.he)}` : 'זיהוי צמח מתמונה'}</h3><button class="iconbtn" value="close" aria-label="סגירה">${ic('cross', 'solo')}</button></header>
     ${species ? `<p class="muted"><i>${esc(species.la)}</i> – צלמו את הפרח מקרוב, ואם אפשר גם את העלים ואת הצמח כולו (עד 3 תמונות).</p>` : '<p class="muted">צלמו את הצמח (עד 3 תמונות) והבינה המלאכותית תזהה אותו.</p>'}
     <label>איפה צילמתם?
       <select id="creg">
@@ -743,10 +762,10 @@ function openCapture({ species, region }) {
     </label>
     <div class="shots" id="shots"></div>
     <div class="row">
-      <label class="btn">📷 צילום<input type="file" accept="image/*" capture="environment" id="cam" hidden></label>
-      <label class="btn">🖼 מהגלריה<input type="file" accept="image/*" multiple id="gal" hidden></label>
+      <label class="btn">${ic('camera')}צילום<input type="file" accept="image/*" capture="environment" id="cam" hidden></label>
+      <label class="btn">${ic('image')}מהגלריה<input type="file" accept="image/*" multiple id="gal" hidden></label>
     </div>
-    <button class="btn primary wide" id="analyze" type="button" disabled>🔬 נתח עם בינה מלאכותית</button>
+    <button class="btn primary wide" id="analyze" type="button" disabled>${ic('scan')}נתח עם בינה מלאכותית</button>
     <div id="result"></div>
   </form>`;
   document.body.append(dlg);
@@ -757,7 +776,7 @@ function openCapture({ species, region }) {
   const $analyze = dlg.querySelector('#analyze');
   const $result = dlg.querySelector('#result');
   const drawShots = () => {
-    $shots.innerHTML = images.map((im, i) => `<div class="shot"><img src="${im.preview}" alt=""><button type="button" data-i="${i}" aria-label="הסרה">✕</button></div>`).join('');
+    $shots.innerHTML = images.map((im, i) => `<div class="shot"><img src="${im.preview}" alt=""><button type="button" data-i="${i}" aria-label="הסרה">${ic('cross', 'solo')}</button></div>`).join('');
     $shots.querySelectorAll('button').forEach((b) => { b.onclick = () => { images.splice(Number(b.dataset.i), 1); drawShots(); }; });
     $analyze.disabled = !images.length;
   };
@@ -794,12 +813,12 @@ function openCapture({ species, region }) {
     const targetOk = species && solid && (res.identified_code === species.c || (res.matches_target && !res.identified_code));
     const otherOk = solid && idSp && (!species || idSp.c !== species.c);
     let verdict;
-    if (targetOk) verdict = `<div class="verdict ok">✓ אושר! זהו ${esc(species.he)}</div>`;
-    else if (!res.is_plant_photo) verdict = '<div class="verdict bad">✗ לא נראה צמח בתמונה</div>';
-    else if (!res.looks_like_live_photo) verdict = '<div class="verdict bad">✗ נראה כמו צילום של מסך/הדפסה/איור – צריך לצלם את הצמח עצמו בטבע</div>';
+    if (targetOk) verdict = `<div class="verdict ok">${ic('check')}אושר! זהו ${esc(species.he)}</div>`;
+    else if (!res.is_plant_photo) verdict = '<div class="verdict bad">לא נראה צמח בתמונה</div>';
+    else if (!res.looks_like_live_photo) verdict = '<div class="verdict bad">נראה כמו צילום של מסך/הדפסה/איור – צריך לצלם את הצמח עצמו בטבע</div>';
     else if (otherOk) verdict = `<div class="verdict info">זה כנראה <b>${esc(idSp.he)}</b>${species ? ` ולא ${esc(species.he)}` : ''}</div>`;
     else if (!solid) verdict = '<div class="verdict warn">? הזיהוי לא מספיק ודאי לאישור</div>';
-    else verdict = `<div class="verdict warn">${species ? `✗ זה לא ${esc(species.he)}` : 'זוהה צמח שאינו ברשימת הגאופיטים'}</div>`;
+    else verdict = `<div class="verdict warn">${species ? `זה לא ${esc(species.he)}` : 'זוהה צמח שאינו ברשימת הגאופיטים'}</div>`;
 
     $result.innerHTML = `${verdict}
       <div class="ai-card">
@@ -808,10 +827,10 @@ function openCapture({ species, region }) {
         ${res.evidence_he ? `<p><b>למה:</b> ${esc(res.evidence_he)}</p>` : ''}
         ${res.concerns_he ? `<p><b>ספקות:</b> ${esc(res.concerns_he)}</p>` : ''}
         ${res.alternatives?.length ? `<p><b>אפשרויות אחרות:</b></p><ul>${res.alternatives.map((a) => `<li>${BY_CODE[a.code] ? `<a href="#/s/${a.code}">${esc(a.hebrew)}</a>` : esc(a.hebrew)} <i>${esc(a.latin)}</i> – ${esc(a.why_he)}</li>`).join('')}</ul>` : ''}
-        ${res.tips_he ? `<p class="tip">📸 ${esc(res.tips_he)}</p>` : ''}
+        ${res.tips_he ? `<p class="tip">${ic('tip')}${esc(res.tips_he)}</p>` : ''}
       </div>
-      ${targetOk ? '<button class="btn primary wide" type="button" id="mark">✓ סמנו ברשימה</button>' : ''}
-      ${otherOk ? `<button class="btn primary wide" type="button" id="markother">✓ סמנו את ${esc(idSp.he)}</button>` : ''}`;
+      ${targetOk ? `<button class="btn primary wide" type="button" id="mark">${ic('check')}סמנו ברשימה</button>` : ''}
+      ${otherOk ? `<button class="btn primary wide" type="button" id="markother">${ic('check')}סמנו את ${esc(idSp.he)}</button>` : ''}`;
 
     const save = async (sp) => {
       await db.addObservation({
@@ -834,7 +853,7 @@ function celebrate(sp, reg) {
   const done = inReg.filter((x) => seen.has(x.c)).length;
   const el = document.createElement('div');
   el.className = 'celebrate';
-  el.innerHTML = `<div><span>🌷</span><b>${esc(sp.he)} נוסף לרשימה!</b><small>${esc(REGION[reg]?.name || '')}: ${done}/${inReg.length}</small></div>`;
+  el.innerHTML = `<div><span>${ic('logo', 'solo')}</span><b>${esc(sp.he)} נוסף לרשימה!</b><small>${esc(REGION[reg]?.name || '')}: ${done}/${inReg.length}</small></div>`;
   document.body.append(el);
   setTimeout(() => el.remove(), 2600);
 }
