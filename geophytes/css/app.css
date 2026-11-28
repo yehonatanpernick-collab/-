@@ -551,3 +551,17 @@ body { background: linear-gradient(180deg, color-mix(in srgb, var(--green2) 16%,
   .celebrate .petal { position: fixed; top: -20px; width: 12px; height: 16px; border-radius: 80% 0 80% 0; opacity: .9; animation: petalfall 2.4s ease-in forwards; transform: scale(var(--s)); }
   @keyframes petalfall { to { top: 105vh; transform: translateX(40px) rotate(280deg) scale(var(--s)); opacity: .2; } }
 }
+
+/* ===== בדיקת אתר: האם יכול לצמוח כאן ===== */
+.sitecheck h3 { display: flex; align-items: center; }
+.siteloc { display: flex; flex-direction: column; gap: 10px; background: #f3f1dc; border-radius: 18px; padding: 12px; }
+:root[data-theme="dark"] .siteloc { background: var(--surface2); }
+.siteloc .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.siteloc label { font-size: .82rem; color: var(--muted); }
+.siteloc input { width: 100%; margin-top: 4px; direction: ltr; text-align: left; }
+.siteloc small { display: block; margin-top: 4px; }
+.sitecheck .sel2 label { flex: 1; font-size: .82rem; color: var(--muted); }
+.sitecheck .sel2 select { width: 100%; margin-top: 4px; }
+#sitego { width: 100%; margin-top: 8px; }
+#sresult .habgrid { margin-top: 10px; }
+input[type="number"] { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; min-height: 44px; max-width: 100%; }

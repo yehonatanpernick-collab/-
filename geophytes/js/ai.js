@@ -382,3 +382,57 @@ ${speciesBrief(species)}`;
     throw explainError(err);
   }
 }
+
+const SITE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['verdict', 'score', 'soil_seen_he', 'soil_match_he', 'altitude_he', 'climate_he', 'light_moisture_he', 'matches_he', 'mismatches_he', 'advice_he', 'photo_quality_he'],
+  properties: {
+    verdict: { type: 'string', enum: ['likely', 'possible', 'unlikely'], description: 'Can the TARGET taxon grow at this exact spot?' },
+    score: { type: 'integer', description: '0-100 suitability of the site for the taxon' },
+    soil_seen_he: { type: 'string', description: 'What the soil in the photos looks like: colour, texture (clay/silt/sand/gravel), stones, rock outcrops, organic litter, moisture. Hebrew, 1-2 sentences' },
+    soil_match_he: { type: 'string', description: 'Does that soil suit the taxon? Hebrew, 1-2 sentences' },
+    altitude_he: { type: 'string', description: 'Altitude vs the taxon known altitude range' },
+    climate_he: { type: 'string', description: 'Climate / rainfall / vegetation belt at this location vs the taxon' },
+    light_moisture_he: { type: 'string', description: 'Sun/shade and moisture fit; say if unknown' },
+    matches_he: { type: 'array', items: { type: 'string' }, description: 'Short bullet points: what fits (max 4)' },
+    mismatches_he: { type: 'array', items: { type: 'string' }, description: 'Short bullet points: what does not fit or is missing (max 4)' },
+    advice_he: { type: 'string', description: 'One practical sentence in Hebrew: where around here / what micro-habitat to search; never advise picking or digging up plants' },
+    photo_quality_he: { type: 'string', description: 'Empty string if the photos are adequate, else what to photograph again' },
+  },
+};
+
+/** האם המין יכול לצמוח במקום מסוים? קרקע (תמונות) + מיקום + גובה + עובדות מקומיות. */
+export async function siteCheck({ species, images, lat, lon, accuracy, altitude, altitudeSource, light, moisture, factsText }) {
+  const task = `TASK: assess whether the TARGET taxon can grow at the exact site described below. Judge the soil only from what is visible in the ${images.length} photo(s) of the ground (colour, texture, stones, rock, litter, moisture); if the photos do not allow a judgement, say so in photo_quality_he and lower your certainty. Compare the site with the taxon's known habitat, altitude range, vegetation belt and rainfall. Be realistic: "likely" only if soil, altitude/climate and light/moisture all fit; "possible" when something is uncertain; "unlikely" when a key requirement clearly fails. Never invent facts about the taxon beyond well-established knowledge and the data given.
+
+TARGET:
+${speciesBrief(species)}
+
+SITE:
+- Location: ${lat.toFixed(5)}, ${lon.toFixed(5)}${accuracy ? ` (GPS accuracy ±${Math.round(accuracy)} m)` : ' (entered by the user)'}
+- Altitude: ${altitude != null && altitude !== '' ? `${Math.round(altitude)} m above sea level (${altitudeSource === 'gps' ? 'measured by phone GPS, may be inaccurate' : 'typed by the user'})` : 'not provided'}
+- Light (user): ${light || 'not stated'}; moisture (user): ${moisture || 'not stated'}
+- Date today: ${new Date().toISOString().slice(0, 10)}
+${factsText || ''}`;
+  const sample = await getSample();
+  try {
+    if (sample) {
+      const blobs = images.map((im) => b64ToBlob(im.base64, im.mediaType));
+      const prompt = `${SYSTEM}\n\n---\n${task}\n\nReply with ONLY one JSON object (no prose, no code fence) that follows this JSON Schema exactly:\n${JSON.stringify(SITE_SCHEMA)}`;
+      const r = await sample.json(prompt, { images: blobs, modelTier: 'complex', effort: 'high' });
+      if (!r || typeof r !== 'object') throw new AiError('התקבלה תשובה לא תקינה מהבינה המלאכותית. נסו שוב.');
+      return r;
+    }
+    const s = getSettings();
+    const client = await makeClient();
+    const resp = await client.beta.messages.create({
+      model: s.model, max_tokens: 6000,
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: SITE_SCHEMA } },
+      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: [...imageBlocks(images), { type: 'text', text: task }] }],
+    });
+    return JSON.parse(resp.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
+  } catch (err) {
+    throw explainError(err);
+  }
+}

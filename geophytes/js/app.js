@@ -8,7 +8,8 @@ import { createMap, loadOccurrences } from './map.js';
 import * as rep from './reports.js';
 import { ic } from './icons.js';
 import { habitatBaseline } from './habitat.js';
-import { MODELS, extractReports, habitatProfile, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
+import { siteFacts, inIsraelBox } from './sitecheck.js';
+import { MODELS, extractReports, habitatProfile, siteCheck, verifyObservation, identifyPlant, speciesProfile, testConnection, isHosted } from './ai.js';
 
 const $app = document.getElementById('app');
 const BY_CODE = Object.fromEntries(SPECIES.map((s) => [s.c, s]));
@@ -425,9 +426,12 @@ function habitatCard(sp) {
     <p class="muted habnote">לפי תיאור בית הגידול ב"צמחיית ישראל וסביבתה".</p>
     ${aiHtml}
     <button class="btn" id="habgo" type="button">${ic('spark')}${ai ? 'רענון התיאור' : 'פירוט מלא: קרקע, צל, צמחים ועצים בסביבה'}</button>
-    <p class="err" id="haberr"></p>`;
+    <p class="err" id="haberr"></p>
+    <button class="btn primary" id="sitego" type="button">${ic('site')}האם הוא יכול לצמוח כאן? בדיקת קרקע ומיקום</button>`;
 }
 function bindHabitat(sp) {
+  const sg = document.getElementById('sitego');
+  if (sg) sg.onclick = () => openSiteCheck(sp);
   const btn = document.getElementById('habgo');
   if (!btn) return;
   btn.onclick = async () => {
@@ -442,6 +446,106 @@ function bindHabitat(sp) {
       document.getElementById('haberr').textContent = err.message;
     }
   };
+}
+
+// ---------- האם הוא יכול לצמוח כאן? ----------
+function openSiteCheck(sp) {
+  const images = [];
+  const dlg = document.createElement('dialog');
+  dlg.className = 'capture';
+  dlg.innerHTML = `<form method="dialog" class="dlg sitecheck">
+    <header><h3>${ic('site')}האם ${esc(sp.he)} יכול לצמוח כאן?</h3><button class="iconbtn" value="close" aria-label="סגירה">${ic('cross', 'solo')}</button></header>
+    <p class="muted">צלמו את הקרקע מקרוב (אפשר עם כף יד לקנה מידה) ואולי עוד תמונה של הסביבה, אתרו מיקום ורשמו גובה. Claude יעריך אם זה בית גידול מתאים.</p>
+    <div class="shots" id="sshots"></div>
+    <div class="row">
+      <label class="btn">${ic('camera')}צילום<input type="file" accept="image/*" capture="environment" id="scam" hidden></label>
+      <label class="btn">${ic('image')}מהגלריה<input type="file" accept="image/*" multiple id="sgal" hidden></label>
+    </div>
+    <div class="siteloc">
+      <button class="btn" id="locbtn" type="button">${ic('pin')}אתר מיקום מדויק</button>
+      <div class="muted" id="locinfo">עוד לא נקבע מיקום</div>
+      <div class="coords">
+        <label>קו רוחב<input type="number" step="any" id="slat" inputmode="decimal" placeholder="32.0000"></label>
+        <label>קו אורך<input type="number" step="any" id="slon" inputmode="decimal" placeholder="35.0000"></label>
+      </div>
+      <label>${ic('altitude', 'sm')}גובה מעל פני הים (מ')<input type="number" step="1" id="salt" inputmode="numeric" placeholder="למשל 450">
+        <small class="muted" id="altnote">אם המכשיר מודד גובה הוא יתמלא לבד. אחרת אפשר להקליד (אפליקציית מצפן/גובה בטלפון).</small></label>
+    </div>
+    <div class="row sel2">
+      <label>אור<select id="slight"><option value="">לא ידוע</option><option>שמש מלאה</option><option>חצי צל</option><option>צל</option></select></label>
+      <label>לחות<select id="smoist"><option value="">לא ידוע</option><option>יבש</option><option>לח מעט</option><option>ספוג מים/מוצף בחורף</option></select></label>
+    </div>
+    <button class="btn primary wide" id="sgo" type="button" disabled>${ic('scan')}בדוק התאמה</button>
+    <div id="sresult"></div>
+  </form>`;
+  document.body.append(dlg);
+  dlg.showModal();
+  dlg.addEventListener('close', () => dlg.remove());
+  const $ = (id) => dlg.querySelector(id);
+  let acc = null, altSrc = 'user';
+  const ready = () => { $('#sgo').disabled = !(images.length && Number.isFinite(parseFloat($('#slat').value)) && Number.isFinite(parseFloat($('#slon').value))); };
+  const drawShots = () => {
+    $('#sshots').innerHTML = images.map((im, i) => `<div class="shot"><img src="${im.preview}" alt=""><button type="button" data-i="${i}" aria-label="הסרה">${ic('cross', 'solo')}</button></div>`).join('');
+    $('#sshots').querySelectorAll('button').forEach((b) => { b.onclick = () => { images.splice(Number(b.dataset.i), 1); drawShots(); }; });
+    ready();
+  };
+  const addFiles = async (files) => {
+    for (const f of [...files].slice(0, 2 - images.length)) { try { images.push(await prepareImage(f)); } catch { toast('לא הצלחתי לקרוא את התמונה'); } }
+    drawShots();
+  };
+  $('#scam').onchange = (e) => addFiles(e.target.files);
+  $('#sgal').onchange = (e) => addFiles(e.target.files);
+  ['#slat', '#slon'].forEach((id) => { $(id).oninput = () => { acc = null; $('#locinfo').textContent = 'מיקום שהוזן ידנית'; ready(); }; });
+  $('#salt').oninput = () => { altSrc = 'user'; };
+  $('#locbtn').onclick = () => {
+    if (!('geolocation' in navigator)) { $('#locinfo').textContent = 'איתור מיקום לא נתמך כאן. אפשר להקליד קואורדינטות.'; return; }
+    $('#locinfo').innerHTML = '<span class="pulse">מאתר… (בשטח פתוח זה מדויק יותר)</span>';
+    navigator.geolocation.getCurrentPosition((p) => {
+      const c = p.coords;
+      $('#slat').value = c.latitude.toFixed(6); $('#slon').value = c.longitude.toFixed(6);
+      acc = c.accuracy || null;
+      $('#locinfo').textContent = `נקבע מיקום · דיוק ±${Math.round(c.accuracy || 0)} מ'`;
+      if (Number.isFinite(c.altitude)) { $('#salt').value = Math.round(c.altitude); altSrc = 'gps'; $('#altnote').textContent = `הגובה נמדד ע"י המכשיר${c.altitudeAccuracy ? ` (±${Math.round(c.altitudeAccuracy)} מ')` : ''}. אפשר לתקן אם צריך.`; }
+      else $('#altnote').textContent = 'המכשיר לא מדד גובה. הקלידו גובה ידנית (אפשר להשאיר ריק, אבל התשובה תהיה פחות מדויקת).';
+      ready();
+    }, (e) => {
+      $('#locinfo').textContent = e.code === 1 ? 'אין הרשאת מיקום. אפשר להקליד קואורדינטות ידנית.' : 'לא הצלחתי לאתר. נסו שוב בשטח פתוח או הקלידו ידנית.';
+    }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+  };
+  $('#sgo').onclick = async () => {
+    const lat = parseFloat($('#slat').value), lon = parseFloat($('#slon').value);
+    if (!inIsraelBox(lat, lon)) { toast('המיקום נראה מחוץ לישראל. בדקו את הקואורדינטות'); return; }
+    const altRaw = $('#salt').value;
+    $('#sgo').disabled = true;
+    $('#sresult').innerHTML = '<div class="analyzing"><span class="spinner"></span><p>Claude בוחן את הקרקע ואת המיקום… (עד דקה)</p></div>';
+    try {
+      const facts = await siteFacts(sp, lat, lon);
+      const r = await siteCheck({ species: sp, images, lat, lon, accuracy: acc, altitude: altRaw === '' ? null : Number(altRaw), altitudeSource: altSrc, light: $('#slight').value, moisture: $('#smoist').value, factsText: facts.textLines });
+      showSite(r, facts);
+    } catch (err) {
+      $('#sresult').innerHTML = `<p class="err">${esc(err.message)}</p>${err.kind === 'nokey' && !isHosted() ? '<a class="btn" href="#/settings">להגדרות</a>' : ''}`;
+    }
+    $('#sgo').disabled = false;
+  };
+  function showSite(r, facts) {
+    const V = { likely: ['ok', 'כן, סביר שהוא יכול לצמוח כאן'], possible: ['warn', 'אפשרי, אבל לא בטוח'], unlikely: ['bad', 'לא סביר שהוא יצמח כאן'] }[r.verdict] || ['warn', 'לא ברור'];
+    const score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
+    const list = (a) => (a || []).map((x) => `<li>${esc(x)}</li>`).join('');
+    const near = facts.near ? `הדיווח הקרוב ביותר על ${esc(sp.he)}: ${facts.near.d < 1 ? `${Math.round(facts.near.d * 1000)} מ'` : `${facts.near.d.toFixed(1)} ק"מ`}${facts.near.year ? ` (${esc(String(facts.near.year))})` : ''} · ${facts.n15} דיווחים ברדיוס 15 ק"מ` : `אין דיווחים ציבוריים מתועדים על ${esc(sp.he)}`;
+    $('#sresult').innerHTML = `<div class="verdict ${V[0]}">${V[1]}</div>
+      <div class="conf"><span style="width:${score}%"></span><b>התאמה ${score}%</b></div>
+      <div class="habgrid">
+        ${habRow('soil', 'הקרקע בתמונות', esc(r.soil_seen_he))}${habRow('soil', 'האם הקרקע מתאימה', esc(r.soil_match_he))}
+        ${habRow('altitude', 'גובה', esc(r.altitude_he))}${habRow('map', 'אקלים ואזור', esc(r.climate_he))}
+        ${habRow('sun', 'אור ולחות', esc(r.light_moisture_he))}
+        ${habRow('pin', 'דיווחים בסביבה', `${near}${facts.town ? `<br><small>היישוב הקרוב: ${esc(facts.town.name)}, ${facts.town.d.toFixed(1)} ק"מ</small>` : ''}`)}
+      </div>
+      ${r.matches_he?.length ? `<div class="ai-card"><b>מתאים:</b><ul>${list(r.matches_he)}</ul></div>` : ''}
+      ${r.mismatches_he?.length ? `<div class="ai-card"><b>לא מתאים / חסר:</b><ul>${list(r.mismatches_he)}</ul></div>` : ''}
+      ${r.advice_he ? `<p class="tip">${ic('tip')}${esc(r.advice_he)}</p>` : ''}
+      ${r.photo_quality_he ? `<p class="tip">${ic('camera')}${esc(r.photo_quality_he)}</p>` : ''}
+      <p class="muted habnote">${ic('spark', 'sm')}הערכה כללית של בינה מלאכותית מתמונות ונתונים, לא אישור מעבדה ולא הבטחה. צלמו בלבד: לא קוטפים ולא עוקרים.</p>`;
+  }
 }
 
 // ---------- מסך מין ----------
@@ -740,7 +844,7 @@ function renderSettings() {
     </section>
 
     <section class="card">
-      <h3>ℹ️ על האפליקציה</h3>
+      <h3>${ic('leaf')}על האפליקציה</h3>
       <p>הרשימה כוללת את כל ${SPECIES.length} הטקסונים שמוגדרים כ"גיאופיט" במאגר <a href="https://flora.org.il/plants/life-form/geophyte/" target="_blank" rel="noopener">צמחיית ישראל וסביבתה</a> – כולל זנים, הכלאות וטקסונים שטרם תוארו – עם התפוצה והשכיחות בכל אזור, חודשי הפריחה ומעמד ההגנה.</p>
       <p class="muted">זכרו: רוב הגאופיטים מוגנים בחוק. מצלמים – לא קוטפים ולא עוקרים.</p>
     </section>

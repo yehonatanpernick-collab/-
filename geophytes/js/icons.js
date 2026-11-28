@@ -26,6 +26,8 @@ const P = {
 // איורים קטנים וצבעוניים (ציור עצמי): צבעים קבועים, לא תלויים בצבע הטקסט
 const PET = (a) => `<ellipse cx="12" cy="6.4" rx="3" ry="4.1" fill="#ee6f9a" transform="rotate(${a} 12 12)"/>`;
 const C = {
+  site: '<path d="M2.8 18.2c3.2-3.4 6.2-4.6 9.2-4.6s6 1.2 9.2 4.6v2.4H2.8z" fill="#b07a4a"/><path d="M12 14V7.6" stroke="#4f8f4a" stroke-width="1.9" stroke-linecap="round"/><path d="M12 9.4c0-2.8-2-4.4-5.2-4.3.1 2.8 2.1 4.4 5.2 4.3zM12 11c0-2.6 2-4.1 5.2-4-.1 2.6-2.1 4.1-5.2 4z" fill="#6cbf67"/><circle cx="8.4" cy="17.4" r=".8" fill="#e0b98a"/><circle cx="15.6" cy="17.9" r=".8" fill="#e0b98a"/>',
+  altitude: '<path d="M2.4 20l6.2-10.4 3.4 5 3-4.4L21.6 20z" fill="#8fa0ad"/><path d="M8.6 9.6l1.9 3.2-2.3-.7-1.6.9z" fill="#fff"/><path d="M15 10.4l1.5 2.2-1.9-.5z" fill="#fff"/><path d="M8.6 9.6V3.8l4.4 1.7-4.4 1.8" fill="#e5483f" stroke="#e5483f" stroke-width="1" stroke-linejoin="round"/>',
   sun: '<g stroke="#f5a623" stroke-width="2" stroke-linecap="round"><path d="M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3M5.4 5.4L7 7M17 17l1.6 1.6M5.4 18.6L7 17M17 7l1.6-1.6"/></g><circle cx="12" cy="12" r="4.6" fill="#ffd44d"/>',
   shade: '<circle cx="9.5" cy="9.5" r="5.2" fill="#6cbf67"/><circle cx="15.2" cy="11" r="4.6" fill="#4c9a48"/><path d="M12 21v-6" stroke="#8a5a2c" stroke-width="2.2" stroke-linecap="round"/>',
   water: '<path d="M12 3.2s6 6.1 6 10.6a6 6 0 01-12 0c0-4.5 6-10.6 6-10.6z" fill="#4da3e3"/><path d="M9.2 14.2a3 3 0 002.2 2.7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
