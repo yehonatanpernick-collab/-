@@ -27,6 +27,14 @@ export function loadOccurrences() {
   return occPromise;
 }
 
+let placesPromise = null;
+/** יישובים אמיתיים: [שם, lon, lat, דרגה 1-3] */
+export function loadPlaces() {
+  if (!placesPromise) placesPromise = fetch('data/places.json').then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  return placesPromise;
+}
+const DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מזרח', 'דרום', 'דרום-מערב', 'מערב', 'צפון-מערב'];
+
 const imgCache = new Map();
 function loadImg(src, onLoad) {
   let e = imgCache.get(src);
@@ -63,7 +71,7 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     <div class="mapcount"></div>
     <div class="mapempty" hidden></div>
     <div class="mappop" hidden></div>
-    <div class="mapattr">לוויין: Sentinel-2 © EOX · מפה: EOX, OSM · תצפיות: GBIF, iNaturalist</div>`;
+    <div class="mapattr">לוויין: Sentinel-2 © EOX · מפה: EOX, OSM · תצפיות: GBIF, iNaturalist · יישובים: Wikipedia</div>`;
   const cv = root.querySelector('canvas');
   const ctx = cv.getContext('2d');
   const pop = root.querySelector('.mappop');
@@ -73,6 +81,19 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
   for (const p of points) (p[4] === 'x' ? general : exact).push({ p, xy: toPx(p[1], p[0]) });
   const own = mine.map((p) => ({ p, xy: toPx(p[1], p[0]) }));
   const places = PLACES.map(([t, lon, lat, z, k]) => ({ t, xy: toPx(lon, lat), z, k }));
+  let towns = [];
+  loadPlaces().then((list) => { towns = list.map(([t, lon, lat, tier]) => ({ t, lon, lat, tier, xy: toPx(lon, lat) })); draw(); });
+  // היישוב הקרוב ביותר לנקודה – כדי לדעת באמת איפה התצפית
+  const nearest = (lat, lon) => {
+    let best = null, bd = Infinity;
+    const kx = Math.cos((lat * Math.PI) / 180);
+    for (const t of towns) { const dx = (t.lon - lon) * kx, dy = t.lat - lat, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = t; } }
+    if (!best) return '';
+    const km = Math.sqrt(bd) * 111.2;
+    if (km < 0.6) return `<span class="near">📍 בתוך / ליד <b>${best.t}</b></span>`;
+    const ang = (Math.atan2((lon - best.lon) * kx, lat - best.lat) * 180) / Math.PI;
+    return `<span class="near">📍 כ-${km < 10 ? km.toFixed(1) : Math.round(km)} ק"מ ${DIRS[Math.round(((ang + 360) % 360) / 45) % 8]}ית ל<b>${best.t}</b></span>`;
+  };
   let layer = 'ter';
   const view = { x: 0, y: 0, zoom: 8 };
   let W = 0, H = 0, dpr = 1, raf = 0, hits = [], picked = null;
@@ -146,6 +167,24 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
       const x = (pl.xy[0] - view.x) * s + W / 2, y = (pl.xy[1] - view.y) * s + H / 2;
       if (x < 20 || y < 20 || x > W - 20 || y > H - 20) continue;
       halo(pl.t, x, y, pl.k === 'sea' ? (sat ? '#9fc6e8' : '#4a7da6') : lblFill, lblStroke, `${pl.k === 'big' ? '700 13px' : pl.k === 'sea' ? 'italic 600 13px' : '600 11.5px'} Heebo, sans-serif`);
+    }
+    // יישובים (ערים, עיירות, קיבוצים, מושבים, כפרים) – עם מניעת חפיפה בין תוויות
+    {
+      const minZ = [0, 8.2, 9.2, 10.1];
+      const boxes = [];
+      ctx.font = '600 11px Heebo, sans-serif';
+      for (const t of towns) {
+        if (view.zoom < minZ[t.tier]) continue;
+        const x = (t.xy[0] - view.x) * s + W / 2, y = (t.xy[1] - view.y) * s + H / 2;
+        if (x < 24 || y < 24 || x > W - 24 || y > H - 24) continue;
+        const big = t.tier === 1;
+        const w = ctx.measureText(t.t).width * (big ? 1.12 : 1) + 6, h = big ? 15 : 13, by = y - 9;
+        if (boxes.some((b) => Math.abs(b[0] - x) < (b[2] + w) / 2 && Math.abs(b[1] - by) < (b[3] + h) / 2)) continue;
+        boxes.push([x, by, w, h]);
+        ctx.beginPath(); ctx.arc(x, y, big ? 2.8 : 2, 0, 6.2832);
+        ctx.fillStyle = sat ? '#fff' : '#3b3a33'; ctx.fill();
+        halo(t.t, x, by, sat ? '#fff' : '#2f2e28', lblStroke, `${big ? '700 12.5px' : '500 11px'} Heebo, sans-serif`);
+      }
     }
     hits = [];
     // אזור כללי (מיקום מוסתר להגנה על המין): עיגול מקווקו קטן וחלול – מראה פיזור כללי בלי להעמיד פנים של מיקום מדויק
@@ -279,12 +318,12 @@ export function createMap(root, { points = [], mine = [], emptyText = '' }) {
     const p = best.p;
     const lat = p[0].toFixed(4), lon = p[1].toFixed(4);
     pop.innerHTML = best.kind === 'own'
-      ? `<b>התצפית שלי</b><span>${p[2] || ''}</span><span class="mono">${lat}, ${lon}</span>`
-      : `<b>${p[2] ? `שנת ${p[2]}` : 'שנה לא ידועה'}</b><span>${SRC_NAME[p[4]] || ''}</span>${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
+      ? `<b>התצפית שלי</b><span>${p[2] || ''}</span>${nearest(p[0], p[1])}<span class="mono">${lat}, ${lon}</span>`
+      : `<b>${p[2] ? `שנת ${p[2]}` : 'שנה לא ידועה'}</b><span>${SRC_NAME[p[4]] || ''}</span>${nearest(p[0], p[1])}${p[4] !== 'x' ? `<span>${p[3] ? `דיוק המיקום: כ-${p[3]} מ'` : 'דיוק המיקום לא צוין'}</span><span class="mono">${lat}, ${lon}</span>` : ''}`;
     pop.hidden = false;
     const pw = 200;
     pop.style.left = `${Math.max(8, Math.min(W - pw - 8, best.x - pw / 2))}px`;
-    pop.style.top = `${best.y > 130 ? best.y - 104 : best.y + 18}px`;
+    pop.style.top = `${best.y > 150 ? best.y - 124 : best.y + 18}px`;
     draw();
   }
 
