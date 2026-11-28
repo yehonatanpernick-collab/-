@@ -129,8 +129,9 @@ function obsInYear() {
   const y = trackedYear();
   return db.observations().filter((o) => y == null || new Date(o.ts).getFullYear() === y);
 }
-function seenSet(region) {
-  return new Set(obsInYear().filter((o) => !region || o.region === region).map((o) => o.code));
+// תצפית שסומנה נחשבת בכל הרשימות. האזור הוא רק לסינון ולא קובע אם המין "נמצא".
+function seenSet() {
+  return new Set(obsInYear().map((o) => o.code));
 }
 function latestObs(code) {
   const o = db.observations().find((x) => x.code === code);
@@ -268,7 +269,7 @@ function renderHome() {
 
 function regionCard(r) {
   const list = SPECIES.filter((sp) => sp.r[r.code] != null);
-  const seen = seenSet(r.code);
+  const seen = seenSet();
   const done = list.filter((sp) => seen.has(sp.c)).length;
   const rare = list.filter((sp) => sp.r[r.code] <= 3).length;
   const pct = list.length ? Math.round((done / list.length) * 100) : 0;
@@ -286,7 +287,7 @@ function renderRegion(code) {
   const cl = r ? CLIMATE[r.climate] : null;
   const list = none ? UNASSIGNED : SPECIES.filter((sp) => !r || sp.r[code] != null);
   if (none) code = null;
-  const seen = seenSet(code);
+  const seen = seenSet();
   const seenAnywhere = seenSet();
   const done = list.filter((sp) => seen.has(sp.c)).length;
 
@@ -794,7 +795,7 @@ function openCapture({ species, region }) {
 
 function celebrate(sp, reg) {
   const inReg = SPECIES.filter((x) => x.r[reg] != null);
-  const seen = seenSet(reg);
+  const seen = seenSet();
   const done = inReg.filter((x) => seen.has(x.c)).length;
   const el = document.createElement('div');
   el.className = 'celebrate';
